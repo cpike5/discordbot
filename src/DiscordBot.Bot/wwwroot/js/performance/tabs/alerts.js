@@ -1,424 +1,523 @@
 /**
  * Performance Dashboard - Alerts Tab Module
- * Displays performance alerts, configuration, and alert frequency chart
+ * Active incidents (acknowledge), threshold configuration, alert frequency chart.
+ *
+ * - Threshold edits are kept while the viewer looks at other tabs (they live in this module, not
+ *   in the tab's markup, which is replaced on every load) and are put back on the fresh inputs
+ *   when the tab returns. Leaving the page with unsaved edits asks first (dashboard.js).
+ * - Warning must be lower than critical; a problem is shown on the field, focus goes to the first
+ *   one, and nothing is sent until the rows are valid. The server enforces the same rule.
+ * - Live from the alerts hub group: a change to the incidents refreshes the tab, unless the viewer
+ *   is mid-edit, in which case a toast offers the refresh.
  */
-(function() {
+(function (root, factory) {
+    const api = factory(root);
+    if (typeof module === 'object' && module.exports) {
+        module.exports = api.pure;
+    } else {
+        root.Performance = root.Performance || {};
+        root.Performance.Tabs = root.Performance.Tabs || {};
+        root.Performance.Tabs.Alerts = api.tab;
+    }
+})(typeof self !== 'undefined' ? self : this, function (root) {
     'use strict';
 
+    // ---------------------------------------------------------------- pure helpers
+
+    /**
+     * Checks one metric row. Returns a message per field, or null when the field is fine.
+     * `originalWarning` / `originalCritical` are the saved values as strings ('' for none): a
+     * threshold that has a value cannot be cleared, because an update without a value means
+     * "leave it alone" on the server.
+     */
+    function validateRow(row) {
+        const result = { warning: null, critical: null };
+        const parsed = {};
+
+        ['warning', 'critical'].forEach(function (field) {
+            const text = String(row[field] === undefined || row[field] === null ? '' : row[field]).trim();
+            const original = String(row['original' + field.charAt(0).toUpperCase() + field.slice(1)] || '').trim();
+            if (text === '') {
+                if (original !== '') {
+                    result[field] = 'Enter a number. A threshold that is set cannot be cleared.';
+                }
+                return;
+            }
+            const value = Number(text);
+            if (!isFinite(value) || value < 0) {
+                result[field] = 'Enter a number that is zero or greater.';
+                return;
+            }
+            parsed[field] = value;
+        });
+
+        if (result.warning === null && result.critical === null &&
+            parsed.warning !== undefined && parsed.critical !== undefined &&
+            parsed.warning >= parsed.critical) {
+            result.warning = 'The warning threshold must be lower than the critical threshold.';
+        }
+        return result;
+    }
+
+    /** True when a validateRow result has no problems. */
+    function isValid(result) {
+        return !result.warning && !result.critical;
+    }
+
+    /** The PUT body for one metric's edits: only the fields that changed. */
+    function buildPayload(edit) {
+        const payload = {};
+        if (edit.warning !== undefined && String(edit.warning).trim() !== '') payload.warningThreshold = Number(edit.warning);
+        if (edit.critical !== undefined && String(edit.critical).trim() !== '') payload.criticalThreshold = Number(edit.critical);
+        if (edit.enabled !== undefined) payload.isEnabled = !!edit.enabled;
+        return payload;
+    }
+
+    /** Colour class for a current value against the thresholds in the inputs (higher is worse). */
+    function valueTone(current, warning, critical) {
+        if (typeof current !== 'number' || !isFinite(current)) return null;
+        if (typeof critical === 'number' && isFinite(critical) && current >= critical) return 'text-error';
+        if (typeof warning === 'number' && isFinite(warning) && current >= warning) return 'text-warning';
+        return 'text-success';
+    }
+
+    const pure = { validateRow, isValid, buildPayload, valueTone };
+
+    // ---------------------------------------------------------------- the tab
+
+    if (typeof window === 'undefined') {
+        return { pure: pure, tab: null };
+    }
+
     window.Performance = window.Performance || {};
-    window.Performance.Tabs = window.Performance.Tabs || {};
+    const ChartUtils = window.Performance.ChartUtils;
+    const REFRESH_DEBOUNCE_MS = 800;
+    const OWN_ACTION_QUIET_MS = 3000;
 
     const state = {
         charts: [],
-        configChanges: {},
+        // metric -> { warning?, critical?, enabled? }: only fields that differ from what was saved.
+        // Survives destroy() on purpose.
+        edits: {},
+        form: null,
+        listeners: [],
+        refreshTimer: null,
+        lastOwnAction: 0,
         isInitialized: false
     };
 
-    const ChartUtils = window.Performance.ChartUtils;
-    const TimestampUtils = window.Performance.TimestampUtils;
-    const TimeRange = window.Performance.TimeRange;
-
-    function getServerData() {
-        const container = document.querySelector('[data-tab="alerts"]');
-        if (!container) return { alertFrequencyData: [] };
-
-        return {
-            alertFrequencyData: JSON.parse(container.dataset.alertFrequencyData || '[]')
-        };
+    /** Pending state on a button (LoadingManager is a global const, not a window property). */
+    function setBusy(button, busy, text) {
+        if (typeof LoadingManager !== 'undefined' && button) LoadingManager.setButtonLoading(button, busy, text || null);
     }
 
-    // Configuration change tracking
-    function trackConfigChange(metricName, field, value) {
-        if (!state.configChanges[metricName]) {
-            state.configChanges[metricName] = {};
-        }
-        state.configChanges[metricName][field] = value;
-        updateSaveButtonVisibility();
-        updateCurrentValueColor(metricName);
-    }
-
-    function updateCurrentValueColor(metricName) {
-        const row = document.querySelector(`tr[data-metric="${metricName}"]`);
-        if (!row) return;
-
-        const warningInput = row.querySelector('input[data-field="warning"]');
-        const criticalInput = row.querySelector('input[data-field="critical"]');
-        const currentValueSpan = row.querySelector('td:nth-child(4) span');
-
-        if (!currentValueSpan) return;
-
-        // Extract current value from the span text (e.g., "85.50%" -> 85.50)
-        const currentText = currentValueSpan.textContent.trim();
-        const currentValue = parseFloat(currentText);
-
-        if (isNaN(currentValue)) return; // N/A case
-
-        const warningThreshold = warningInput ? parseFloat(warningInput.value) : null;
-        const criticalThreshold = criticalInput ? parseFloat(criticalInput.value) : null;
-
-        // Remove existing color classes
-        currentValueSpan.classList.remove('text-success', 'text-warning', 'text-error');
-
-        // Apply new color based on thresholds
-        if (criticalThreshold !== null && !isNaN(criticalThreshold) && currentValue >= criticalThreshold) {
-            currentValueSpan.classList.add('text-error');
-        } else if (warningThreshold !== null && !isNaN(warningThreshold) && currentValue >= warningThreshold) {
-            currentValueSpan.classList.add('text-warning');
-        } else {
-            currentValueSpan.classList.add('text-success');
-        }
+    function tabRoot() {
+        return document.querySelector('[data-tab="alerts"]');
     }
 
     function hasUnsavedChanges() {
-        return Object.keys(state.configChanges).length > 0;
+        return Object.keys(state.edits).length > 0;
     }
 
-    function updateSaveButtonVisibility() {
-        const saveBtn = document.getElementById('alertsTabSaveConfigBtn');
-        if (saveBtn) {
-            if (hasUnsavedChanges()) {
-                saveBtn.style.display = 'inline-flex';
-                saveBtn.classList.remove('hidden');
-            } else {
-                saveBtn.style.display = 'none';
-                saveBtn.classList.add('hidden');
-            }
-        }
+    function dashboard() {
+        return window.Performance && window.Performance.Dashboard;
     }
 
-    // Expose save function globally for onclick handler
-    window.alertsTabSaveConfig = async function() {
-        if (!hasUnsavedChanges()) return;
+    function listen(target, type, handler) {
+        target.addEventListener(type, handler);
+        state.listeners.push(function () { target.removeEventListener(type, handler); });
+    }
 
-        const saveBtn = document.getElementById('alertsTabSaveConfigBtn');
-
-        // Disable button and show saving state
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = `
-                <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
-            `;
-        }
-
-        const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
-        const token = tokenElement ? tokenElement.value : '';
-
-        // Map HTML data-field values to API property names
-        const fieldNameMap = {
-            'warning': 'warningThreshold',
-            'critical': 'criticalThreshold',
-            'enabled': 'isEnabled'
+    function rowInputs(row) {
+        return {
+            warning: row.querySelector('input[data-field="warning"]'),
+            critical: row.querySelector('input[data-field="critical"]'),
+            enabled: row.querySelector('input[data-field="enabled"]')
         };
+    }
 
-        let hasError = false;
-        for (const [metricName, changes] of Object.entries(state.configChanges)) {
-            // Convert field names
-            const apiChanges = {};
-            for (const [key, value] of Object.entries(changes)) {
-                const apiKey = fieldNameMap[key] || key;
-                apiChanges[apiKey] = value;
+    function originals(inputs) {
+        return {
+            originalWarning: inputs.warning ? inputs.warning.defaultValue : '',
+            originalCritical: inputs.critical ? inputs.critical.defaultValue : ''
+        };
+    }
+
+    // ------------------------------------------------------------ edits
+
+    /** Works out which fields of a row differ from the saved values and keeps `state.edits` in step. */
+    function recordEdit(row) {
+        const metric = row.dataset.metric;
+        const inputs = rowInputs(row);
+        const edit = {};
+        ['warning', 'critical'].forEach(function (field) {
+            const input = inputs[field];
+            if (input && input.value.trim() !== input.defaultValue.trim()) edit[field] = input.value;
+        });
+        if (inputs.enabled && inputs.enabled.checked !== inputs.enabled.defaultChecked) {
+            edit.enabled = inputs.enabled.checked;
+        }
+        if (Object.keys(edit).length > 0) {
+            state.edits[metric] = edit;
+        } else {
+            delete state.edits[metric];
+        }
+    }
+
+    /** Puts remembered edits back on freshly rendered inputs. */
+    function reapplyEdits() {
+        const root = tabRoot();
+        if (!root) return;
+        Object.keys(state.edits).forEach(function (metric) {
+            const row = Array.from(root.querySelectorAll('tr[data-metric]')).find(r => r.dataset.metric === metric);
+            if (!row) {
+                delete state.edits[metric]; // the metric no longer exists
+                return;
             }
+            const inputs = rowInputs(row);
+            const edit = state.edits[metric];
+            if (edit.warning !== undefined && inputs.warning) inputs.warning.value = edit.warning;
+            if (edit.critical !== undefined && inputs.critical) inputs.critical.value = edit.critical;
+            if (edit.enabled !== undefined && inputs.enabled) inputs.enabled.checked = edit.enabled;
+            updateCurrentValue(row);
+        });
+        syncSaveControls();
+    }
 
-            try {
-                const response = await fetch(`/api/alerts/config/${encodeURIComponent(metricName)}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': token
-                    },
-                    body: JSON.stringify(apiChanges)
-                });
+    function syncSaveControls() {
+        const dirty = hasUnsavedChanges();
+        const save = document.getElementById('alertsTabSaveConfigBtn');
+        const note = document.getElementById('alertsUnsavedNote');
+        if (save) save.hidden = !dirty;
+        if (note) note.hidden = !dirty;
+    }
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `Failed to update ${metricName}`);
-                }
-            } catch (error) {
-                console.error('Failed to save config changes:', error);
-                hasError = true;
-                quickActions.showToast(`Failed to save configuration for ${metricName}. Please try again.`, 'error');
-                break;
-            }
-        }
+    // ------------------------------------------------------------ validation display
 
-        if (!hasError) {
-            state.configChanges = {};
-            quickActions.showToast('Alert thresholds saved successfully.', 'success');
-            updateSaveButtonVisibility();
-        }
-
-        // Reset button state
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = `
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                Save Changes
-            `;
-        }
-    };
-
-    // Expose acknowledge incident function globally for onclick handler
-    window.acknowledgeIncident = async function(incidentId) {
-        const btn = document.querySelector(`[data-incident-id="${incidentId}"] .acknowledge-btn`);
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Acknowledging...';
-        }
-
-        try {
-            const response = await fetch(`/api/alerts/incidents/${incidentId}/acknowledge`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ notes: '' })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `Failed to acknowledge: ${response.status}`);
-            }
-
-            // UI will be updated via SignalR broadcast, but update immediately for responsiveness
-            const row = document.querySelector(`[data-incident-id="${incidentId}"]`);
-            if (row) {
-                // Remove the action button
-                const actionsDiv = row.querySelector('.alert-actions');
-                if (actionsDiv) {
-                    actionsDiv.remove();
-                }
-
-                // Add acknowledged badge
-                const metaDiv = row.querySelector('.alert-meta');
-                if (metaDiv) {
-                    const severityBadge = metaDiv.querySelector('.severity-badge');
-                    if (severityBadge) {
-                        const ackBadge = document.createElement('span');
-                        ackBadge.className = 'status-badge status-badge-secondary';
-                        ackBadge.textContent = 'Acknowledged';
-                        severityBadge.insertAdjacentElement('afterend', ackBadge);
-                    }
+    function showRowErrors(row, result) {
+        const inputs = rowInputs(row);
+        const messages = [];
+        ['warning', 'critical'].forEach(function (field) {
+            const input = inputs[field];
+            const message = result[field];
+            if (input) {
+                input.classList.toggle('input-validation-error', !!message);
+                if (message) {
+                    input.setAttribute('aria-invalid', 'true');
+                } else {
+                    input.removeAttribute('aria-invalid');
                 }
             }
-
-            // Show success toast
-            quickActions.showToast('Incident acknowledged successfully', 'success');
-        } catch (error) {
-            console.error('[Alerts] Failed to acknowledge incident:', error);
-
-            // Re-enable button on error
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Acknowledge';
-            }
-
-            // Show error toast
-            quickActions.showToast(error.message || 'Failed to acknowledge incident', 'error');
+            if (message && messages.indexOf(message) < 0) messages.push(message);
+        });
+        const error = row.querySelector('[data-threshold-error]');
+        if (error) {
+            error.textContent = messages.join(' ');
+            error.hidden = messages.length === 0;
         }
-    };
+    }
 
-    // Expose acknowledge all incidents function globally for onclick handler
-    window.acknowledgeAllIncidents = async function() {
-        const btn = document.getElementById('acknowledgeAllBtn');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Acknowledging...';
-        }
+    function validateRowElement(row) {
+        const inputs = rowInputs(row);
+        const result = validateRow(Object.assign({
+            warning: inputs.warning ? inputs.warning.value : '',
+            critical: inputs.critical ? inputs.critical.value : ''
+        }, originals(inputs)));
+        showRowErrors(row, result);
+        return result;
+    }
 
-        try {
-            const response = await fetch('/api/alerts/incidents/acknowledge-all', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+    /** Previews the colour of the current value against the thresholds being typed. */
+    function updateCurrentValue(row) {
+        const span = row.querySelector('[data-current-value]');
+        if (!span) return;
+        const current = parseFloat(span.dataset.currentValue);
+        const inputs = rowInputs(row);
+        const warning = inputs.warning && inputs.warning.value.trim() !== '' ? Number(inputs.warning.value) : null;
+        const critical = inputs.critical && inputs.critical.value.trim() !== '' ? Number(inputs.critical.value) : null;
+        const tone = valueTone(current, warning, critical);
+        if (!tone) return;
+        span.classList.remove('text-success', 'text-warning', 'text-error');
+        span.classList.add(tone);
+    }
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `Failed to acknowledge all: ${response.status}`);
+    // ------------------------------------------------------------ save
+
+    async function save(form) {
+        const rows = Array.from(form.querySelectorAll('tr[data-metric]')).filter(r => state.edits[r.dataset.metric]);
+        if (rows.length === 0) return;
+
+        // Check every edited row first and send nothing while any is wrong
+        let firstInvalid = null;
+        rows.forEach(function (row) {
+            const result = validateRowElement(row);
+            if (!isValid(result) && !firstInvalid) {
+                const inputs = rowInputs(row);
+                firstInvalid = (result.warning ? inputs.warning : inputs.critical) || inputs.warning;
             }
-
-            const result = await response.json();
-
-            // UI will be updated via SignalR broadcast, but update immediately for responsiveness
-            document.querySelectorAll('[data-incident-id]').forEach(row => {
-                const actionsDiv = row.querySelector('.alert-actions');
-                if (actionsDiv) {
-                    actionsDiv.remove();
-                }
-
-                const metaDiv = row.querySelector('.alert-meta');
-                if (metaDiv && !metaDiv.querySelector('.status-badge-secondary')) {
-                    const severityBadge = metaDiv.querySelector('.severity-badge');
-                    if (severityBadge) {
-                        const ackBadge = document.createElement('span');
-                        ackBadge.className = 'status-badge status-badge-secondary';
-                        ackBadge.textContent = 'Acknowledged';
-                        severityBadge.insertAdjacentElement('afterend', ackBadge);
-                    }
-                }
-            });
-
-            // Hide the "Acknowledge All" button
-            if (btn) {
-                btn.style.display = 'none';
-            }
-
-            // Show success toast
-            const count = result.acknowledgedCount || 0;
-            quickActions.showToast(`Acknowledged ${count} incident${count !== 1 ? 's' : ''} successfully`, 'success');
-        } catch (error) {
-            console.error('[Alerts] Failed to acknowledge all incidents:', error);
-
-            // Re-enable button on error
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Acknowledge All';
-            }
-
-            // Show error toast
-            quickActions.showToast(error.message || 'Failed to acknowledge incidents', 'error');
-        }
-    };
-
-    function initAlertFrequencyChart() {
-        const ctx = document.getElementById('alertsFrequencyChart');
-        if (!ctx) return;
-
-        const serverData = getServerData();
-        const data = serverData.alertFrequencyData;
-
-        if (!data || data.length === 0) {
-            console.warn('No alert frequency data available');
+        });
+        if (firstInvalid) {
+            firstInvalid.focus();
+            window.toast.error('Fix the highlighted thresholds, then save again.', { key: 'perf-alert-invalid' });
             return;
         }
 
-        const labels = data.map(d => {
-            const date = new Date(d.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const button = document.getElementById('alertsTabSaveConfigBtn');
+        setBusy(button, true, 'Saving...');
+        const failures = [];
+        for (const row of rows) {
+            const metric = row.dataset.metric;
+            try {
+                await window.ApiClient.put('/api/alerts/config/' + encodeURIComponent(metric), buildPayload(state.edits[metric]));
+                // What is on screen is now what is saved
+                const inputs = rowInputs(row);
+                if (inputs.warning) inputs.warning.defaultValue = inputs.warning.value;
+                if (inputs.critical) inputs.critical.defaultValue = inputs.critical.value;
+                if (inputs.enabled) inputs.enabled.defaultChecked = inputs.enabled.checked;
+                delete state.edits[metric];
+            } catch (error) {
+                if (error && error.sessionExpired) break;
+                const name = (row.querySelector('.font-medium') || {}).textContent || metric;
+                failures.push({ name: name.trim(), message: error && error.message ? error.message : 'It could not be saved.' });
+            }
+        }
+        setBusy(button, false);
+        syncSaveControls();
+
+        if (failures.length === 0) {
+            window.toast.success('Alert thresholds saved.');
+            const d = dashboard();
+            if (d) d.refresh(); // current values and colours follow the new thresholds
+        } else {
+            const first = failures[0];
+            window.toast.error(
+                failures.length === 1
+                    ? `Could not save ${first.name}. ${first.message}`
+                    : `Could not save ${failures.length} metrics. ${first.name}: ${first.message}`,
+                { key: 'perf-alert-save' });
+        }
+    }
+
+    // ------------------------------------------------------------ incidents
+
+    function markAcknowledged(card) {
+        const actions = card.querySelector('.alert-actions');
+        if (actions) actions.remove();
+        const meta = card.querySelector('.alert-meta');
+        const severity = meta ? meta.querySelector('.severity-badge') : null;
+        if (severity && !meta.querySelector('[data-acknowledged-badge]')) {
+            const badge = document.createElement('span');
+            badge.className = 'status-badge status-badge-secondary';
+            badge.setAttribute('data-acknowledged-badge', '');
+            badge.textContent = 'Acknowledged';
+            severity.insertAdjacentElement('afterend', badge);
+        }
+    }
+
+    async function acknowledge(button) {
+        const id = button.dataset.acknowledgeIncident;
+        if (!id) return;
+        state.lastOwnAction = Date.now();
+        setBusy(button, true, 'Acknowledging...');
+        try {
+            await window.ApiClient.post('/api/alerts/incidents/' + encodeURIComponent(id) + '/acknowledge', { notes: '' });
+            const card = button.closest('[data-incident-id]');
+            if (card) markAcknowledged(card);
+            window.toast.success('Incident acknowledged.');
+        } catch (error) {
+            setBusy(button, false);
+            window.ApiClient.showErrorToast(error);
+        }
+    }
+
+    async function acknowledgeAll(button) {
+        const confirmed = await window.quickActions.confirm({
+            title: 'Acknowledge all incidents?',
+            message: 'Every active incident is marked as acknowledged. They stay in the list until they resolve.',
+            variant: 'warning',
+            confirmText: 'Acknowledge all'
         });
+        if (!confirmed) return;
+        state.lastOwnAction = Date.now();
+        setBusy(button, true, 'Acknowledging...');
+        try {
+            const result = await window.ApiClient.post('/api/alerts/incidents/acknowledge-all');
+            const count = (result && result.acknowledgedCount) || 0;
+            window.toast.success(window.Format
+                ? 'Acknowledged ' + window.Format.plural(count, 'incident') + '.'
+                : 'Acknowledged ' + count + ' incidents.');
+            const d = dashboard();
+            if (d) d.refresh();
+        } catch (error) {
+            setBusy(button, false);
+            window.ApiClient.showErrorToast(error);
+        }
+    }
 
-        const criticalData = data.map(d => d.criticalCount);
-        const warningData = data.map(d => d.warningCount);
-        const infoData = data.map(d => d.infoCount);
+    // ------------------------------------------------------------ chart
 
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Critical',
-                        data: criticalData,
-                        backgroundColor: ChartUtils.colors.error,
-                        borderRadius: 2
-                    },
-                    {
-                        label: 'Warning',
-                        data: warningData,
-                        backgroundColor: ChartUtils.colors.warning,
-                        borderRadius: 2
-                    },
-                    {
-                        label: 'Info',
-                        data: infoData,
-                        backgroundColor: ChartUtils.colors.primary,
-                        borderRadius: 2
-                    }
-                ]
-            },
-            options: ChartUtils.mergeOptions(ChartUtils.defaultOptions, {
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+    function getServerData() {
+        const container = tabRoot();
+        if (!container) return { alertFrequencyData: [] };
+        try {
+            return { alertFrequencyData: JSON.parse(container.dataset.alertFrequencyData || '[]') };
+        } catch (e) {
+            return { alertFrequencyData: [] };
+        }
+    }
+
+    function initAlertFrequencyChart() {
+        const canvas = document.getElementById('alertsFrequencyChart');
+        if (!canvas) return;
+
+        const data = getServerData().alertFrequencyData;
+        const total = data.reduce((sum, d) => sum + (d.criticalCount || 0) + (d.warningCount || 0) + (d.infoCount || 0), 0);
+        if (!data || data.length === 0 || total === 0) {
+            ChartUtils.showChartEmpty(canvas, {
+                title: 'No alerts in the last 30 days',
+                description: 'Alerts appear here by day once a threshold is crossed.'
+            });
+            return;
+        }
+
+        ChartUtils.clearChartState(canvas);
+        const labels = data.map(d => new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+        const critical = data.map(d => d.criticalCount || 0);
+        const warning = data.map(d => d.warningCount || 0);
+        const info = data.map(d => d.infoCount || 0);
+
+        const chart = ChartUtils.createBarChart(canvas, labels, [
+            { label: 'Critical', data: critical, themeColors: { backgroundColor: c => c.error }, borderRadius: 2 },
+            { label: 'Warning', data: warning, themeColors: { backgroundColor: c => c.warning }, borderRadius: 2 },
+            { label: 'Info', data: info, themeColors: { backgroundColor: c => c.info }, borderRadius: 2 }
+        ], {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 15 }
                 },
-                scales: {
-                    x: {
-                        stacked: true,
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 45,
-                            autoSkip: true,
-                            maxTicksLimit: 15
-                        }
-                    },
-                    y: {
-                        stacked: true,
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
-            })
+                y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }
+            }
         });
-
         state.charts.push(chart);
-    }
-
-    function initConfigChangeTracking() {
-        const thresholdInputs = document.querySelectorAll('.alerts-threshold-input');
-        const enabledToggles = document.querySelectorAll('.alerts-enabled-toggle');
-
-        thresholdInputs.forEach(input => {
-            // Use 'input' event for immediate feedback while typing
-            input.addEventListener('input', function() {
-                const row = this.closest('tr');
-                const metricName = row.dataset.metric;
-                const field = this.dataset.field;
-                const value = parseFloat(this.value);
-                trackConfigChange(metricName, field, value);
-            });
-        });
-
-        enabledToggles.forEach(input => {
-            input.addEventListener('change', function() {
-                const row = this.closest('tr');
-                const metricName = row.dataset.metric;
-                const field = this.dataset.field;
-                const value = this.checked;
-                trackConfigChange(metricName, field, value);
-            });
+        ChartUtils.describeChart(canvas, {
+            caption: 'Alerts per day over the last 30 days',
+            labels,
+            datasets: [
+                { label: 'Critical', data: critical },
+                { label: 'Warning', data: warning },
+                { label: 'Info', data: info }
+            ],
+            firstColumn: 'Day'
         });
     }
 
-    const Alerts = {
-        init: async function(hours) {
-            this.destroy();
-            hours = hours || TimeRange.get();
+    // ------------------------------------------------------------ live
 
-            // Use requestAnimationFrame to ensure DOM is fully rendered after AJAX injection
-            await new Promise(resolve => requestAnimationFrame(resolve));
+    /** Brings the tab up to date, or offers to when that would pull the page out from under the viewer. */
+    function scheduleRefresh() {
+        if (Date.now() - state.lastOwnAction < OWN_ACTION_QUIET_MS) return;
+        clearTimeout(state.refreshTimer);
+        state.refreshTimer = setTimeout(function () {
+            state.refreshTimer = null;
+            const root = tabRoot();
+            const d = dashboard();
+            if (!root || !d) return;
+            const busy = hasUnsavedChanges() || (document.activeElement && root.contains(document.activeElement) && document.activeElement !== root);
+            if (busy) {
+                window.toast.info('Alerts have changed.', {
+                    key: 'perf-alerts-changed',
+                    action: { label: 'Refresh', onClick: function () { d.refresh(); } }
+                });
+            } else {
+                d.refresh();
+            }
+        }, REFRESH_DEBOUNCE_MS);
+    }
 
-            TimestampUtils.convertTimestamps();
-            initAlertFrequencyChart();
-            initConfigChangeTracking();
-
-            state.isInitialized = true;
+    const live = {
+        group: 'alerts',
+        events: {
+            OnAlertTriggered: scheduleRefresh,
+            OnAlertResolved: scheduleRefresh,
+            OnAlertAcknowledged: scheduleRefresh,
+            OnActiveAlertCountChanged: scheduleRefresh
         },
-
-        destroy: function() {
-            ChartUtils.destroyCharts(state.charts);
-            state.charts = [];
-            state.configChanges = {};
-            state.isInitialized = false;
+        // After a (re)connect the count may have moved while no events arrived
+        snapshot: async function () {
+            const summary = await DashboardHub.getActiveAlertCount();
+            const root = tabRoot();
+            if (!summary || !root || typeof summary.activeCount !== 'number') return;
+            if (summary.activeCount !== (parseInt(root.dataset.activeCount, 10) || 0)) scheduleRefresh();
         }
     };
 
-    // Expose hasUnsavedChanges for standalone page beforeunload check
-    window.alertsTabHasUnsavedChanges = hasUnsavedChanges;
+    // ------------------------------------------------------------ lifecycle
 
-    window.Performance.Tabs.Alerts = Alerts;
-    window.initAlertsTab = function(hours) { Alerts.init(hours); };
-    window.destroyAlertsTab = function() { Alerts.destroy(); };
-})();
+    const tab = {
+        init: async function (hours) {
+            this.destroy();
+            const root = tabRoot();
+            if (!root) return;
+
+            const form = document.getElementById('alertThresholdForm');
+            state.form = form;
+            if (form) {
+                listen(form, 'input', function (e) {
+                    const row = e.target.closest && e.target.closest('tr[data-metric]');
+                    if (!row || e.target.dataset.field === 'enabled') return;
+                    recordEdit(row);
+                    updateCurrentValue(row);
+                    syncSaveControls();
+                    // A field already marked wrong clears as soon as it is right; a new problem waits for blur
+                    if (row.querySelector('[aria-invalid="true"]')) validateRowElement(row);
+                });
+                listen(form, 'change', function (e) {
+                    const row = e.target.closest && e.target.closest('tr[data-metric]');
+                    if (!row) return;
+                    recordEdit(row);
+                    syncSaveControls();
+                    if (e.target.dataset.field !== 'enabled') validateRowElement(row);
+                });
+                listen(form, 'submit', function (e) {
+                    e.preventDefault();
+                    save(form);
+                });
+            }
+
+            listen(root, 'click', function (e) {
+                const one = e.target.closest && e.target.closest('[data-acknowledge-incident]');
+                if (one) {
+                    acknowledge(one);
+                    return;
+                }
+                const all = e.target.closest && e.target.closest('[data-acknowledge-all]');
+                if (all) acknowledgeAll(all);
+            });
+
+            reapplyEdits();
+            initAlertFrequencyChart();
+            state.isInitialized = true;
+        },
+
+        destroy: function () {
+            ChartUtils.destroyCharts(state.charts);
+            state.charts = [];
+            state.listeners.forEach(off => off());
+            state.listeners = [];
+            clearTimeout(state.refreshTimer);
+            state.refreshTimer = null;
+            state.form = null;
+            // state.edits stays: edits survive leaving the tab
+            state.isInitialized = false;
+        },
+
+        hasUnsavedChanges: hasUnsavedChanges,
+        live: live,
+        _state: state
+    };
+
+    return { pure: pure, tab: tab };
+});

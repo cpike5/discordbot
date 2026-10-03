@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Services.Performance;
 using DiscordBot.Bot.ViewModels.Pages;
 
 namespace DiscordBot.Bot.Pages.Admin.Performance;
@@ -30,6 +31,30 @@ public class IndexModel : PageModel
     public PerformanceShellViewModel ShellViewModel { get; private set; } = new();
 
     /// <summary>
+    /// Gets or sets the tab to open, from <c>?tab=</c>. Unknown values fall back to Overview.
+    /// This is the one place a tab is addressed; the retired standalone pages redirect here.
+    /// </summary>
+    [BindProperty(SupportsGet = true, Name = "tab")]
+    public string? Tab { get; set; }
+
+    /// <summary>
+    /// Gets or sets the time range in hours, from <c>?hours=</c>. Clamped to 24, 168 or 720; when
+    /// absent the script falls back to the range the viewer last chose.
+    /// </summary>
+    [BindProperty(SupportsGet = true, Name = "hours")]
+    public int? Hours { get; set; }
+
+    /// <summary>
+    /// Gets the tab id to show first (always a known tab).
+    /// </summary>
+    public string ActiveTabId => PerformanceDashboardTabs.NormalizeTab(Tab);
+
+    /// <summary>
+    /// Gets the time range the URL asked for, clamped, or null when it did not ask.
+    /// </summary>
+    public int? RequestedHours => Hours.HasValue ? PerformanceDashboardTabs.NormalizeHours(Hours.Value) : null;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="IndexModel"/> class.
     /// </summary>
     public IndexModel(
@@ -46,25 +71,21 @@ public class IndexModel : PageModel
     public async Task OnGetAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Performance Overview page accessed by user {UserId}", User.Identity?.Name);
-        await LoadViewModelAsync(24, cancellationToken);
+        await LoadViewModelAsync(PerformanceDashboardTabs.DefaultHours, cancellationToken);
     }
 
     /// <summary>
     /// Handles AJAX requests for tab content partial views.
     /// </summary>
     /// <param name="tabId">The ID of the tab to load.</param>
-    /// <param name="hours">The time range in hours (24, 168, or 720).</param>
+    /// <param name="hours">The time range in hours; clamped to 24, 168 or 720.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The partial view for the requested tab.</returns>
     public async Task<IActionResult> OnGetPartialAsync(string tabId, int hours = 24, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Loading partial content for tab {TabId} with hours={Hours}", tabId, hours);
 
-        // Validate hours parameter
-        if (hours != 24 && hours != 168 && hours != 720)
-        {
-            hours = 24;
-        }
+        hours = PerformanceDashboardTabs.NormalizeHours(hours);
 
         return tabId?.ToLowerInvariant() switch
         {

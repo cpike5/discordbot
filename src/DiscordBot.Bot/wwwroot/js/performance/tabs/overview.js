@@ -1,6 +1,9 @@
 /**
  * Performance Dashboard - Overview Tab Module
- * Displays overview charts for response time and command throughput
+ * Command throughput chart, plus live latency, CPU and memory from the performance hub group.
+ *
+ * There is no response-time-over-time chart here: the server keeps per-command aggregates, not a
+ * time series, so any line would be invented. Response times by command are on the Commands tab.
  */
 (function() {
     'use strict';
@@ -14,123 +17,115 @@
     };
 
     const ChartUtils = window.Performance.ChartUtils;
-    const TimestampUtils = window.Performance.TimestampUtils;
     const TimeRange = window.Performance.TimeRange;
 
-    async function initResponseTimeChart(hours) {
-        const ctx = document.getElementById('overviewResponseTimeChart');
-        if (!ctx) return;
+    function setText(id, value) {
+        if (typeof animateValueChange === 'function') {
+            animateValueChange(id, value);
+            return;
+        }
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(value);
+    }
 
-        try {
-            const granularity = hours <= 24 ? 'hour' : 'day';
-            const [performanceRes, throughputRes] = await Promise.all([
-                fetch(`/api/metrics/commands/performance?hours=${hours}`),
-                fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`)
-            ]);
+    function barClass(percent, warn, error) {
+        return percent < warn ? 'progress-bar-healthy' : percent < error ? 'progress-bar-warning' : 'progress-bar-error';
+    }
 
-            const performanceData = await performanceRes.json();
-            const throughputData = await throughputRes.json();
+    function setBar(id, percent, warn, error) {
+        const bar = document.getElementById(id);
+        if (!bar) return;
+        const clamped = Math.max(0, Math.min(100, percent));
+        bar.style.width = clamped.toFixed(0) + '%';
+        bar.classList.remove('progress-bar-healthy', 'progress-bar-warning', 'progress-bar-error');
+        bar.classList.add(barClass(clamped, warn, error));
+    }
 
-            const labels = throughputData.map(d => ChartUtils.formatLabel(d.timestamp, hours));
-            const avgMs = performanceData.length > 0
-                ? performanceData.reduce((sum, d) => sum + (d.avgDurationMs || d.avgMs || 0), 0) / performanceData.length
-                : 0;
-            const responseValues = new Array(labels.length).fill(avgMs);
+    /** Applies a HealthMetricsUpdate (or the same shape from the hub snapshot). */
+    function applyHealth(data) {
+        if (!data) return;
+        if (typeof data.latencyMs === 'number') setText('overviewLatency', data.latencyMs);
 
-            const chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Avg Response (ms)',
-                        data: responseValues,
-                        borderColor: ChartUtils.colors.primary,
-                        backgroundColor: 'rgba(61, 154, 214, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    }]
-                },
-                options: ChartUtils.mergeOptions(ChartUtils.defaultOptions, {
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { callback: v => v + ' ms' }
-                        }
-                    }
-                })
-            });
+        if (typeof data.cpuUsagePercent === 'number') {
+            setText('overviewCpuUsageText', data.cpuUsagePercent.toFixed(1) + '%');
+            setBar('overviewCpuProgressBar', data.cpuUsagePercent, 50, 80);
+        }
 
-            state.charts.push(chart);
-
-            // Update subtitle
-            const subtitle = document.getElementById('overviewResponseTimeSubtitle');
-            if (subtitle) {
-                subtitle.textContent = `Average command response time (${TimeRange.getLabel()})`;
+        if (typeof data.workingSetMB === 'number') {
+            const text = document.getElementById('overviewMemoryText');
+            const match = text ? /\/\s*([\d,.]+)\s*MB/.exec(text.textContent) : null;
+            const max = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+            if (max > 0) {
+                setText('overviewMemoryText', data.workingSetMB + ' MB / ' + match[1] + ' MB');
+                setBar('overviewMemoryBar', (data.workingSetMB * 100) / max, 60, 80);
             }
-        } catch (error) {
-            console.error('Failed to init response time chart:', error);
-            ChartUtils.showChartError('overviewResponseTimeChart', error.message);
+        }
+
+        if (data.connectionState) {
+            const label = document.getElementById('overviewBotHealth');
+            if (label) {
+                const connected = String(data.connectionState).toLowerCase() === 'connected';
+                const connecting = String(data.connectionState).toLowerCase() === 'connecting';
+                label.textContent = connected ? 'Healthy' : connecting ? 'Connecting' : 'Disconnected';
+                label.classList.remove('text-success', 'text-warning', 'text-error');
+                label.classList.add(connected ? 'text-success' : connecting ? 'text-warning' : 'text-error');
+            }
         }
     }
 
     async function initThroughputChart(hours) {
-        const ctx = document.getElementById('overviewThroughputChart');
-        if (!ctx) return;
+        const canvas = document.getElementById('overviewThroughputChart');
+        if (!canvas) return;
 
+        const granularity = ChartUtils.getGranularity(hours);
         try {
-            const granularity = hours <= 24 ? 'hour' : 'day';
-            const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
-            const data = await response.json();
+            const data = await ApiClient.get(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+            if (!document.body.contains(canvas)) return; // the tab changed while this loaded
 
-            const labels = data.map(d => ChartUtils.formatLabel(d.timestamp, hours));
-            const values = data.map(d => d.commandCount || d.count || 0);
-
-            const chart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Commands',
-                        data: values,
-                        backgroundColor: ChartUtils.colors.secondary,
-                        borderRadius: 4
-                    }]
-                },
-                options: ChartUtils.mergeOptions(ChartUtils.defaultOptions, {
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                })
-            });
-
-            state.charts.push(chart);
-
-            // Update subtitle
+            const rows = Array.isArray(data) ? data : [];
             const subtitle = document.getElementById('overviewThroughputSubtitle');
             if (subtitle) {
-                const period = granularity === 'day' ? 'day' : 'hour';
-                subtitle.textContent = `Commands per ${period} (${TimeRange.getLabel()})`;
+                subtitle.textContent = `Commands per ${granularity} (${TimeRange.getLabel()})`;
             }
+
+            if (rows.length === 0 || rows.every(d => !d.count)) {
+                ChartUtils.showChartEmpty(canvas, {
+                    title: 'No commands in this period',
+                    description: 'Throughput appears here once the bot has handled commands.'
+                });
+                return;
+            }
+
+            ChartUtils.clearChartState(canvas);
+            const labels = rows.map(d => ChartUtils.formatLabel(d.timestamp, hours));
+            const values = rows.map(d => d.count || 0);
+            const chart = ChartUtils.createBarChart(canvas, labels, [{
+                label: 'Commands',
+                data: values,
+                themeColors: { backgroundColor: c => c.secondary },
+                borderRadius: 4
+            }], {
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+            });
+            state.charts.push(chart);
+            ChartUtils.describeChart(canvas, {
+                caption: `Commands per ${granularity}, ${TimeRange.getLabel()}`,
+                labels,
+                datasets: [{ label: 'Commands', data: values }],
+                firstColumn: granularity === 'day' ? 'Day' : 'Hour'
+            });
         } catch (error) {
-            console.error('Failed to init throughput chart:', error);
-            ChartUtils.showChartError('overviewThroughputChart', error.message);
+            if (error && error.name === 'AbortError') return;
+            console.error('Failed to load throughput chart:', error);
+            ChartUtils.showChartError(canvas, null, () => initThroughputChart(hours));
         }
     }
 
     const Overview = {
         init: async function(hours) {
             this.destroy();
-            hours = hours || TimeRange.get();
-
-            TimestampUtils.convertTimestamps();
-
-            await Promise.all([
-                initResponseTimeChart(hours),
-                initThroughputChart(hours)
-            ]);
-
+            await initThroughputChart(hours || TimeRange.get());
             state.isInitialized = true;
         },
 
@@ -138,10 +133,19 @@
             ChartUtils.destroyCharts(state.charts);
             state.charts = [];
             state.isInitialized = false;
-        }
+        },
+
+        // The overview shares the performance group with Health and Commands.
+        live: {
+            group: 'performance',
+            events: { HealthMetricsUpdate: applyHealth },
+            snapshot: async function() {
+                applyHealth(await DashboardHub.getCurrentPerformanceMetrics());
+            }
+        },
+
+        applyHealth: applyHealth
     };
 
     window.Performance.Tabs.Overview = Overview;
-    window.initOverviewTab = function(hours) { Overview.init(hours); };
-    window.destroyOverviewTab = function() { Overview.destroy(); };
 })();

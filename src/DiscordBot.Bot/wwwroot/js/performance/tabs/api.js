@@ -1,6 +1,6 @@
 /**
  * Performance Dashboard - API Tab Module
- * Displays Discord API latency metrics
+ * Discord API latency over time. Not live: the numbers cover the chosen range.
  */
 (function() {
     'use strict';
@@ -14,7 +14,6 @@
     };
 
     const ChartUtils = window.Performance.ChartUtils;
-    const TimestampUtils = window.Performance.TimestampUtils;
     const TimeRange = window.Performance.TimeRange;
 
     function getServerData() {
@@ -27,100 +26,73 @@
     }
 
     async function loadChartData(hours) {
+        const canvas = document.getElementById('apiLatencyChart');
+        if (!canvas) return;
+
         try {
-            const url = `/api/metrics/api/latency?hours=${hours}`;
-            const response = await fetch(url);
+            const data = await ApiClient.get(`/api/metrics/api/latency?hours=${hours}`);
+            if (!document.body.contains(canvas)) return; // the tab changed while this loaded
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!data.samples || data.samples.length === 0) {
-                console.warn('No latency samples available');
+            const samples = data && Array.isArray(data.samples) ? data.samples : [];
+            if (samples.length === 0) {
+                ChartUtils.showChartEmpty(canvas, {
+                    title: 'No latency samples yet',
+                    description: 'API latency is sampled while the bot talks to Discord.'
+                });
                 return;
             }
 
-            const labels = data.samples.map(s => ChartUtils.formatLabel(s.timestamp, hours));
-            const avgData = data.samples.map(s => s.avgLatencyMs);
-            const p95Data = data.samples.map(s => s.p95LatencyMs);
+            ChartUtils.clearChartState(canvas);
+            const labels = samples.map(s => ChartUtils.formatLabel(s.timestamp, hours));
+            const avgData = samples.map(s => s.avgLatencyMs);
+            const p95Data = samples.map(s => s.p95LatencyMs);
 
-            const ctx = document.getElementById('apiLatencyChart');
-            if (!ctx) return;
-
-            const chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Average Latency',
-                            data: avgData,
-                            borderColor: ChartUtils.colors.primary,
-                            backgroundColor: 'rgba(61, 154, 214, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 2,
-                            pointHoverRadius: 5
-                        },
-                        {
-                            label: 'P95 Latency',
-                            data: p95Data,
-                            borderColor: ChartUtils.colors.warning,
-                            backgroundColor: 'transparent',
-                            fill: false,
-                            tension: 0.4,
-                            pointRadius: 2,
-                            pointHoverRadius: 5,
-                            borderDash: [5, 5]
-                        }
-                    ]
+            const chart = ChartUtils.createLineChart(canvas, labels, [
+                {
+                    label: 'Average Latency',
+                    data: avgData,
+                    themeColors: {
+                        borderColor: c => c.secondary,
+                        backgroundColor: c => c.alpha('accent-blue', 0.1)
+                    },
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
                 },
-                options: ChartUtils.mergeOptions(ChartUtils.defaultOptions, {
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 20
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + ' ms';
-                                }
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 0
-                            }
-                        }
-                    }
-                })
+                {
+                    label: 'P95 Latency',
+                    data: p95Data,
+                    themeColors: { borderColor: c => c.warning },
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    borderDash: [5, 5]
+                }
+            ], {
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: value => value + ' ms' } },
+                    x: { ticks: { maxRotation: 45, minRotation: 0 } }
+                }
+            });
+            state.charts.push(chart);
+            ChartUtils.describeChart(canvas, {
+                caption: `Discord API latency, ${TimeRange.getLabel()}`,
+                labels,
+                datasets: [{ label: 'Average (ms)', data: avgData }, { label: 'P95 (ms)', data: p95Data }],
+                unit: 'ms'
             });
 
-            state.charts.push(chart);
-
-            // Update subtitle
             const subtitle = document.getElementById('apiLatencySubtitle');
-            if (subtitle) {
-                subtitle.textContent = `Discord API response times (${TimeRange.getLabel()})`;
-            }
-
+            if (subtitle) subtitle.textContent = `Discord API response times (${TimeRange.getLabel()})`;
         } catch (error) {
+            if (error && error.name === 'AbortError') return;
             console.error('Failed to load API latency chart data:', error);
-            ChartUtils.showChartError('apiLatencyChart', error.message);
+            ChartUtils.showChartError(canvas, null, () => loadChartData(hours));
         }
     }
 
@@ -129,8 +101,7 @@
             this.destroy();
             hours = hours || TimeRange.get();
 
-            const serverData = getServerData();
-            if (serverData.totalRequests > 0) {
+            if (getServerData().totalRequests > 0) {
                 await loadChartData(hours);
             }
 
@@ -145,8 +116,4 @@
     };
 
     window.Performance.Tabs.Api = Api;
-    window.initApiTab = function(hours) { Api.init(hours); };
-    window.destroyApiTab = function() { Api.destroy(); };
-    window.initApiMetricsTab = window.initApiTab;
-    window.destroyApiMetricsTab = window.destroyApiTab;
 })();

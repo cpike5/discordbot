@@ -113,6 +113,43 @@ public record HealthMetricsViewModel
     public IReadOnlyList<LatencySampleDto> RecentLatencySamples { get; init; } = Array.Empty<LatencySampleDto>();
 
     /// <summary>
+    /// Gets a value indicating whether the health data could not be read, so the figures are
+    /// placeholders and the tab says so.
+    /// </summary>
+    public bool LoadFailed { get; init; }
+
+    /// <summary>
+    /// Gets the text colour class for the gateway state: green only while connected.
+    /// </summary>
+    public string ConnectionTextClass => (Health.ConnectionState ?? string.Empty).ToUpperInvariant() switch
+    {
+        "CONNECTED" => "text-success",
+        "CONNECTING" => "text-warning",
+        _ => "text-error"
+    };
+
+    /// <summary>
+    /// Gets the word for memory use: Normal below 512 MB, Elevated below 768 MB, otherwise High.
+    /// The same thresholds colour the gauge.
+    /// </summary>
+    public string MemoryStatusText => WorkingSetMB switch { < 512 => "Normal", < 768 => "Elevated", _ => "High" };
+
+    /// <summary>
+    /// Gets the badge class for <see cref="MemoryStatusText"/>.
+    /// </summary>
+    public string MemoryStatusClass => WorkingSetMB switch { < 512 => "status-badge-connected", < 768 => "status-badge-warning", _ => "status-badge-error" };
+
+    /// <summary>
+    /// Gets the word for CPU use: Normal below 50 percent, Elevated below 80, otherwise High.
+    /// </summary>
+    public string CpuStatusText => CpuUsagePercent switch { < 50 => "Normal", < 80 => "Elevated", _ => "High" };
+
+    /// <summary>
+    /// Gets the badge class for <see cref="CpuStatusText"/>.
+    /// </summary>
+    public string CpuStatusClass => CpuUsagePercent switch { < 50 => "status-badge-connected", < 80 => "status-badge-warning", _ => "status-badge-error" };
+
+    /// <summary>
     /// Formats a TimeSpan into a human-readable uptime string (e.g., "16d 8h 30m").
     /// </summary>
     public static string FormatUptime(TimeSpan uptime)

@@ -63,6 +63,31 @@ public record SystemHealthViewModel
     public int Gen2Collections { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether the system metrics could not be read, so the figures are
+    /// placeholders and the tab says so.
+    /// </summary>
+    public bool LoadFailed { get; init; }
+
+    /// <summary>
+    /// Gets the word for database health: Degraded at 200 ms average or more than 10 errors,
+    /// Slow at 100 ms or any error, otherwise Healthy (the thresholds <see cref="GetSystemStatus"/> uses).
+    /// </summary>
+    public string DatabaseStatusText =>
+        DatabaseMetrics.AvgQueryTimeMs > 200 || DatabaseErrorCount > 10 ? "Degraded"
+        : DatabaseMetrics.AvgQueryTimeMs > 100 || DatabaseErrorCount > 0 ? "Slow"
+        : "Healthy";
+
+    /// <summary>
+    /// Gets the badge class for <see cref="DatabaseStatusText"/>.
+    /// </summary>
+    public string DatabaseStatusClass => DatabaseStatusText switch
+    {
+        "Degraded" => "status-badge-error",
+        "Slow" => "status-badge-warning",
+        _ => "status-badge-connected"
+    };
+
+    /// <summary>
     /// Gets the overall system status (Healthy, Warning, Error).
     /// </summary>
     public string SystemStatus { get; init; } = string.Empty;

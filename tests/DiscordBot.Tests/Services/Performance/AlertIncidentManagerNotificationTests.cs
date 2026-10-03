@@ -22,6 +22,7 @@ public class AlertIncidentManagerNotificationTests
     {
         var notificationService = new Mock<INotificationService>();
         var titleSeen = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var linkSeen = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         notificationService
             .Setup(n => n.CreateForAllAdminsAsync(
                 It.IsAny<NotificationType>(),
@@ -33,8 +34,11 @@ public class AlertIncidentManagerNotificationTests
                 It.IsAny<string?>(),
                 It.IsAny<TimeSpan?>(),
                 It.IsAny<CancellationToken>()))
-            .Callback((NotificationType _, string title, string _, string? _, AlertSeverity? _, string? _, string? _, TimeSpan? _, CancellationToken _) =>
-                titleSeen.TrySetResult(title))
+            .Callback((NotificationType _, string title, string _, string? link, AlertSeverity? _, string? _, string? _, TimeSpan? _, CancellationToken _) =>
+            {
+                linkSeen.TrySetResult(link);
+                titleSeen.TrySetResult(title);
+            })
             .ReturnsAsync(true);
 
         var services = new ServiceCollection();
@@ -64,5 +68,9 @@ public class AlertIncidentManagerNotificationTests
 
         var title = await titleSeen.Task.WaitAsync(TimeSpan.FromSeconds(10));
         title.Should().Be("Memory Usage Alert");
+
+        // The notification opens the Alerts tab of the dashboard shell, not a retired page
+        var link = await linkSeen.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        link.Should().Be("/Admin/Performance?tab=alerts");
     }
 }

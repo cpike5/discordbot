@@ -54,6 +54,12 @@ public record CommandPerformanceViewModel
     public IReadOnlyList<CommandTimeoutDto> RecentTimeouts { get; init; } = Array.Empty<CommandTimeoutDto>();
 
     /// <summary>
+    /// Gets a value indicating whether the command data could not be loaded, so an empty page is a
+    /// failure and not "no commands yet".
+    /// </summary>
+    public bool LoadFailed { get; init; }
+
+    /// <summary>
     /// Gets the trend for average response time compared to previous period (negative = improvement).
     /// </summary>
     public double AvgResponseTimeTrend { get; init; }

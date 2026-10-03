@@ -8,6 +8,12 @@ namespace DiscordBot.Bot.ViewModels.Pages;
 public class ApiRateLimitsViewModel
 {
     /// <summary>
+    /// Gets or sets a value indicating whether the API usage data could not be read, so the
+    /// figures are placeholders and the tab says so.
+    /// </summary>
+    public bool LoadFailed { get; set; }
+
+    /// <summary>
     /// Gets or sets the total number of API requests.
     /// </summary>
     public long TotalRequests { get; set; }

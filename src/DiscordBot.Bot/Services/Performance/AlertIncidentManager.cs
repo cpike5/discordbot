@@ -194,7 +194,7 @@ public class AlertIncidentManager : IAlertIncidentManager
                 NotificationType.PerformanceAlert,
                 title,
                 incident.Message,
-                linkUrl: "/Admin/Performance/Alerts",
+                linkUrl: PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Alerts),
                 severity: incident.Severity,
                 relatedEntityType: "PerformanceIncident",
                 relatedEntityId: incident.Id.ToString(),

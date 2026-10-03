@@ -5,8 +5,15 @@
 <div data-tab="health"
      data-initial-latency="@Model.Health.LatencyMs"
      data-working-set-mb="@Model.WorkingSetMB"
-     data-cpu-percent="@Model.CpuUsagePercent"
-     data-latency-samples="@Html.Raw(JsonSerializer.Serialize(Model.RecentLatencySamples.Select(s => s.LatencyMs)))">
+     data-cpu-percent="@Model.CpuUsagePercent.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+     data-latency-samples="@JsonSerializer.Serialize(Model.RecentLatencySamples.Select(s => s.LatencyMs))">
+
+@if (Model.LoadFailed)
+{
+    @await Html.PartialAsync("~/Pages/Admin/Performance/Tabs/_TabUnavailable.cshtml", "Health data could not be loaded")
+}
+else
+{
 
 <!-- Uptime & Connection Status Row -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -20,15 +27,15 @@
         </div>
         <div class="chart-card-body">
             <div class="uptime-display">
-                <div class="uptime-percentage healthy">@Model.Uptime30DFormatted</div>
+                <div class="uptime-percentage">@Model.Uptime30DFormatted</div>
                 <div class="uptime-label">Uptime (30 days)</div>
                 @if (Model.SessionStartUtc.HasValue)
                 {
-                    <div class="uptime-since">Online since <span data-utc-time="@Model.SessionStartUtc.Value.ToString("o")">@Model.SessionStartFormatted</span></div>
+                    <div class="uptime-since">Online since @DisplayFormat.Time(Model.SessionStartUtc.Value)</div>
                 }
                 else
                 {
-                    <div class="uptime-since">Online since Unknown</div>
+                    <div class="uptime-since">Not connected yet</div>
                 }
             </div>
             <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border-primary">
@@ -54,10 +61,10 @@
         </div>
         <div class="chart-card-body">
             <div class="health-status-large">
-                <svg class="health-status-icon text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="health-status-icon @Model.ConnectionTextClass" id="healthConnectionIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <div class="health-status-label text-success">@Model.Health.ConnectionState</div>
+                <div class="health-status-label @Model.ConnectionTextClass" id="healthConnectionState">@Model.Health.ConnectionState</div>
                 <div class="health-status-sublabel">Gateway: wss://gateway.discord.gg</div>
             </div>
         </div>
@@ -105,7 +112,7 @@
                 <h2 class="chart-card-title">Memory Usage</h2>
                 <p class="chart-card-subtitle">Process memory consumption</p>
             </div>
-            <span class="status-badge status-badge-connected">Normal</span>
+            <span class="status-badge @Model.MemoryStatusClass" id="healthMemoryBadge">@Model.MemoryStatusText</span>
         </div>
         <div class="chart-card-body">
             <div class="flex items-center gap-8">
@@ -119,7 +126,7 @@
                 <div class="flex-1 space-y-3">
                     <div class="flex justify-between text-sm">
                         <span class="text-text-secondary">Working Set</span>
-                        <span class="text-text-primary font-medium">@Model.WorkingSetMB MB</span>
+                        <span class="text-text-primary font-medium"><span id="healthWorkingSetText">@Model.WorkingSetMB</span> MB</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-text-secondary">Private Memory</span>
@@ -150,7 +157,7 @@
                 <h2 class="chart-card-title">CPU Usage</h2>
                 <p class="chart-card-subtitle">Process CPU utilization</p>
             </div>
-            <span class="status-badge status-badge-connected">Normal</span>
+            <span class="status-badge @Model.CpuStatusClass" id="healthCpuBadge">@Model.CpuStatusText</span>
         </div>
         <div class="chart-card-body">
             <div class="flex items-center gap-8">
@@ -164,7 +171,7 @@
                 <div class="flex-1 space-y-3">
                     <div class="flex justify-between text-sm">
                         <span class="text-text-secondary">Thread Count</span>
-                        <span class="text-text-primary font-medium">@Model.ThreadCount</span>
+                        <span class="text-text-primary font-medium" id="healthThreadCount">@Model.ThreadCount</span>
                     </div>
                 </div>
             </div>
@@ -299,12 +306,16 @@
             <h2 class="chart-card-title">Latency History</h2>
             <p class="chart-card-subtitle">Heartbeat latency over time</p>
         </div>
-        <select id="healthLatencyTimeRange" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus transition-colors">
-            <option value="1">Last hour</option>
-            <option value="6">Last 6 hours</option>
-            <option value="24" selected>Last 24 hours</option>
-            <option value="168">Last 7 days</option>
-        </select>
+        <div>
+            <label for="healthLatencyTimeRange" class="sr-only">Latency history range</label>
+            <select id="healthLatencyTimeRange" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus transition-colors">
+                <option value="1">Last hour</option>
+                <option value="6">Last 6 hours</option>
+                <option value="24" selected>Last 24 hours</option>
+                <option value="168">Last 7 days</option>
+                <option value="720">Last 30 days</option>
+            </select>
+        </div>
     </div>
     <div class="chart-card-body">
         <div class="chart-container chart-container-lg">
@@ -335,9 +346,9 @@
                     };
 
                     <div class="timeline-entry">
-                        <div class="timeline-dot @dotClass"></div>
+                        <div class="timeline-dot @dotClass" aria-hidden="true"></div>
                         <div class="timeline-content">
-                            <div class="timeline-time" data-utc-time="@evt.Timestamp.ToString("o")">@evt.Timestamp.ToString("MMM dd, yyyy 'at' HH:mm")</div>
+                            <div class="timeline-time">@DisplayFormat.Time(evt.Timestamp)</div>
                             <div class="timeline-title">@evt.EventType</div>
                             @if (!string.IsNullOrEmpty(evt.Reason) || !string.IsNullOrEmpty(evt.Details))
                             {
@@ -383,4 +394,5 @@
         }
     </div>
 </div>
+}
 </div>

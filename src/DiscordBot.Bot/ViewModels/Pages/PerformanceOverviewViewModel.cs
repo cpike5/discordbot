@@ -33,9 +33,30 @@ public record PerformanceOverviewViewModel
     public double AvgCommandResponseMs { get; init; }
 
     /// <summary>
-    /// Gets the total number of commands executed today.
+    /// Gets the number of commands executed in the selected time range.
     /// </summary>
-    public int CommandsToday { get; init; }
+    public int CommandsInRange { get; init; }
+
+    /// <summary>
+    /// Gets the selected time range in hours (24, 168 or 720).
+    /// </summary>
+    public int TimeRangeHours { get; init; } = 24;
+
+    /// <summary>
+    /// Gets the time range as words for captions ("Last 24 hours", "Last 7 days", "Last 30 days").
+    /// </summary>
+    public string TimeRangeCaption => TimeRangeHours switch
+    {
+        168 => "Last 7 days",
+        720 => "Last 30 days",
+        _ => "Last 24 hours"
+    };
+
+    /// <summary>
+    /// Gets a value indicating whether the overview data could not be loaded. The numbers are then
+    /// placeholders, and the tab says so instead of presenting them as real.
+    /// </summary>
+    public bool LoadFailed { get; init; }
 
     /// <summary>
     /// Gets the overall error rate percentage.
@@ -112,10 +133,16 @@ public record PerformanceOverviewViewModel
     /// <summary>
     /// Gets the CSS class for bot health status.
     /// </summary>
-    public string BotHealthStatusClass => BotHealth.Status.ToLowerInvariant() switch
+    public string BotHealthStatusClass => BotHealth.ConnectionState.ToLowerInvariant() switch
     {
-        "healthy" => "text-success",
-        "warning" => "text-warning",
+        // The gateway state decides; a degraded background service tempers a connected bot.
+        "connected" => BotHealth.Status.ToLowerInvariant() switch
+        {
+            "warning" => "text-warning",
+            "critical" => "text-error",
+            _ => "text-success"
+        },
+        "connecting" => "text-warning",
         _ => "text-error"
     };
 
@@ -128,6 +155,31 @@ public record PerformanceOverviewViewModel
         "connecting" => "Connecting",
         _ => "Disconnected"
     };
+
+    /// <summary>
+    /// Gets the system status word, from the worse of memory and CPU use.
+    /// </summary>
+    public string SystemStatusText => Math.Max(MemoryUsagePercent, CpuUsagePercent) switch
+    {
+        >= 90 => "Critical",
+        >= 75 => "Elevated",
+        _ => "Normal"
+    };
+
+    /// <summary>
+    /// Gets the text colour class for <see cref="SystemStatusText"/>.
+    /// </summary>
+    public string SystemStatusClass => SystemStatusText switch
+    {
+        "Critical" => "text-error",
+        "Elevated" => "text-warning",
+        _ => "text-success"
+    };
+
+    /// <summary>
+    /// Gets the text colour class for the API status card: amber once Discord has rate limited the bot.
+    /// </summary>
+    public string ApiStatusClass => ApiRateLimitPercent > 0 ? "text-warning" : "text-success";
 
     /// <summary>
     /// Gets the average latency in milliseconds.
