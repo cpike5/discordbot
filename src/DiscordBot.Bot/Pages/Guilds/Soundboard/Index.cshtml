@@ -262,7 +262,7 @@
                 <h3 class="text-sm font-semibold text-text-primary mb-1">Upload Sounds</h3>
                 <p id="uploadLimits" class="text-xs text-text-tertiary mb-4">@Model.ViewModel.SupportedFormats, up to @(Model.ViewModel.MaxFileSizeBytes / (1024 * 1024)) MB and @Model.ViewModel.MaxDurationSeconds seconds each. You can add several files at once.</p>
 
-                <!-- Upload Form: works as a plain form post without script -->
+                <!-- Upload Form: the script sends one request per file; the form posts to the same handler -->
                 <form method="post" id="uploadForm" asp-page-handler="Upload" asp-route-guildId="@Model.ViewModel.GuildId" enctype="multipart/form-data">
                     <input type="file"
                            id="file-input"
