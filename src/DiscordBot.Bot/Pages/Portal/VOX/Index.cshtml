@@ -4,7 +4,7 @@
 @using DiscordBot.Bot.ViewModels.Components
 
 @{
-    ViewData["Title"] = Model.IsAuthenticated ? "VOX" : "Verify Your Membership";
+    ViewData["Title"] = Model.IsPortalDisabled ? "Portal Unavailable" : Model.IsAuthenticated ? "VOX" : "Verify Your Membership";
 
     // Build portal header view model
     var portalHeader = new PortalHeaderViewModel
@@ -1332,7 +1332,11 @@
     <script src="~/js/portal-vox.js" asp-append-version="true"></script>
 }
 
-@if (!Model.IsAuthenticated)
+@if (Model.IsPortalDisabled)
+{
+    @await Html.PartialAsync("../Shared/_PortalDisabled", new PortalUnauthorizedViewModel { GuildName = Model.GuildName })
+}
+else if (!Model.IsAuthenticated)
 {
     @await Html.PartialAsync("../Shared/_PortalLanding", new PortalLandingViewModel
     {
@@ -1362,6 +1366,11 @@ else
         IsOnline = Model.IsOnline,
         ActiveTab = "vox"
     }' />
+
+    @if (Model.IsAudioDisabledForGuild)
+    {
+        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning", "Audio is switched off for this server, so nothing can be played right now. A server admin can turn it on in Audio Settings.")
+    }
 
     <!-- Main Content -->
     <main class="main-container vox-page">

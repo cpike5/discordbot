@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.Configuration;
@@ -25,7 +24,7 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
 {
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IPortalGuildDirectory _guildDirectory;
     private readonly AzureSpeechOptions _azureSpeechOptions;
     private readonly ILogger<PortalTtsPlaybackController> _logger;
 
@@ -33,14 +32,14 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
         ITtsSendPipeline sendPipeline,
         IAudioService audioService,
         IPlaybackService playbackService,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
         IOptions<AzureSpeechOptions> azureSpeechOptions,
         ILogger<PortalTtsPlaybackController> logger)
         : base(sendPipeline)
     {
         _audioService = audioService;
         _playbackService = playbackService;
-        _discordClient = discordClient;
+        _guildDirectory = guildDirectory;
         _azureSpeechOptions = azureSpeechOptions.Value;
         _logger = logger;
     }
@@ -63,9 +62,7 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
 
         if (channelId.HasValue)
         {
-            var guild = _discordClient.GetGuild(guildId);
-            var channel = guild?.GetVoiceChannel(channelId.Value);
-            channelName = channel?.Name;
+            channelName = _guildDirectory.FindVoiceChannel(guildId, channelId.Value)?.Name;
         }
 
         // Check both soundboard and TTS playback
@@ -115,12 +112,11 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
     [HttpGet("channels")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
-    public IActionResult GetVoiceChannels(ulong guildId)
+    public async Task<IActionResult> GetVoiceChannels(ulong guildId, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Get voice channels request for guild {GuildId}", guildId);
 
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId, cancellationToken))
         {
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
@@ -133,8 +129,7 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
             });
         }
 
-        var voiceChannels = guild.VoiceChannels
-            .OrderBy(c => c.Position)
+        var voiceChannels = _guildDirectory.GetVoiceChannels(guildId)
             .Select(c => new
             {
                 id = c.Id.ToString(), // Discord snowflake IDs must be strings in JSON

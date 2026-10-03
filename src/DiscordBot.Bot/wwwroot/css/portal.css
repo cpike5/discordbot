@@ -303,6 +303,7 @@ body.portal-page {
     height: 40px;
 }
 
+.unauthorized-content h1,
 .unauthorized-content h2 {
     font-size: 1.5rem;
     font-weight: 600;

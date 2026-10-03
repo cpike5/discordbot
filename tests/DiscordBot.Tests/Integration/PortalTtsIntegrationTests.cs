@@ -41,7 +41,7 @@ public class PortalTtsIntegrationTests : IDisposable
     private readonly Mock<IPlaybackService> _mockPlaybackService;
     private readonly Mock<ITtsPlaybackService> _mockTtsPlaybackService;
     private readonly Mock<ISettingsService> _mockSettingsService;
-    private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IPortalGuildDirectory> _mockGuildDirectory;
     private readonly Mock<IVoiceCapabilityProvider> _mockVoiceCapabilityProvider;
     private readonly Mock<IStylePresetProvider> _mockStylePresetProvider;
     private readonly Mock<ISsmlValidator> _mockSsmlValidator;
@@ -65,7 +65,7 @@ public class PortalTtsIntegrationTests : IDisposable
         _mockPlaybackService = new Mock<IPlaybackService>();
         _mockTtsPlaybackService = new Mock<ITtsPlaybackService>();
         _mockSettingsService = new Mock<ISettingsService>();
-        _mockDiscordClient = new Mock<DiscordSocketClient>(MockBehavior.Default, new DiscordSocketConfig());
+        _mockGuildDirectory = new Mock<IPortalGuildDirectory>();
         _mockVoiceCapabilityProvider = new Mock<IVoiceCapabilityProvider>();
         _mockStylePresetProvider = new Mock<IStylePresetProvider>();
         _mockSsmlValidator = new Mock<ISsmlValidator>();
@@ -108,7 +108,7 @@ public class PortalTtsIntegrationTests : IDisposable
             sendPipeline,
             _mockAudioService.Object,
             _mockPlaybackService.Object,
-            _mockDiscordClient.Object,
+            _mockGuildDirectory.Object,
             Options.Create(_azureSpeechOptions),
             _mockLogger.Object);
 
@@ -791,7 +791,7 @@ public class PortalTtsIntegrationTests : IDisposable
         // SocketGuild.GetVoiceChannel and SocketVoiceChannel.Name are non-virtual and cannot
         // be mocked with Moq. Return null from GetGuild so the controller gracefully yields
         // a null channel name — the connected state and channelId are still verified.
-        _mockDiscordClient.Setup(c => c.GetGuild(guildId)).Returns((SocketGuild?)null);
+        _mockGuildDirectory.Setup(d => d.IsGuildAvailableAsync(guildId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         // Act
         var result = _controller.GetStatus(guildId);
@@ -835,7 +835,7 @@ public class PortalTtsIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void GetVoiceChannels_WithValidGuild_ReturnsChannels()
+    public async Task GetVoiceChannels_WithValidGuild_ReturnsChannels()
     {
         // Arrange
         const ulong guildId = 123456789UL;
@@ -844,10 +844,10 @@ public class PortalTtsIntegrationTests : IDisposable
         // on Discord.NET's concrete Socket types and cannot be set up with Moq. Returning null
         // from GetGuild exercises the guild-not-found branch of GetVoiceChannels, verifying
         // the controller handles a missing guild and returns a structured error response.
-        _mockDiscordClient.Setup(c => c.GetGuild(guildId)).Returns((SocketGuild?)null);
+        _mockGuildDirectory.Setup(d => d.IsGuildAvailableAsync(guildId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         // Act
-        var result = _controller.GetVoiceChannels(guildId);
+        var result = await _controller.GetVoiceChannels(guildId);
 
         // Assert
         result.Should().BeOfType<NotFoundObjectResult>();
@@ -860,15 +860,15 @@ public class PortalTtsIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void GetVoiceChannels_WithNonExistentGuild_ReturnsNotFound()
+    public async Task GetVoiceChannels_WithNonExistentGuild_ReturnsNotFound()
     {
         // Arrange
         const ulong guildId = 999999999UL;
 
-        _mockDiscordClient.Setup(c => c.GetGuild(guildId)).Returns((SocketGuild?)null);
+        _mockGuildDirectory.Setup(d => d.IsGuildAvailableAsync(guildId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         // Act
-        var result = _controller.GetVoiceChannels(guildId);
+        var result = await _controller.GetVoiceChannels(guildId);
 
         // Assert
         result.Should().BeOfType<NotFoundObjectResult>();

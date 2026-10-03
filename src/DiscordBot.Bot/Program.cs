@@ -2,6 +2,7 @@ using DiscordBot.Bot.Commands;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
+using DiscordBot.Bot.Services.Portal;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -135,6 +136,9 @@ try
 
     // Add Identity, Discord OAuth, and authorization policies
     builder.Services.AddIdentityServices(builder.Configuration);
+
+    // The member portal's view of Discord (a database-backed one only in Development + OfflineMode, D15)
+    builder.Services.AddPortalGuildDirectory(builder.Environment, builder.Configuration);
 
     // ==========================================
     // Application Services
@@ -316,6 +320,13 @@ try
         try
         {
             await IdentitySeeder.SeedIdentityAsync(scope.ServiceProvider, logger);
+
+            // Development + OfflineMode only (checked inside): link seeded users to fake guild membership
+            await DevelopmentPortal.SeedAsync(
+                scope.ServiceProvider,
+                app.Environment,
+                app.Configuration.GetValue<bool>("Discord:OfflineMode"),
+                logger);
         }
         catch (Exception ex)
         {

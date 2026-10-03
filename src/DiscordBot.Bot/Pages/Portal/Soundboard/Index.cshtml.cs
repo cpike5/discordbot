@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Portal;
@@ -37,14 +36,14 @@ public class IndexModel : PortalPageModelBase
         ISoundService soundService,
         IGuildAudioSettingsRepository audioSettingsRepository,
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
         IAudioService audioService,
         IPlaybackService playbackService,
         ISettingsService settingsService,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger,
         ICurrencyService? currencyService = null)
-        : base(guildService, discordClient, userManager, logger)
+        : base(guildService, guildDirectory, audioSettingsRepository, userManager, logger)
     {
         _soundService = soundService;
         _audioSettingsRepository = audioSettingsRepository;
@@ -118,17 +117,6 @@ public class IndexModel : PortalPageModelBase
             var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
             IsAudioGloballyDisabled = !isGloballyEnabled;
 
-            // Check if portal is enabled for this guild first (before auth check)
-            var audioSettings = await _audioSettingsRepository.GetByGuildIdAsync(guildId);
-
-            // TODO: Issue #947 will add EnableMemberPortal property
-            // For now, we check AudioEnabled as a proxy
-            if (audioSettings == null || !audioSettings.AudioEnabled)
-            {
-                _logger.LogDebug("Portal not enabled for guild {GuildId}", guildId);
-                return NotFound();
-            }
-
             // Perform common portal authorization check
             var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "Soundboard", cancellationToken);
 
@@ -178,44 +166,11 @@ public class IndexModel : PortalPageModelBase
                 })
                 .ToList();
 
-            // Build voice channel panel data
-            var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
-            var isConnected = _audioService.IsConnected(guildId);
-            string? connectedChannelName = null;
-            int? channelMemberCount = null;
-
-            if (isConnected && connectedChannelId.HasValue)
-            {
-                var connectedChannel = context!.SocketGuild.GetVoiceChannel(connectedChannelId.Value);
-                if (connectedChannel != null)
-                {
-                    connectedChannelName = connectedChannel.Name;
-                    channelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
-                }
-            }
-
-            VoicePanel = new VoiceChannelPanelViewModel
-            {
-                GuildId = guildId,
-                IsCompact = true,
-                ShowNowPlaying = true,
-                ShowProgress = false,
-                IsConnected = isConnected,
-                ConnectedChannelId = connectedChannelId,
-                ConnectedChannelName = connectedChannelName,
-                ChannelMemberCount = channelMemberCount,
-                AvailableChannels = BuildVoiceChannelList(context!.SocketGuild)
-                    .Select(c => new DiscordBot.Bot.ViewModels.Components.VoiceChannelInfo
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        MemberCount = c.MemberCount
-                    }).ToList(),
-                NowPlaying = _playbackService.IsPlaying(guildId)
-                    ? new NowPlayingInfo { Name = "Now Playing" }
-                    : null,
-                Queue = []
-            };
+            // Build voice channel panel data from the bot's real voice state
+            VoicePanel = BuildVoicePanel(
+                guildId,
+                _audioService,
+                _playbackService.IsPlaying(guildId) ? "Now Playing" : null);
 
             // Set remaining view properties
             Sounds = soundViewModels;

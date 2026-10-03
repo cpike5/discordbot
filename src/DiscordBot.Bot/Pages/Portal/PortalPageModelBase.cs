@@ -1,5 +1,6 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -17,7 +18,8 @@ namespace DiscordBot.Bot.Pages.Portal;
 public abstract class PortalPageModelBase : PageModel
 {
     private readonly IGuildService _guildService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IPortalGuildDirectory _guildDirectory;
+    private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger _logger;
 
@@ -26,12 +28,14 @@ public abstract class PortalPageModelBase : PageModel
     /// </summary>
     protected PortalPageModelBase(
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
+        IGuildAudioSettingsRepository audioSettingsRepository,
         UserManager<ApplicationUser> userManager,
         ILogger logger)
     {
         _guildService = guildService;
-        _discordClient = discordClient;
+        _guildDirectory = guildDirectory;
+        _audioSettingsRepository = audioSettingsRepository;
         _userManager = userManager;
         _logger = logger;
     }
@@ -57,7 +61,7 @@ public abstract class PortalPageModelBase : PageModel
     public bool IsOnline { get; set; }
 
     /// <summary>
-    /// Gets whether the user is authenticated with Discord OAuth.
+    /// Gets whether the authenticated user is authenticated with Discord OAuth.
     /// When false, display the landing page instead of the full portal interface.
     /// </summary>
     public bool IsAuthenticated { get; set; }
@@ -67,6 +71,18 @@ public abstract class PortalPageModelBase : PageModel
     /// True when user is a member of the guild.
     /// </summary>
     public bool IsAuthorized { get; set; }
+
+    /// <summary>
+    /// Gets whether the guild has switched its member portal off. The page renders the
+    /// "portal disabled" notice instead of its content.
+    /// </summary>
+    public bool IsPortalDisabled { get; set; }
+
+    /// <summary>
+    /// Gets whether audio is switched off for this guild (<c>GuildAudioSettings.AudioEnabled</c>).
+    /// The portal still opens, with a notice, because the portal switch is independent of it.
+    /// </summary>
+    public bool IsAudioDisabledForGuild { get; set; }
 
     /// <summary>
     /// Gets the login URL with return URL for Discord OAuth.
@@ -82,6 +98,11 @@ public abstract class PortalPageModelBase : PageModel
         /// Guild not found in database or Discord client.
         /// </summary>
         GuildNotFound,
+
+        /// <summary>
+        /// The guild has switched its member portal off.
+        /// </summary>
+        PortalDisabled,
 
         /// <summary>
         /// User is not authenticated - show landing page.
@@ -108,11 +129,6 @@ public abstract class PortalPageModelBase : PageModel
         /// Gets or sets the guild DTO from the database.
         /// </summary>
         public required GuildDto Guild { get; init; }
-
-        /// <summary>
-        /// Gets or sets the Discord socket guild.
-        /// </summary>
-        public required SocketGuild SocketGuild { get; init; }
     }
 
     /// <summary>
@@ -120,8 +136,9 @@ public abstract class PortalPageModelBase : PageModel
     /// This method handles the common pattern of:
     /// 1. Validating the guild exists
     /// 2. Setting base properties (GuildId, GuildName, etc.)
-    /// 3. Checking authentication state
-    /// 4. Verifying guild membership for authenticated users
+    /// 3. Checking that the guild's member portal is switched on
+    /// 4. Checking authentication state
+    /// 5. Verifying guild membership for authenticated users
     /// </summary>
     /// <param name="guildId">The guild ID from the route.</param>
     /// <param name="portalName">The portal name for logging (e.g., "TTS", "Soundboard").</param>
@@ -143,19 +160,31 @@ public abstract class PortalPageModelBase : PageModel
             return (PortalAuthResult.GuildNotFound, null);
         }
 
-        // Check if Discord guild is available
-        var socketGuild = _discordClient.GetGuild(guildId);
-        if (socketGuild == null)
+        // Check if the bot can see the Discord guild
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId, cancellationToken))
         {
             _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
             return (PortalAuthResult.GuildNotFound, null);
         }
 
-        // Set basic guild info for landing page (needed for both auth states)
+        // Set basic guild info for the landing and disabled pages (needed for every state)
         GuildId = guildId;
         GuildName = guild.Name;
         GuildIconUrl = guild.IconUrl;
-        IsOnline = _discordClient.ConnectionState == Discord.ConnectionState.Connected;
+        IsOnline = _guildDirectory.IsBotOnline;
+
+        var context = new PortalAuthContext { Guild = guild };
+
+        // The member portal has its own switch, independent of AudioEnabled (issue #947). It is checked
+        // before anything else, so a portal that is off is off for everyone, admins included.
+        var audioSettings = await _audioSettingsRepository.GetByGuildIdAsync(guildId, cancellationToken);
+        IsAudioDisabledForGuild = audioSettings == null || !audioSettings.AudioEnabled;
+        if (audioSettings == null || !audioSettings.EnableMemberPortal)
+        {
+            _logger.LogDebug("Member portal is not enabled for guild {GuildId}", guildId);
+            IsPortalDisabled = true;
+            return (PortalAuthResult.PortalDisabled, context);
+        }
 
         // Build login URL with return URL
         var returnUrl = HttpContext.Request.Path.ToString();
@@ -167,7 +196,7 @@ public abstract class PortalPageModelBase : PageModel
         if (!IsAuthenticated)
         {
             _logger.LogDebug("Unauthenticated user viewing landing page for guild {GuildId}", guildId);
-            return (PortalAuthResult.ShowLandingPage, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+            return (PortalAuthResult.ShowLandingPage, context);
         }
 
         // User is authenticated - check guild membership
@@ -176,7 +205,7 @@ public abstract class PortalPageModelBase : PageModel
         {
             _logger.LogDebug("User not found or no Discord linked, showing landing page for guild {GuildId}", guildId);
             IsAuthenticated = false; // Treat as unauthenticated for UI purposes
-            return (PortalAuthResult.ShowLandingPage, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+            return (PortalAuthResult.ShowLandingPage, context);
         }
 
         // SuperAdmins and Admins bypass guild membership checks (consistent with PortalGuildMemberAuthorizationHandler)
@@ -185,30 +214,15 @@ public abstract class PortalPageModelBase : PageModel
             _logger.LogDebug("Admin user {DiscordUserId} granted portal access for guild {GuildId}",
                 user.DiscordUserId.Value, guildId);
             IsAuthorized = true;
-            return (PortalAuthResult.Authorized, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+            return (PortalAuthResult.Authorized, context);
         }
 
         // Check if user is a member of the guild (cache first, then REST API fallback)
-        var guildUser = socketGuild.GetUser(user.DiscordUserId.Value);
-        if (guildUser == null)
+        if (!await _guildDirectory.IsMemberAsync(guildId, user.DiscordUserId.Value, cancellationToken))
         {
-            // Cache miss - try REST API (AlwaysDownloadUsers is false, so cache may be incomplete)
-            try
-            {
-                var restUser = await _discordClient.Rest.GetGuildUserAsync(guildId, user.DiscordUserId.Value);
-                if (restUser == null)
-                {
-                    _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
-                        user.DiscordUserId.Value, guildId);
-                    return (PortalAuthResult.NotGuildMember, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to verify guild membership via REST for user {DiscordUserId} in guild {GuildId}",
-                    user.DiscordUserId.Value, guildId);
-                return (PortalAuthResult.NotGuildMember, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
-            }
+            _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
+                user.DiscordUserId.Value, guildId);
+            return (PortalAuthResult.NotGuildMember, context);
         }
 
         // User is authenticated and authorized
@@ -216,7 +230,7 @@ public abstract class PortalPageModelBase : PageModel
         _logger.LogDebug("User {DiscordUserId} authorized for {PortalName} Portal in guild {GuildId}",
             user.DiscordUserId.Value, portalName, guildId);
 
-        return (PortalAuthResult.Authorized, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+        return (PortalAuthResult.Authorized, context);
     }
 
     /// <summary>
@@ -230,6 +244,7 @@ public abstract class PortalPageModelBase : PageModel
         {
             PortalAuthResult.GuildNotFound => NotFound(),
             PortalAuthResult.NotGuildMember => Forbid(),
+            PortalAuthResult.PortalDisabled => Page(), // The page renders the "portal disabled" notice
             PortalAuthResult.ShowLandingPage => null, // Continue to Page()
             PortalAuthResult.Authorized => null, // Continue to load full portal
             _ => NotFound()
@@ -237,43 +252,39 @@ public abstract class PortalPageModelBase : PageModel
     }
 
     /// <summary>
-    /// Builds a list of voice channels for the guild.
+    /// Builds the voice channel panel for a portal page from the bot's real voice state.
+    /// The panel talks to the portal's own endpoints, never to the Viewer-gated admin ones.
     /// </summary>
-    /// <param name="socketGuild">The Discord socket guild.</param>
-    /// <returns>List of voice channel information.</returns>
-    protected static List<VoiceChannelInfo> BuildVoiceChannelList(SocketGuild socketGuild)
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="audioService">The audio service, the source of the connection state.</param>
+    /// <param name="nowPlayingName">What is playing, or null for nothing.</param>
+    protected VoiceChannelPanelViewModel BuildVoicePanel(
+        ulong guildId,
+        IAudioService audioService,
+        string? nowPlayingName)
     {
-        var voiceChannels = new List<VoiceChannelInfo>();
-        foreach (var channel in socketGuild.VoiceChannels.Where(c => c != null).OrderBy(c => c.Position))
+        var connectedChannelId = audioService.GetConnectedChannelId(guildId);
+        var isConnected = audioService.IsConnected(guildId);
+        PortalVoiceChannel? connectedChannel = isConnected && connectedChannelId.HasValue
+            ? _guildDirectory.FindVoiceChannel(guildId, connectedChannelId.Value)
+            : null;
+
+        return new VoiceChannelPanelViewModel
         {
-            voiceChannels.Add(new VoiceChannelInfo
-            {
-                Id = channel.Id,
-                Name = channel.Name,
-                MemberCount = channel.ConnectedUsers.Count
-            });
-        }
-        return voiceChannels;
+            GuildId = guildId,
+            IsCompact = true,
+            ShowNowPlaying = true,
+            ShowProgress = false,
+            IsConnected = isConnected,
+            ConnectedChannelId = connectedChannelId,
+            ConnectedChannelName = connectedChannel?.Name,
+            ChannelMemberCount = connectedChannel?.MemberCount,
+            AvailableChannels = _guildDirectory.GetVoiceChannels(guildId)
+                .Select(c => new VoiceChannelInfo { Id = c.Id, Name = c.Name, MemberCount = c.MemberCount })
+                .ToList(),
+            NowPlaying = string.IsNullOrEmpty(nowPlayingName) ? null : new NowPlayingInfo { Name = nowPlayingName },
+            Queue = [],
+            ApiBase = $"/api/portal/soundboard/{guildId}"
+        };
     }
-}
-
-/// <summary>
-/// DTO for voice channel information in Portal pages.
-/// </summary>
-public class VoiceChannelInfo
-{
-    /// <summary>
-    /// Gets or sets the Discord snowflake ID of the voice channel.
-    /// </summary>
-    public ulong Id { get; set; }
-
-    /// <summary>
-    /// Gets or sets the name of the voice channel.
-    /// </summary>
-    public string Name { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the number of members currently in the channel.
-    /// </summary>
-    public int MemberCount { get; set; }
 }

@@ -2,7 +2,7 @@
 @model DiscordBot.Bot.Pages.Portal.Soundboard.IndexModel
 @using DiscordBot.Bot.ViewModels.Portal
 @{
-    ViewData["Title"] = Model.IsAuthenticated ? "Soundboard" : "Verify Your Membership";
+    ViewData["Title"] = Model.IsPortalDisabled ? "Portal Unavailable" : Model.IsAuthenticated ? "Soundboard" : "Verify Your Membership";
 }
 
 <style>
@@ -1029,7 +1029,11 @@
     }
 </style>
 
-@if (!Model.IsAuthenticated)
+@if (Model.IsPortalDisabled)
+{
+    @await Html.PartialAsync("../Shared/_PortalDisabled", new PortalUnauthorizedViewModel { GuildName = Model.GuildName })
+}
+else if (!Model.IsAuthenticated)
 {
     @await Html.PartialAsync("../Shared/_PortalLanding", new PortalLandingViewModel
     {
@@ -1058,7 +1062,11 @@ else
     <!-- Audio Globally Disabled Warning -->
     @if (Model.IsAudioGloballyDisabled)
     {
-        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning")
+        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning", (string?)null)
+    }
+    else if (Model.IsAudioDisabledForGuild)
+    {
+        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning", "Audio is switched off for this server, so nothing can be played right now. A server admin can turn it on in Audio Settings.")
     }
 
 <!-- Main Content -->

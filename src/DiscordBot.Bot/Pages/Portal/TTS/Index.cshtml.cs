@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
@@ -28,7 +27,8 @@ public class IndexModel : PortalPageModelBase
 
     public IndexModel(
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
+        IGuildAudioSettingsRepository audioSettingsRepository,
         IAudioService audioService,
         ITtsService ttsService,
         ISettingsService settingsService,
@@ -36,7 +36,7 @@ public class IndexModel : PortalPageModelBase
         IPlaybackService playbackService,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
-        : base(guildService, discordClient, userManager, logger)
+        : base(guildService, guildDirectory, audioSettingsRepository, userManager, logger)
     {
         _audioService = audioService;
         _ttsService = ttsService;
@@ -139,44 +139,11 @@ public class IndexModel : PortalPageModelBase
 
             // User is authorized - load full TTS interface
 
-            // Build voice channel panel data
-            var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
-            var isConnected = _audioService.IsConnected(guildId);
-            string? connectedChannelName = null;
-            int? channelMemberCount = null;
-
-            if (isConnected && connectedChannelId.HasValue)
-            {
-                var connectedChannel = context!.SocketGuild.GetVoiceChannel(connectedChannelId.Value);
-                if (connectedChannel != null)
-                {
-                    connectedChannelName = connectedChannel.Name;
-                    channelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
-                }
-            }
-
-            VoicePanel = new VoiceChannelPanelViewModel
-            {
-                GuildId = guildId,
-                IsCompact = true,
-                ShowNowPlaying = true,
-                ShowProgress = false,
-                IsConnected = isConnected,
-                ConnectedChannelId = connectedChannelId,
-                ConnectedChannelName = connectedChannelName,
-                ChannelMemberCount = channelMemberCount,
-                AvailableChannels = BuildVoiceChannelList(context!.SocketGuild)
-                    .Select(c => new DiscordBot.Bot.ViewModels.Components.VoiceChannelInfo
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        MemberCount = c.MemberCount
-                    }).ToList(),
-                NowPlaying = _playbackService.IsPlaying(guildId)
-                    ? new NowPlayingInfo { Name = "TTS Message" }
-                    : null,
-                Queue = []
-            };
+            // Build voice channel panel data from the bot's real voice state
+            VoicePanel = BuildVoicePanel(
+                guildId,
+                _audioService,
+                _playbackService.IsPlaying(guildId) ? "TTS Message" : null);
 
             // Get TTS settings and build SSML component view models
             var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);

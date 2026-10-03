@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
@@ -23,7 +22,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
     private readonly IPlaybackService _playbackService;
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ISoundboardOrchestrationService _orchestrationService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IPortalGuildDirectory _guildDirectory;
     private readonly ILogger<PortalSoundboardPlaybackController> _logger;
 
     public PortalSoundboardPlaybackController(
@@ -31,7 +30,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
         IPlaybackService playbackService,
         IGuildAudioSettingsService audioSettingsService,
         ISoundboardOrchestrationService orchestrationService,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
         ISettingsService settingsService,
         ILogger<PortalSoundboardPlaybackController> logger)
         : base(settingsService)
@@ -40,7 +39,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
         _playbackService = playbackService;
         _audioSettingsService = audioSettingsService;
         _orchestrationService = orchestrationService;
-        _discordClient = discordClient;
+        _guildDirectory = guildDirectory;
         _logger = logger;
     }
 
@@ -149,12 +148,11 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
     [HttpGet("channels")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
-    public IActionResult GetVoiceChannels(ulong guildId)
+    public async Task<IActionResult> GetVoiceChannels(ulong guildId, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Get voice channels request for guild {GuildId}", guildId);
 
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId, cancellationToken))
         {
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
@@ -167,8 +165,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             });
         }
 
-        var voiceChannels = guild.VoiceChannels
-            .OrderBy(c => c.Position)
+        var voiceChannels = _guildDirectory.GetVoiceChannels(guildId)
             .Select(c => new
             {
                 id = c.Id.ToString(), // Discord snowflake IDs must be strings in JSON
@@ -346,9 +343,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
 
         if (channelId.HasValue)
         {
-            var guild = _discordClient.GetGuild(guildId);
-            var channel = guild?.GetVoiceChannel(channelId.Value);
-            channelName = channel?.Name;
+            channelName = _guildDirectory.FindVoiceChannel(guildId, channelId.Value)?.Name;
         }
 
         // Note: PlaybackService does not expose CurrentSound publicly, so we cannot return now playing

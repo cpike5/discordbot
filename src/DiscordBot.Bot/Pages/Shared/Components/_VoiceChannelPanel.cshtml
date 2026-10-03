@@ -111,7 +111,8 @@
      class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden @panelClass"
      data-guild-id="@Model.GuildId"
      data-connected="@Model.IsConnected.ToString().ToLower()"
-     data-channel-id="@Model.ConnectedChannelId">
+     data-channel-id="@Model.ConnectedChannelId"
+     @if (Model.IsPortal) { <text>data-api-base="@Model.ApiBase"</text> }>
 
     <!-- Mobile Collapsible Toggle (visible < 1024px) -->
     <button type="button"
