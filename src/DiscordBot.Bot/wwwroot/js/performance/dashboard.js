@@ -395,7 +395,8 @@
 
             const Live = root.Performance && root.Performance.Live;
             if (Live) {
-                Live.subscribe(mod && mod.live ? mod.live : null);
+                Live.subscribe(mod && mod.live ? mod.live : null)
+                    .catch(function (e) { console.error('Performance live updates failed to start', e); });
             }
             this.renderStatus();
             this.announce((LABELS[tabId] || tabId) + ' tab loaded');
@@ -430,7 +431,7 @@
             if (!panel) return;
             this.destroyAll();
             const Live = root.Performance && root.Performance.Live;
-            if (Live) Live.unsubscribe();
+            if (Live) Live.unsubscribe().catch(function (e) { console.error('Performance live updates failed to stop', e); });
             const message = error && error.name === 'ApiClientError' && error.message
                 ? error.message
                 : 'Something went wrong while loading. Check your connection and try again.';

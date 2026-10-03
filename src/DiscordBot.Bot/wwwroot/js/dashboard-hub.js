@@ -376,18 +376,20 @@ const DashboardHub = (function() {
 
     /**
      * Joins the performance group to receive real-time performance metrics updates.
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>} True once the server confirmed the join; false when not connected or the join failed.
      */
     async function joinPerformanceGroup() {
         if (!connection || !isConnected) {
             console.warn('[DashboardHub] Not connected, cannot join performance group');
-            return;
+            return false;
         }
         try {
             await connection.invoke('JoinPerformanceGroup');
             console.log('[DashboardHub] Joined performance group');
+            return true;
         } catch (error) {
             console.error('[DashboardHub] Failed to join performance group:', error);
+            return false;
         }
     }
 
@@ -427,18 +429,20 @@ const DashboardHub = (function() {
 
     /**
      * Joins the alerts group to receive real-time alert notifications.
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>} True once the server confirmed the join; false when not connected or the join failed.
      */
     async function joinAlertsGroup() {
         if (!connection || !isConnected) {
             console.warn('[DashboardHub] Not connected, cannot join alerts group');
-            return;
+            return false;
         }
         try {
             await connection.invoke('JoinAlertsGroup');
             console.log('[DashboardHub] Joined alerts group');
+            return true;
         } catch (error) {
             console.error('[DashboardHub] Failed to join alerts group:', error);
+            return false;
         }
     }
 
@@ -478,18 +482,20 @@ const DashboardHub = (function() {
 
     /**
      * Joins the system health group to receive real-time system health updates.
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>} True once the server confirmed the join; false when not connected or the join failed.
      */
     async function joinSystemHealthGroup() {
         if (!connection || !isConnected) {
             console.warn('[DashboardHub] Not connected, cannot join system health group');
-            return;
+            return false;
         }
         try {
             await connection.invoke('JoinSystemHealthGroup');
             console.log('[DashboardHub] Joined system health group');
+            return true;
         } catch (error) {
             console.error('[DashboardHub] Failed to join system health group:', error);
+            return false;
         }
     }
 
