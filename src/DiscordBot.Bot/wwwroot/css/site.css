@@ -4827,3 +4827,28 @@
   background-color: var(--color-warning-fill);
   box-shadow: 0 0 12px rgba(var(--color-warning-rgb), 0.55);
 }
+
+/* Phase 12 — notification bell: the title is the link, stretched over the whole item */
+@layer components {
+  .notification-title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .notification-title-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+  .notification-title-link:hover {
+    text-decoration: underline;
+  }
+  /* Keyboard focus lands on the link or a button, not on the item itself */
+  .notification-item:focus-within {
+    background-color: var(--color-bg-hover);
+  }
+  .notification-item:focus-within .notification-actions {
+    opacity: 1;
+  }
+}

@@ -8,7 +8,7 @@
 }
 
 <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-    <a href="/Guilds/@Model.ViewModel.GuildId/Currency"
+    <a asp-page="/Guilds/Currency/Index" asp-route-guildId="@Model.ViewModel.GuildId"
        class="inline-flex items-center gap-2 text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
@@ -18,8 +18,7 @@
 
     @if (Model.ViewModel.CanAdminister)
     {
-        <button type="button" id="reconcile-button"
-                class="px-3 py-1.5 text-xs font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+        <button type="button" id="reconcile-button" class="btn btn-secondary btn-sm">
             Run reconcile check
         </button>
     }
@@ -80,6 +79,7 @@ else if (Model.IsCurrencyRuntimeDisabled)
             currencyId: '@currency.Id'
         };
     </script>
+    <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script src="~/js/currency/currency-wallets.js" asp-append-version="true"></script>
     @if (Model.ViewModel.CanAdminister)
     {

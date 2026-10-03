@@ -135,4 +135,17 @@ public interface INotificationManager
     Task<int> DeleteAllAsync(
         string userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes the notifications of a user that match the filters of a query (paging is ignored).
+    /// This is what "Delete all" does on a filtered notification list.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID.</param>
+    /// <param name="query">The filters; the same ones the notification list applies.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of notifications deleted.</returns>
+    Task<int> DeleteMatchingAsync(
+        string userId,
+        NotificationQueryDto query,
+        CancellationToken cancellationToken = default);
 }

@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Core.Interfaces;
@@ -127,5 +128,19 @@ public interface INotificationWriter
     /// <returns>Number of notifications deleted.</returns>
     Task<int> DeleteAllByUserAsync(
         string userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes every notification of a user that matches the filters of a query
+    /// (type, read state, severity, date range, guild, search term). Paging fields are ignored.
+    /// A query with no filters deletes everything, like <see cref="DeleteAllByUserAsync"/>.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID.</param>
+    /// <param name="query">The filters; the same ones the notification list applies.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of notifications deleted.</returns>
+    Task<int> DeleteMatchingAsync(
+        string userId,
+        NotificationQueryDto query,
         CancellationToken cancellationToken = default);
 }

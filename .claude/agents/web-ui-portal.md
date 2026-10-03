@@ -25,7 +25,7 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - **Data Cards:** `_AuditLogCard`, `_CommandStatsCard`
 - **Input:** `_AutocompleteInput`
 - **Previews:** `_GuildPreviewPopup`
-- **Currency:** `_CurrencyWalletPanel` — holder list + ledger + the mint/fine/adjust modal for one currency, filled by `wwwroot/js/currency/currency-wallets.js`. `CanMint`/`CanFine`/`CanAdminister` decide which actions render at all; `window.CurrencyWallets.setCurrency(id, symbol)` repoints it (the bot-wide page starts with none selected).
+- **Currency:** `_CurrencyWalletPanel` — holder list + ledger + the mint/fine/adjust dialog for one currency (member chosen with the user picker), filled by `wwwroot/js/currency/currency-wallets.js`. `_CurrencyManageModals` (editor + mint authorities, shared by both currency pages), `_CurrencyCard` / `_CurrencyRow` (patched in place by `currency-manage.js`, never a reload; a create clones the page's `<template>`). `CanMint`/`CanFine`/`CanAdminister` decide which actions render at all; `window.CurrencyWallets.setCurrency(id, symbol)` repoints it (the bot-wide page starts with none selected).
 - **Showcase:** `Components.cshtml` — living reference, keep updated when adding components
 
 ### Layouts

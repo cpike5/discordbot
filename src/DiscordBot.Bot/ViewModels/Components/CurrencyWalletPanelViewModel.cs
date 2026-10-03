@@ -24,4 +24,10 @@ public record CurrencyWalletPanelViewModel
 
     /// <summary>Whether the viewer may adjust rows and run the reconcile check.</summary>
     public bool CanAdminister { get; init; }
+
+    /// <summary>
+    /// The guild the holder picker searches within. Null on the bot-wide page, where the picker
+    /// searches every user the bot has seen.
+    /// </summary>
+    public ulong? GuildId { get; init; }
 }

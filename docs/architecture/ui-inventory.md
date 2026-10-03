@@ -45,18 +45,18 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/admin/users/create` | `Pages/Admin/Users/Create.cshtml` | Create new user |
 | `/admin/users/edit/{id}` | `Pages/Admin/Users/Edit.cshtml` | Edit user details |
 | `/admin/users/{id}` | `Pages/Admin/Users/Details.cshtml` | User details view |
-| `/admin/audit-logs` | `Pages/Admin/AuditLogs/Index.cshtml` | Audit log viewer |
-| `/admin/audit-logs/{id}` | `Pages/Admin/AuditLogs/Details.cshtml` | Audit log entry details |
+| `/admin/audit-logs` | `Pages/Admin/AuditLogs/Index.cshtml` | Old address: redirects to the Audit tab of `/admin/logs`, and `?handler=Export` to its export, keeping the filters |
+| `/admin/audit-logs/{id}` | `Pages/Admin/AuditLogs/Details.cshtml` | Audit log entry details. Back and the breadcrumb follow `returnUrl` (the Logs tab with its filters and page) |
 | `/admin/message-logs` | `Pages/Admin/MessageLogs/Index.cshtml` | Message log viewer |
-| `/admin/message-logs/{id}` | `Pages/Admin/MessageLogs/Details.cshtml` | Message details |
+| `/admin/message-logs/{id}` | `Pages/Admin/MessageLogs/Details.cshtml` | Message details. Back follows `returnUrl` (the Messages tab with its filters and page); long content wraps |
 | `/admin/performance` | `Pages/Admin/Performance/Index.cshtml` | Performance metrics dashboard (tabbed) |
-| `/admin/logs` | `Pages/Admin/Logs/Index.cshtml` | System logs viewer |
-| `/admin/notifications` | `Pages/Admin/Notifications/Index.cshtml` | Notification center |
+| `/admin/logs` | `Pages/Admin/Logs/Index.cshtml` | Message and audit logs. Tabs are page navigation (`?tab=messages|audit`): only the active tab's data is read, and a failed read shows an error state with Retry instead of an empty table. Audit export (`?handler=Export`) streams CSV in pages of 100, capped at 10,000 rows (the file name says `-first-10000` when cut), with UTC column headers. `wwwroot/js/logs-page.js` drives the filter toggle, row expanders and the message "Show more". The disabled Application tab is gone (decision D11). |
+| `/admin/notifications` | `Pages/Admin/Notifications/Index.cshtml` | Notification center. A list with no filters shows the last 7 days as a clearable chip (`?AllTime=true` clears it). Mark read, delete and bulk actions update the list in place (`wwwroot/js/notification-history.js`, no reload); Delete all sends the list's own filters and asks for typed confirmation; Mark all read asks nothing. |
 | `/admin/bulk-purge` | `Pages/Admin/BulkPurge.cshtml` | Bulk user/data purge tool |
 | `/admin/user-purge` | `Pages/Admin/UserPurge.cshtml` | User purge utility |
 | `/admin/ratwatch-analytics` | `Pages/Admin/RatWatchAnalytics.cshtml` | RatWatch analytics dashboard |
-| `/Admin/Currency` | `Pages/Admin/Currency/Index.cshtml` | Bot-wide currencies, including the credit that backs paid features: create, edit, deactivate, mint authorities, and the shared wallet/ledger panel across every guild. SuperAdmin only; sidebar entry "Currency" in the Administration group. |
-| `/admin/llm-usage` | `Pages/Admin/LlmUsage.cshtml` | Portal-wide LLM token/cost usage dashboard — date-range/guild/mode filters, hero totals, breakdowns by user/model/mode/day (rendered server-side from `ILlmUsageRepository`), and a per-user drill-down of raw ledger rows fetched client-side (`wwwroot/js/llm-usage.js`) from `LlmUsageController` (`api/admin/llm-usage/records`). Sidebar entry "LLM Usage" in the Administration group. |
+| `/Admin/Currency` | `Pages/Admin/Currency/Index.cshtml` | Bot-wide currencies, including the credit that backs paid features: create, edit, deactivate, mint authorities, and the shared wallet/ledger panel across every guild. Rows are `_CurrencyRow`, patched in place like the guild cards; Mint stays disabled until a currency is chosen. SuperAdmin only; sidebar entry "Currency" in the Administration group. |
+| `/admin/llm-usage` | `Pages/Admin/LlmUsage.cshtml` | Portal-wide LLM token/cost usage dashboard — date-range/guild/mode filters, hero totals, breakdowns by user/model/mode/day (rendered server-side from `ILlmUsageRepository`), and a per-user drill-down of raw ledger rows fetched client-side (`wwwroot/js/llm-usage.js`) from `LlmUsageController` (`api/admin/llm-usage/records`). Each user is a real button; the drill-down has loading, empty and error states, aborts a request a newer one replaces, and shows times in the viewer's zone. The date range is the viewer's own calendar days (sent as `UserTimezone`); the daily breakdown groups by UTC day and says so. Sidebar entry "LLM Usage" in the Administration group. |
 
 ### Guild Pages (Per-Server Management)
 
@@ -86,7 +86,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/guild/{guildId}/text-to-speech` | `Pages/Guilds/TextToSpeech/Index.cshtml` | TTS configuration |
 | `/guild/{guildId}/vox` | `Pages/Guilds/VOX/Index.cshtml` | VOX clip management |
 | `/guild/{guildId}/leaderboard` | `Pages/Guilds/PublicLeaderboard.cshtml` | Public member leaderboard |
-| `/Guilds/{guildId}/Currency` | `Pages/Guilds/Currency/Index.cshtml` | Guild currencies: create, edit rules, deactivate, manage mint authorities. Server-rendered cards with holder/circulation/debtor totals; every write goes out through `CurrenciesController` from `wwwroot/js/currency/currency-manage.js`. Admin + `GuildAccess`. |
+| `/Guilds/{guildId}/Currency` | `Pages/Guilds/Currency/Index.cshtml` | Guild currencies: create, edit rules, deactivate, manage mint authorities. Server-rendered cards (`_CurrencyCard`) with holder/circulation/debtor totals; every write goes out through `CurrenciesController` from `wwwroot/js/currency/currency-manage.js`, which patches the card in place (a new one is cloned from the page's `<template id="currency-item-template">`) and never reloads. Admin + `GuildAccess`. |
 | `/Guilds/{guildId}/Currency/{currencyId}` | `Pages/Guilds/Currency/Details.cshtml` | One currency's wallets and ledger, with mint / fine / adjust and the reconcile check. Renders the shared `_CurrencyWalletPanel`, driven by `currency-wallets.js` (+ `currency-reconcile.js` for administrators). Moderator + `GuildAccess`; what the viewer may actually do comes from `ICurrencyAccessService`. |
 | `/Guilds/{guildId}/Currency/Prices` | `Pages/Guilds/Currency/Prices.cshtml` | Soundboard prices: per-sound price, currency picker, exempt-role picker, plus a read-only list of prices that are not this guild's sounds. Rows are keyed by `CurrencyFeatureKeys.Soundboard(soundId)` and `currency-prices.js` sends that key back untouched. Admin + `GuildAccess`. |
 
@@ -237,7 +237,9 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Quick Actions Card** | `_QuickActionsCard.cshtml` | Card with action buttons/links | `QuickActionsCardViewModel` |
 | **Guild Header** | `_GuildHeader.cshtml` | Guild name/icon header | `GuildHeaderViewModel` |
 | **Voice Channel Panel** | `_VoiceChannelPanel.cshtml` | Voice channel list/control panel | `VoiceChannelPanelViewModel` |
-| **Currency Wallet Panel** | `_CurrencyWalletPanel.cshtml` | Holder list, ledger with paging, and the mint / fine / adjust modal for one currency. Static markup filled by `currency-wallets.js`; the `CanMint` / `CanFine` / `CanAdminister` flags decide which actions are rendered at all. Shared by the guild currency detail page and `/Admin/Currency`. | `CurrencyWalletPanelViewModel` |
+| **Currency Wallet Panel** | `_CurrencyWalletPanel.cshtml` | Holder list, ledger with paging, and the mint / fine / adjust dialog for one currency (a `quickActions` dialog; the member is chosen with the user picker, not a typed ID). Static markup filled by `currency-wallets.js`; the `CanMint` / `CanFine` / `CanAdminister` flags decide which actions are rendered at all, and Mint is disabled until a currency is chosen. Shared by the guild currency detail page and `/Admin/Currency`. | `CurrencyWalletPanelViewModel` |
+| **Currency Manage Modals** | `_CurrencyManageModals.cshtml` | The currency editor and mint authority dialogs shared by `/Guilds/{guildId}/Currency` and `/Admin/Currency` (`quickActions` dialogs; user picker, role select on the guild page, revoke asks for confirmation). | `CurrencyManageModalsViewModel` |
+| **Currency Card / Row** | `_CurrencyCard.cshtml`, `_CurrencyRow.cshtml` | One currency as a guild card or a bot-wide table row. Elements a script changes carry `data-field`; the same markup is rendered blank inside the page's `<template>` for a create. | `CurrencyPortalItemViewModel` |
 
 ### TTS & Audio Components
 

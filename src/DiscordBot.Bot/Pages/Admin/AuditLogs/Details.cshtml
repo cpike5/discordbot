@@ -12,7 +12,7 @@
         </li>
         <li class="text-text-tertiary">/</li>
         <li>
-            <a asp-page="/Admin/AuditLogs/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Audit Logs</a>
+            <a href="@Model.ReturnUrl" class="text-text-secondary hover:text-accent-blue transition-colors">Audit Logs</a>
         </li>
         <li class="text-text-tertiary">/</li>
         <li class="text-text-primary font-medium">Entry Details</li>
@@ -278,7 +278,7 @@
                                         <span class="text-sm text-text-secondary">@entry.TargetType</span>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-right">
-                                        <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@entry.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                        <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@entry.Id" asp-route-returnUrl="@Model.ReturnUrl" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
                                             View
                                         </a>
                                     </td>

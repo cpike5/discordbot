@@ -320,7 +320,7 @@ public class MessageLogService : IMessageLogService
             var csv = new StringBuilder();
 
             // Write CSV header
-            csv.AppendLine("Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId");
+            csv.AppendLine("Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp (UTC),LoggedAt (UTC),HasAttachments,HasEmbeds,ReplyToMessageId");
 
             // Write data rows
             foreach (var message in items)
@@ -333,8 +333,8 @@ public class MessageLogService : IMessageLogService
                     message.GuildId?.ToString() ?? "",
                     message.Source.ToString(),
                     EscapeCsvField(message.Content),
-                    message.Timestamp.ToString("O"),
-                    message.LoggedAt.ToString("O"),
+                    DateTime.SpecifyKind(message.Timestamp, DateTimeKind.Utc).ToString("O"),
+                    DateTime.SpecifyKind(message.LoggedAt, DateTimeKind.Utc).ToString("O"),
                     message.HasAttachments,
                     message.HasEmbeds,
                     message.ReplyToMessageId?.ToString() ?? ""

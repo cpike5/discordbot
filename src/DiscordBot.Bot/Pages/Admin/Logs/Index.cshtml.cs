@@ -119,28 +119,57 @@ public class IndexModel : PageModel
     public IReadOnlyList<GuildDto> AvailableGuilds { get; set; } = Array.Empty<GuildDto>();
     public string ActiveTab { get; set; } = "messages";
 
+    /// <summary>True when no date range was asked for and the default (last 7 days) was applied.</summary>
+    public bool MessageDatesDefaulted { get; private set; }
+
+    /// <summary>True when no date range was asked for and the default (last 30 days) was applied.</summary>
+    public bool AuditDatesDefaulted { get; private set; }
+
     /// <summary>
-    /// Page-state error shown when the active tab's logs failed to load.
+    /// Whether the user narrowed the message list. The default date range does not count, so a
+    /// fresh visit with nothing logged is "nothing yet" and not "nothing matches your filters".
+    /// </summary>
+    public bool MessageHasUserFilters =>
+        AuthorId.HasValue || MessageGuildId.HasValue || ChannelId.HasValue ||
+        !string.IsNullOrEmpty(MessageSource) || !string.IsNullOrWhiteSpace(MessageSearchTerm) ||
+        (!MessageDatesDefaulted && (MessageStartDate.HasValue || MessageEndDate.HasValue));
+
+    /// <summary>Whether the user narrowed the audit list. The default date range does not count.</summary>
+    public bool AuditHasUserFilters =>
+        Category.HasValue || Action.HasValue || !string.IsNullOrWhiteSpace(ActorId) ||
+        !string.IsNullOrWhiteSpace(TargetType) || AuditGuildId.HasValue ||
+        !string.IsNullOrWhiteSpace(AuditSearchTerm) ||
+        (!AuditDatesDefaulted && (AuditStartDate.HasValue || AuditEndDate.HasValue));
+
+    /// <summary>
+    /// Page-state error shown in place of the results when the active tab's logs failed to load.
+    /// Plain page state, never TempData.
     /// </summary>
     public string? ErrorMessage { get; set; }
 
+    /// <summary>
+    /// The address of this page as requested (path and query), used by Retry and as the
+    /// <c>returnUrl</c> that detail pages send the user back to with the filters intact.
+    /// </summary>
+    public string CurrentUrl => $"{Request.Path}{Request.QueryString}";
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        // Determine active tab (default to "messages")
-        ActiveTab = string.IsNullOrWhiteSpace(Tab) ? "messages" : Tab.ToLowerInvariant();
+        // Determine active tab (default to "messages"; anything unknown falls back to it)
+        ActiveTab = string.Equals(Tab, "audit", StringComparison.OrdinalIgnoreCase) ? "audit" : "messages";
 
         _logger.LogDebug("Loading unified Logs page with active tab: {ActiveTab}", ActiveTab);
 
         try
         {
-            // Only load data for the active tab
-            if (ActiveTab == "messages")
-            {
-                await LoadMessageLogsAsync(cancellationToken);
-            }
-            else if (ActiveTab == "audit")
+            // Tabs are separate page loads (?tab=), so only the active tab's data is read
+            if (ActiveTab == "audit")
             {
                 await LoadAuditLogsAsync(cancellationToken);
+            }
+            else
+            {
+                await LoadMessageLogsAsync(cancellationToken);
             }
 
             return Page();
@@ -148,7 +177,9 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading unified Logs page");
-            ErrorMessage = "An error occurred while loading logs. Please try again.";
+            ErrorMessage = ActiveTab == "audit"
+                ? "The audit log could not be loaded. Try again in a moment."
+                : "The message log could not be loaded. Try again in a moment.";
             return Page();
         }
     }
@@ -160,6 +191,7 @@ public class IndexModel : PageModel
         {
             MessageStartDate = DateTime.UtcNow.Date.AddDays(-7);
             MessageEndDate = DateTime.UtcNow.Date.AddDays(1);
+            MessageDatesDefaulted = true;
         }
 
         _logger.LogDebug("Loading message logs with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
@@ -222,6 +254,7 @@ public class IndexModel : PageModel
         {
             AuditStartDate = DateTime.UtcNow.Date.AddDays(-30);
             AuditEndDate = DateTime.UtcNow.Date.AddDays(1);
+            AuditDatesDefaulted = true;
         }
 
         _logger.LogDebug("Loading audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, TargetType={TargetType}, GuildId={GuildId}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
@@ -238,40 +271,7 @@ public class IndexModel : PageModel
             ActorDisplayName = message?.User?.Username;
         }
 
-        // Convert date filters from user timezone to UTC
-        DateTime? queryStartDate = null;
-        DateTime? queryEndDate = null;
-
-        if (AuditStartDate.HasValue)
-        {
-            var startOfDay = AuditStartDate.Value.Date;
-            queryStartDate = TimezoneHelper.ConvertToUtc(startOfDay, UserTimezone);
-            _logger.LogDebug("Converted StartDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
-                startOfDay, UserTimezone ?? "UTC", queryStartDate);
-        }
-
-        if (AuditEndDate.HasValue)
-        {
-            var endOfDay = AuditEndDate.Value.Date.AddDays(1).AddTicks(-1);
-            queryEndDate = TimezoneHelper.ConvertToUtc(endOfDay, UserTimezone);
-            _logger.LogDebug("Converted EndDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
-                endOfDay, UserTimezone ?? "UTC", queryEndDate);
-        }
-
-        // Build query
-        var query = new AuditLogQueryDto
-        {
-            Category = Category,
-            Action = Action,
-            ActorId = ActorId,
-            TargetType = TargetType,
-            GuildId = AuditGuildId,
-            StartDate = queryStartDate,
-            EndDate = queryEndDate,
-            SearchTerm = AuditSearchTerm,
-            Page = AuditCurrentPage,
-            PageSize = AuditPageSize
-        };
+        var query = BuildAuditQuery(AuditCurrentPage, AuditPageSize);
 
         // Get audit logs
         var (items, totalCount) = await _auditLogService.GetLogsAsync(query, cancellationToken);
@@ -335,79 +335,144 @@ public class IndexModel : PageModel
         }
     }
 
+    /// <summary>
+    /// Rows the audit export writes at most. A bigger result is cut off here, and the file name
+    /// says so, rather than holding every row in memory or timing out.
+    /// </summary>
+    internal const int ExportRowCap = 10_000;
+
+    /// <summary>The audit log service clamps a page to 100 rows, so the export reads in pages of that size.</summary>
+    private const int ExportPageSize = 100;
+
+    /// <summary>
+    /// Streams the audit entries that match the current filters as CSV, a page at a time, so the
+    /// whole result never sits in memory. Time columns are UTC and say so (UX decision D6).
+    /// </summary>
     public async Task<IActionResult> OnGetExportAsync(CancellationToken cancellationToken)
     {
+        // The first page is read before the response starts, so a failure can still become an
+        // error toast and a redirect instead of a broken download.
+        var query = BuildAuditQuery(page: 1, pageSize: ExportPageSize);
+        IReadOnlyList<AuditLogDto> items;
+        int totalCount;
         try
         {
             _logger.LogInformation("Exporting audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, TargetType={TargetType}, GuildId={GuildId}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}",
                 Category, Action, ActorId, TargetType, AuditGuildId, AuditStartDate, AuditEndDate, AuditSearchTerm);
 
-            // Convert date filters from user timezone to UTC (same as LoadAuditLogsAsync)
-            DateTime? queryStartDate = null;
-            DateTime? queryEndDate = null;
-
-            if (AuditStartDate.HasValue)
-            {
-                var startOfDay = AuditStartDate.Value.Date;
-                queryStartDate = TimezoneHelper.ConvertToUtc(startOfDay, UserTimezone);
-            }
-
-            if (AuditEndDate.HasValue)
-            {
-                var endOfDay = AuditEndDate.Value.Date.AddDays(1).AddTicks(-1);
-                queryEndDate = TimezoneHelper.ConvertToUtc(endOfDay, UserTimezone);
-            }
-
-            // Build query with no pagination (get all matching logs)
-            var query = new AuditLogQueryDto
-            {
-                Category = Category,
-                Action = Action,
-                ActorId = ActorId,
-                TargetType = TargetType,
-                GuildId = AuditGuildId,
-                StartDate = queryStartDate,
-                EndDate = queryEndDate,
-                SearchTerm = AuditSearchTerm,
-                Page = 1,
-                PageSize = int.MaxValue // Get all results for export
-            };
-
-            // Get all matching audit logs
-            var (items, totalCount) = await _auditLogService.GetLogsAsync(query, cancellationToken);
-
-            _logger.LogInformation("Exporting {Count} audit log entries to CSV", totalCount);
-
-            // Generate CSV
-            var csv = new StringBuilder();
-            csv.AppendLine("Timestamp,Category,Action,Actor,Target Type,Target ID,Guild,Details,IP Address,Correlation ID");
-
-            foreach (var log in items)
-            {
-                csv.AppendLine($"\"{log.Timestamp:yyyy-MM-dd HH:mm:ss}\"," +
-                    $"\"{EscapeCsv(log.CategoryName)}\"," +
-                    $"\"{EscapeCsv(log.ActionName)}\"," +
-                    $"\"{EscapeCsv(log.ActorDisplayName ?? log.ActorId ?? string.Empty)}\"," +
-                    $"\"{EscapeCsv(log.TargetType ?? string.Empty)}\"," +
-                    $"\"{EscapeCsv(log.TargetId ?? string.Empty)}\"," +
-                    $"\"{EscapeCsv(log.GuildName ?? string.Empty)}\"," +
-                    $"\"{EscapeCsv(log.Details ?? string.Empty)}\"," +
-                    $"\"{EscapeCsv(log.IpAddress ?? string.Empty)}\"," +
-                    $"\"{EscapeCsv(log.CorrelationId ?? string.Empty)}\"");
-            }
-
-            var fileName = $"audit-logs-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
-            var bytes = Encoding.UTF8.GetBytes(csv.ToString());
-
-            return File(bytes, "text/csv", fileName);
+            (items, totalCount) = await _auditLogService.GetLogsAsync(query, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error exporting audit logs to CSV");
-            TempData.SetErrorToast("An error occurred while exporting audit logs. Please try again.");
-            return RedirectToPage();
+            TempData.SetErrorToast("The audit log could not be exported. Try again in a moment.");
+            return RedirectToPage(new { tab = "audit" });
         }
+
+        var truncated = totalCount > ExportRowCap;
+        var fileName = $"audit-logs-{DateTime.UtcNow:yyyyMMdd-HHmmss}{(truncated ? $"-first-{ExportRowCap}" : string.Empty)}.csv";
+        Response.ContentType = "text/csv; charset=utf-8";
+        Response.Headers.ContentDisposition = $"attachment; filename=\"{fileName}\"";
+
+        try
+        {
+            await using var writer = new StreamWriter(Response.Body, new UTF8Encoding(false), 4096, leaveOpen: true);
+            await writer.WriteLineAsync("Timestamp (UTC),Category,Action,Actor,Target Type,Target ID,Guild,Details,IP Address,Correlation ID");
+
+            var written = 0;
+            while (true)
+            {
+                foreach (var log in items)
+                {
+                    if (written >= ExportRowCap)
+                    {
+                        break;
+                    }
+
+                    await writer.WriteLineAsync(FormatExportRow(log));
+                    written++;
+                }
+
+                await writer.FlushAsync(cancellationToken);
+
+                if (written >= ExportRowCap || written >= totalCount || items.Count < ExportPageSize)
+                {
+                    break;
+                }
+
+                query.Page++;
+                (items, totalCount) = await _auditLogService.GetLogsAsync(query, cancellationToken);
+                if (items.Count == 0)
+                {
+                    break;
+                }
+            }
+
+            _logger.LogInformation("Exported {Count} of {Total} audit log entries to CSV", written, totalCount);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The download has started, so a redirect is no longer possible. Drop the connection:
+            // the browser then reports a failed download instead of keeping a file that looks
+            // complete and is not.
+            _logger.LogError(ex, "Error streaming the audit log export");
+            HttpContext.Abort();
+        }
+
+        return new EmptyResult();
     }
+
+    /// <summary>
+    /// Builds the audit query from the bound filters, converting the date range from the user's
+    /// time zone to UTC.
+    /// </summary>
+    private AuditLogQueryDto BuildAuditQuery(int page, int pageSize)
+    {
+        DateTime? queryStartDate = null;
+        DateTime? queryEndDate = null;
+
+        if (AuditStartDate.HasValue)
+        {
+            var startOfDay = AuditStartDate.Value.Date;
+            queryStartDate = TimezoneHelper.ConvertToUtc(startOfDay, UserTimezone);
+            _logger.LogDebug("Converted StartDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
+                startOfDay, UserTimezone ?? "UTC", queryStartDate);
+        }
+
+        if (AuditEndDate.HasValue)
+        {
+            var endOfDay = AuditEndDate.Value.Date.AddDays(1).AddTicks(-1);
+            queryEndDate = TimezoneHelper.ConvertToUtc(endOfDay, UserTimezone);
+            _logger.LogDebug("Converted EndDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
+                endOfDay, UserTimezone ?? "UTC", queryEndDate);
+        }
+
+        return new AuditLogQueryDto
+        {
+            Category = Category,
+            Action = Action,
+            ActorId = ActorId,
+            TargetType = TargetType,
+            GuildId = AuditGuildId,
+            StartDate = queryStartDate,
+            EndDate = queryEndDate,
+            SearchTerm = AuditSearchTerm,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private static string FormatExportRow(AuditLogDto log) =>
+        $"\"{log.Timestamp:yyyy-MM-dd HH:mm:ss}\"," +
+        $"\"{EscapeCsv(log.CategoryName)}\"," +
+        $"\"{EscapeCsv(log.ActionName)}\"," +
+        $"\"{EscapeCsv(log.ActorDisplayName ?? log.ActorId ?? string.Empty)}\"," +
+        $"\"{EscapeCsv(log.TargetType ?? string.Empty)}\"," +
+        $"\"{EscapeCsv(log.TargetId ?? string.Empty)}\"," +
+        $"\"{EscapeCsv(log.GuildName ?? string.Empty)}\"," +
+        $"\"{EscapeCsv(log.Details ?? string.Empty)}\"," +
+        $"\"{EscapeCsv(log.IpAddress ?? string.Empty)}\"," +
+        $"\"{EscapeCsv(log.CorrelationId ?? string.Empty)}\"";
 
     /// <summary>
     /// Escapes CSV field values to prevent injection and formatting issues.

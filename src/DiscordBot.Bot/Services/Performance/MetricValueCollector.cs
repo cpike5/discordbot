@@ -1,6 +1,7 @@
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services.Performance;
 
@@ -13,6 +14,7 @@ public class MetricValueCollector : IMetricValueCollector
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MetricValueCollector> _logger;
+    private readonly bool _offlineMode;
 
     // Lazily resolved services (to avoid circular dependency during DI resolution)
     private ILatencyHistoryService? _latencyHistoryService;
@@ -41,12 +43,20 @@ public class MetricValueCollector : IMetricValueCollector
     /// <summary>
     /// Initializes a new instance of the <see cref="MetricValueCollector"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider the collaborating services are resolved from.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="botOptions">
+    /// The bot configuration, used only to learn whether <c>Discord:OfflineMode</c> is on. Optional so
+    /// a collector built without it behaves as a normal (online) one.
+    /// </param>
     public MetricValueCollector(
         IServiceProvider serviceProvider,
-        ILogger<MetricValueCollector> logger)
+        ILogger<MetricValueCollector> logger,
+        IOptions<BotConfiguration>? botOptions = null)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _offlineMode = botOptions?.Value.OfflineMode ?? false;
     }
 
     /// <inheritdoc/>
@@ -64,7 +74,9 @@ public class MetricValueCollector : IMetricValueCollector
                 "memory_usage" => GetMemoryUsage(),
                 "api_rate_limit_usage" => GetApiRateLimitUsage(),
                 "database_query_time" => GetDatabaseQueryTime(),
-                "bot_disconnected" => IsBotDisconnected() ? 1.0 : 0.0,
+                // In offline mode the bot never connects on purpose, so "disconnected" is not an
+                // event worth alerting on: report no value and the monitor skips the metric.
+                "bot_disconnected" => _offlineMode ? null : IsBotDisconnected() ? 1.0 : 0.0,
                 "service_failure" => HasServiceFailure() ? 1.0 : 0.0,
                 _ => null
             };

@@ -246,6 +246,20 @@ from `dotnet run` in the repository root.
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | `PerformanceMetricsServiceExtensions` | Per-metric-category SignalR broadcast intervals |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | `OpenTelemetryExtensions` | `DefaultRate` (0.1), `ErrorRate` (1.0), `SlowThresholdMs` |
 
+#### Performance alert thresholds
+
+The warning and critical thresholds themselves are not in `appsettings.json`: they are rows in the
+`PerformanceAlertConfigs` table, seeded by migration and edited on the Performance Alerts tab
+(`/Admin/Performance`). `PerformanceAlerts:*` above only controls how often they are checked and
+how many readings it takes to open or close an incident. Seeded defaults:
+
+| Metric | Warning | Critical | Notes |
+|--------|---------|----------|-------|
+| `memory_usage` | 1024 MB | 1536 MB | Working-set size of the whole process. The bot idles at about 620 MB, so these leave headroom; raise them further for a bot in many large guilds. Earlier installs had 400/480 MB: migration `RaiseMemoryAlertDefaults` moves a row to the new values only if it is still at the old defaults and has never been edited. |
+| `bot_disconnected` | none | event | Not evaluated when `Discord:OfflineMode` is true, because the gateway is never connected there. |
+
+Alert notifications carry the metric's display name ("Memory Usage Alert"), not its key.
+
 #### Infrastructure / Database
 
 | Options Class | Section Key | Registered In | Key Properties |

@@ -138,7 +138,8 @@ public class DetailsModel : GuildPageModelBase
             CurrencySymbol = currency.Symbol,
             CanMint = ViewModel.CanMint,
             CanFine = ViewModel.CanFine,
-            CanAdminister = ViewModel.CanAdminister && currency.IsActive
+            CanAdminister = ViewModel.CanAdminister && currency.IsActive,
+            GuildId = guildId
         };
 
         _logger.LogDebug("Loaded currency {CurrencyId} detail page for guild {GuildId}", currencyId, guildId);

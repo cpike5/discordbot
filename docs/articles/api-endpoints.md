@@ -4287,7 +4287,7 @@ GET /api/messages/export?guildId=123456789012345678&startDate=2024-12-01T00:00:0
 **Response: 200 OK**
 
 ```csv
-Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildName,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId
+Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildName,Source,Content,Timestamp (UTC),LoggedAt (UTC),HasAttachments,HasEmbeds,ReplyToMessageId
 1,1234567890123456789,987654321098765432,JohnDoe#1234,111222333444555666,general,123456789012345678,My Awesome Server,ServerChannel,"Hello, world!",2024-12-08T15:30:00Z,2024-12-08T15:30:01Z,false,false,
 2,9876543210987654321,111222333444555666,JaneSmith#5678,111222333444555666,announcements,123456789012345678,My Awesome Server,ServerChannel,Check out this cool link!,2024-12-08T15:25:00Z,2024-12-08T15:25:00Z,true,true,1234567890123456789
 ```
@@ -7604,3 +7604,17 @@ curl -X POST "https://localhost:5001/api/portal/vox/123456789012345678/stop" \
 ---
 
 *Last Updated: February 3, 2026*
+
+## Notifications (changes in UX polish Phase 12)
+
+### POST /api/notifications/delete-all
+
+Deletes the current user's notifications. With no query parameters it deletes all of them. With any of
+`type`, `isRead`, `severity`, `startDate`, `endDate` (the whole of that day is included), `searchTerm` or
+`guildId` it deletes only the notifications the notification list shows for the same filters, so
+"Delete all" on a filtered list removes nothing the user did not see. Returns the number deleted.
+
+### GET /api/currencies/{id}/mint-authorities
+
+Each grant now carries `principalName` (a username, a role name, or `"System"`); it is `null` when the
+name cannot be found and the ID is all there is.

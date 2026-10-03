@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DiscordBot.Core.DTOs.Llm.Reporting;
+using DiscordBot.Core.Utilities;
 
 namespace DiscordBot.Bot.Pages.Admin;
 
@@ -53,6 +54,19 @@ public class LlmUsageModel : PageModel
     [BindProperty(SupportsGet = true)]
     public LlmMode? Mode { get; set; }
 
+    /// <summary>
+    /// The viewer's IANA time zone (filled by timezone.js). The start and end dates are days on the
+    /// viewer's calendar, so they are turned into UTC instants with it; without one they are UTC days.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? UserTimezone { get; set; }
+
+    /// <summary>The UTC instant the range starts at: the start of <see cref="StartDate"/> in the viewer's zone.</summary>
+    public DateTime RangeFromUtc { get; private set; }
+
+    /// <summary>The UTC instant the range ends at: the last tick of <see cref="EndDate"/> in the viewer's zone.</summary>
+    public DateTime RangeToUtc { get; private set; }
+
     /// <summary>Guilds for the guild filter <c>&lt;select&gt;</c>.</summary>
     public IReadOnlyList<GuildDto> Guilds { get; private set; } = Array.Empty<GuildDto>();
 
@@ -84,11 +98,15 @@ public class LlmUsageModel : PageModel
             StartDate = earliestAllowedStart;
         }
 
+        // The dates are the viewer's calendar days: "Last 7 days" is seven days of their time, not UTC's
+        RangeFromUtc = TimezoneHelper.ConvertToUtc(StartDate.Value, UserTimezone);
+        // Include the entire end day.
+        RangeToUtc = TimezoneHelper.ConvertToUtc(EndDate.Value.AddDays(1), UserTimezone).AddTicks(-1);
+
         var query = new LlmUsageQuery
         {
-            From = StartDate.Value,
-            // Include the entire end day.
-            To = EndDate.Value.AddDays(1).AddTicks(-1),
+            From = RangeFromUtc,
+            To = RangeToUtc,
             GuildId = GuildId,
             Mode = Mode
         };

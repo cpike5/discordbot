@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Constants;
 using DiscordBot.Core.DTOs;
@@ -22,6 +23,7 @@ public class IndexModel : GuildPageModelBase
     private readonly ILogger<IndexModel> _logger;
     private readonly ICurrencyService? _currencyService;
     private readonly IWalletRepository? _walletRepository;
+    private readonly DiscordSocketClient? _discordClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IndexModel"/> class.
@@ -34,13 +36,16 @@ public class IndexModel : GuildPageModelBase
     /// never registered. The page answers 404 in that case.
     /// </param>
     /// <param name="walletRepository">The wallet repository, null under the same condition.</param>
+    /// <param name="discordClient">The Discord client, for the role picker of the mint authority dialog.</param>
     public IndexModel(
         IGuildService guildService,
         ISettingsService settingsService,
         ILogger<IndexModel> logger,
         ICurrencyService? currencyService = null,
-        IWalletRepository? walletRepository = null)
+        IWalletRepository? walletRepository = null,
+        DiscordSocketClient? discordClient = null)
     {
+        _discordClient = discordClient;
         _guildService = guildService;
         _settingsService = settingsService;
         _logger = logger;
@@ -50,6 +55,9 @@ public class IndexModel : GuildPageModelBase
 
     /// <summary>The currencies and totals rendered by the page.</summary>
     public CurrencyIndexViewModel ViewModel { get; set; } = new();
+
+    /// <summary>The guild's roles, offered when granting minting to a role.</summary>
+    public IReadOnlyList<CurrencyRoleOptionViewModel> Roles { get; private set; } = Array.Empty<CurrencyRoleOptionViewModel>();
 
     /// <summary>
     /// Whether an administrator has switched currency features off at runtime. Managing currencies
@@ -103,6 +111,14 @@ public class IndexModel : GuildPageModelBase
             PricedFeatureCount = prices.Count(p =>
                 p.IsActive && p.FeatureKey.StartsWith(CurrencyFeatureKeys.SoundboardArea + ":", StringComparison.Ordinal))
         };
+
+        // Managed roles belong to bots and @everyone would grant minting to the whole server
+        Roles = _discordClient?.GetGuild(guildId)?.Roles
+            .Where(r => !r.IsEveryone && !r.IsManaged)
+            .OrderByDescending(r => r.Position)
+            .Select(r => new CurrencyRoleOptionViewModel { Id = r.Id, Name = r.Name, Color = r.Color.ToString() })
+            .ToList()
+            ?? new List<CurrencyRoleOptionViewModel>();
 
         PopulateGuildLayout(
             guildId,

@@ -428,32 +428,18 @@
             }
         }
 
+        // Presets come from DateRangeFilter, which counts days on the viewer's local calendar
+        // (a UTC date string gives the wrong day in the local evening)
         function setDatePreset(preset) {
-            const today = new Date();
             const startDateInput = document.getElementById('StartDate');
             const endDateInput = document.getElementById('EndDate');
-
-            let startDate = new Date();
-
-            switch(preset) {
-                case '7days':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30days':
-                    startDate.setDate(today.getDate() - 30);
-                    break;
-                case '90days':
-                    startDate.setDate(today.getDate() - 90);
-                    break;
-            }
-
-            startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = today.toISOString().split('T')[0];
+            if (!DateRangeFilter.applyPreset(startDateInput, endDateInput, preset)) return;
 
             // Auto-submit the form after setting dates
             document.getElementById('filterForm').submit();
         }
     </script>
+    <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
 
     <!-- Load Custom Analytics Chart Script -->
     <script src="~/js/rat-watch-analytics.js" asp-append-version="true"></script>
