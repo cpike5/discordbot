@@ -1,5 +1,6 @@
 @page
 @model DiscordBot.Bot.Pages.Admin.Notifications.IndexModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Bot.ViewModels.Pages
 @using DiscordBot.Core.Enums
@@ -7,267 +8,262 @@
     ViewData["Title"] = "Notifications";
     var startItem = Model.ViewModel.TotalCount > 0 ? (Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1 : 0;
     var endItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
+    var hasFilters = Model.ViewModel.Filters.HasActiveFilters;
+
+    // What "Delete all" removes is what this list shows: the same filters, sent as the query of the
+    // delete request. The default Last 7 days window is part of them, so it is not widened silently.
+    var deleteParams = new List<KeyValuePair<string, string?>>();
+    void AddDeleteParam(string key, string? value)
+    {
+        if (!string.IsNullOrEmpty(value)) deleteParams.Add(new KeyValuePair<string, string?>(key, value));
+    }
+    AddDeleteParam("type", Model.Type.HasValue ? ((int)Model.Type.Value).ToString() : null);
+    AddDeleteParam("isRead", Model.IsRead?.ToString().ToLowerInvariant());
+    AddDeleteParam("severity", Model.Severity.HasValue ? ((int)Model.Severity.Value).ToString() : null);
+    AddDeleteParam("startDate", Model.StartDate?.ToString("yyyy-MM-dd"));
+    AddDeleteParam("endDate", Model.EndDate?.ToString("yyyy-MM-dd"));
+    AddDeleteParam("searchTerm", string.IsNullOrWhiteSpace(Model.SearchTerm) ? null : Model.SearchTerm);
+    AddDeleteParam("guildId", Model.GuildId?.ToString());
+    var deleteQuery = QueryString.Create(deleteParams).Value ?? string.Empty;
+    var deleteScope = Model.DefaultWindowApplied
+        ? "the notifications from the last 7 days"
+        : deleteParams.Count > 0 ? "the notifications that match the current filters" : "every notification";
+
+    // The chip under the header: the default window, and only while it is the default
+    var firstPageUrl = Url.Page("Index", new { AllTime = Model.AllTime ? true : (bool?)null });
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+<div class="page-header">
+    <div class="page-header-text">
         <div class="flex items-center gap-3">
             <h1 class="page-title">Notifications</h1>
-            <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = Model.ViewModel.TotalCount.ToString(), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
+            <span id="notificationTotalBadge" data-total-badge>
+                <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = DisplayFormat.Number(Model.ViewModel.TotalCount), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
+            </span>
         </div>
-        <div class="flex items-center gap-3">
-            <!-- Bulk Actions (shown when items selected) -->
-            <div id="bulkActions" class="hidden flex items-center gap-2">
-                <span class="text-sm text-text-secondary"><span id="selectedCount">0</span> selected</span>
-                <button type="button" id="markSelectedRead" class="btn btn-secondary btn-sm">
-                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Mark Read
-                </button>
-                <button type="button" id="deleteSelected" class="btn btn-error btn-sm">
-                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete
-                </button>
-            </div>
-            <button type="button" id="markAllRead" class="btn btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        <p class="page-subtitle">Alerts and events for your account. Mark them read or clear them out here.</p>
+    </div>
+    <div class="page-actions">
+        <!-- Bulk Actions (shown when items are selected) -->
+        <div id="bulkActions" class="hidden flex flex-wrap items-center gap-2" role="group" aria-label="Actions for the selected notifications">
+            <span class="text-sm text-text-secondary" aria-live="polite"><span id="selectedCount">0</span> selected</span>
+            <button type="button" id="markSelectedRead" class="btn btn-secondary btn-sm">
+                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Mark All Read
+                Mark read
             </button>
-            <button type="button" id="deleteAll" class="btn btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <button type="button" id="deleteSelected" class="btn btn-error btn-sm">
+                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                Delete All
+                Delete
             </button>
-            @if (Model.ViewModel.Filters.HasActiveFilters)
+        </div>
+        <button type="button" id="markAllRead" class="btn btn-secondary">
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            Mark all read
+        </button>
+        <button type="button" id="deleteAll" class="btn btn-secondary"
+                data-delete-query="@deleteQuery"
+                data-delete-scope="@deleteScope"
+                data-delete-filtered="@((deleteParams.Count > 0).ToString().ToLowerInvariant())"
+                @(Model.ViewModel.TotalCount == 0 ? "disabled" : null)>
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            @(deleteParams.Count > 0 ? "Delete all shown" : "Delete all")
+        </button>
+        @if (hasFilters)
+        {
+            <a asp-page="Index" class="btn btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear filters
+            </a>
+        }
+    </div>
+</div>
+
+@if (Model.DefaultWindowApplied)
+{
+    <!-- The default window, as a chip you can clear (decision D14) -->
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+        <span class="badge badge-gray badge-pill">
+            Last 7 days
+            <a asp-page="Index" asp-route-AllTime="true" class="badge-remove" aria-label="Clear the Last 7 days filter and show every date" title="Show every date">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </a>
+        </span>
+    </div>
+}
+
+<!-- Filter Panel -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg mb-6" data-filter-panel data-has-active-filters="@hasFilters.ToString().ToLowerInvariant()">
+    <button type="button"
+            id="filterToggle"
+            class="w-full flex items-center justify-between px-4 sm:px-5 py-4 text-left"
+            aria-expanded="true"
+            aria-controls="filterContent"
+            data-filter-toggle>
+        <div class="flex items-center gap-3 min-w-0">
+            <svg class="w-5 h-5 text-text-secondary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span class="text-lg font-semibold text-text-primary">Filters</span>
+            @if (hasFilters)
             {
-                <a asp-page="Index" class="btn btn-secondary">
-                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Clear Filters
-                </a>
+                <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                    Text = $"{CountActiveFilters()} active",
+                    Variant = BadgeVariant.Orange,
+                    Size = BadgeSize.Small
+                })" />
             }
         </div>
-    </div>
+        <svg id="filterChevron" class="w-5 h-5 text-text-secondary shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
 
-    <!-- Filter Panel -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
-        <button type="button"
-                id="filterToggle"
-                class="w-full flex items-center justify-between px-5 py-4 text-left"
-                aria-expanded="true"
-                aria-controls="filterContent"
-                onclick="toggleFilterPanel()">
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                <span class="text-lg font-semibold text-text-primary">Filters</span>
-                @if (Model.ViewModel.Filters.HasActiveFilters)
-                {
-                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                        Text = $"{CountActiveFilters()} active",
-                        Variant = BadgeVariant.Orange,
-                        Size = BadgeSize.Small
-                    })" />
-                }
-            </div>
-            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-        </button>
+    <div id="filterContent">
+        <div class="border-t border-border-primary p-4 sm:p-6">
+            <form method="get" id="filterForm" data-submit-guard>
+                <!-- Quick Date Presets: local dates, filled by notification-history.js -->
+                <div class="mb-4" role="group" aria-labelledby="datePresetLabel">
+                    <span id="datePresetLabel" class="block text-sm font-medium text-text-primary mb-2">Quick date range</span>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" data-date-preset="today" aria-pressed="false" class="btn btn-secondary btn-sm">Today</button>
+                        <button type="button" data-date-preset="7days" aria-pressed="false" class="btn btn-secondary btn-sm">Last 7 days</button>
+                        <button type="button" data-date-preset="30days" aria-pressed="false" class="btn btn-secondary btn-sm">Last 30 days</button>
+                    </div>
+                </div>
 
-        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
-            <div class="border-t border-border-primary p-6">
-                <form method="get" id="filterForm">
-                    <!-- Quick Date Presets -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
-                        @{
-                            var today = DateTime.UtcNow.Date;
-                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
-                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
-                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
-
-                            string GetPresetClass(bool isActive) => isActive
-                                ? "px-3 py-1.5 text-xs font-medium bg-accent-blue text-white border border-accent-blue rounded-md hover:bg-accent-blue/90 transition-colors"
-                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
-                        }
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" onclick="setDatePreset('today')" class="@GetPresetClass(isToday)">
-                                Today
-                            </button>
-                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
-                                Last 7 Days
-                            </button>
-                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
-                                Last 30 Days
-                            </button>
-                        </div>
+                <!-- Filter Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                    <div>
+                        <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start date</label>
+                        <input type="date"
+                               id="StartDate"
+                               name="StartDate"
+                               value="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                               class="form-input w-full" />
                     </div>
 
-                    <!-- Filter Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                        <!-- Start Date -->
-                        <div>
-                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
-                            <input type="date"
-                                   id="StartDate"
-                                   name="StartDate"
-                                   value="@Model.StartDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-
-                        <!-- End Date -->
-                        <div>
-                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
-                            <input type="date"
-                                   id="EndDate"
-                                   name="EndDate"
-                                   value="@Model.EndDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-
-                        <!-- Type Filter -->
-                        <div>
-                            <label for="Type" class="block text-sm font-medium text-text-primary mb-1">Type</label>
-                            <select id="Type"
-                                    name="Type"
-                                    class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
-                                <option value="">All Types</option>
-                                <option value="@((int)NotificationType.PerformanceAlert)" selected="@(Model.Type == NotificationType.PerformanceAlert)">Performance Alert</option>
-                                <option value="@((int)NotificationType.BotStatus)" selected="@(Model.Type == NotificationType.BotStatus)">Bot Status</option>
-                                <option value="@((int)NotificationType.GuildEvent)" selected="@(Model.Type == NotificationType.GuildEvent)">Guild Event</option>
-                                <option value="@((int)NotificationType.CommandError)" selected="@(Model.Type == NotificationType.CommandError)">Command Error</option>
-                            </select>
-                        </div>
-
-                        <!-- Status Filter -->
-                        <div>
-                            <label for="IsRead" class="block text-sm font-medium text-text-primary mb-1">Status</label>
-                            <select id="IsRead"
-                                    name="IsRead"
-                                    class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
-                                <option value="">All</option>
-                                <option value="false" selected="@(Model.IsRead == false)">Unread</option>
-                                <option value="true" selected="@(Model.IsRead == true)">Read</option>
-                            </select>
-                        </div>
-
-                        <!-- Severity Filter -->
-                        <div>
-                            <label for="Severity" class="block text-sm font-medium text-text-primary mb-1">Severity</label>
-                            <select id="Severity"
-                                    name="Severity"
-                                    class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
-                                <option value="">All</option>
-                                <option value="@((int)AlertSeverity.Critical)" selected="@(Model.Severity == AlertSeverity.Critical)">Critical</option>
-                                <option value="@((int)AlertSeverity.Warning)" selected="@(Model.Severity == AlertSeverity.Warning)">Warning</option>
-                                <option value="@((int)AlertSeverity.Info)" selected="@(Model.Severity == AlertSeverity.Info)">Info</option>
-                            </select>
-                        </div>
-
-                        <!-- Guild Filter -->
-                        <div>
-                            <label for="GuildId" class="block text-sm font-medium text-text-primary mb-1">Server</label>
-                            <select id="GuildId"
-                                    name="GuildId"
-                                    class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
-                                <option value="">All Servers</option>
-                                @foreach (var guild in Model.AvailableGuilds)
-                                {
-                                    <option value="@guild.Id" selected="@(Model.GuildId == guild.Id)">@guild.Name</option>
-                                }
-                            </select>
-                        </div>
+                    <div>
+                        <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End date</label>
+                        <input type="date"
+                               id="EndDate"
+                               name="EndDate"
+                               value="@Model.EndDate?.ToString("yyyy-MM-dd")"
+                               class="form-input w-full" />
                     </div>
 
-                    <!-- Search Input -->
-                    <div class="mt-4">
-                        <label for="SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
-                        <div class="relative max-w-md">
-                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                            <input type="search"
-                                   id="SearchTerm"
-                                   name="SearchTerm"
-                                   value="@Model.SearchTerm"
-                                   placeholder="Search by title or message..."
-                                   class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
+                    <div>
+                        <label for="Type" class="block text-sm font-medium text-text-primary mb-1">Type</label>
+                        <select id="Type" name="Type" class="form-select w-full">
+                            <option value="">All types</option>
+                            <option value="@((int)NotificationType.PerformanceAlert)" selected="@(Model.Type == NotificationType.PerformanceAlert)">Performance alert</option>
+                            <option value="@((int)NotificationType.BotStatus)" selected="@(Model.Type == NotificationType.BotStatus)">Bot status</option>
+                            <option value="@((int)NotificationType.GuildEvent)" selected="@(Model.Type == NotificationType.GuildEvent)">Server event</option>
+                            <option value="@((int)NotificationType.CommandError)" selected="@(Model.Type == NotificationType.CommandError)">Command error</option>
+                        </select>
                     </div>
 
-                    <!-- Filter Actions -->
-                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
-                        <button type="submit" class="btn btn-primary">
-                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            Apply Filters
-                        </button>
-                        <a asp-page="Index" class="btn btn-secondary">
-                            Reset
-                        </a>
+                    <div>
+                        <label for="IsRead" class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                        <select id="IsRead" name="IsRead" class="form-select w-full">
+                            <option value="">All</option>
+                            <option value="false" selected="@(Model.IsRead == false)">Unread</option>
+                            <option value="true" selected="@(Model.IsRead == true)">Read</option>
+                        </select>
                     </div>
-                </form>
-            </div>
+
+                    <div>
+                        <label for="Severity" class="block text-sm font-medium text-text-primary mb-1">Severity</label>
+                        <select id="Severity" name="Severity" class="form-select w-full">
+                            <option value="">All</option>
+                            <option value="@((int)AlertSeverity.Critical)" selected="@(Model.Severity == AlertSeverity.Critical)">Critical</option>
+                            <option value="@((int)AlertSeverity.Warning)" selected="@(Model.Severity == AlertSeverity.Warning)">Warning</option>
+                            <option value="@((int)AlertSeverity.Info)" selected="@(Model.Severity == AlertSeverity.Info)">Info</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="GuildId" class="block text-sm font-medium text-text-primary mb-1">Server</label>
+                        <select id="GuildId" name="GuildId" class="form-select w-full">
+                            <option value="">All servers</option>
+                            @foreach (var guild in Model.AvailableGuilds)
+                            {
+                                <option value="@guild.Id" selected="@(Model.GuildId == guild.Id)">@guild.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <label for="SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                    <input type="search"
+                           id="SearchTerm"
+                           name="SearchTerm"
+                           value="@Model.SearchTerm"
+                           placeholder="Search by title or message..."
+                           autocomplete="off"
+                           class="form-input w-full max-w-md" />
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+                    <button type="submit" class="btn btn-primary">Apply filters</button>
+                    <a asp-page="Index" class="btn btn-secondary">Reset</a>
+                </div>
+            </form>
         </div>
     </div>
+</div>
+
+<!-- Results: replaced in place after an action, so scroll position and the filter panel stay put -->
+<div id="notificationResults"
+     data-notification-results
+     data-page-url="@firstPageUrl"
+     data-filter-is-read="@(Model.IsRead.HasValue ? Model.IsRead.Value.ToString().ToLowerInvariant() : "")"
+     data-has-filters="@hasFilters.ToString().ToLowerInvariant()"
+     data-total="@Model.ViewModel.TotalCount">
 
     <!-- Desktop Table -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block" data-results-desktop>
         <div class="overflow-x-auto">
             <table class="w-full">
                 <thead class="bg-bg-tertiary">
                     <tr>
                         <th scope="col" class="px-4 py-4 text-left">
-                            <input type="checkbox" id="selectAll" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer" />
+                            <input type="checkbox" id="selectAll" aria-label="Select all notifications on this page" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer" />
                         </th>
-                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
-                            Type
-                        </th>
-                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
-                            Title
-                        </th>
-                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">
-                            Server
-                        </th>
-                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
-                            Status
-                        </th>
-                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
-                            Time
-                        </th>
-                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
-                            Actions
-                        </th>
+                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Type</th>
+                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Title</th>
+                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Server</th>
+                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Time</th>
+                        <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border-primary">
-                    @if (Model.ViewModel.Notifications.Any())
+                <tbody class="divide-y divide-border-primary" data-results-body>
+                    @foreach (var notification in Model.ViewModel.Notifications)
                     {
-                        @foreach (var notification in Model.ViewModel.Notifications)
-                        {
-                            <tr class="hover:bg-bg-hover/50 transition-colors @(!notification.IsRead ? "bg-bg-hover/30" : "")">
-                                <!-- Checkbox -->
-                                <td class="px-4 py-4">
-                                    <input type="checkbox"
-                                           class="notification-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer"
-                                           value="@notification.Id" />
-                                </td>
-                                <!-- Type -->
-                                <td class="px-4 py-4">
+                        <tr class="hover:bg-bg-hover/50 transition-colors @(!notification.IsRead ? "bg-bg-hover/30" : "")"
+                            data-notification-row="@notification.Id"
+                            data-is-read="@notification.IsRead.ToString().ToLowerInvariant()">
+                            <td class="px-4 py-4">
+                                <input type="checkbox"
+                                       class="notification-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer"
+                                       aria-label="Select notification: @notification.Title"
+                                       value="@notification.Id" />
+                            </td>
+                            <td class="px-4 py-4">
+                                <div class="flex flex-wrap gap-1">
                                     <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
                                         Text = notification.TypeDisplay,
                                         Variant = GetTypeBadgeVariant(notification.Type),
@@ -281,94 +277,62 @@
                                             Size = BadgeSize.Small
                                         })" />
                                     }
-                                </td>
-                                <!-- Title & Message -->
-                                <td class="px-4 py-4">
-                                    <div class="@(!notification.IsRead ? "font-semibold" : "") text-text-primary text-sm">
-                                        @if (!string.IsNullOrEmpty(notification.LinkUrl))
-                                        {
-                                            <a href="@notification.LinkUrl" class="hover:text-accent-blue transition-colors">@notification.Title</a>
-                                        }
-                                        else
-                                        {
-                                            @notification.Title
-                                        }
-                                    </div>
-                                    <div class="text-xs text-text-secondary mt-1 truncate max-w-md" title="@notification.Message">
-                                        @notification.Message
-                                    </div>
-                                </td>
-                                <!-- Server -->
-                                <td class="px-4 py-4 text-text-secondary text-sm hidden lg:table-cell">
-                                    @if (notification.GuildId.HasValue)
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 min-w-[14rem]">
+                                <div class="@(!notification.IsRead ? "font-semibold" : "") text-text-primary text-sm break-words" data-notification-title>
+                                    @if (!string.IsNullOrEmpty(notification.LinkUrl))
                                     {
-                                        <span class="preview-trigger" data-preview-type="guild" data-guild-id="@notification.GuildId">@notification.GuildName</span>
+                                        <a href="@notification.LinkUrl" class="hover:text-accent-blue transition-colors">@notification.Title</a>
                                     }
                                     else
                                     {
-                                        <span class="text-text-tertiary">-</span>
+                                        @notification.Title
                                     }
-                                </td>
-                                <!-- Status -->
-                                <td class="px-4 py-4">
-                                    @if (notification.IsRead)
-                                    {
-                                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                                            Text = "Read",
-                                            Variant = BadgeVariant.Default,
-                                            Size = BadgeSize.Small
-                                        })" />
-                                    }
-                                    else
-                                    {
-                                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                                            Text = "Unread",
-                                            Variant = BadgeVariant.Blue,
-                                            Size = BadgeSize.Small
-                                        })" />
-                                    }
-                                </td>
-                                <!-- Time -->
-                                <td class="px-4 py-4 text-text-secondary text-sm whitespace-nowrap">
-                                    <span data-utc="@notification.CreatedAtUtcIso" data-format="datetime">@notification.TimeAgo</span>
-                                </td>
-                                <!-- Actions -->
-                                <td class="px-4 py-4 whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <button type="button"
-                                                data-action="toggle-read"
-                                                data-id="@notification.Id"
-                                                data-is-read="@notification.IsRead.ToString().ToLower()"
-                                                class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors"
-                                                title="@(notification.IsRead ? "Mark as unread" : "Mark as read")">
-                                            @(notification.IsRead ? "Mark Unread" : "Mark Read")
-                                        </button>
-                                        <button type="button"
-                                                data-action="delete"
-                                                data-id="@notification.Id"
-                                                class="text-error hover:text-error/80 text-sm font-medium transition-colors"
-                                                title="Delete notification">
-                                            Delete
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="7" class="px-6 py-12 text-center">
-                                @{
-                                    var hasFilters = Model.ViewModel.Filters.HasActiveFilters;
-                                    var emptyTitle = hasFilters ? "No notifications found" : "No notifications yet";
-                                    var emptyDesc = hasFilters ? "Try adjusting your search or filters" : "Notifications will appear here when you receive them";
+                                </div>
+                                <div class="text-xs text-text-secondary mt-1 line-clamp-2 break-words max-w-md" title="@notification.Message">@notification.Message</div>
+                            </td>
+                            <td class="px-4 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                @if (notification.GuildId.HasValue)
+                                {
+                                    <span class="preview-trigger" data-preview-type="guild" data-guild-id="@notification.GuildId">@notification.GuildName</span>
                                 }
-                                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
-                                    Type = EmptyStateType.NoResults,
-                                    Title = emptyTitle,
-                                    Description = emptyDesc
-                                }" />
+                                else
+                                {
+                                    <span class="text-text-tertiary">-</span>
+                                }
+                            </td>
+                            <td class="px-4 py-4">
+                                @* Both states are rendered; the script flips which one shows *@
+                                <span data-status="unread" @(notification.IsRead ? "hidden" : null)>
+                                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel { Text = "Unread", Variant = BadgeVariant.Blue, Size = BadgeSize.Small })" />
+                                </span>
+                                <span data-status="read" @(notification.IsRead ? null : "hidden")>
+                                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel { Text = "Read", Variant = BadgeVariant.Default, Size = BadgeSize.Small })" />
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 text-text-secondary text-sm whitespace-nowrap">
+                                @DisplayFormat.Time(notification.CreatedAt, "datetime-short")
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="flex items-center gap-3">
+                                    <button type="button"
+                                            data-action="toggle-read"
+                                            data-id="@notification.Id"
+                                            class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">@(notification.IsRead ? "Mark unread" : "Mark read")</button>
+                                    <button type="button"
+                                            data-action="delete"
+                                            data-id="@notification.Id"
+                                            class="text-error hover:text-error/80 text-sm font-medium transition-colors">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.ViewModel.Notifications.Any())
+                    {
+                        <tr data-results-empty>
+                            <td colspan="7" class="px-6 py-12 text-center">
+                                <partial name="Shared/Components/_EmptyState" model='GetEmptyState()' />
                             </td>
                         </tr>
                     }
@@ -378,94 +342,80 @@
     </div>
 
     <!-- Mobile Card Layout -->
-    <div class="md:hidden space-y-4">
-        @if (Model.ViewModel.Notifications.Any())
+    <div class="md:hidden space-y-4" data-results-mobile>
+        @foreach (var notification in Model.ViewModel.Notifications)
         {
-            @foreach (var notification in Model.ViewModel.Notifications)
-            {
-                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 @(!notification.IsRead ? "border-l-4 border-l-accent-blue" : "")">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center gap-2">
-                            <input type="checkbox"
-                                   class="notification-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer"
-                                   value="@notification.Id" />
-                            <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                                Text = notification.TypeDisplay,
-                                Variant = GetTypeBadgeVariant(notification.Type),
-                                Size = BadgeSize.Small
-                            })" />
-                        </div>
-                        @if (notification.IsRead)
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 @(!notification.IsRead ? "border-l-4 border-l-accent-blue" : "")"
+                 data-notification-row="@notification.Id"
+                 data-is-read="@notification.IsRead.ToString().ToLowerInvariant()">
+                <div class="flex items-start justify-between gap-2 mb-3">
+                    <div class="flex flex-wrap items-center gap-2 min-w-0">
+                        <input type="checkbox"
+                               class="notification-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer"
+                               aria-label="Select notification: @notification.Title"
+                               value="@notification.Id" />
+                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                            Text = notification.TypeDisplay,
+                            Variant = GetTypeBadgeVariant(notification.Type),
+                            Size = BadgeSize.Small
+                        })" />
+                        @if (notification.Severity.HasValue)
                         {
                             <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                                Text = "Read",
-                                Variant = BadgeVariant.Default,
+                                Text = notification.SeverityDisplay!,
+                                Variant = GetSeverityBadgeVariant(notification.Severity),
                                 Size = BadgeSize.Small
                             })" />
+                        }
+                    </div>
+                    <div class="shrink-0">
+                        <span data-status="unread" @(notification.IsRead ? "hidden" : null)>
+                            <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel { Text = "Unread", Variant = BadgeVariant.Blue, Size = BadgeSize.Small })" />
+                        </span>
+                        <span data-status="read" @(notification.IsRead ? null : "hidden")>
+                            <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel { Text = "Read", Variant = BadgeVariant.Default, Size = BadgeSize.Small })" />
+                        </span>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <div class="@(!notification.IsRead ? "font-semibold" : "") text-text-primary text-sm break-words" data-notification-title>
+                        @if (!string.IsNullOrEmpty(notification.LinkUrl))
+                        {
+                            <a href="@notification.LinkUrl" class="hover:text-accent-blue transition-colors">@notification.Title</a>
                         }
                         else
                         {
-                            <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                                Text = "Unread",
-                                Variant = BadgeVariant.Blue,
-                                Size = BadgeSize.Small
-                            })" />
+                            @notification.Title
                         }
                     </div>
-
-                    <div class="mb-2">
-                        <div class="@(!notification.IsRead ? "font-semibold" : "") text-text-primary text-sm">
-                            @if (!string.IsNullOrEmpty(notification.LinkUrl))
-                            {
-                                <a href="@notification.LinkUrl" class="hover:text-accent-blue transition-colors">@notification.Title</a>
-                            }
-                            else
-                            {
-                                @notification.Title
-                            }
-                        </div>
-                        <p class="text-xs text-text-secondary mt-1">@notification.Message</p>
-                    </div>
-
-                    <div class="flex items-center justify-between text-xs text-text-tertiary">
-                        <span data-utc="@notification.CreatedAtUtcIso" data-format="datetime">@notification.TimeAgo</span>
-                        @if (notification.GuildName != null)
-                        {
-                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@notification.GuildId">@notification.GuildName</span>
-                        }
-                    </div>
-
-                    <div class="mt-3 pt-3 border-t border-border-secondary flex items-center gap-4">
-                        <button type="button"
-                                data-action="toggle-read"
-                                data-id="@notification.Id"
-                                data-is-read="@notification.IsRead.ToString().ToLower()"
-                                class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
-                            @(notification.IsRead ? "Mark Unread" : "Mark Read")
-                        </button>
-                        <button type="button"
-                                data-action="delete"
-                                data-id="@notification.Id"
-                                class="text-error hover:text-error/80 text-sm font-medium transition-colors">
-                            Delete
-                        </button>
-                    </div>
+                    <p class="text-xs text-text-secondary mt-1 break-words">@notification.Message</p>
                 </div>
-            }
+
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-text-tertiary">
+                    <span>@DisplayFormat.Time(notification.CreatedAt, "datetime-short")</span>
+                    @if (notification.GuildName != null)
+                    {
+                        <span class="preview-trigger" data-preview-type="guild" data-guild-id="@notification.GuildId">@notification.GuildName</span>
+                    }
+                </div>
+
+                <div class="mt-3 pt-3 border-t border-border-secondary flex items-center gap-4">
+                    <button type="button"
+                            data-action="toggle-read"
+                            data-id="@notification.Id"
+                            class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors min-h-[44px]">@(notification.IsRead ? "Mark unread" : "Mark read")</button>
+                    <button type="button"
+                            data-action="delete"
+                            data-id="@notification.Id"
+                            class="text-error hover:text-error/80 text-sm font-medium transition-colors min-h-[44px]">Delete</button>
+                </div>
+            </div>
         }
-        else
+        @if (!Model.ViewModel.Notifications.Any())
         {
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
-                @{
-                    var hasFilters = Model.ViewModel.Filters.HasActiveFilters;
-                    var emptyTitle = hasFilters ? "No notifications found" : "No notifications yet";
-                    var emptyDesc = hasFilters ? "Try adjusting your search or filters" : "Notifications will appear here when you receive them";
-                }
-                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
-                    Type = EmptyStateType.NoResults,
-                    Title = emptyTitle,
-                    Description = emptyDesc
-                }" />
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8" data-results-empty>
+                <partial name="Shared/Components/_EmptyState" model='GetEmptyState()' />
             </div>
         }
     </div>
@@ -473,14 +423,17 @@
     <!-- Pagination -->
     @if (Model.ViewModel.TotalPages > 1)
     {
-        <div class="mt-6">
+        <div class="mt-6" data-results-pagination>
             @{
                 var baseUrl = Url.Page(null, new {
                     Type = Model.Type.HasValue ? ((int)Model.Type.Value).ToString() : null,
                     IsRead = Model.IsRead,
                     Severity = Model.Severity.HasValue ? ((int)Model.Severity.Value).ToString() : null,
-                    StartDate = Model.StartDate?.ToString("yyyy-MM-dd"),
-                    EndDate = Model.EndDate?.ToString("yyyy-MM-dd"),
+                    // The default window is re-applied on every page; freezing it into dates would
+                    // make the chip disappear on page 2 while the dates still filter
+                    StartDate = Model.DefaultWindowApplied ? null : Model.StartDate?.ToString("yyyy-MM-dd"),
+                    EndDate = Model.DefaultWindowApplied ? null : Model.EndDate?.ToString("yyyy-MM-dd"),
+                    AllTime = Model.AllTime ? "true" : null,
                     SearchTerm = Model.SearchTerm,
                     GuildId = Model.GuildId,
                     PageSize = Model.PageSize
@@ -502,12 +455,14 @@
     }
 
     <!-- Results Summary -->
-    @if (Model.ViewModel.TotalCount > 0)
-    {
-        <div class="mt-4 text-sm text-text-secondary">
-            Showing @startItem to @endItem of @Model.ViewModel.TotalCount notifications
-        </div>
-    }
+    <div class="mt-4 text-sm text-text-secondary @(Model.ViewModel.TotalCount > 0 ? "" : "hidden")"
+         data-results-summary
+         data-start="@startItem"
+         data-end="@endItem"
+         data-total="@Model.ViewModel.TotalCount"
+         role="status">
+        Showing @DisplayFormat.Number(startItem) to @DisplayFormat.Number(endItem) of @DisplayFormat.Plural(Model.ViewModel.TotalCount, "notification")
+    </div>
 </div>
 
 @functions {
@@ -517,11 +472,39 @@
         if (Model.Type.HasValue) count++;
         if (Model.IsRead.HasValue) count++;
         if (Model.Severity.HasValue) count++;
-        if (Model.StartDate.HasValue) count++;
-        if (Model.EndDate.HasValue) count++;
+        if (Model.ViewModel.Filters.StartDate.HasValue) count++;
+        if (Model.ViewModel.Filters.EndDate.HasValue) count++;
         if (!string.IsNullOrWhiteSpace(Model.SearchTerm)) count++;
         if (Model.GuildId.HasValue) count++;
         return count;
+    }
+
+    private EmptyStateViewModel GetEmptyState()
+    {
+        // The default Last 7 days window is not a filter the user set: with nothing else applied,
+        // an empty list is "nothing yet", and the chip above offers to look further back.
+        if (Model.ViewModel.Filters.HasActiveFilters)
+        {
+            return new EmptyStateViewModel
+            {
+                Type = EmptyStateType.NoResults,
+                Title = "No notifications match your filters",
+                Description = "Try different filters, or clear them to see every notification.",
+                PrimaryActionText = "Clear filters",
+                PrimaryActionUrl = Url.Page("Index")
+            };
+        }
+
+        return new EmptyStateViewModel
+        {
+            Type = EmptyStateType.NoData,
+            Title = Model.DefaultWindowApplied ? "No notifications in the last 7 days" : "No notifications yet",
+            Description = Model.DefaultWindowApplied
+                ? "Nothing new has come in. Clear the Last 7 days filter to look further back."
+                : "Notifications appear here when something needs your attention.",
+            PrimaryActionText = Model.DefaultWindowApplied ? "Show every date" : null,
+            PrimaryActionUrl = Model.DefaultWindowApplied ? Url.Page("Index", new { AllTime = true }) : null
+        };
     }
 
     private BadgeVariant GetTypeBadgeVariant(NotificationType type) => type switch
@@ -543,68 +526,6 @@
 }
 
 @section Scripts {
+    <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
     <script src="~/js/notification-history.js" asp-append-version="true"></script>
-    <script>
-        const FILTER_PANEL_KEY = 'notificationHistoryFilterExpanded';
-
-        function toggleFilterPanel() {
-            const content = document.getElementById('filterContent');
-            const chevron = document.getElementById('filterChevron');
-            const toggle = document.getElementById('filterToggle');
-
-            const isExpanded = content.style.maxHeight !== '0px';
-
-            if (isExpanded) {
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-                localStorage.setItem(FILTER_PANEL_KEY, 'false');
-            } else {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-                localStorage.setItem(FILTER_PANEL_KEY, 'true');
-            }
-        }
-
-        function setDatePreset(preset) {
-            const today = new Date();
-            const startDateInput = document.getElementById('StartDate');
-            const endDateInput = document.getElementById('EndDate');
-
-            let startDate = new Date();
-
-            switch(preset) {
-                case 'today':
-                    startDate = today;
-                    break;
-                case '7days':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30days':
-                    startDate.setDate(today.getDate() - 30);
-                    break;
-            }
-
-            startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = today.toISOString().split('T')[0];
-
-            // Submit the form
-            document.getElementById('filterForm').submit();
-        }
-
-        // Restore filter panel state on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            const savedState = localStorage.getItem(FILTER_PANEL_KEY);
-            if (savedState === 'false') {
-                const content = document.getElementById('filterContent');
-                const chevron = document.getElementById('filterChevron');
-                const toggle = document.getElementById('filterToggle');
-
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-        });
-    </script>
 }
