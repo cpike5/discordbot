@@ -326,9 +326,12 @@
                         MessageGuildId = Model.MessageGuildId,
                         ChannelId = Model.ChannelId,
                         MessageSource = Model.MessageSource,
-                        MessageStartDate = Model.MessageStartDate?.ToString("yyyy-MM-dd"),
-                        MessageEndDate = Model.MessageEndDate?.ToString("yyyy-MM-dd"),
-                        MessageSearchTerm = Model.MessageSearchTerm
+                        // The default date range is not a filter the user chose: writing it into the
+                        // links would turn it into one on the next page
+                        MessageStartDate = Model.MessageDatesDefaulted ? null : Model.MessageStartDate?.ToString("yyyy-MM-dd"),
+                        MessageEndDate = Model.MessageDatesDefaulted ? null : Model.MessageEndDate?.ToString("yyyy-MM-dd"),
+                        MessageSearchTerm = Model.MessageSearchTerm,
+                        MessagePageSize = Model.MessagePageSize
                     }) ?? string.Empty;
                     var paginationModel = new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
                         CurrentPage = Model.MessageLogsViewModel.Page,
@@ -339,7 +342,8 @@
                         ShowPageSizeSelector = true,
                         ShowItemCount = false,
                         ShowFirstLast = true,
-                        PageParameterName = "messagePageNumber"
+                        PageParameterName = "messagePageNumber",
+                        PageSizeParameterName = "MessagePageSize"
                     };
                 }
                 <partial name="Shared/Components/_Pagination" model="paginationModel" />

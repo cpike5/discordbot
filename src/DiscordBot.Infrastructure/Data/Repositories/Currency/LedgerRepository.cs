@@ -4,6 +4,7 @@ using DiscordBot.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
+using System.Runtime.ExceptionServices;
 
 namespace DiscordBot.Infrastructure.Data.Repositories;
 
@@ -46,13 +47,13 @@ public class LedgerRepository : ILedgerRepository
 
         return await ExecuteAtomicallyAsync(
             new[] { row },
-            async (owned, ct) =>
+            async (owned, isRetry, ct) =>
             {
                 try
                 {
-                    var result = await AppendCoreAsync(row, ct);
+                    var written = await AppendCoreAsync(row, ct);
                     await CommitAsync(owned, ct);
-                    return result;
+                    return new LedgerAppendResult(written.Transaction, written.Existed && !isRetry);
                 }
                 catch (DbUpdateException ex)
                 {
@@ -88,7 +89,7 @@ public class LedgerRepository : ILedgerRepository
 
         return await ExecuteAtomicallyAsync(
             new[] { debit, credit },
-            async (owned, ct) =>
+            async (owned, isRetry, ct) =>
             {
                 try
                 {
@@ -104,14 +105,14 @@ public class LedgerRepository : ILedgerRepository
                     // Link forward now that the debit has an id, then back once the credit has one. Both
                     // writes happen before the transaction commits, so no reader ever sees a half-linked
                     // pair and the "rows are never updated" rule holds for everything outside it.
-                    if (!debitResult.WasDuplicate)
+                    if (!debitResult.Existed)
                     {
                         credit.ReferenceTransactionId = debitResult.Transaction.Id;
                     }
 
                     var creditResult = await AppendCoreAsync(credit, ct);
 
-                    if (!debitResult.WasDuplicate)
+                    if (!debitResult.Existed)
                     {
                         debitResult.Transaction.ReferenceTransactionId = creditResult.Transaction.Id;
                         await _context.SaveChangesAsync(ct);
@@ -122,7 +123,7 @@ public class LedgerRepository : ILedgerRepository
                     return new LedgerAppendPairResult(
                         debitResult.Transaction,
                         creditResult.Transaction,
-                        debitResult.WasDuplicate && creditResult.WasDuplicate);
+                        !isRetry && debitResult.Existed && creditResult.Existed);
                 }
                 catch (DbUpdateException ex)
                 {
@@ -206,9 +207,11 @@ public class LedgerRepository : ILedgerRepository
 
     /// <summary>
     /// Writes one row inside an already-open transaction: idempotency check, wallet lock, balance
-    /// bookkeeping, insert.
+    /// bookkeeping, insert. <c>Existed</c> is true when the idempotency key was already written and
+    /// nothing was inserted; whether that counts as a duplicate is the caller's call, because on a
+    /// retry the rows found are this call's own earlier write.
     /// </summary>
-    private async Task<LedgerAppendResult> AppendCoreAsync(LedgerTransaction row, CancellationToken cancellationToken)
+    private async Task<(LedgerTransaction Transaction, bool Existed)> AppendCoreAsync(LedgerTransaction row, CancellationToken cancellationToken)
     {
         var existing = await GetByIdempotencyKeyAsync(row.IdempotencyKey, cancellationToken);
         if (existing != null)
@@ -216,7 +219,7 @@ public class LedgerRepository : ILedgerRepository
             _logger.LogDebug(
                 "Ledger append skipped: idempotency key {Key} already written as transaction {TransactionId}",
                 row.IdempotencyKey, existing.Id);
-            return new LedgerAppendResult(existing, true);
+            return (existing, true);
         }
 
         await LockWalletAsync(row.WalletId, cancellationToken);
@@ -239,7 +242,7 @@ public class LedgerRepository : ILedgerRepository
             "Appended {Type} of {Amount} to wallet {WalletId}; balance now {Balance}",
             row.Type, row.Amount, row.WalletId, row.BalanceAfter);
 
-        return new LedgerAppendResult(row, false);
+        return (row, false);
     }
 
     /// <summary>
@@ -291,10 +294,11 @@ public class LedgerRepository : ILedgerRepository
             var existing = await GetByIdempotencyKeyAsync(row.IdempotencyKey, cancellationToken);
             if (existing == null)
             {
-                throw exception;
+                // Rethrow with the original stack trace
+                ExceptionDispatchInfo.Capture(exception).Throw();
             }
 
-            recovered.Add(existing);
+            recovered.Add(existing!);
         }
 
         _logger.LogDebug(
@@ -326,7 +330,9 @@ public class LedgerRepository : ILedgerRepository
     /// failed attempt's wallet change and inserted rows) and the caller's rows are put back as they
     /// arrived (no generated id, no stamped balance, no wallet navigation, original reference). The idempotency check inside <see cref="AppendCoreAsync"/> then makes the retry safe
     /// even when the failure was a commit whose outcome was unknown: if the first attempt did
-    /// commit, the retry finds its rows and returns them as duplicates instead of writing twice.
+    /// commit, the retry finds its rows and returns them instead of writing twice. Those rows are
+    /// this call's own write, so a retry reports <c>WasDuplicate = false</c>; reporting a duplicate
+    /// would tell a refund that it had already happened although this call is what moved the money.
     /// </para>
     /// <para>
     /// When a transaction is already running the caller above us owns it, and the strategy that
@@ -335,12 +341,12 @@ public class LedgerRepository : ILedgerRepository
     /// </summary>
     private async Task<T> ExecuteAtomicallyAsync<T>(
         IReadOnlyList<LedgerTransaction> rows,
-        Func<IDbContextTransaction?, CancellationToken, Task<T>> unit,
+        Func<IDbContextTransaction?, bool, CancellationToken, Task<T>> unit,
         CancellationToken cancellationToken)
     {
         if (_context.Database.CurrentTransaction != null)
         {
-            return await unit(null, cancellationToken);
+            return await unit(null, false, cancellationToken);
         }
 
         var originalReferences = rows.Select(r => r.ReferenceTransactionId).ToArray();
@@ -349,7 +355,8 @@ public class LedgerRepository : ILedgerRepository
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async ct =>
         {
-            if (attempt++ > 0)
+            var isRetry = attempt++ > 0;
+            if (isRetry)
             {
                 _context.ChangeTracker.Clear();
                 for (var i = 0; i < rows.Count; i++)
@@ -365,7 +372,7 @@ public class LedgerRepository : ILedgerRepository
             }
 
             var owned = await _context.Database.BeginTransactionAsync(ct);
-            return await unit(owned, ct);
+            return await unit(owned, isRetry, ct);
         }, cancellationToken);
     }
 
@@ -385,7 +392,20 @@ public class LedgerRepository : ILedgerRepository
             return;
         }
 
-        await owned.RollbackAsync(cancellationToken);
-        await owned.DisposeAsync();
+        try
+        {
+            await owned.RollbackAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Data.Common.DbException)
+        {
+            // The caller is already handling the failure that sent us here. A transaction that is
+            // already complete (a commit that landed but whose outcome was lost) or whose connection
+            // is gone cannot be rolled back, and that must not replace the original exception: the
+            // retrying execution strategy has to see it to decide whether to run the unit again.
+        }
+        finally
+        {
+            await owned.DisposeAsync();
+        }
     }
 }

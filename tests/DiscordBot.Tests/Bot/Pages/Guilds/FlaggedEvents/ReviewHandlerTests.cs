@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Pages.Guilds.FlaggedEvents;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -37,9 +39,17 @@ public class ReviewHandlerTests
         Prepare(_details);
     }
 
-    private static void Prepare(PageModel model)
+    private const ulong ReviewerDiscordId = 555000555000555000UL;
+
+    private static void Prepare(PageModel model, bool linkedToDiscord = true)
     {
         var http = new DefaultHttpContext();
+        if (linkedToDiscord)
+        {
+            http.User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimsPrincipalExtensions.DiscordUserIdClaimType, ReviewerDiscordId.ToString()) }, "test"));
+        }
+
         model.PageContext = new PageContext(new ActionContext(http, new RouteData(), new PageActionDescriptor(), new ModelStateDictionary()));
         model.TempData = new TempDataDictionary(http, Mock.Of<ITempDataProvider>());
     }
@@ -255,6 +265,66 @@ public class ReviewHandlerTests
 
         ((string)_details.TempData["ToastError"]!).Should().Contain("already closed");
         _events.Verify(e => e.TakeActionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
+    #region Reviewer
+
+    [Fact]
+    public async Task Bulk_RecordsTheSignedInUsersDiscordIdAsReviewer()
+    {
+        var a = Event(FlaggedEventStatus.Pending);
+
+        await _list.OnPostBulkAsync(GuildId, "dismiss", new List<Guid> { a.Id }, CancellationToken.None);
+
+        _events.Verify(e => e.DismissEventAsync(a.Id, ReviewerDiscordId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task List_WithoutALinkedDiscordAccount_RefusesAndRecordsNoReviewer()
+    {
+        var unlinked = new IndexModel(_events.Object, _guilds.Object, Mock.Of<ILogger<IndexModel>>());
+        Prepare(unlinked, linkedToDiscord: false);
+        var a = Event(FlaggedEventStatus.Pending);
+
+        var bulk = await unlinked.OnPostBulkAsync(GuildId, "dismiss", new List<Guid> { a.Id }, CancellationToken.None);
+        var row = await unlinked.OnPostAcknowledgeAsync(GuildId, a.Id, CancellationToken.None);
+
+        bulk.Should().BeOfType<RedirectToPageResult>();
+        row.Should().BeOfType<RedirectToPageResult>();
+        ((string)unlinked.TempData["ToastError"]!).Should().Be("Link your Discord account to review events.");
+        _events.Verify(e => e.DismissEventAsync(It.IsAny<Guid>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+        _events.Verify(e => e.AcknowledgeEventAsync(It.IsAny<Guid>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Details_WithoutALinkedDiscordAccount_RefusesEveryReviewAction()
+    {
+        var unlinked = new DetailsModel(_events.Object, _guilds.Object, _members.Object, Mock.Of<ILogger<DetailsModel>>());
+        Prepare(unlinked, linkedToDiscord: false);
+        var pending = Event(FlaggedEventStatus.Pending);
+
+        await unlinked.OnPostDismissAsync(GuildId, pending.Id, CancellationToken.None);
+        await unlinked.OnPostAcknowledgeAsync(GuildId, pending.Id, CancellationToken.None);
+        await unlinked.OnPostRecordOutcomeAsync(GuildId, pending.Id, "Warned user", CancellationToken.None);
+
+        ((string)unlinked.TempData["ToastError"]!).Should().Be("Link your Discord account to review events.");
+        _events.Verify(e => e.DismissEventAsync(It.IsAny<Guid>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+        _events.Verify(e => e.AcknowledgeEventAsync(It.IsAny<Guid>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+        _events.Verify(e => e.TakeActionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Details_RecordsTheSignedInUsersDiscordIdAsReviewer()
+    {
+        var pending = Event(FlaggedEventStatus.Pending);
+
+        await _details.OnPostRecordOutcomeAsync(GuildId, pending.Id, "Warned user", CancellationToken.None);
+        await _details.OnPostAcknowledgeAsync(GuildId, pending.Id, CancellationToken.None);
+
+        _events.Verify(e => e.TakeActionAsync(pending.Id, "Warned user", ReviewerDiscordId, It.IsAny<CancellationToken>()), Times.Once);
+        _events.Verify(e => e.AcknowledgeEventAsync(pending.Id, ReviewerDiscordId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion

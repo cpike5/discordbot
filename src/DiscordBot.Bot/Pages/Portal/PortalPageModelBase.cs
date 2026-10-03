@@ -210,6 +210,17 @@ public abstract class PortalPageModelBase : PageModel
             return (PortalAuthResult.ShowLandingPage, context);
         }
 
+        // SuperAdmins and Admins bypass guild membership checks, and they do it before the Discord
+        // link is looked at, exactly as PortalGuildMemberAuthorizationHandler does: an admin without
+        // a linked Discord account reaches the page the same way the API lets them reach its endpoints
+        if (User.IsInRole(IdentitySeeder.Roles.SuperAdmin) || User.IsInRole(IdentitySeeder.Roles.Admin))
+        {
+            _logger.LogDebug("Admin user {UserName} granted portal access for guild {GuildId}",
+                User.Identity?.Name, guildId);
+            IsAuthorized = true;
+            return (PortalAuthResult.Authorized, context);
+        }
+
         // User is authenticated - check guild membership
         var user = await _userManager.GetUserAsync(User);
         if (user == null || !user.DiscordUserId.HasValue)
@@ -217,15 +228,6 @@ public abstract class PortalPageModelBase : PageModel
             _logger.LogDebug("User not found or no Discord linked, showing landing page for guild {GuildId}", guildId);
             IsAuthenticated = false; // Treat as unauthenticated for UI purposes
             return (PortalAuthResult.ShowLandingPage, context);
-        }
-
-        // SuperAdmins and Admins bypass guild membership checks (consistent with PortalGuildMemberAuthorizationHandler)
-        if (User.IsInRole(IdentitySeeder.Roles.SuperAdmin) || User.IsInRole(IdentitySeeder.Roles.Admin))
-        {
-            _logger.LogDebug("Admin user {DiscordUserId} granted portal access for guild {GuildId}",
-                user.DiscordUserId.Value, guildId);
-            IsAuthorized = true;
-            return (PortalAuthResult.Authorized, context);
         }
 
         // Check if user is a member of the guild (cache first, then REST API fallback)

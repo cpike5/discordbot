@@ -171,4 +171,34 @@ public class NotificationRepositoryDeleteMatchingTests : IDisposable
         deleted.Should().Be(2);
         (await RemainingIdsAsync()).Should().BeEquivalentTo(new[] { theirs.Id });
     }
+
+    [Fact]
+    public async Task DeleteMatchingAsync_Before_LeavesNotificationsCreatedAfterTheBoundAlone()
+    {
+        var rendered = DateTime.UtcNow.AddMinutes(-5);
+        var shown = await AddAsync(createdAt: rendered.AddMinutes(-10));
+        var onTheBound = await AddAsync(createdAt: rendered);
+        var arrivedLater = await AddAsync(createdAt: rendered.AddMinutes(1));
+
+        var deleted = await _repository.DeleteMatchingAsync(UserId, new NotificationQueryDto { Before = rendered });
+
+        deleted.Should().Be(2);
+        (await RemainingIdsAsync()).Should().BeEquivalentTo(new[] { arrivedLater.Id });
+        shown.Id.Should().NotBe(onTheBound.Id);
+    }
+
+    [Fact]
+    public async Task DeleteMatchingAsync_BeforeCombinedWithAFilter_AppliesBoth()
+    {
+        var rendered = DateTime.UtcNow.AddMinutes(-5);
+        var readBefore = await AddAsync(isRead: true, createdAt: rendered.AddMinutes(-1));
+        var unreadBefore = await AddAsync(isRead: false, createdAt: rendered.AddMinutes(-1));
+        var readAfter = await AddAsync(isRead: true, createdAt: rendered.AddMinutes(1));
+
+        var deleted = await _repository.DeleteMatchingAsync(UserId, new NotificationQueryDto { IsRead = true, Before = rendered });
+
+        deleted.Should().Be(1);
+        (await RemainingIdsAsync()).Should().BeEquivalentTo(new[] { unreadBefore.Id, readAfter.Id });
+        readBefore.Id.Should().NotBe(readAfter.Id);
+    }
 }

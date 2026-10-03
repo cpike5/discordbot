@@ -12,8 +12,8 @@ using Moq;
 namespace DiscordBot.Tests.Controllers;
 
 /// <summary>
-/// "Delete all" with filters must delete only what the filters match; without any it deletes
-/// everything, as it always did.
+/// "Delete all" must delete only what the filters match and only what existed when the list was
+/// rendered (the required <c>before</c> bound).
 /// </summary>
 public class NotificationsControllerDeleteAllTests
 {
@@ -38,14 +38,48 @@ public class NotificationsControllerDeleteAllTests
     }
 
     [Fact]
-    public async Task DeleteAll_NoFilters_DeletesEverything()
+    public async Task DeleteAll_NoFilters_DeletesEverythingUpToTheRenderTime()
     {
-        _service.Setup(s => s.DeleteAllAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(7);
+        NotificationQueryDto? captured = null;
+        _service
+            .Setup(s => s.DeleteMatchingAsync(UserId, It.IsAny<NotificationQueryDto>(), It.IsAny<CancellationToken>()))
+            .Callback<string, NotificationQueryDto, CancellationToken>((_, q, _) => captured = q)
+            .ReturnsAsync(7);
+        var rendered = new DateTimeOffset(DateTime.UtcNow.AddMinutes(-5), TimeSpan.Zero);
 
-        var result = await _controller.DeleteAll();
+        var result = await _controller.DeleteAll(before: rendered);
 
         result.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().Be(7);
+        captured!.Before.Should().Be(rendered.UtcDateTime);
+        captured.Before!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        captured.Type.Should().BeNull();
+        captured.IsRead.Should().BeNull();
+        _service.Verify(s => s.DeleteAllAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAll_WithoutBefore_IsABadRequestAndDeletesNothing()
+    {
+        var result = await _controller.DeleteAll(isRead: true);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
         _service.Verify(s => s.DeleteMatchingAsync(It.IsAny<string>(), It.IsAny<NotificationQueryDto>(), It.IsAny<CancellationToken>()), Times.Never);
+        _service.Verify(s => s.DeleteAllAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAll_WithABeforeInTheFuture_ClampsItToNow()
+    {
+        NotificationQueryDto? captured = null;
+        _service
+            .Setup(s => s.DeleteMatchingAsync(UserId, It.IsAny<NotificationQueryDto>(), It.IsAny<CancellationToken>()))
+            .Callback<string, NotificationQueryDto, CancellationToken>((_, q, _) => captured = q)
+            .ReturnsAsync(0);
+        var lower = DateTime.UtcNow;
+
+        await _controller.DeleteAll(before: DateTimeOffset.UtcNow.AddDays(1));
+
+        captured!.Before.Should().BeOnOrAfter(lower).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]
@@ -58,6 +92,7 @@ public class NotificationsControllerDeleteAllTests
             .ReturnsAsync(3);
 
         var result = await _controller.DeleteAll(
+            before: DateTimeOffset.UtcNow,
             isRead: true,
             severity: AlertSeverity.Warning,
             startDate: new DateTime(2026, 9, 26),
@@ -79,7 +114,7 @@ public class NotificationsControllerDeleteAllTests
     {
         _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
 
-        var result = await _controller.DeleteAll(isRead: true);
+        var result = await _controller.DeleteAll(before: DateTimeOffset.UtcNow, isRead: true);
 
         result.Result.Should().BeOfType<UnauthorizedResult>();
     }

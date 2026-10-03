@@ -177,10 +177,13 @@ public class NotificationsController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes notifications for the current user. With no filter parameters it deletes all of
-    /// them; with any filter it deletes only the notifications the notification list would show
-    /// for the same filters, so "Delete all" on a filtered list never removes anything unseen.
+    /// Deletes notifications for the current user that were created at or before <paramref name="before"/>.
+    /// With no other filter parameters it deletes all of them up to that moment; with any filter it
+    /// deletes only the notifications the notification list would show for the same filters, so
+    /// "Delete all" never removes anything unseen, including a notification that arrived after the
+    /// list was rendered.
     /// </summary>
+    /// <param name="before">Required. The moment the list was rendered (ISO 8601, UTC). A value in the future is treated as now.</param>
     /// <param name="type">Optional notification type filter.</param>
     /// <param name="isRead">Optional read status filter (true = read only, false = unread only).</param>
     /// <param name="severity">Optional severity filter.</param>
@@ -192,8 +195,10 @@ public class NotificationsController : ControllerBase
     /// <returns>Number of notifications deleted.</returns>
     [HttpPost("delete-all")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<int>> DeleteAll(
+        [FromQuery] DateTimeOffset? before = null,
         [FromQuery] NotificationType? type = null,
         [FromQuery] bool? isRead = null,
         [FromQuery] AlertSeverity? severity = null,
@@ -207,20 +212,26 @@ public class NotificationsController : ControllerBase
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
 
-        var hasFilter = type.HasValue || isRead.HasValue || severity.HasValue ||
-                        startDate.HasValue || endDate.HasValue ||
-                        !string.IsNullOrWhiteSpace(searchTerm) || guildId.HasValue;
-
-        if (!hasFilter)
+        if (!before.HasValue)
         {
-            _logger.LogDebug("User {UserId} deleting all notifications", userId);
-            return Ok(await _notificationService.DeleteAllAsync(userId, cancellationToken));
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "The 'before' parameter is required: the time the list was rendered, so notifications created since are not deleted.",
+                StatusCode = StatusCodes.Status400BadRequest
+            });
         }
 
-        _logger.LogDebug("User {UserId} deleting all notifications that match a filter", userId);
+        // A client clock ahead of the server's must not reopen the window
+        var bound = before.Value.UtcDateTime;
+        var now = DateTime.UtcNow;
+        if (bound > now)
+            bound = now;
+
+        _logger.LogDebug("User {UserId} deleting notifications created before {Before}", userId, bound);
 
         var query = new NotificationQueryDto
         {
+            Before = bound,
             Type = type,
             IsRead = isRead,
             Severity = severity,

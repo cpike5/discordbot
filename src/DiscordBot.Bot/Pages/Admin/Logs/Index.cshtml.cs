@@ -153,8 +153,23 @@ public class IndexModel : PageModel
     /// </summary>
     public string CurrentUrl => $"{Request.Path}{Request.QueryString}";
 
+    /// <summary>The smallest page size a list accepts.</summary>
+    internal const int MinPageSize = 10;
+
+    /// <summary>The largest page size a list accepts; the services cap a page at the same number.</summary>
+    internal const int MaxPageSize = 100;
+
+    /// <summary>
+    /// Keeps a page size inside <see cref="MinPageSize"/> and <see cref="MaxPageSize"/>, so a hand-edited
+    /// <c>?MessagePageSize=100000</c> cannot ask for an unbounded read.
+    /// </summary>
+    internal static int ClampPageSize(int pageSize) => Math.Clamp(pageSize, MinPageSize, MaxPageSize);
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        MessagePageSize = ClampPageSize(MessagePageSize);
+        AuditPageSize = ClampPageSize(AuditPageSize);
+
         // Determine active tab (default to "messages"; anything unknown falls back to it)
         ActiveTab = string.Equals(Tab, "audit", StringComparison.OrdinalIgnoreCase) ? "audit" : "messages";
 
@@ -350,6 +365,8 @@ public class IndexModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnGetExportAsync(CancellationToken cancellationToken)
     {
+        AuditPageSize = ClampPageSize(AuditPageSize);
+
         // The first page is read before the response starts, so a failure can still become an
         // error toast and a redirect instead of a broken download.
         var query = BuildAuditQuery(page: 1, pageSize: ExportPageSize);

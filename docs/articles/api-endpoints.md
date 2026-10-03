@@ -4710,19 +4710,10 @@ Dismisses a flagged event (marks as not requiring action).
 | `guildId` | ulong | Discord guild snowflake ID |
 | `id` | Guid | Flagged event unique identifier |
 
-**Request Body:**
-
-```json
-{
-  "reviewerId": 111222333444555666
-}
-```
-
-**Request Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
+**Request Body:** `{}`. The reviewer is always the signed-in user's linked Discord account, taken from the sign-in claims. A
+`reviewerId` in the body is accepted for older clients and ignored. A signed-in user with no linked
+Discord account is refused with `403` and the message "Link your Discord account to review events."
+(`errorCode` `DISCORD_LINK_REQUIRED`) rather than recorded as reviewer 0.
 
 **Response: 200 OK**
 
@@ -4758,13 +4749,10 @@ Acknowledges a flagged event (marks as seen but not yet actioned).
 | `guildId` | ulong | Discord guild snowflake ID |
 | `id` | Guid | Flagged event unique identifier |
 
-**Request Body:**
-
-```json
-{
-  "reviewerId": 111222333444555666
-}
-```
+**Request Body:** `{}`. The reviewer is always the signed-in user's linked Discord account, taken from the sign-in claims. A
+`reviewerId` in the body is accepted for older clients and ignored. A signed-in user with no linked
+Discord account is refused with `403` and the message "Link your Discord account to review events."
+(`errorCode` `DISCORD_LINK_REQUIRED`) rather than recorded as reviewer 0.
 
 **Response: 200 OK**
 
@@ -4789,7 +4777,6 @@ Takes action on a flagged event (marks as actioned and records action taken).
 
 ```json
 {
-  "reviewerId": 111222333444555666,
   "action": "User warned and message deleted"
 }
 ```
@@ -4798,8 +4785,12 @@ Takes action on a flagged event (marks as actioned and records action taken).
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
 | `action` | string | Yes | Description of action taken |
+
+The reviewer is always the signed-in user's linked Discord account, taken from the sign-in claims. A
+`reviewerId` in the body is accepted for older clients and ignored. A signed-in user with no linked
+Discord account is refused with `403` and the message "Link your Discord account to review events."
+(`errorCode` `DISCORD_LINK_REQUIRED`) rather than recorded as reviewer 0.
 
 **Response: 200 OK**
 
@@ -6121,6 +6112,8 @@ Currencies are never deleted. Needs `Administer`.
 
 Lists or grants the principals allowed to mint. `principalType` is `0` User, `1` Role, `2` System
 (the principal a background job mints as; it carries no `principalId`). Needs `Administer`.
+A role grant on a guild currency is refused with `400` when the role is `@everyone` (its ID is the
+guild's ID) or a managed role, the same two the portal never offers.
 
 ```json
 { "principalType": 1, "principalId": "987654321098765432" }
@@ -7631,10 +7624,13 @@ curl -X POST "https://localhost:5001/api/portal/vox/123456789012345678/stop" \
 
 ### POST /api/notifications/delete-all
 
-Deletes the current user's notifications. With no query parameters it deletes all of them. With any of
-`type`, `isRead`, `severity`, `startDate`, `endDate` (the whole of that day is included), `searchTerm` or
-`guildId` it deletes only the notifications the notification list shows for the same filters, so
-"Delete all" on a filtered list removes nothing the user did not see. Returns the number deleted.
+Deletes the current user's notifications that were created at or before `before`. `before` is required
+(ISO 8601, UTC): the notification list sends the moment its request began, so a notification that
+arrived after the list was rendered is never deleted unseen. A missing or unparseable `before` returns
+400; a `before` in the future is treated as now. On top of that, any of `type`, `isRead`, `severity`,
+`startDate`, `endDate` (the whole of that day is included), `searchTerm` or `guildId` narrow the delete
+to the notifications the list shows for the same filters. Notifications the user dismissed are left
+alone. Returns the number deleted.
 
 ### GET /api/currencies/{id}/mint-authorities
 

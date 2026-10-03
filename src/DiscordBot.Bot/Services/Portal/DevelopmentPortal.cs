@@ -3,6 +3,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services.Portal;
@@ -61,8 +62,10 @@ public static class DevelopmentPortal
 
     /// <summary>
     /// Links the seeded default admin and a role-less seeded member to the fake Discord IDs the
-    /// development directory accepts. Idempotent. Does nothing, and says so in the log, unless
-    /// <see cref="IsEnabled"/>.
+    /// development directory accepts. Idempotent. Seeds nothing, and says so in the log, when the
+    /// default admin already has a real Discord link. When not <see cref="IsEnabled"/> it seeds
+    /// nothing and instead undoes an earlier seed (see <see cref="RemoveSeedAsync"/>), so a database
+    /// carried out of development does not keep the fake links or the member account.
     /// </summary>
     /// <param name="services">A scoped provider.</param>
     /// <param name="environment">The host environment.</param>
@@ -77,6 +80,7 @@ public static class DevelopmentPortal
     {
         if (!IsEnabled(environment, offlineMode))
         {
+            await RemoveSeedAsync(services, logger);
             return false;
         }
 
@@ -87,6 +91,17 @@ public static class DevelopmentPortal
         if (string.IsNullOrWhiteSpace(admin?.Email) || string.IsNullOrWhiteSpace(admin.Password))
         {
             logger.LogInformation("Development portal: no default admin configured, nothing to link");
+            return false;
+        }
+
+        // The admin's link is the real one once they have made it: never put a fake ID on an
+        // account that has a Discord link of its own. A link that is already the fake one is ours.
+        var adminUser = await userManager.FindByEmailAsync(admin.Email);
+        if (adminUser?.DiscordUserId is { } existingLink && existingLink != AdminDiscordUserId)
+        {
+            logger.LogInformation(
+                "Development portal: {AdminEmail} already has a Discord link, so nothing was seeded",
+                admin.Email);
             return false;
         }
 
@@ -122,6 +137,57 @@ public static class DevelopmentPortal
             "Development portal is ON (Development + Discord:OfflineMode): {AdminEmail} and {MemberEmail} are treated as members of every guild",
             admin.Email, MemberEmail);
         return true;
+    }
+
+    /// <summary>
+    /// Undoes <see cref="SeedAsync"/> on a host where the development portal is off: clears the
+    /// fake Discord IDs from every user carrying exactly <see cref="AdminDiscordUserId"/> or
+    /// <see cref="MemberDiscordUserId"/>, and deactivates and locks the seeded member account. No
+    /// user is deleted. Real links are never touched.
+    /// </summary>
+    /// <param name="services">A scoped provider.</param>
+    /// <param name="logger">Logger.</param>
+    public static async Task RemoveSeedAsync(IServiceProvider services, ILogger logger)
+    {
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var linked = await userManager.Users
+            .Where(u => u.DiscordUserId == AdminDiscordUserId || u.DiscordUserId == MemberDiscordUserId)
+            .ToListAsync();
+
+        foreach (var user in linked)
+        {
+            user.DiscordUserId = null;
+            var updated = await userManager.UpdateAsync(user);
+            if (updated.Succeeded)
+            {
+                logger.LogWarning(
+                    "Development portal is off: removed the development Discord link from {Email}", user.Email);
+            }
+            else
+            {
+                logger.LogError("Development portal: could not unlink {Email}: {Errors}",
+                    user.Email, string.Join(", ", updated.Errors.Select(e => e.Description)));
+            }
+        }
+
+        var member = await userManager.FindByEmailAsync(MemberEmail);
+        if (member != null && (member.IsActive || member.LockoutEnd != DateTimeOffset.MaxValue))
+        {
+            member.IsActive = false;
+            member.LockoutEnabled = true;
+            member.LockoutEnd = DateTimeOffset.MaxValue;
+            var updated = await userManager.UpdateAsync(member);
+            if (updated.Succeeded)
+            {
+                logger.LogWarning("Development portal is off: deactivated and locked {Email}", MemberEmail);
+            }
+            else
+            {
+                logger.LogError("Development portal: could not deactivate {Email}: {Errors}",
+                    MemberEmail, string.Join(", ", updated.Errors.Select(e => e.Description)));
+            }
+        }
     }
 
     private static async Task LinkAsync(

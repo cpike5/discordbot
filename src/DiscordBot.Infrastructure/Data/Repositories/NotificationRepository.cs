@@ -514,6 +514,9 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
         if (query.EndDate.HasValue)
             source = source.Where(n => n.CreatedAt <= query.EndDate.Value);
 
+        if (query.Before.HasValue)
+            source = source.Where(n => n.CreatedAt <= query.Before.Value);
+
         if (query.GuildId.HasValue)
             source = source.Where(n => n.GuildId == query.GuildId.Value);
 

@@ -24,10 +24,14 @@
     AddDeleteParam("endDate", Model.EndDate?.ToString("yyyy-MM-dd"));
     AddDeleteParam("searchTerm", string.IsNullOrWhiteSpace(Model.SearchTerm) ? null : Model.SearchTerm);
     AddDeleteParam("guildId", Model.GuildId?.ToString());
-    var deleteQuery = QueryString.Create(deleteParams).Value ?? string.Empty;
     var deleteScope = Model.DefaultWindowApplied
         ? "the notifications from the last 7 days"
         : deleteParams.Count > 0 ? "the notifications that match the current filters" : "every notification";
+
+    // The upper bound is when this request began, before the list was read: a notification that arrives after this page was
+    // rendered matches the filters but was never shown, so the delete must leave it alone.
+    var deleteQuery = QueryString.Create(deleteParams.Append(
+        new KeyValuePair<string, string?>("before", Model.RenderedAtUtc.ToString("O")))).Value ?? string.Empty;
 
     // The chip under the header: the default window, and only while it is the default
     var firstPageUrl = Url.Page("Index", new { AllTime = Model.AllTime ? true : (bool?)null });
