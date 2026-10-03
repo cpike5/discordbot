@@ -153,7 +153,8 @@ public class DetectionResultDto
 public class FlaggedEventReviewDto
 {
     /// <summary>
-    /// Gets or sets the Discord user snowflake ID of the reviewer.
+    /// Gets or sets the Discord user snowflake ID of the reviewer. Accepted for older clients and
+    /// ignored: the API records the signed-in user's linked Discord account.
     /// </summary>
     public ulong ReviewerId { get; set; }
 }
@@ -169,7 +170,8 @@ public class FlaggedEventTakeActionDto
     public string Action { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the Discord user snowflake ID of the reviewer.
+    /// Gets or sets the Discord user snowflake ID of the reviewer. Accepted for older clients and
+    /// ignored: the API records the signed-in user's linked Discord account.
     /// </summary>
     public ulong ReviewerId { get; set; }
 }

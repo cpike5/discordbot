@@ -185,6 +185,109 @@ public class LedgerRepositoryRetryingStrategyTests
         (await verify.Wallets.SingleAsync(w => w.Id == recipient.Id)).CachedBalance.Should().Be(20);
     }
 
+    [Fact]
+    public async Task AppendAsync_WhenTheCommitSucceededButItsOutcomeIsLost_ReportsTheRetryAsItsOwnWrite()
+    {
+        using var database = TestDbContextFactory.CreateDatabase();
+        var (_, sender, _) = await SeedAsync(database);
+
+        var failer = new LoseFirstCommitOutcomeInterceptor();
+        await using var context = new PostgresBotDbContext(RetryingOptions(database, failer));
+        var ledger = NewRepository(context);
+
+        var result = await ledger.AppendAsync(NewRow(sender.Id, 100, "refund:1"));
+
+        failer.Commits.Should().Be(2, "the first commit lands but reports failure, so the unit runs again");
+        result.WasDuplicate.Should().BeFalse("the rows the retry found are this call's own earlier write");
+        result.Transaction.IdempotencyKey.Should().Be("refund:1");
+        result.Transaction.BalanceAfter.Should().Be(100);
+
+        await using var verify = database.CreateContext();
+        (await verify.LedgerTransactions.CountAsync(t => t.WalletId == sender.Id)).Should().Be(1);
+        (await verify.Wallets.SingleAsync(w => w.Id == sender.Id)).CachedBalance.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task AppendPairAsync_WhenTheCommitSucceededButItsOutcomeIsLost_ReportsTheRetryAsItsOwnWrite()
+    {
+        using var database = TestDbContextFactory.CreateDatabase();
+        var (_, sender, recipient) = await SeedAsync(database);
+
+        await using (var seedContext = new PostgresBotDbContext(RetryingOptions(database)))
+        {
+            await NewRepository(seedContext).AppendAsync(NewRow(sender.Id, 50, "seed"));
+        }
+
+        var failer = new LoseFirstCommitOutcomeInterceptor();
+        await using var context = new PostgresBotDbContext(RetryingOptions(database, failer));
+        var ledger = NewRepository(context);
+
+        var pair = await ledger.AppendPairAsync(
+            NewRow(sender.Id, -20, "pay:out", LedgerTransactionType.TransferOut),
+            NewRow(recipient.Id, 20, "pay:in", LedgerTransactionType.TransferIn));
+
+        failer.Commits.Should().Be(2);
+        pair.WasDuplicate.Should().BeFalse("the rows the retry found are this call's own earlier write");
+        pair.Debit.ReferenceTransactionId.Should().Be(pair.Credit.Id);
+        pair.Credit.ReferenceTransactionId.Should().Be(pair.Debit.Id);
+
+        await using var verify = database.CreateContext();
+        (await verify.LedgerTransactions.CountAsync(t => t.IdempotencyKey == "pay:out")).Should().Be(1);
+        (await verify.LedgerTransactions.CountAsync(t => t.IdempotencyKey == "pay:in")).Should().Be(1);
+        (await verify.Wallets.SingleAsync(w => w.Id == sender.Id)).CachedBalance.Should().Be(30);
+        (await verify.Wallets.SingleAsync(w => w.Id == recipient.Id)).CachedBalance.Should().Be(20);
+    }
+
+    [Fact]
+    public async Task AppendAsync_WhenTheKeyWasWrittenByAnEarlierCall_StillReportsADuplicate()
+    {
+        using var database = TestDbContextFactory.CreateDatabase();
+        var (_, sender, _) = await SeedAsync(database);
+
+        await using var context = new PostgresBotDbContext(RetryingOptions(database));
+        var ledger = NewRepository(context);
+        await ledger.AppendAsync(NewRow(sender.Id, 100, "refund:2"));
+
+        var again = await ledger.AppendAsync(NewRow(sender.Id, 100, "refund:2"));
+
+        again.WasDuplicate.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Lets the first commit land, then fails it with the kind of error the Npgsql retry strategy
+    /// treats as transient: the commit happened, but the caller is told it did not.
+    /// </summary>
+    private sealed class LoseFirstCommitOutcomeInterceptor : DbTransactionInterceptor
+    {
+        private int _commits;
+
+        /// <summary>Commits attempted so far, failed and successful.</summary>
+        public int Commits => _commits;
+
+        public override ValueTask<InterceptionResult> TransactionCommittingAsync(
+            DbTransaction transaction,
+            TransactionEventData eventData,
+            InterceptionResult result,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _commits);
+            return ValueTask.FromResult(result);
+        }
+
+        public override Task TransactionCommittedAsync(
+            DbTransaction transaction,
+            TransactionEndEventData eventData,
+            CancellationToken cancellationToken = default)
+        {
+            if (_commits == 1)
+            {
+                throw new NpgsqlException("simulated lost commit outcome", new IOException("simulated"));
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
     /// <summary>
     /// Fails the first commit with the kind of error the Npgsql retry strategy treats as transient
     /// (an <see cref="NpgsqlException"/> caused by an I/O failure), before anything is committed.

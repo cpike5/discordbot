@@ -210,6 +210,72 @@ public class CurrenciesControllerTests
     }
 
     [Fact]
+    public async Task GrantMintAuthority_RefusesTheEveryoneRole_BecauseItsIdIsTheGuildsId()
+    {
+        var currency = GuildCurrency();
+        var controller = Build(CurrencyAccessLevel.Administer);
+
+        _currencyService
+            .Setup(s => s.GetAsync(currency.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(currency);
+
+        var result = await controller.GrantMintAuthority(currency.Id, new MintAuthorityGrantRequestDto
+        {
+            PrincipalType = MintPrincipalType.Role,
+            PrincipalId = GuildId
+        });
+
+        StatusOf(result.Result).Should().Be(400);
+        _currencyService.Verify(
+            s => s.GrantMintAuthorityAsync(It.IsAny<Guid>(), It.IsAny<MintPrincipalType>(), It.IsAny<ulong?>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GrantMintAuthority_StillAllowsAUserWhoseIdEqualsTheGuildsId()
+    {
+        // Only a role can be @everyone; the ID check must not catch other principal types
+        var currency = GuildCurrency();
+        var controller = Build(CurrencyAccessLevel.Administer);
+
+        _currencyService
+            .Setup(s => s.GetAsync(currency.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(currency);
+        _currencyService
+            .Setup(s => s.GrantMintAuthorityAsync(
+                currency.Id, MintPrincipalType.User, GuildId, ActorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MintAuthorityResult
+            {
+                Success = true,
+                Authority = new MintAuthorityDto { Id = Guid.NewGuid(), CurrencyId = currency.Id }
+            });
+
+        var result = await controller.GrantMintAuthority(currency.Id, new MintAuthorityGrantRequestDto
+        {
+            PrincipalType = MintPrincipalType.User,
+            PrincipalId = GuildId
+        });
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public void GetRoleGrantRefusal_RefusesEveryoneAndManagedRoles_AndAllowsOrdinaryOnes()
+    {
+        const ulong roleId = 987654321UL;
+
+        CurrenciesController.GetRoleGrantRefusal(GuildId, GuildId, null).Should().NotBeNull();
+
+        var managed = new Mock<Discord.IRole>();
+        managed.SetupGet(r => r.IsManaged).Returns(true);
+        CurrenciesController.GetRoleGrantRefusal(GuildId, roleId, managed.Object).Should().Contain("managed");
+
+        var ordinary = new Mock<Discord.IRole>();
+        CurrenciesController.GetRoleGrantRefusal(GuildId, roleId, ordinary.Object).Should().BeNull();
+        CurrenciesController.GetRoleGrantRefusal(GuildId, roleId, null).Should().BeNull("an uncached role is allowed, as before");
+    }
+
+    [Fact]
     public async Task RevokeMintAuthority_RefusesAGrantOnAnotherCurrency()
     {
         var currency = GuildCurrency();

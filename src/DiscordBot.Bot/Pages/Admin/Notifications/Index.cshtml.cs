@@ -96,8 +96,16 @@ public class IndexModel : PaginatedPageModel
     /// </summary>
     public IReadOnlyList<GuildDto> AvailableGuilds { get; set; } = Array.Empty<GuildDto>();
 
+    /// <summary>
+    /// When this request began, in UTC. Taken before the list is read, so a notification created
+    /// after it cannot be on the page; "Delete all" sends it as the upper bound of what to delete.
+    /// </summary>
+    public DateTime RenderedAtUtc { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        RenderedAtUtc = DateTime.UtcNow;
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();

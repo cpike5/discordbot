@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -202,21 +203,27 @@ public class FlaggedEventsController : ControllerBase
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
     /// <param name="id">The flagged event's unique identifier.</param>
-    /// <param name="request">The dismiss request containing the reviewer ID.</param>
+    /// <param name="request">The request body. Any <c>reviewerId</c> in it is ignored: the reviewer is the signed-in user's linked Discord account.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The updated flagged event data.</returns>
     [HttpPost("{id}/dismiss")]
     [ProducesResponseType(typeof(FlaggedEventDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<FlaggedEventDto>> DismissEvent(
         ulong guildId,
         Guid id,
         [FromBody] FlaggedEventReviewDto request,
         CancellationToken cancellationToken = default)
     {
+        if (!User.TryGetDiscordUserId(out var reviewerId))
+        {
+            return DiscordLinkRequired();
+        }
+
         _logger.LogInformation("Flagged event {EventId} dismiss requested for guild {GuildId} by reviewer {ReviewerId}",
-            id, guildId, request.ReviewerId);
+            id, guildId, reviewerId);
 
         if (request == null)
         {
@@ -246,7 +253,7 @@ public class FlaggedEventsController : ControllerBase
             });
         }
 
-        var flaggedEvent = await _flaggedEventService.DismissEventAsync(id, request.ReviewerId, cancellationToken);
+        var flaggedEvent = await _flaggedEventService.DismissEventAsync(id, reviewerId, cancellationToken);
 
         if (flaggedEvent == null)
         {
@@ -262,7 +269,7 @@ public class FlaggedEventsController : ControllerBase
         }
 
         _logger.LogInformation("Flagged event {EventId} dismissed successfully by reviewer {ReviewerId}",
-            id, request.ReviewerId);
+            id, reviewerId);
 
         return Ok(flaggedEvent);
     }
@@ -272,21 +279,27 @@ public class FlaggedEventsController : ControllerBase
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
     /// <param name="id">The flagged event's unique identifier.</param>
-    /// <param name="request">The acknowledge request containing the reviewer ID.</param>
+    /// <param name="request">The request body. Any <c>reviewerId</c> in it is ignored: the reviewer is the signed-in user's linked Discord account.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The updated flagged event data.</returns>
     [HttpPost("{id}/acknowledge")]
     [ProducesResponseType(typeof(FlaggedEventDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<FlaggedEventDto>> AcknowledgeEvent(
         ulong guildId,
         Guid id,
         [FromBody] FlaggedEventReviewDto request,
         CancellationToken cancellationToken = default)
     {
+        if (!User.TryGetDiscordUserId(out var reviewerId))
+        {
+            return DiscordLinkRequired();
+        }
+
         _logger.LogInformation("Flagged event {EventId} acknowledge requested for guild {GuildId} by reviewer {ReviewerId}",
-            id, guildId, request.ReviewerId);
+            id, guildId, reviewerId);
 
         if (request == null)
         {
@@ -316,7 +329,7 @@ public class FlaggedEventsController : ControllerBase
             });
         }
 
-        var flaggedEvent = await _flaggedEventService.AcknowledgeEventAsync(id, request.ReviewerId, cancellationToken);
+        var flaggedEvent = await _flaggedEventService.AcknowledgeEventAsync(id, reviewerId, cancellationToken);
 
         if (flaggedEvent == null)
         {
@@ -332,7 +345,7 @@ public class FlaggedEventsController : ControllerBase
         }
 
         _logger.LogInformation("Flagged event {EventId} acknowledged successfully by reviewer {ReviewerId}",
-            id, request.ReviewerId);
+            id, reviewerId);
 
         return Ok(flaggedEvent);
     }
@@ -342,21 +355,24 @@ public class FlaggedEventsController : ControllerBase
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
     /// <param name="id">The flagged event's unique identifier.</param>
-    /// <param name="request">The action request containing the action description and reviewer ID.</param>
+    /// <param name="request">The action description. Any <c>reviewerId</c> in the body is ignored: the reviewer is the signed-in user's linked Discord account.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The updated flagged event data.</returns>
     [HttpPost("{id}/action")]
     [ProducesResponseType(typeof(FlaggedEventDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<FlaggedEventDto>> TakeAction(
         ulong guildId,
         Guid id,
         [FromBody] FlaggedEventTakeActionDto request,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Flagged event {EventId} action requested for guild {GuildId} by reviewer {ReviewerId}: {Action}",
-            id, guildId, request.ReviewerId, request.Action);
+        if (!User.TryGetDiscordUserId(out var reviewerId))
+        {
+            return DiscordLinkRequired();
+        }
 
         if (request == null)
         {
@@ -370,6 +386,9 @@ public class FlaggedEventsController : ControllerBase
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
+
+        _logger.LogInformation("Flagged event {EventId} action requested for guild {GuildId} by reviewer {ReviewerId}: {Action}",
+            id, guildId, reviewerId, request.Action);
 
         if (string.IsNullOrWhiteSpace(request.Action))
         {
@@ -402,7 +421,7 @@ public class FlaggedEventsController : ControllerBase
         var flaggedEvent = await _flaggedEventService.TakeActionAsync(
             id,
             request.Action,
-            request.ReviewerId,
+            reviewerId,
             cancellationToken);
 
         if (flaggedEvent == null)
@@ -419,8 +438,26 @@ public class FlaggedEventsController : ControllerBase
         }
 
         _logger.LogInformation("Flagged event {EventId} actioned successfully by reviewer {ReviewerId}: {Action}",
-            id, request.ReviewerId, request.Action);
+            id, reviewerId, request.Action);
 
         return Ok(flaggedEvent);
+    }
+
+    /// <summary>
+    /// The refusal for a signed-in user whose account has no linked Discord account. A review
+    /// records who made it as a Discord user ID, and recording 0 would attribute it to nobody.
+    /// </summary>
+    private ObjectResult DiscordLinkRequired()
+    {
+        _logger.LogWarning("Flagged event review refused: the signed-in user has no linked Discord account");
+
+        return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorDto
+        {
+            Message = FlaggedEventReviewRules.LinkDiscordMessage,
+            Detail = "Reviews are recorded under your Discord user ID. Link your Discord account, then try again.",
+            StatusCode = StatusCodes.Status403Forbidden,
+            ErrorCode = "DISCORD_LINK_REQUIRED",
+            TraceId = HttpContext.GetCorrelationId()
+        });
     }
 }

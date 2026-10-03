@@ -148,6 +148,13 @@ public class DetailsModel : GuildPageModelBase
     public async Task<IActionResult> OnPostRecordOutcomeAsync(
         ulong guildId, Guid id, string? outcome, CancellationToken cancellationToken)
     {
+        // Never record 0 as the reviewer: an admin without a linked Discord account has no ID
+        if (!User.TryGetDiscordUserId(out var reviewerId))
+        {
+            TempData.SetErrorToast(FlaggedEventReviewRules.LinkDiscordMessage);
+            return Back(guildId, id);
+        }
+
         var text = outcome?.Trim();
         if (string.IsNullOrEmpty(text))
         {
@@ -175,7 +182,7 @@ public class DetailsModel : GuildPageModelBase
 
         try
         {
-            await _flaggedEventService.TakeActionAsync(id, text, User.GetDiscordUserId(), cancellationToken);
+            await _flaggedEventService.TakeActionAsync(id, text, reviewerId, cancellationToken);
             TempData.SetSuccessToast("Outcome recorded.");
         }
         catch (Exception ex)
@@ -190,6 +197,13 @@ public class DetailsModel : GuildPageModelBase
     private async Task<IActionResult> ReviewAsync(
         ulong guildId, Guid id, FlaggedEventReviewAction action, CancellationToken cancellationToken)
     {
+        // Never record 0 as the reviewer: an admin without a linked Discord account has no ID
+        if (!User.TryGetDiscordUserId(out var reviewerId))
+        {
+            TempData.SetErrorToast(FlaggedEventReviewRules.LinkDiscordMessage);
+            return Back(guildId, id);
+        }
+
         var existing = await _flaggedEventService.GetEventAsync(id, cancellationToken);
         if (existing == null || existing.GuildId != guildId)
         {
@@ -204,7 +218,6 @@ public class DetailsModel : GuildPageModelBase
 
         try
         {
-            var reviewerId = User.GetDiscordUserId();
             if (action == FlaggedEventReviewAction.Dismiss)
             {
                 await _flaggedEventService.DismissEventAsync(id, reviewerId, cancellationToken);

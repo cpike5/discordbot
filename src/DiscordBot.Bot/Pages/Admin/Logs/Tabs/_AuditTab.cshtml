@@ -502,9 +502,12 @@
                         ActorId = Model.ActorId,
                         TargetType = Model.TargetType,
                         AuditGuildId = Model.AuditGuildId,
-                        AuditStartDate = Model.AuditStartDate?.ToString("yyyy-MM-dd"),
-                        AuditEndDate = Model.AuditEndDate?.ToString("yyyy-MM-dd"),
-                        AuditSearchTerm = Model.AuditSearchTerm
+                        // The default date range is not a filter the user chose: writing it into the
+                        // links would turn it into one on the next page
+                        AuditStartDate = Model.AuditDatesDefaulted ? null : Model.AuditStartDate?.ToString("yyyy-MM-dd"),
+                        AuditEndDate = Model.AuditDatesDefaulted ? null : Model.AuditEndDate?.ToString("yyyy-MM-dd"),
+                        AuditSearchTerm = Model.AuditSearchTerm,
+                        AuditPageSize = Model.AuditPageSize
                     }) ?? string.Empty;
                     var paginationModel = new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
                         CurrentPage = Model.AuditLogsViewModel.CurrentPage,
@@ -515,7 +518,8 @@
                         ShowPageSizeSelector = true,
                         ShowItemCount = false,
                         ShowFirstLast = true,
-                        PageParameterName = "auditPageNumber"
+                        PageParameterName = "auditPageNumber",
+                        PageSizeParameterName = "AuditPageSize"
                     };
                 }
                 <partial name="Shared/Components/_Pagination" model="paginationModel" />

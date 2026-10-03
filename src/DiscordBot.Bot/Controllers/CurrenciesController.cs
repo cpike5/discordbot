@@ -333,6 +333,28 @@ public class CurrenciesController : CurrencyControllerBase
     }
 
     /// <summary>
+    /// Why a role cannot hold mint authority, or null when it can. <c>@everyone</c> would hand the
+    /// grant to every member, and a managed role belongs to an integration or the server's boost,
+    /// not to a group of people. <c>@everyone</c> is recognised by its ID, which is the guild's ID,
+    /// so it is refused even while the guild is not in the cache; <paramref name="role"/> is the
+    /// cached role when there is one, and is what tells a managed role.
+    /// </summary>
+    internal static string? GetRoleGrantRefusal(ulong guildId, ulong roleId, Discord.IRole? role)
+    {
+        if (roleId == guildId)
+        {
+            return "The @everyone role cannot be granted mint authority: that would let every member mint.";
+        }
+
+        if (role?.IsManaged == true)
+        {
+            return "A managed role (one created by an integration or a boost) cannot be granted mint authority.";
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Adds a principal to a currency's mint authority list.
     /// </summary>
     /// <param name="id">The currency ID.</param>
@@ -341,6 +363,7 @@ public class CurrenciesController : CurrencyControllerBase
     [HttpPost]
     [Route("api/currencies/{id:guid}/mint-authorities")]
     [ProducesResponseType(typeof(MintAuthorityDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<MintAuthorityDto>> GrantMintAuthority(
         Guid id,
@@ -371,6 +394,18 @@ public class CurrenciesController : CurrencyControllerBase
             return BadRequestError(
                 "Discord account required",
                 "Link your Discord account before granting mint authority; the grant records who made it.");
+        }
+
+        // The UI only offers roles that can be granted; the API has to agree, because anyone with
+        // Administer access can post here directly
+        if (request.PrincipalType == MintPrincipalType.Role && request.PrincipalId.HasValue && currency!.GuildId.HasValue)
+        {
+            var role = _discordClient?.GetGuild(currency.GuildId.Value)?.GetRole(request.PrincipalId.Value);
+            var refusal = GetRoleGrantRefusal(currency.GuildId.Value, request.PrincipalId.Value, role);
+            if (refusal != null)
+            {
+                return BadRequestError("Role cannot be granted", refusal);
+            }
         }
 
         var result = await _currencyService.GrantMintAuthorityAsync(

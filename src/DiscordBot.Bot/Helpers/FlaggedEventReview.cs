@@ -20,6 +20,12 @@ public enum FlaggedEventReviewAction
 /// </summary>
 public static class FlaggedEventReviewRules
 {
+    /// <summary>
+    /// What a reviewer without a linked Discord account is told. Reviews record who made them, and
+    /// that is a Discord user ID, so there is nothing honest to record for such an account.
+    /// </summary>
+    public const string LinkDiscordMessage = "Link your Discord account to review events.";
+
     /// <summary>Whether <paramref name="action"/> can be applied to an event in <paramref name="status"/>.</summary>
     public static bool CanApply(FlaggedEventReviewAction action, FlaggedEventStatus status) => action switch
     {

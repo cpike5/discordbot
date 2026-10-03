@@ -234,13 +234,19 @@ public class IndexModel : GuildPageModelBase
     {
         GuildId = guildId;
 
+        // Never record 0 as the reviewer: an admin without a linked Discord account has no ID
+        if (!User.TryGetDiscordUserId(out var reviewerId))
+        {
+            TempData.SetErrorToast(FlaggedEventReviewRules.LinkDiscordMessage);
+            return RedirectToPage("/Guilds/FlaggedEvents/Index", ListRouteValues());
+        }
+
         if (ids.Count == 0)
         {
             TempData.SetErrorToast("Select at least one event first.");
             return RedirectToPage("/Guilds/FlaggedEvents/Index", ListRouteValues());
         }
 
-        var reviewerId = User.GetDiscordUserId();
         var outcome = new FlaggedEventBatchOutcome();
 
         foreach (var id in ids)
