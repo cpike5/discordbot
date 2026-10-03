@@ -125,7 +125,10 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             SoundId = soundId,
             Price = result.Price,
             Balance = result.Balance,
-            CurrencySymbol = result.CurrencySymbol
+            CurrencySymbol = result.CurrencySymbol,
+            // Whether the sound is waiting behind another one, and where, so the page can say "Queued #2"
+            WasQueued = result.WasQueued,
+            QueuePosition = result.QueuePosition
         });
     }
 
@@ -157,8 +160,8 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
-                Detail = "The requested guild was not found or the bot is not a member.",
+                Message = "Server not found",
+                Detail = "That server was not found, or the bot is not in it.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "guild_not_found"
@@ -216,8 +219,8 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
             return BadRequest(new ApiErrorDto
             {
-                Message = "Audio is not enabled for this guild",
-                Detail = "Enable audio in the guild settings before using voice features.",
+                Message = "Audio is not enabled for this server",
+                Detail = "Ask a server admin to turn on audio before using voice features.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "audio_not_enabled"
@@ -231,7 +234,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             return NotFound(new ApiErrorDto
             {
                 Message = "Failed to join voice channel",
-                Detail = "The guild or voice channel was not found, or the bot lacks permission to join.",
+                Detail = "The bot could not join that voice channel. It may have been deleted, or the bot may lack permission to connect.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "channel_not_found"
@@ -261,7 +264,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not in a voice channel right now. Join one first.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "not_connected"
@@ -308,7 +311,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not in a voice channel right now. Join one first.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "not_connected"
@@ -339,24 +342,22 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
 
         var isConnected = _audioService.IsConnected(guildId);
         var channelId = _audioService.GetConnectedChannelId(guildId);
-        string? channelName = null;
+        PortalVoiceChannel? channel = channelId.HasValue
+            ? _guildDirectory.FindVoiceChannel(guildId, channelId.Value)
+            : null;
 
-        if (channelId.HasValue)
-        {
-            channelName = _guildDirectory.FindVoiceChannel(guildId, channelId.Value)?.Name;
-        }
-
-        // Note: PlaybackService does not expose CurrentSound publicly, so we cannot return now playing
-        // TODO: Add GetCurrentSound method to IPlaybackService or use IsPlaying with state tracking
+        // Note: PlaybackService does not expose CurrentSound publicly, so we cannot return the name of what is playing
         var isPlaying = _playbackService.IsPlaying(guildId);
 
         var response = new
         {
             isConnected,
             channelId = channelId?.ToString(),
-            channelName,
-            nowPlaying = (string?)null, // Cannot determine currently playing sound without public accessor
-            isPlaying
+            channelName = channel?.Name,
+            memberCount = channel?.MemberCount,
+            nowPlaying = (string?)null,
+            isPlaying,
+            queueLength = _playbackService.GetQueueLength(guildId)
         };
 
         return Ok(response);

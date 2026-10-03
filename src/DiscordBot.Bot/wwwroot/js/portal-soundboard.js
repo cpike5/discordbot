@@ -69,11 +69,28 @@
             this.sentinel = document.createElement('div');
             this.sentinel.className = 'sound-grid-sentinel';
             this.sentinel.setAttribute('aria-hidden', 'true');
-            // Insert sentinel after the grid container's parent so it's within the scrollable area
-            this.container.parentNode.appendChild(this.sentinel);
+            // The sentinel is the grid's last child, so it sits inside whatever scrolls the cards
+            this._placeSentinel();
+        }
+
+        _placeSentinel() {
+            // Appending moves it to the end, after the cards just added
+            this.container.appendChild(this.sentinel);
+        }
+
+        /**
+         * The element that scrolls the grid: the grid itself on desktop, where it has its own
+         * scrollbar, and the page on phones and tablets (null means the viewport). An observer
+         * rooted on the viewport never sees the sentinel move inside a nested scroller.
+         */
+        _scrollRoot() {
+            const overflowY = window.getComputedStyle(this.container).overflowY;
+            return overflowY === 'auto' || overflowY === 'scroll' ? this.container : null;
         }
 
         _setupObserver() {
+            if (this.observer) this.observer.disconnect();
+            this.observedRoot = this._scrollRoot();
             this.observer = new IntersectionObserver((entries) => {
                 for (const entry of entries) {
                     if (entry.isIntersecting && this.renderedCount < this.filteredSounds.length) {
@@ -81,11 +98,19 @@
                     }
                 }
             }, {
-                root: null,
+                root: this.observedRoot,
                 rootMargin: '200px',
                 threshold: 0
             });
             this.observer.observe(this.sentinel);
+
+            // The grid changes scroller when the window crosses the tablet breakpoint
+            if (!this.resizeBound) {
+                this.resizeBound = true;
+                window.addEventListener('resize', () => {
+                    if (this._scrollRoot() !== this.observedRoot) this._setupObserver();
+                });
+            }
         }
 
         /**
@@ -103,6 +128,7 @@
         render() {
             this.renderedCount = 0;
             this.container.innerHTML = '';
+            this._placeSentinel();
             this._updateEmptyState();
             if (this.filteredSounds.length > 0) {
                 this.loadMore();
@@ -121,7 +147,7 @@
                 fragment.appendChild(card);
             }
 
-            this.container.appendChild(fragment);
+            this.container.insertBefore(fragment, this.sentinel);
             this.renderedCount = end;
 
             // If we've rendered everything, hide the sentinel
@@ -129,6 +155,12 @@
                 this.sentinel.style.display = 'none';
             } else {
                 this.sentinel.style.display = '';
+                // The sentinel may still be in view after this batch (a tall window, a short batch).
+                // An observer only reports changes, so look again.
+                if (this.observer) {
+                    this.observer.unobserve(this.sentinel);
+                    this.observer.observe(this.sentinel);
+                }
             }
         }
 
@@ -266,6 +298,21 @@
             if (this.filteredSounds.length === 0) {
                 this.container.classList.add('hidden');
                 this.emptyState.classList.remove('hidden');
+
+                // Say why: nothing uploaded yet, or nothing matches the search
+                const term = (document.getElementById('searchInput')?.value || '').trim();
+                const title = this.emptyState.querySelector('.empty-state-title');
+                const text = this.emptyState.querySelector('.empty-state-text');
+                const clear = document.getElementById('emptyStateClear');
+                if (term) {
+                    if (title) title.textContent = 'No sounds match your search';
+                    if (text) text.textContent = 'Try a different word, or clear the search to see every sound.';
+                    if (clear) clear.classList.remove('hidden');
+                } else {
+                    if (title) title.textContent = 'No sounds yet';
+                    if (text) text.textContent = 'Upload the first one and everyone here can play it.';
+                    if (clear) clear.classList.add('hidden');
+                }
             } else {
                 this.container.classList.remove('hidden');
                 this.emptyState.classList.add('hidden');
@@ -283,6 +330,7 @@
             if (this.sentinel && this.sentinel.parentNode) {
                 this.sentinel.parentNode.removeChild(this.sentinel);
             }
+            this.resizeBound = true;
         }
     }
 
@@ -339,6 +387,7 @@
     function createSoundCardElement(sound) {
         const card = document.createElement('div');
         card.className = 'sound-card';
+        card.setAttribute('data-row', '');
         card.setAttribute('data-sound-id', sound.id);
         card.setAttribute('data-sound-name', sound.name);
         card.setAttribute('data-uploaded-by', sound.uploadedById || '');
@@ -346,11 +395,11 @@
         card.setAttribute('data-uploaded-at', sound.uploadedAt || '');
         card.setAttribute('role', 'button');
         card.setAttribute('tabindex', '0');
-        card.setAttribute('aria-label', `Play ${escapeHtml(sound.name)}`);
+        card.setAttribute('aria-label', `Play ${sound.name}`);
 
         const canDelete = sound.uploadedById && sound.uploadedById === currentUserId;
         const deleteButtonHtml = canDelete
-            ? `<button class="delete-btn" data-sound-id="${sound.id}" title="Delete sound" aria-label="Delete ${escapeHtml(sound.name)}">
+            ? `<button class="delete-btn row-actions" data-sound-id="${sound.id}" title="Delete sound" aria-label="Delete ${escapeHtml(sound.name)}">
                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                    </svg>
@@ -428,6 +477,18 @@
     }
 
     // ========================================
+    // Browser storage: private windows and blocked site data throw on access
+    // ========================================
+    const storage = {
+        get(key) {
+            try { return window.localStorage.getItem(key); } catch (e) { return null; }
+        },
+        set(key, value) {
+            try { window.localStorage.setItem(key, value); } catch (e) { /* the choice just is not remembered */ }
+        }
+    };
+
+    // ========================================
     // Initialization
     // ========================================
     function init() {
@@ -445,8 +506,8 @@
         if (!guildId) return;
 
         // Load fullscreen and sort preferences
-        isFullscreen = localStorage.getItem('soundboard_fullscreen_' + guildId) === 'true';
-        currentSort = localStorage.getItem('portal:soundboard:sort:' + guildId) || 'name-asc';
+        isFullscreen = storage.get('soundboard_fullscreen_' + guildId) === 'true';
+        currentSort = storage.get('portal:soundboard:sort:' + guildId) || 'name-asc';
 
         // Apply saved sort preference to dropdown
         const sortSelect = document.getElementById('sortSelect');
@@ -474,7 +535,10 @@
             virtualGrid.setSounds(initialSounds);
         }
 
-        // Load favorites first, then render (favorites affect sort order)
+        setupUploadLimitState();
+
+        // Load favorites first, then render (favorites affect sort order). Whatever goes wrong, the
+        // skeleton must not stay: show the grid, or say that it could not be shown.
         loadFavorites().then(() => {
             if (virtualGrid) {
                 virtualGrid.sort(currentSort);
@@ -482,7 +546,31 @@
             setupEventHandlers();
             initializeFullscreen();
             initSignalR();
+        }).catch(() => {
+            showGridError();
         });
+    }
+
+    function showGridError() {
+        const grid = document.getElementById('soundGrid');
+        const emptyState = document.getElementById('emptyState');
+        if (grid) {
+            grid.querySelectorAll('.sound-card-skeleton').forEach(el => el.remove());
+            grid.classList.add('hidden');
+        }
+        if (emptyState) {
+            emptyState.classList.remove('hidden');
+            const title = emptyState.querySelector('.empty-state-title');
+            const text = emptyState.querySelector('.empty-state-text');
+            const clear = document.getElementById('emptyStateClear');
+            if (title) title.textContent = 'The sounds could not be shown';
+            if (text) text.textContent = 'Something went wrong while loading them. Reload the page to try again.';
+            if (clear) {
+                clear.textContent = 'Reload';
+                clear.classList.remove('hidden');
+                clear.onclick = () => window.location.reload();
+            }
+        }
     }
 
     // ========================================
@@ -572,7 +660,7 @@
                     applyFavoriteState();
                     applyPlayingState();
                 }
-                ToastManager.show('error', 'Failed to update favorite. Please try again.');
+                toast.error('Failed to update favorite. Please try again.');
             });
     }
 
@@ -580,6 +668,17 @@
     // SignalR Real-Time Connection
     // ========================================
     async function initSignalR() {
+        // Portal members hold no dashboard role, so the hub is not on the page for them and the voice
+        // panel polls the portal status endpoint instead. Playing marks follow its changes.
+        if (typeof DashboardHub === 'undefined') {
+            document.addEventListener('voicepanel:change', (event) => {
+                if (!event.detail.isPlaying || !event.detail.isConnected) {
+                    clearPlayingState();
+                }
+            });
+            return;
+        }
+
         try {
             // Register event handlers before connecting
             DashboardHub.on('PlaybackStarted', handlePlaybackStarted);
@@ -626,11 +725,15 @@
 
     function syncFromAudioStatus(status) {
         if (!status.isPlaying && currentlyPlaying) {
-            currentlyPlaying = null;
-            document.querySelectorAll('.sound-card').forEach(card => {
-                card.classList.remove('playing');
-            });
+            clearPlayingState();
         }
+    }
+
+    function clearPlayingState() {
+        currentlyPlaying = null;
+        document.querySelectorAll('.sound-card.playing').forEach(card => {
+            card.classList.remove('playing');
+        });
     }
 
     function handlePlaybackStarted(data) {
@@ -719,7 +822,7 @@
             });
         }
 
-        ToastManager.show('info', `New sound "${data.name}" was added`);
+        toast.info(`New sound "${data.name}" was added`);
     }
 
     function handleSoundDeleted(data) {
@@ -740,7 +843,7 @@
 
             virtualGrid.removeSound(data.soundId);
 
-            ToastManager.show('warning', `Sound "${soundName}" was deleted`);
+            toast.warning(`Sound "${soundName}" was deleted`);
         }
     }
 
@@ -779,12 +882,24 @@
             });
         }
 
+        const emptyClear = document.getElementById('emptyStateClear');
+        if (emptyClear) {
+            emptyClear.addEventListener('click', function() {
+                if (searchInput) searchInput.value = '';
+                const fsInput = document.getElementById('fullscreenSearchInput');
+                if (fsInput) fsInput.value = '';
+                if (clearBtn) clearBtn.classList.remove('visible');
+                filterSounds();
+                if (searchInput) searchInput.focus();
+            });
+        }
+
         // Sort dropdown
         const sortSelect = document.getElementById('sortSelect');
         if (sortSelect) {
             sortSelect.addEventListener('change', function() {
                 currentSort = this.value;
-                localStorage.setItem('portal:soundboard:sort:' + guildId, currentSort);
+                storage.set('portal:soundboard:sort:' + guildId, currentSort);
                 if (virtualGrid) {
                     virtualGrid.sort(currentSort);
                 }
@@ -794,7 +909,10 @@
         // Upload dropzone
         const dropzone = document.getElementById('dropzone');
         if (dropzone) {
-            dropzone.addEventListener('click', () => document.getElementById('fileInput').click());
+            dropzone.addEventListener('click', () => {
+                if (dropzone.getAttribute('aria-disabled') === 'true') return;
+                document.getElementById('fileInput').click();
+            });
             dropzone.addEventListener('dragover', handleDragOver);
             dropzone.addEventListener('dragleave', handleDragLeave);
             dropzone.addEventListener('drop', handleDrop);
@@ -862,7 +980,7 @@
 
         // Cleanup on page unload
         window.addEventListener('beforeunload', async () => {
-            if (signalRConnected) {
+            if (signalRConnected && typeof DashboardHub !== 'undefined') {
                 await DashboardHub.leaveGuildAudioGroup(guildId);
                 DashboardHub.disconnect();
             }
@@ -912,96 +1030,150 @@
 
         previewAudio.play().catch(err => {
             if (btn) btn.classList.remove('previewing');
-            ToastManager.show('error', 'Failed to preview sound');
+            toast.error('Failed to preview sound');
         });
     }
 
     // ========================================
     // Sound Deletion (self-uploaded only)
     // ========================================
-    function deleteSound(soundId, soundName) {
-        if (!confirm(`Are you sure you want to delete "${soundName}"? This cannot be undone.`)) {
+    async function deleteSound(soundId, soundName) {
+        const confirmed = await quickActions.confirm({
+            title: 'Delete this sound?',
+            message: `"${soundName}" will be removed for everyone on this server. This cannot be undone.`,
+            confirmText: 'Delete sound',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+
+        const card = document.querySelector(`.sound-card[data-sound-id="${soundId}"]`);
+        const deleteBtn = card ? card.querySelector('.delete-btn') : null;
+        if (deleteBtn) deleteBtn.disabled = true;
+
+        try {
+            await ApiClient.del(API.delete(guildId, soundId), { errorMessage: 'Could not delete the sound. Try again.' });
+        } catch (error) {
+            if (deleteBtn) deleteBtn.disabled = false;
+            toast.error(error.message || 'Could not delete the sound. Try again.');
             return;
         }
 
-        ApiClient.del(API.delete(guildId, soundId), { errorMessage: 'Failed to delete sound' })
-            .then(data => {
-                // Clear playing state if this was the playing sound
-                if (currentlyPlaying === soundId) {
-                    currentlyPlaying = null;
-                }
+        // Clear playing state if this was the playing sound
+        if (currentlyPlaying === soundId) {
+            currentlyPlaying = null;
+        }
 
-                // Remove from favorites if present
-                const favIndex = favorites.indexOf(soundId);
-                if (favIndex > -1) {
-                    favorites.splice(favIndex, 1);
-                }
+        // Remove from favorites if present
+        const favIndex = favorites.indexOf(soundId);
+        if (favIndex > -1) {
+            favorites.splice(favIndex, 1);
+        }
 
-                // Remove through virtual grid
-                if (virtualGrid) {
-                    virtualGrid.removeSound(soundId);
-                }
+        if (virtualGrid) {
+            virtualGrid.removeSound(soundId);
+        }
 
-                ToastManager.show('success', `Sound "${soundName}" deleted`);
-            })
-            .catch(error => {
-                // ApiClient's generic extractErrorMessage checks data.message before data.detail;
-                // HEAD's deleteSound checked `errorData.detail || errorData.message` (detail first).
-                // Read the response body directly here so this call site keeps that precedence
-                // rather than picking up the generic helper's order.
-                const detailOrMessage = error.data && (error.data.detail || error.data.message);
-                ToastManager.show('error', detailOrMessage || error.message || 'Failed to delete sound. Please try again.');
-            });
+        currentSoundCount = Math.max(0, currentSoundCount - 1);
+        setupUploadLimitState();
+
+        toast.success(`"${soundName}" deleted`);
     }
 
     // ========================================
     // Sound Playback
     // ========================================
-    function playSound(soundId, soundName) {
+    const pendingPlays = new Set();
+
+    async function playSound(soundId, soundName) {
         const voicePanel = document.getElementById('voice-channel-panel');
         const isConnected = voicePanel && voicePanel.dataset.connected === 'true';
 
         if (!isConnected) {
-            ToastManager.show('warning', 'Please join a voice channel first!');
+            // The answer to "join a voice channel first" is the picker, not a message about it
+            toast.warning('Join a voice channel first, then tap the sound again.', { key: 'soundboard-join-first' });
+            if (window.VoiceChannelPanel) VoiceChannelPanel.reveal();
             return;
         }
 
-        ApiClient.post(API.play(guildId, soundId), undefined, { errorMessage: 'Failed to play sound' })
-        .catch(error => {
-            if (error instanceof ApiClient.ApiClientError && error.data && error.data.errorCode === 'not_connected') {
-                ToastManager.show('warning', 'Please join a voice channel first!');
-                return Promise.reject('not_connected');
+        // One request per sound at a time: a second tap while the first is in flight does nothing
+        if (pendingPlays.has(soundId)) return;
+        pendingPlays.add(soundId);
+        const card = document.querySelector(`.sound-card[data-sound-id="${soundId}"]`);
+        setCardPending(card, true);
+
+        try {
+            const data = await ApiClient.post(API.play(guildId, soundId), undefined, { errorMessage: 'Could not play that sound. Try again.' });
+
+            if (data && data.wasQueued) {
+                // Behind another sound: say where, and do not mark it as playing yet
+                const position = data.queuePosition ? ` (number ${data.queuePosition} in line)` : '';
+                toast.info(`"${soundName}" is queued${position}.`, { key: 'soundboard-queued' });
+                return;
             }
-            // 402 Payment Required: the sound is priced and the wallet could not cover it. That
-            // is a refusal to show as a warning with the price, not a failure to retry.
-            if (error instanceof ApiClient.ApiClientError && error.status === 402) {
-                ToastManager.show('warning', error.message || 'You cannot afford this sound.');
-                return Promise.reject('payment_required');
-            }
-            throw error;
-        })
-        .then(data => {
-            if (!data) return;
 
             currentlyPlaying = soundId;
-
-            document.querySelectorAll('.sound-card').forEach(card => {
-                card.classList.remove('playing');
-            });
-            const playingCard = document.querySelector(`.sound-card[data-sound-id="${soundId}"]`);
-            if (playingCard) {
-                playingCard.classList.add('playing');
+            clearPlayingMarks();
+            if (card) card.classList.add('playing');
+            if (window.VoiceChannelPanel) VoiceChannelPanel.notePlaying(soundName, 'Soundboard');
+        } catch (error) {
+            if (error instanceof ApiClient.ApiClientError && error.data && error.data.errorCode === 'not_connected') {
+                toast.warning('The bot is not in a voice channel. Join one first.', { key: 'soundboard-join-first' });
+                if (window.VoiceChannelPanel) {
+                    VoiceChannelPanel.refresh();
+                    VoiceChannelPanel.reveal();
+                }
+            } else if (error instanceof ApiClient.ApiClientError && error.status === 402) {
+                // 402 Payment Required: the sound is priced and the wallet could not cover it. That
+                // is a refusal to show as a warning with the price, not a failure to retry.
+                toast.warning(error.message || 'You cannot afford this sound.');
+            } else if (!(error instanceof ApiClient.ApiClientError && error.sessionExpired)) {
+                toast.error(error.message || 'Could not play that sound. Try again.');
             }
-        })
-        .catch(error => {
-            if (error === 'not_connected' || error === 'payment_required') return;
-            ToastManager.show('error', error.message || 'Failed to play sound. Please try again.');
-        });
+        } finally {
+            pendingPlays.delete(soundId);
+            setCardPending(card, false);
+        }
+    }
+
+    function setCardPending(card, pending) {
+        if (!card) return;
+        card.classList.toggle('pending', pending);
+        card.setAttribute('aria-busy', pending ? 'true' : 'false');
+    }
+
+    function clearPlayingMarks() {
+        document.querySelectorAll('.sound-card.playing').forEach(c => c.classList.remove('playing'));
     }
 
     // ========================================
     // File Upload
     // ========================================
+
+    /** At the sound limit the upload controls are off and say why, instead of failing after a file is chosen. */
+    function setupUploadLimitState() {
+        const atLimit = maxSounds > 0 && currentSoundCount >= maxSounds;
+        const reason = document.getElementById('uploadLimitReason');
+        const dropzone = document.getElementById('dropzone');
+        const mobileBtn = document.getElementById('mobileUploadBtn');
+
+        if (reason) {
+            reason.classList.toggle('hidden', !atLimit);
+            reason.textContent = atLimit
+                ? `This server is at its limit of ${maxSounds} sounds. Delete one of yours to upload another.`
+                : '';
+        }
+        if (dropzone) {
+            dropzone.classList.toggle('disabled', atLimit);
+            dropzone.setAttribute('aria-disabled', atLimit ? 'true' : 'false');
+        }
+        if (mobileBtn) {
+            mobileBtn.disabled = atLimit;
+            if (reason) mobileBtn.setAttribute('aria-describedby', 'uploadLimitReason');
+        }
+        const counter = document.getElementById('soundCountText');
+        if (counter) counter.textContent = `${currentSoundCount} / ${maxSounds}`;
+    }
+
     function handleFileSelect(event) {
         const files = event.target.files;
         if (files.length > 0) {
@@ -1052,7 +1224,7 @@
 
         // Check sound count limit
         if (currentSoundCount >= maxSounds) {
-            showUploadMessage('error', `Sound limit reached. This guild has ${maxSounds} sounds maximum. Please delete some before uploading new ones.`);
+            showUploadMessage('error', `This server is at its limit of ${maxSounds} sounds. Delete one of yours to upload another.`);
             return;
         }
 
@@ -1236,6 +1408,7 @@
                 }
 
                 currentSoundCount++;
+                setupUploadLimitState();
             } else {
                 let errorMessage = 'Upload failed. Please try again.';
                 try {
@@ -1308,7 +1481,7 @@
     function enterFullscreen() {
         isFullscreen = true;
         document.body.classList.add('portal-fullscreen');
-        localStorage.setItem('soundboard_fullscreen_' + guildId, 'true');
+        storage.set('soundboard_fullscreen_' + guildId, 'true');
 
         const toggle = document.getElementById('fullscreenToggle');
         if (toggle) {
@@ -1332,7 +1505,7 @@
     function exitFullscreen() {
         isFullscreen = false;
         document.body.classList.remove('portal-fullscreen');
-        localStorage.setItem('soundboard_fullscreen_' + guildId, 'false');
+        storage.set('soundboard_fullscreen_' + guildId, 'false');
 
         const toggle = document.getElementById('fullscreenToggle');
         if (toggle) {

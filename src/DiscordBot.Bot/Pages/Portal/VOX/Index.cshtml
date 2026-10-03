@@ -1318,8 +1318,12 @@
     <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
 
     <!-- Voice Channel Panel Dependencies -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-    <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    @* The hub refuses people without a dashboard role, so portal members get the portal's status endpoint instead *@
+    @if (Model.CanUseDashboardHub)
+    {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+        <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    }
     <script src="~/js/voice-channel-panel.js" asp-append-version="true"></script>
 
     <script>

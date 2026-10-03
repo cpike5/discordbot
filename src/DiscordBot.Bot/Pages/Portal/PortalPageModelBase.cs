@@ -85,6 +85,17 @@ public abstract class PortalPageModelBase : PageModel
     public bool IsAudioDisabledForGuild { get; set; }
 
     /// <summary>
+    /// Gets whether the signed-in user may use the dashboard SignalR hub (any Identity role from Viewer up).
+    /// Portal members hold no role, so the hub refuses them; pages leave its scripts out for them and the
+    /// voice panel reads the portal status endpoint instead.
+    /// </summary>
+    public bool CanUseDashboardHub =>
+        User.IsInRole(IdentitySeeder.Roles.SuperAdmin) ||
+        User.IsInRole(IdentitySeeder.Roles.Admin) ||
+        User.IsInRole(IdentitySeeder.Roles.Moderator) ||
+        User.IsInRole(IdentitySeeder.Roles.Viewer);
+
+    /// <summary>
     /// Gets the login URL with return URL for Discord OAuth.
     /// </summary>
     public string LoginUrl { get; set; } = string.Empty;

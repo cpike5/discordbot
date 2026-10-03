@@ -567,10 +567,15 @@ body.portal-page {
    Shared Responsive Breakpoints
    ----------------------------------------------- */
 @media (max-width: 1023px) {
-    /* Allow normal scrolling on mobile/tablet */
-    html.portal-page,
-    html.portal-page body {
+    /* Allow normal scrolling on mobile/tablet. The page (the viewport) scrolls, not <body>: a scrolling
+       body would be the sticky voice bar's scroll container, and it never scrolls, so the bar never stuck. */
+    html.portal-page {
         overflow: auto;
+        height: auto;
+    }
+
+    html.portal-page body {
+        overflow: visible;
         height: auto;
     }
 
@@ -1011,5 +1016,104 @@ body:not(.portal-fullscreen) .fullscreen-toolbar {
 
     .kbd-body {
         padding: 0.75rem 1rem;
+    }
+}
+
+/* ============================================================
+   Phase 9 — Member portal, mobile first
+   ============================================================ */
+
+/* "Portal disabled" notice: neutral, not an error */
+.portal-disabled-icon {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+}
+
+/*
+ * Phones and tablets: the voice bar comes first and stays in view, the page's own content is next,
+ * and the sidebar's remaining panels (upload, clip counts) follow it. `display: contents` lets the
+ * sidebar's children take part in the content column's order, and lets the sticky bar travel the
+ * whole column instead of only the sidebar's height.
+ */
+@media (max-width: 1023px) {
+    .portal-content > .sidebar {
+        display: contents;
+    }
+
+    .portal-content > :not(.sidebar) {
+        order: 1;
+    }
+
+    /* The content column is a flex column of fixed height: nothing in it may be squeezed to fit,
+       or the voice bar (overflow hidden) collapses to its border */
+    .portal-content > :not(.sidebar),
+    .portal-content > .sidebar > * {
+        flex-shrink: 0;
+    }
+
+    .portal-content > .sidebar > #voice-channel-panel {
+        order: 0;
+    }
+
+    .portal-content > .sidebar > :not(#voice-channel-panel) {
+        order: 2;
+    }
+
+    /* The sidebar's card chrome went with it, so each remaining panel is its own card */
+    .portal-content > .sidebar > .sidebar-panel {
+        background-color: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 0;
+    }
+}
+
+/* Phones: a one-row header, so the content starts high on the screen */
+@media (max-width: 640px) {
+    .portal-header .header-content {
+        padding: 0.625rem 1rem 0;
+    }
+
+    .header-top {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-left {
+        gap: 0.625rem;
+        padding-right: 0;
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .guild-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .header-text {
+        min-width: 0;
+    }
+
+    .header-text h1 {
+        max-width: none;
+    }
+
+    /* The subtitle repeats the title; the room is better spent on the content */
+    .header-text p {
+        display: none;
+    }
+
+    .header-actions {
+        flex: 0 0 auto;
+        gap: 0.375rem;
+    }
+
+    .header-actions .status-badge-lg {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
     }
 }

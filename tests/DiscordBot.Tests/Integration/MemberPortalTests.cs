@@ -102,6 +102,19 @@ public class MemberPortalTests : IClassFixture<MemberPortalTests.AppFixture>
         (await response.Content.ReadAsStringAsync()).Should().Contain("channel_not_found");
     }
 
+    [Theory]
+    [InlineData("/api/portal/tts/presets")]
+    [InlineData("/api/portal/tts/voices/en-US-JennyNeural/capabilities")]
+    public async Task Member_CanReachTheGuildLessTtsReferenceEndpoints(string url)
+    {
+        // Reference data with no {guildId} in the route: the page needs these, so a 403 here would
+        // silently break presets and voice styles for every member
+        var response = await _app.Member.GetAsync(url);
+
+        response.StatusCode.Should().NotBe(HttpStatusCode.Forbidden);
+        response.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized);
+    }
+
     [Fact]
     public async Task Member_IsNotGivenTheViewerOnlyAdminAudioEndpoints()
     {
