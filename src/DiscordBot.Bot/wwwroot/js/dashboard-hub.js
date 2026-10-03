@@ -1,16 +1,48 @@
 /**
  * Dashboard Hub Connection Manager
  * Manages the SignalR connection to the DashboardHub for real-time updates.
+ *
+ * Connection states (see getConnectionState / onStateChange): 'connecting' (first attempt),
+ * 'connected', 'reconnecting' (lost, and still trying, which includes a first attempt that failed),
+ * 'disconnected' (only after disconnect() is called). The connection never gives up: see
+ * nextRetryDelay. connection-banner.js turns these states into the page-wide banner.
  */
 const DashboardHub = (function() {
     'use strict';
 
+    // Reconnect policy: a few fast, visible retries, then a steady pace forever. A dashboard is left
+    // open for hours and the server restarts on every deploy, so giving up (as this used to after
+    // five tries) strands the page on stale data until someone reloads it.
+    const FAST_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
+    const SLOW_RETRY_MS = 30000;
+    const SLOW_RETRY_JITTER_MS = 10000; // spread over 25-35s so a restart is not a thundering herd
+
+    /**
+     * How long to wait before reconnect attempt number `previousRetryCount` (0-based). Never null:
+     * returning null is how SignalR is told to stop.
+     * @param {number} previousRetryCount - Attempts already made in this outage.
+     * @param {function} [random] - Injectable for tests; defaults to Math.random.
+     * @returns {number} Milliseconds.
+     */
+    function nextRetryDelay(previousRetryCount, random) {
+        if (previousRetryCount < FAST_RETRY_DELAYS_MS.length) {
+            return FAST_RETRY_DELAYS_MS[previousRetryCount];
+        }
+        const r = (random || Math.random)();
+        return SLOW_RETRY_MS - SLOW_RETRY_JITTER_MS / 2 + Math.round(r * SLOW_RETRY_JITTER_MS);
+    }
+
     let connection = null;
     let isConnected = false;
     let pendingConnect = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectDelayMs = 2000;
+
+    // Manual retry loop, for when start() itself fails: SignalR's automatic reconnect only covers
+    // a connection that was already up, so a page opened while the server is down needs this.
+    let retryTimer = null;
+    let retryCount = 0;
+    let recovering = false;   // an attempt has failed since the last time we were connected
+    let stopped = false;      // disconnect() was called: do not retry
+    let restarting = false;   // retryNow() is replacing a stuck automatic reconnect
 
     // Event handlers storage
     const eventHandlers = {};
@@ -21,10 +53,11 @@ const DashboardHub = (function() {
 
     /**
      * Updates the connection state and notifies all state change subscribers.
-     * @param {string} newState - The new connection state ('disconnected', 'connecting', 'connected', 'reconnecting').
+     * @param {string} newState - 'disconnected', 'connecting', 'connected' or 'reconnecting'.
      */
     function setConnectionState(newState) {
         const previousState = connectionState;
+        if (newState === previousState) return;
         connectionState = newState;
         stateChangeCallbacks.forEach(callback => {
             try {
@@ -35,95 +68,165 @@ const DashboardHub = (function() {
         });
     }
 
+    function clearRetryTimer() {
+        if (retryTimer !== null) {
+            clearTimeout(retryTimer);
+            retryTimer = null;
+        }
+    }
+
+    function scheduleRetry() {
+        if (stopped || retryTimer !== null) return;
+        const delay = nextRetryDelay(retryCount++);
+        retryTimer = setTimeout(() => {
+            retryTimer = null;
+            attempt();
+        }, delay);
+    }
+
     /**
      * Initializes the SignalR connection to the dashboard hub.
-     * @returns {Promise<boolean>} True if connection successful, false otherwise.
+     * @returns {Promise<boolean>} True if connection successful, false otherwise. A false result
+     * is not final: the hub keeps retrying in the background and raises 'connected' and
+     * 'reconnected' when it gets through.
      */
     async function connect() {
         if (connection && isConnected) {
             console.log('[DashboardHub] Already connected');
             return true;
         }
+        // The layout and page scripts both call connect() on load. Share the attempt in flight;
+        // starting a second one would replace `connection` while it is still connecting, and
+        // invokes on it fail with "not in the 'Connected' State".
+        return attempt();
+    }
 
-        // The layout and page scripts both call connect() on load. Share the attempt in
-        // flight; starting a second one would replace `connection` while it is still
-        // connecting, and invokes on it fail with "not in the 'Connected' State".
+    function attempt() {
         if (pendingConnect) {
             return pendingConnect;
         }
+        // SignalR is busy reconnecting by itself; a second start() would throw.
+        if (connection && connection.state !== signalR.HubConnectionState.Disconnected) {
+            return Promise.resolve(isConnected);
+        }
+        pendingConnect = startConnection().finally(() => { pendingConnect = null; });
+        return pendingConnect;
+    }
 
-        pendingConnect = startConnection();
-        try {
-            return await pendingConnect;
-        } finally {
-            pendingConnect = null;
+    function buildConnection() {
+        connection = new signalR.HubConnectionBuilder()
+            .withUrl('/hubs/dashboard')
+            .withAutomaticReconnect({
+                nextRetryDelayInMilliseconds: (retryContext) => nextRetryDelay(retryContext.previousRetryCount)
+            })
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        connection.onreconnecting((error) => {
+            console.warn('[DashboardHub] Connection lost, attempting to reconnect...', error);
+            isConnected = false;
+            setConnectionState('reconnecting');
+            triggerEvent('reconnecting', { error });
+        });
+
+        connection.onreconnected((connectionId) => {
+            console.log('[DashboardHub] Reconnected with ID:', connectionId);
+            isConnected = true;
+            retryCount = 0;
+            recovering = false;
+            setConnectionState('connected');
+            triggerEvent('reconnected', { connectionId });
+        });
+
+        connection.onclose((error) => {
+            isConnected = false;
+            if (stopped || restarting) {
+                console.log('[DashboardHub] Connection closed');
+                if (!restarting) {
+                    setConnectionState('disconnected');
+                    triggerEvent('disconnected', { error });
+                }
+                return;
+            }
+            // Automatic reconnect never gives up, so this is the server closing the connection
+            // for good. Carry on with our own retries.
+            console.warn('[DashboardHub] Connection closed by the server, retrying', error);
+            recovering = true;
+            setConnectionState('reconnecting');
+            triggerEvent('disconnected', { error });
+            scheduleRetry();
+        });
+
+        // Register every handler stored so far. From here on, on() registers directly, so a handler
+        // is never attached twice.
+        for (const [eventName, handlers] of Object.entries(eventHandlers)) {
+            for (const handler of handlers) {
+                connection.on(eventName, handler);
+            }
         }
     }
 
     async function startConnection() {
+        stopped = false;
+        clearRetryTimer();
+        if (!connection) {
+            buildConnection();
+        }
+
+        setConnectionState(recovering ? 'reconnecting' : 'connecting');
         try {
-            connection = new signalR.HubConnectionBuilder()
-                .withUrl('/hubs/dashboard')
-                .withAutomaticReconnect({
-                    nextRetryDelayInMilliseconds: (retryContext) => {
-                        // Exponential backoff: 0s, 2s, 4s, 8s, 16s, then stop
-                        if (retryContext.previousRetryCount >= maxReconnectAttempts) {
-                            return null; // Stop reconnecting
-                        }
-                        return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 16000);
-                    }
-                })
-                .configureLogging(signalR.LogLevel.Information)
-                .build();
-
-            // Set up connection state handlers
-            connection.onreconnecting((error) => {
-                console.warn('[DashboardHub] Connection lost, attempting to reconnect...', error);
-                isConnected = false;
-                setConnectionState('reconnecting');
-                triggerEvent('reconnecting', { error });
-            });
-
-            connection.onreconnected((connectionId) => {
-                console.log('[DashboardHub] Reconnected with ID:', connectionId);
-                isConnected = true;
-                reconnectAttempts = 0;
-                setConnectionState('connected');
-                triggerEvent('reconnected', { connectionId });
-            });
-
-            connection.onclose((error) => {
-                console.warn('[DashboardHub] Connection closed', error);
-                isConnected = false;
-                setConnectionState('disconnected');
-                triggerEvent('disconnected', { error });
-            });
-
-            // Start the connection
-            setConnectionState('connecting');
             await connection.start();
-            isConnected = true;
-            setConnectionState('connected');
-            reconnectAttempts = 0;
-
-            // Register all pre-stored event handlers with the new connection
-            for (const [eventName, handlers] of Object.entries(eventHandlers)) {
-                for (const handler of handlers) {
-                    connection.on(eventName, handler);
-                }
-            }
-
-            console.log('[DashboardHub] Connected successfully');
-            triggerEvent('connected', { connectionId: connection.connectionId });
-
-            return true;
         } catch (error) {
             console.error('[DashboardHub] Failed to connect:', error);
             isConnected = false;
-            setConnectionState('disconnected');
-            triggerEvent('connectionFailed', { error });
+            const firstFailure = !recovering;
+            recovering = true;
+            setConnectionState('reconnecting');
+            if (firstFailure) {
+                triggerEvent('connectionFailed', { error });
+            }
+            scheduleRetry();
             return false;
         }
+
+        isConnected = true;
+        retryCount = 0;
+        const wasRecovering = recovering;
+        recovering = false;
+        setConnectionState('connected');
+
+        console.log('[DashboardHub] Connected successfully');
+        triggerEvent('connected', { connectionId: connection.connectionId });
+        if (wasRecovering) {
+            // Pages rejoin their groups on 'reconnected'; group membership does not survive a new connection.
+            triggerEvent('reconnected', { connectionId: connection.connectionId });
+        }
+        return true;
+    }
+
+    /**
+     * Tries to reconnect now instead of waiting out the retry delay. Used by the banner's "Retry
+     * now" button and when the browser comes back online or the tab becomes visible again.
+     * @returns {Promise<boolean>} True if connected afterwards.
+     */
+    async function retryNow() {
+        if (isConnected || !connection || stopped || pendingConnect) {
+            return isConnected;
+        }
+        if (connection.state === signalR.HubConnectionState.Reconnecting) {
+            // SignalR is waiting out a delay we cannot shorten; end that wait and start over.
+            restarting = true;
+            try {
+                await connection.stop();
+            } catch (error) {
+                console.warn('[DashboardHub] Error while restarting the connection:', error);
+            } finally {
+                restarting = false;
+            }
+            recovering = true;
+        }
+        retryCount = 0;
+        return attempt();
     }
 
     /**
@@ -131,6 +234,8 @@ const DashboardHub = (function() {
      * @returns {Promise<void>}
      */
     async function disconnect() {
+        stopped = true;
+        clearRetryTimer();
         if (connection) {
             try {
                 await connection.stop();
@@ -139,8 +244,18 @@ const DashboardHub = (function() {
                 console.error('[DashboardHub] Error during disconnect:', error);
             }
             isConnected = false;
+            setConnectionState('disconnected');
         }
     }
+
+    // A laptop waking up or a phone leaving a tunnel should not wait out a 30 second delay.
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        window.addEventListener('online', () => { retryNow(); });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) retryNow();
+        });
+    }
+
 
     /**
      * Joins a guild-specific group to receive updates for that guild.
@@ -497,6 +612,8 @@ const DashboardHub = (function() {
     return {
         invoke,
         connect,
+        retryNow,
+        nextRetryDelay,
         disconnect,
         joinGuildGroup,
         leaveGuildGroup,

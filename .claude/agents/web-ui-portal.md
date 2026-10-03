@@ -54,6 +54,13 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - **Requests from scripts** go through `ApiClient`: session-expiry toast with Sign in, plain-language errors (no 5xx `detail`), 30s timeout, never HTML as data. The server answers script requests (`/api`, `/hubs`, `X-Requested-With`) with 401/403 problem JSON instead of redirecting (`IdentityServiceExtensions`, `HttpRequestExtensions.IsScriptRequest`).
 - **Server-posted forms** get `data-submit-guard` (`loading-manager.js`).
 
+### Formatting and live status (UX plan D6, Phase 4)
+- **One formatter.** `wwwroot/js/format.js` (`window.Format`: `formatDate`, `relativeTime`, `plural`, `number`, `duration`, `currency`; browser locale and 12/24h, a zone-less timestamp is UTC) and `Helpers/DisplayFormat.cs` (server twin: `Time(...)` renders a `<time>` with a UTC fallback, plus `Iso`, `Plural`, `Number`, `Duration`, `Currency`). Do not add another date or "time ago" function. `<time data-relative-time="…">` auto-refreshes and shows the absolute time on hover and focus. API: `docs/articles/component-api.md` § Formatting.
+- **Dates from the server** go in `data-utc="…" data-format="…"` (`Iso(value)` from C#, never `ToString("o")` on an `Unspecified` value); `timezone.js` converts them, including content inserted later (MutationObserver; `timezoneUtils.scan(root)`).
+- **Date presets** come from `DateRangeFilter.presetRange` (`date-range-filter.js`, local calendar). Pages with their own `toISOString()` presets are wrong in the local evening and should move over.
+- **Live connection.** `DashboardHub` retries forever (fast, then every 25 to 35 s; `retryNow()`); states `connecting | connected | reconnecting | disconnected`; a failed first attempt is `reconnecting`, and recovery raises `connected` and `reconnected` (rejoin groups there). `_ConnectionBanner` (layout) and any `[data-stale-badge][hidden]` follow the hub; the sidebar footer follows the bot (`bot-status-refresh.js`, `BotStatus.apply`). They are different things: in offline mode the hub is up and the bot is offline.
+- **Nav chrome.** `navigation.js` makes the closed mobile drawer `inert`, so it has no Tab stops; Escape acts only on an open menu or drawer; `<main id="main-content" tabindex="-1">` takes focus from the skip link; the user menu is a disclosure, not `role=menu`.
+
 ### REST API Controllers (37)
 **Location:** `Bot/Controllers/` — JSON API endpoints for Razor Pages frontend and external consumers.
 

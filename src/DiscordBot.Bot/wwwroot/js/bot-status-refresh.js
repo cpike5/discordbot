@@ -64,6 +64,93 @@
         }
     }
 
+    // One request serves every consumer on the page (sidebar footer, card, banner) when they ask
+    // together; the answer is reused for a second.
+    let inFlight = null;
+    let lastFetchAt = 0;
+    let lastData = null;
+
+    function fetchStatus() {
+        if (inFlight) return inFlight;
+        if (lastData && Date.now() - lastFetchAt < 1000) return Promise.resolve(lastData);
+        inFlight = fetch(API_ENDPOINT, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                lastData = data;
+                lastFetchAt = Date.now();
+                return data;
+            })
+            .finally(() => { inFlight = null; });
+        return inFlight;
+    }
+
+    // ---- Sidebar footer: what the bot is doing, not whether the page loaded -------------------
+
+    const FOOTER_STATES = {
+        online: { text: 'Bot online', ledClass: '' },
+        connecting: { text: 'Bot connecting…', ledClass: 'connecting' },
+        offline: { text: 'Bot offline', ledClass: 'offline' },
+        unknown: { text: 'Status unknown', ledClass: 'unknown' }
+    };
+
+    /** Maps the API's connection state ("Connected", "Disconnected", ...) to a footer state. */
+    function footerStateFor(connectionState) {
+        const key = String(connectionState || '').toUpperCase();
+        if (key === 'CONNECTED') return 'online';
+        if (key === 'CONNECTING') return 'connecting';
+        return 'offline';
+    }
+
+    function renderFooter(stateKey) {
+        const footer = document.querySelector('[data-bot-footer]');
+        if (!footer) return;
+        const config = FOOTER_STATES[stateKey] || FOOTER_STATES.unknown;
+        const offlineMode = footer.getAttribute('data-offline-mode') === 'true';
+
+        footer.setAttribute('data-bot-state', stateKey);
+        const text = footer.querySelector('[data-bot-footer-text]');
+        if (text && text.textContent !== config.text) text.textContent = config.text;
+
+        const led = footer.querySelector('[data-bot-led]');
+        if (led) {
+            led.classList.remove('offline', 'connecting', 'unknown');
+            if (config.ledClass) led.classList.add(config.ledClass);
+        }
+
+        const container = footer.querySelector('[data-bot-footer-container]');
+        if (container) {
+            container.title = offlineMode && stateKey === 'offline'
+                ? 'Not connected to Discord (offline mode)'
+                : config.text;
+        }
+    }
+
+    /**
+     * Applies a bot status payload to the page. Accepts either hub payload (BotStatusDto or
+     * BotStatusUpdateDto) and the REST one; only the connection state is read.
+     */
+    function applyBotStatus(data) {
+        if (!data) return;
+        const state = data.connectionState !== undefined ? data.connectionState : data.ConnectionState;
+        renderFooter(footerStateFor(state));
+    }
+
+    async function refreshFooter() {
+        try {
+            applyBotStatus(await fetchStatus());
+        } catch (error) {
+            // The server did not answer: say we do not know rather than keep a stale "online".
+            renderFooter('unknown');
+        }
+    }
+
+    window.BotStatus = { apply: applyBotStatus, refresh: refreshFooter, footerStateFor };
+
     /**
      * Refreshes the bot status card with latest data from the API.
      */
@@ -75,12 +162,7 @@
         }
 
         try {
-            const response = await fetch(API_ENDPOINT);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await fetchStatus();
 
             // Update latency
             const latencyElement = card.querySelector('[data-latency]');
@@ -135,12 +217,7 @@
         }
 
         try {
-            const response = await fetch(API_ENDPOINT);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await fetchStatus();
             const stateKey = data.connectionState.toUpperCase();
             const stateConfig = STATUS_COLORS[stateKey] || STATUS_COLORS['DISCONNECTED'];
             const isOnline = stateConfig.isOnline;
@@ -253,17 +330,20 @@
     function init() {
         const card = document.querySelector('[data-bot-status-card]');
         const banner = document.querySelector('[data-bot-status-banner]');
+        const footer = document.querySelector('[data-bot-footer]');
 
-        if (!card && !banner) {
+        if (!card && !banner && !footer) {
             return;
         }
 
         const refresh = () => {
+            if (document.hidden) return;
+            if (footer) refreshFooter();
             if (card) refreshBotStatus();
             if (banner) refreshBotStatusBanner();
         };
 
-        // Initial refresh
+        // Initial refresh. The footer was rendered by the server, so it only needs the live check.
         refresh();
 
         // Quick retry after 5 seconds (handles bot startup race condition)
@@ -271,6 +351,18 @@
 
         // Set up recurring refresh
         setInterval(refresh, REFRESH_INTERVAL_MS);
+
+        // Coming back to a tab that sat in the background: do not show 30 seconds of old state.
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) refresh();
+        });
+
+        // The hub pushes the bot's state when it changes, and a reconnect may have missed pushes.
+        if (typeof DashboardHub !== 'undefined') {
+            DashboardHub.on('BotStatusUpdated', applyBotStatus);
+            DashboardHub.on('reconnected', refresh);
+            DashboardHub.on('connected', refresh);
+        }
 
         console.log(`Bot status auto-refresh initialized (initial retry: ${INITIAL_RETRY_MS / 1000}s, interval: ${REFRESH_INTERVAL_MS / 1000}s)`);
     }

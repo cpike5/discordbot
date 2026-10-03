@@ -615,6 +615,35 @@
         </div>
     </section>
 
+    <!-- Formatting and connection status -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Formatting and Connection Status</h3>
+            <p class="text-sm text-text-secondary mt-1">Dates in the viewer's zone and locale, relative time, plurals, and the connection pill</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <dl class="grid grid-cols-1 sm:grid-cols-[14rem_1fr] gap-x-6 gap-y-3 text-sm">
+                <dt class="text-text-secondary">Date and time</dt>
+                <dd class="text-text-primary">@DisplayFormat.Time(DateTime.UtcNow.AddHours(-30), "datetime")</dd>
+                <dt class="text-text-secondary">Date only</dt>
+                <dd class="text-text-primary">@DisplayFormat.Time(DateTime.UtcNow.AddDays(-9), "date")</dd>
+                <dt class="text-text-secondary">Relative (hover or focus for the exact time)</dt>
+                <dd class="text-text-primary">@DisplayFormat.Time(DateTime.UtcNow.AddMinutes(-5), relative: true)</dd>
+                <dt class="text-text-secondary">Plural, number, duration</dt>
+                <dd class="text-text-primary font-mono">@DisplayFormat.Plural(1, "server"), @DisplayFormat.Plural(1234, "server"), @DisplayFormat.Duration(TimeSpan.FromHours(53.5))</dd>
+            </dl>
+            <div class="flex flex-wrap gap-3">
+                @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Connected, null, "showcase-connection-connected", false))
+                @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Reconnecting, null, "showcase-connection-reconnecting", false))
+                @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Disconnected, null, "showcase-connection-disconnected", false))
+            </div>
+            <p class="text-xs text-text-tertiary">
+                The page-wide banner (<code>_ConnectionBanner</code>) appears under the top bar when the live connection drops;
+                <code>data-stale-badge</code> elements show "Stale" while it is down.
+            </p>
+        </div>
+    </section>
+
     <!-- Usage Instructions -->
     <section class="bg-bg-secondary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">

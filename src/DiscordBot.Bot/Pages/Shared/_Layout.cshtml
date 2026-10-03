@@ -42,8 +42,11 @@
     <!-- Top Bar (offset by the sidebar on desktop) -->
     @await Html.PartialAsync("_Navbar")
 
+    <!-- Live-connection banner (hidden until the SignalR connection drops) -->
+    @await Html.PartialAsync("_ConnectionBanner")
+
     <!-- Main Content Area -->
-    <main id="main-content" class="main-content-redesign">
+    <main id="main-content" class="main-content-redesign" tabindex="-1">
         <div class="page-container">
             <!-- Breadcrumb Navigation -->
             @if (ViewData["Breadcrumbs"] != null)
@@ -69,6 +72,8 @@
     <script src="~/js/api-client.js" asp-append-version="true"></script>
     <!-- Dashboard Hub Connection Manager -->
     <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    <!-- Connection banner and stale badges, driven by the hub's state -->
+    <script src="~/js/connection-banner.js" asp-append-version="true"></script>
     <!-- Notification Bell Module -->
     <script src="~/js/notification-bell.js" asp-append-version="true"></script>
     <!-- JavaScript for Navigation -->
@@ -79,6 +84,8 @@
     <script src="~/js/quick-actions.js" asp-append-version="true"></script>
     <!-- JavaScript for Loading State Management -->
     <script src="~/js/loading-manager.js" asp-append-version="true"></script>
+    <!-- Formatting: dates, relative time, plurals, numbers, durations (before timezone.js) -->
+    <script src="~/js/format.js" asp-append-version="true"></script>
     <!-- Timezone Utilities -->
     <script src="~/js/timezone.js" asp-append-version="true"></script>
     <!-- Bot Status Auto-Refresh -->
