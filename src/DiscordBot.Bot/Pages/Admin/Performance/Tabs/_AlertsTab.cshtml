@@ -142,9 +142,10 @@ else
             <tbody>
                 @foreach (var config in Model.AlertConfigs)
                 {
-                    var currentValueClass = "text-success";
+                    var currentValueClass = "text-text-secondary";
                     if (config.CurrentValue.HasValue)
                     {
+                        currentValueClass = "text-success";
                         if (config.CriticalThreshold.HasValue && config.CurrentValue >= config.CriticalThreshold)
                         {
                             currentValueClass = "text-error";
@@ -197,7 +198,7 @@ else
                         </td>
                         <td>
                             <span class="@currentValueClass font-medium" data-current-value="@(config.CurrentValue?.ToString(System.Globalization.CultureInfo.InvariantCulture))">
-                                @(config.CurrentValue?.ToString("F2") ?? "N/A")@config.ThresholdUnit
+                                @(config.CurrentValue.HasValue ? config.CurrentValue.Value.ToString("F2") + config.ThresholdUnit : "No reading yet")
                             </span>
                         </td>
                         <td>

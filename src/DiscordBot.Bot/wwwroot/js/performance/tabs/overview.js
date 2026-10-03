@@ -44,7 +44,10 @@
     /** Applies a HealthMetricsUpdate (or the same shape from the hub snapshot). */
     function applyHealth(data) {
         if (!data) return;
-        if (typeof data.latencyMs === 'number') setText('overviewLatency', data.latencyMs);
+        if (typeof data.latencyMs === 'number') {
+            const connected = !data.connectionState || String(data.connectionState).toLowerCase() === 'connected';
+            setText('overviewLatency', connected ? data.latencyMs : '\u2014');
+        }
 
         if (typeof data.cpuUsagePercent === 'number') {
             setText('overviewCpuUsageText', data.cpuUsagePercent.toFixed(1) + '%');

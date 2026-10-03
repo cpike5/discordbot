@@ -107,8 +107,16 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
         </div>
-        <div class="metric-value"><span id="overviewLatency">@Model.AvgLatencyMs</span><span class="metric-unit">ms</span></div>
-        <div class="metric-caption">Current heartbeat</div>
+        @if (string.Equals(Model.BotHealth.ConnectionState, "Connected", StringComparison.OrdinalIgnoreCase))
+        {
+            <div class="metric-value"><span id="overviewLatency">@Model.AvgLatencyMs</span><span class="metric-unit">ms</span></div>
+            <div class="metric-caption">Current heartbeat</div>
+        }
+        else
+        {
+            <div class="metric-value metric-value-empty"><span id="overviewLatency">&mdash;</span></div>
+            <div class="metric-caption">Bot is not connected</div>
+        }
     </div>
 
     <!-- Commands -->

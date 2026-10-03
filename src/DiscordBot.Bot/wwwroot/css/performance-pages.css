@@ -1134,7 +1134,6 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 1rem;
     font-size: 0.8125rem;
     color: var(--color-text-secondary);
 }
@@ -1173,6 +1172,12 @@
 .query-toggle:focus-visible {
     outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+/* .btn sets display, which would otherwise win over the hidden attribute */
+#alertsTabSaveConfigBtn[hidden],
+#alertsUnsavedNote[hidden] {
+    display: none;
 }
 
 /* Threshold inputs: the invalid state the shared form partials use */

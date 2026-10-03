@@ -782,7 +782,7 @@ public interface IBackgroundServiceHealth
 
 **Purpose:** Tracks all background service health status.
 
-**Location:** Accessible via Performance Dashboard at `/Admin/Performance/HealthMetrics`
+**Location:** Accessible via Performance Dashboard at `/Admin/Performance?tab=health`
 
 **Monitoring:**
 - Automatic exception logging when service fails
@@ -931,7 +931,7 @@ if (!health.IsHealthy)
 
 ### Checking Service Health
 
-**Via Dashboard:** Navigate to `/Admin/Performance/HealthMetrics`
+**Via Dashboard:** Navigate to `/Admin/Performance?tab=health`
 
 **Via Code:**
 ```csharp

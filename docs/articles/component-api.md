@@ -1216,6 +1216,22 @@ ChartTheme.onChange((chart, colors) => {
 
 `colors()` returns `text`, `textMuted`, `textSubtle`, `grid`, `border`, `surface`, `canvas`, `track`, the inks `primary` (ember), `secondary` (blue), `purple`, `success`, `warning`, `error`, `info`, a `series` array, `fills` for solid bars, and `alpha(token, a)`. A script that creates charts after loading Chart.js itself should call `ChartTheme.ensureRegistered()` first (`Performance.ChartUtils` does).
 
+**`Performance.ChartUtils`** (`wwwroot/js/performance/components/chart-utils.js`) wraps Chart.js for the dashboards and is stable for other screens to use (additive changes only):
+
+```js
+const U = Performance.ChartUtils;
+const chart = U.createBarChart(canvas, labels, [{
+    label: 'Commands', data,
+    themeColors: { backgroundColor: c => c.secondary }   // recoloured on themechange
+}], { plugins: { legend: { display: false } } });
+U.describeChart(canvas, { caption: 'Commands per hour', labels, datasets: [{ label: 'Commands', data }], unit: '' });
+U.showChartEmpty(canvas, { title: 'No commands yet', description: '...' });     // in place of the canvas
+U.showChartError(canvas, null, () => load());                                    // plain text + Retry
+U.clearChartState(canvas);                                                        // before drawing again
+```
+
+Every chart needs a text alternative: `describeChart` sets `role="img"` with a one-line summary (min, max, latest per series) and adds a visually hidden `<table data-chart-table>` of the latest 60 rows; `describeGauge` restates a gauge's value. `createGaugeChart` / `updateGauge` colour a gauge by threshold from the theme. Use `createChart(ctx, config)` instead of `new Chart` so `themeColors` specs are applied.
+
 ---
 
 ## Formatting: `Format` and `DisplayFormat`
