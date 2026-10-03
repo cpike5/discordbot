@@ -683,7 +683,7 @@ problem title "Portal disabled" and the detail "The member portal is switched of
        pages leave the hub scripts out for them and the panel reads `GET /api/portal/soundboard/{guildId}/status`
        after every join, leave and stop, and every five seconds while the page is visible
      - "Connected" means the bot is in a voice channel, never that the page's own connection is up
-     - Admins and moderators who open the portal still get live hub events, with the same status read as a fallback
+     - Admins and moderators who open the portal still load the hub scripts, so the page's own script (the soundboard grid) receives hub events; the panel polls on every portal page
      - On a phone the panel is a sticky bar (channel name, state, Stop) that stays in view while the page scrolls
 
    - **Settings Display**
