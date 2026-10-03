@@ -31,7 +31,7 @@
 <form method="post" id="welcome-form"
       data-submit-guard
       data-unsaved-changes
-      data-unsaved-dirty-on-load="@(dirtyOnLoad ? "" : null)"
+      data-unsaved-dirty-on-load="@(dirtyOnLoad ? "true" : "false")"
       data-guild-name="@Model.ViewModel.GuildName"
       novalidate>
     <div asp-validation-summary="ModelOnly" class="form-error mb-4"></div>

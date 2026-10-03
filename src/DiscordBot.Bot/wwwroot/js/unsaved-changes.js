@@ -10,7 +10,10 @@
  * does not warn. Other attributes:
  *
  *   data-unsaved-dirty-on-load   Start dirty. Put it on a form the server re-rendered after a
- *                                failed validation: the input on screen is not saved yet.
+ *                                failed validation: the input on screen is not saved yet. The bare
+ *                                attribute and "true" start dirty; "false" does not, so a form
+ *                                element (where Razor cannot add the attribute conditionally) can
+ *                                write data-unsaved-dirty-on-load="@(isPostBack ? "true" : "false")".
  *   data-unsaved-ignore          On a control (or a container of controls) that should not count,
  *                                such as a search box or a filter beside the editable fields.
  *   data-unsaved-indicator       An element inside the form, shown (its `hidden` class removed)
@@ -190,7 +193,8 @@
 
         var tracker = createTracker({
             snapshot: function () { return serialize(form.elements); },
-            startDirty: form.hasAttribute('data-unsaved-dirty-on-load'),
+            startDirty: form.hasAttribute('data-unsaved-dirty-on-load') &&
+                form.getAttribute('data-unsaved-dirty-on-load') !== 'false',
             onChange: function (dirty) { setIndicators(form, dirty); }
         });
         byForm.set(form, tracker);

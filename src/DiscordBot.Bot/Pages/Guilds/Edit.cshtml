@@ -13,7 +13,7 @@
     <form method="post" id="guild-edit-form"
           data-submit-guard
           data-unsaved-changes
-          data-unsaved-dirty-on-load="@(Model.DirtyOnLoad ? "" : null)"
+          data-unsaved-dirty-on-load="@(Model.DirtyOnLoad ? "true" : "false")"
           novalidate>
         <input type="hidden" name="Input.AudioSettingsLoaded" value="@(Model.AudioSettingsLoaded ? "true" : "false")" />
         <div asp-validation-summary="ModelOnly" class="form-error mb-4"></div>

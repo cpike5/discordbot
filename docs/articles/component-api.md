@@ -1790,7 +1790,7 @@ A form is dirty when its controls differ from how they were at load, so typing t
 | Attribute | On | Effect |
 |-----------|----|--------|
 | `data-unsaved-changes` | `<form>` | Track it |
-| `data-unsaved-dirty-on-load` | `<form>` | Start dirty. Put it on a form the server re-rendered after failed validation: the input on screen is not saved yet |
+| `data-unsaved-dirty-on-load` | `<form>` | Start dirty. Put it on a form the server re-rendered after failed validation: the input on screen is not saved yet. The bare attribute and `"true"` start dirty, `"false"` does not, so a `<form>` can write `data-unsaved-dirty-on-load="@(isPostBack ? "true" : "false")"` (Razor cannot add an attribute conditionally to a tag-helper element) |
 | `data-unsaved-ignore` | control or container | Do not count it (a search box beside the fields) |
 | `data-unsaved-indicator` | element inside the form | Shown (its `hidden` class removed) only while dirty |
 
@@ -2081,6 +2081,24 @@ const node = EmptyState.create(options);                                    // b
 ```
 
 Options: `type` (`noData`, `noResults`, `firstTime`, `error`, `noPermission`, `offline`), `title`, `description`, `icon` (SVG path), `size` (`compact`, `default`, `large`), `headingLevel`, `announce`, `id`, and `action` / `secondary` as `{ text, url, onClick, iconPath, attributes }`. The partial and the twin share icons, size classes and structure; change both together.
+
+---
+
+## Settings Form Helpers
+
+Small opt-in scripts and helpers used by the guild configuration screens. All are markup-only (data attributes, no handler text).
+
+| Helper | Use |
+|--------|-----|
+| `confirm-forms.js` | `data-confirm-message` (plus `data-confirm-title`, `-text`, `-cancel`, `-variant`) on a `<form>`: the shared `quickActions.confirm` dialog asks first, then the form posts normally (redirect and TempData toast work as usual, `data-submit-guard` shows the pending state). The message is read as text, so user text in it is safe |
+| `section-gate.js` | A section that only applies while a master switch is on. `<div data-section-gate="#Input_IsEnabled"><p data-section-gate-note hidden>why</p><div data-section-gate-body>...</div></div>`. Off makes the body `inert` (no focus, hidden from assistive technology) and shows the note; `inert` does not stop the values posting, so saved settings are kept |
+| `discord-markdown.js` | `DiscordMarkdown.render(text, { tokens })` returns safe HTML for a message preview: escape first, then bold, italic, underline, strikethrough, spoiler, code, quote, headings, URLs, mentions. `tokens` maps `{user}`-style placeholders to sample data. Styles: `.discord-preview`, `.discord-embed` and `.discord-md-*` in `site.css` |
+| `form-errors.js` | Moves focus to the first `[aria-invalid="true"]` or `.input-validation-error` field after a failed server validation |
+| `FormFieldState` (C#) | `ModelState.FieldError("Input.X")` and `FormFieldState.StateOf(error)` feed `_FormInput` / `_FormTextarea` / `_FormSelect`; `ChannelOptions(...)` builds a channel picker that keeps a saved channel the bot can no longer see |
+| `.row-action-btn` | Icon-only row action (with `.row-action-btn-danger` / `-accent`); 44px on coarse pointers. Put it inside `.row-actions` and give it an `aria-label` |
+| `_DashboardWidget` + `WidgetStatViewModel` | Widget shell with `BodyPartial` / `BodyModel` (a partial renders the body), `LoadFailed` + `RetryUrl` for a section that failed to load, and `_WidgetStat` for one labelled figure |
+
+Forms that re-render after a failed POST write `data-unsaved-dirty-on-load="@(isPost ? "true" : "false")"` (a `<form>` is a tag-helper element, so Razor cannot add the attribute conditionally); `"false"` does not start dirty.
 
 ---
 

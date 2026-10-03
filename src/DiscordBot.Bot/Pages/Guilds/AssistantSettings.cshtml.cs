@@ -161,23 +161,25 @@ public class AssistantSettingsModel : GuildPageModelBase
         _logger.LogInformation("POST received for assistant settings - GuildId={GuildId}, IsEnabled={IsEnabled}",
             guildId, Input.IsEnabled);
 
-        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-        if (guild == null)
-        {
-            return NotFound();
-        }
-
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Assistant settings for guild {GuildId} are invalid. Errors: {Errors}",
                 guildId,
                 string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
 
+            var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+            if (guild == null)
+            {
+                return NotFound();
+            }
+
             // What the user ticked and typed is shown again, not what is saved
             await LoadPageAsync(guild.Id, guild.Name, guild.IconUrl, cancellationToken);
             return Page();
         }
 
+        // The guild is not read on this path: loading it into the same context as the settings'
+        // own guild reference makes the save fail with a duplicate-tracking error.
         var settings = await _settingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
 
         settings.IsEnabled = Input.IsEnabled;

@@ -103,7 +103,7 @@
     var assistantWidget = new DashboardWidgetViewModel
     {
         Title = "Assistant",
-        IsEnabled = Model.SectionFailed(GuildDetailsSections.Assistant) ? null : Model.AssistantLocallyEnabled,
+        IsEnabled = Model.SectionFailed(GuildDetailsSections.Assistant) ? null : assistantOn,
         DetailUrl = Url.Page("AssistantSettings", new { guildId = guild.Id }),
         LoadFailed = Model.SectionFailed(GuildDetailsSections.Assistant),
         RetryUrl = retryUrl,

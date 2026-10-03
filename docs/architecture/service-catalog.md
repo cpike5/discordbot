@@ -143,7 +143,7 @@ Services for AI-powered feature request submission with multi-step DM conversati
 
 | Service | Location | Purpose |
 |---------|----------|---------|
-| `IFeatureRequestService` | Core Interfaces | Feature request CRUD, status updates, doc-gen result tracking |
+| `IFeatureRequestService` | Core Interfaces | Feature request CRUD, status updates, doc-gen result tracking, `RequeueDocGenAsync` (a failed documentation run goes back to `Submitted` for the next generator run) |
 | `FeatureRequestService` | Infrastructure/Services | EF Core implementation of feature request persistence |
 | `FeatureRequestConversationService` | Bot/Services/FeatureRequests | Multi-turn DM conversation orchestrator for AI requirements gathering |
 | `IInputValidationService` | Core Interfaces | Input validation contract for feature request text |
