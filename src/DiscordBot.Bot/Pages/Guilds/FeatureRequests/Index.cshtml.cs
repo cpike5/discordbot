@@ -1,5 +1,4 @@
-using DiscordBot.Bot.Configuration;
-using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -18,15 +17,18 @@ public class IndexModel : GuildPageModelBase
 {
     private readonly IFeatureRequestService _service;
     private readonly IGuildService _guildService;
+    private readonly IDiscordUserResolver _userResolver;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IFeatureRequestService service,
         IGuildService guildService,
+        IDiscordUserResolver userResolver,
         ILogger<IndexModel> logger)
     {
         _service = service;
         _guildService = guildService;
+        _userResolver = userResolver;
         _logger = logger;
     }
 
@@ -36,23 +38,31 @@ public class IndexModel : GuildPageModelBase
     [BindProperty(SupportsGet = true)]
     public FeatureRequestStatus? StatusFilter { get; set; }
 
-    [BindProperty(SupportsGet = true)]
-    public new int Page { get; set; } = 1;
+    /// <summary>
+    /// The page number. Bound from <c>pageNumber</c>: <c>page</c> is reserved by Razor Pages for the
+    /// page route, so a link built with it always landed on page 1.
+    /// </summary>
+    [BindProperty(SupportsGet = true, Name = "pageNumber")]
+    public int PageNumber { get; set; } = 1;
 
     public IEnumerable<FeatureRequest> Items { get; private set; } = [];
+
+    /// <summary>The submitter's name for each request on the page, by Discord user id.</summary>
+    public Dictionary<ulong, string> SubmitterNames { get; private set; } = new();
+
     public int Total { get; private set; }
     public int PageSize { get; } = 20;
     public int TotalPages => (int)Math.Ceiling((double)Total / PageSize);
 
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
-        if (Page < 1) Page = 1;
+        if (PageNumber < 1) PageNumber = 1;
 
         GuildId = guildId;
 
         _logger.LogInformation(
             "User accessing Feature Requests list for guild {GuildId}, page {Page}, status filter {StatusFilter}",
-            guildId, Page, StatusFilter);
+            guildId, PageNumber, StatusFilter);
 
         var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild == null)
@@ -63,28 +73,29 @@ public class IndexModel : GuildPageModelBase
 
         GuildName = guild.Name;
 
-        (Items, Total) = await _service.GetByGuildIdAsync(guildId, StatusFilter, Page, PageSize);
-
-        _logger.LogDebug(
-            "Retrieved {Count} feature requests for guild {GuildId} (page {Page} of {TotalPages})",
-            Items.Count(), guildId, Page, TotalPages);
-
-        Breadcrumb = new GuildBreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
-                new() { Label = "Feature Requests", IsCurrent = true }
-            }
-        };
-
-        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+        PopulateGuildLayout(guild.Id, guild.Name, guild.IconUrl, "feature-requests",
             "Feature Requests", $"Community feature requests for {guild.Name}");
 
-        Navigation = BuildNavigation(guild.Id, "feature-requests");
+        try
+        {
+            (Items, Total) = await _service.GetByGuildIdAsync(guildId, StatusFilter, PageNumber, PageSize);
+            Items = Items.ToList();
+
+            var users = await _userResolver.ResolveUsersAsync(Items.Select(i => i.SubmittedByUserId));
+            SubmitterNames = users.ToDictionary(u => u.Key, u => UserDisplay.Name(u.Value.Username));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Failed to load feature requests for guild {GuildId}", guildId);
+            Items = [];
+            Total = 0;
+            ErrorMessage = "The feature requests could not be loaded. Try again in a moment.";
+        }
 
         return Page();
     }
+
+    /// <summary>The submitter's name, or "Unknown user" when they could not be looked up.</summary>
+    public string SubmitterName(ulong userId) =>
+        SubmitterNames.TryGetValue(userId, out var name) ? name : UserDisplay.UnknownName;
 }

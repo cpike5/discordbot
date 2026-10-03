@@ -1,0 +1,27 @@
+@model DiscordBot.Bot.ViewModels.Components.WidgetStatViewModel
+
+<div class="bg-bg-primary rounded-lg p-3 sm:p-4 min-w-0">
+    <div class="flex items-center gap-2 mb-1">
+        @if (!string.IsNullOrEmpty(Model.IconPath))
+        {
+            <svg class="w-4 h-4 flex-shrink-0 @Model.IconClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@Model.IconPath" />
+            </svg>
+        }
+        <span class="text-xs text-text-secondary font-medium">@Model.Label</span>
+    </div>
+    <p class="@(Model.Compact ? "text-sm" : "text-2xl") font-bold @Model.ToneClass break-words">
+        @if (Model.ValueContent != null)
+        {
+            @Model.ValueContent
+        }
+        else
+        {
+            @Model.Value
+        }
+    </p>
+    @if (!string.IsNullOrEmpty(Model.Detail))
+    {
+        <p class="text-xs text-text-secondary mt-1 break-words">@Model.Detail</p>
+    }
+</div>

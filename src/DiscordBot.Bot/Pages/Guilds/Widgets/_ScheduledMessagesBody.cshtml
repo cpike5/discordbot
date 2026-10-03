@@ -1,0 +1,21 @@
+@model DiscordBot.Bot.Pages.Guilds.DetailsModel
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    const string stat = "~/Pages/Guilds/Widgets/_WidgetStat.cshtml";
+}
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+    <partial name="@stat" model='new WidgetStatViewModel { Label = "Total", Value = DisplayFormat.Number(Model.ScheduledMessagesTotal), IconPath = "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" }' />
+    <partial name="@stat" model='new WidgetStatViewModel { Label = "Active", Value = DisplayFormat.Number(Model.ScheduledMessagesActive), Tone = "success", IconPath = "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" }' />
+    <partial name="@stat" model='new WidgetStatViewModel { Label = "Paused", Value = DisplayFormat.Number(Model.ScheduledMessagesPaused), Tone = "warning", IconPath = "M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" }' />
+    <partial name="@stat" model='new WidgetStatViewModel {
+        Label = "Next run",
+        Compact = true,
+        Tone = "blue",
+        IconPath = "M13 7l5 5m0 0l-5 5m5-5H6",
+        Value = "None scheduled",
+        ValueContent = Model.NextScheduledExecution.HasValue ? DisplayFormat.Time(Model.NextScheduledExecution, "datetime-short") : null,
+        Detail = Model.NextScheduledExecution.HasValue ? Model.NextScheduledMessageTitle : null
+    }' />
+</div>

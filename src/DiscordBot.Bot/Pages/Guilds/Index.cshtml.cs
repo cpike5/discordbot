@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -54,6 +56,12 @@ public class IndexModel : PaginatedPageModel
     public bool IsFiltered { get; set; }
 
     /// <summary>
+    /// Set when the list could not be loaded. The page then shows a retry state instead of an empty
+    /// list, which would read as "the bot is in no servers".
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
     /// The total number of guilds connected to the bot (before user filtering).
     /// Only populated when IsFiltered is true.
     /// </summary>
@@ -93,9 +101,16 @@ public class IndexModel : PaginatedPageModel
             UserRoles = userRoles
         };
 
-        var paginatedGuilds = await _guildService.GetGuildsAsync(query, cancellationToken);
-
-        ViewModel = GuildListViewModel.FromPaginatedDto(paginatedGuilds, query);
+        try
+        {
+            var paginatedGuilds = await _guildService.GetGuildsAsync(query, cancellationToken);
+            ViewModel = GuildListViewModel.FromPaginatedDto(paginatedGuilds, query);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Failed to load the guild list");
+            ErrorMessage = "The server list could not be loaded. Try again in a moment.";
+        }
 
         return Page();
     }
@@ -117,9 +132,25 @@ public class IndexModel : PaginatedPageModel
 
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
-                    return new JsonResult(new { success = true, message = "Guild synced successfully" });
+                    // The fresh numbers travel back so the row updates in place, with no reload
+                    var updated = await _guildService.GetGuildByIdAsync(id, cancellationToken);
+                    return new JsonResult(new
+                    {
+                        success = true,
+                        message = "Guild synced successfully",
+                        guild = updated == null
+                            ? null
+                            : new
+                            {
+                                id = updated.Id.ToString(),
+                                name = updated.Name,
+                                memberCount = updated.MemberCount ?? 0,
+                                isActive = updated.IsActive
+                            }
+                    });
                 }
 
+                TempData.SetSuccessToast("Server synced.");
                 return RedirectToPage();
             }
             else
@@ -131,6 +162,7 @@ public class IndexModel : PaginatedPageModel
                     return new JsonResult(new { success = false, message = "Guild not found in Discord client" });
                 }
 
+                TempData.SetErrorToast("The bot cannot see that server right now, so it could not be synced.");
                 return RedirectToPage();
             }
         }
@@ -143,6 +175,7 @@ public class IndexModel : PaginatedPageModel
                 return new JsonResult(new { success = false, message = "An error occurred while syncing the guild" });
             }
 
+            TempData.SetErrorToast("The server could not be synced. Try again in a moment.");
             return RedirectToPage();
         }
     }
@@ -178,6 +211,7 @@ public class IndexModel : PaginatedPageModel
                 });
             }
 
+            TempData.SetSuccessToast($"Synced {DisplayFormat.Plural(syncedCount, "server")}.");
             return RedirectToPage();
         }
         catch (Exception ex)
@@ -189,6 +223,7 @@ public class IndexModel : PaginatedPageModel
                 return new JsonResult(new { success = false, message = "An error occurred while syncing guilds" });
             }
 
+            TempData.SetErrorToast("The servers could not be synced. Try again in a moment.");
             return RedirectToPage();
         }
     }

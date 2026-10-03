@@ -200,6 +200,26 @@ public class DetailsModel : GuildPageModelBase
     /// </summary>
     public int AssistantRateLimitWindowMinutes { get; set; }
 
+    /// <summary>
+    /// Sections (see <see cref="GuildDetailsSections"/>) that could not be loaded. Each is shown as a
+    /// widget with a retry link rather than as zeros.
+    /// </summary>
+    public IReadOnlyCollection<string> FailedSections { get; set; } = Array.Empty<string>();
+
+    /// <summary>True when the named section failed to load.</summary>
+    public bool SectionFailed(string section) => FailedSections.Contains(section);
+
+    /// <summary>
+    /// The CDN avatar URL for a member, or null when they have no custom avatar.
+    /// </summary>
+    public string? MemberAvatarUrl(GuildMemberDto member)
+    {
+        if (string.IsNullOrEmpty(member.AvatarHash)) return null;
+
+        var extension = member.AvatarHash.StartsWith("a_", StringComparison.Ordinal) ? "gif" : "png";
+        return $"https://cdn.discordapp.com/avatars/{member.UserId}/{member.AvatarHash}.{extension}?size=80";
+    }
+
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", guildId);
@@ -211,6 +231,8 @@ public class DetailsModel : GuildPageModelBase
         }
 
         var guild = aggregate.Guild;
+
+        FailedSections = aggregate.FailedSections;
 
         WelcomeEnabled = aggregate.WelcomeEnabled;
         ScheduledMessagesTotal = aggregate.ScheduledMessagesTotal;

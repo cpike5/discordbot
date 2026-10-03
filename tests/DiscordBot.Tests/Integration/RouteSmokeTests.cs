@@ -25,8 +25,6 @@ public class RouteSmokeTests : IClassFixture<RouteSmokeTests.AppFixture>
     /// </summary>
     private static readonly Dictionary<string, string> KnownFailures = new(StringComparer.OrdinalIgnoreCase)
     {
-        [$"/Guilds/AssistantMetrics/{AppFixture.GuildId}"] =
-            "B-29 (Phase 8): 500 without OpenRouter:ApiKey because IAssistantService is not registered"
     };
 
     private readonly AppFixture _app;

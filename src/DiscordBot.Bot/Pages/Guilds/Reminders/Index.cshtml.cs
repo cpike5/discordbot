@@ -1,6 +1,6 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Enums;
@@ -19,18 +19,18 @@ public class IndexModel : GuildPageModelBase
 {
     private readonly IReminderRepository _reminderRepository;
     private readonly IGuildService _guildService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IDiscordUserResolver _userResolver;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IReminderRepository reminderRepository,
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IDiscordUserResolver userResolver,
         ILogger<IndexModel> logger)
     {
         _reminderRepository = reminderRepository;
         _guildService = guildService;
-        _discordClient = discordClient;
+        _userResolver = userResolver;
         _logger = logger;
     }
 
@@ -81,81 +81,66 @@ public class IndexModel : GuildPageModelBase
         PopulateGuildLayout(guild.Id, guild.Name, guild.IconUrl, "reminders",
             "Reminders", "View and manage scheduled reminders for this server");
 
-        // Get reminders with pagination and filtering
-        var (reminders, totalCount) = await _reminderRepository.GetByGuildAsync(
-            ulongGuildId,
-            CurrentPage,
-            PageSize,
-            Status,
-            cancellationToken);
-
-        // Get statistics
-        var (totalStats, pendingStats, deliveredTodayStats, failedStats) =
-            await _reminderRepository.GetGuildStatsAsync(ulongGuildId, cancellationToken);
-
-        var stats = new ReminderStatsViewModel
+        try
         {
-            TotalCount = totalStats,
-            PendingCount = pendingStats,
-            DeliveredTodayCount = deliveredTodayStats,
-            FailedCount = failedStats
-        };
+            // Get reminders with pagination and filtering
+            var (reminders, totalCount) = await _reminderRepository.GetByGuildAsync(
+                ulongGuildId,
+                CurrentPage,
+                PageSize,
+                Status,
+                cancellationToken);
 
-        // Populate user information for each reminder
-        var reminderItems = new List<ReminderItemViewModel>();
-        var socketGuild = _discordClient.GetGuild(ulongGuildId);
+            var (totalStats, pendingStats, deliveredTodayStats, failedStats) =
+                await _reminderRepository.GetGuildStatsAsync(ulongGuildId, cancellationToken);
 
-        foreach (var reminder in reminders)
-        {
-            var item = ReminderItemViewModel.FromEntity(reminder);
-            string username = $"Unknown ({reminder.UserId})";
-            string? avatarUrl = null;
+            var reminderList = reminders.ToList();
 
-            // Try to get user info from Discord
-            if (socketGuild != null)
+            // One lookup for every distinct user on the page (cached by the resolver), not one
+            // Discord request per row
+            var users = await _userResolver.ResolveUsersAsync(reminderList.Select(r => r.UserId));
+
+            var reminderItems = reminderList.Select(reminder =>
             {
-                var socketUser = socketGuild.GetUser(reminder.UserId);
-                if (socketUser != null)
-                {
-                    username = socketUser.GlobalName ?? socketUser.Username;
-                    avatarUrl = socketUser.GetAvatarUrl() ?? socketUser.GetDefaultAvatarUrl();
-                }
-                else
-                {
-                    // Try REST API as fallback
-                    try
-                    {
-                        var restUser = await _discordClient.Rest.GetUserAsync(reminder.UserId);
-                        if (restUser != null)
-                        {
-                            username = restUser.GlobalName ?? restUser.Username;
-                            avatarUrl = restUser.GetAvatarUrl() ?? restUser.GetDefaultAvatarUrl();
-                        }
-                    }
-                    catch
-                    {
-                        // User not found or API error - use default
-                    }
-                }
-            }
+                var item = ReminderItemViewModel.FromEntity(reminder);
+                return users.TryGetValue(reminder.UserId, out var user)
+                    ? item.WithUserInfo(UserDisplay.Name(user.Username), user.AvatarUrl)
+                    : item.WithUserInfo(UserDisplay.UnknownName, null);
+            }).ToList();
 
-            item = item.WithUserInfo(username, avatarUrl);
-            reminderItems.Add(item);
+            ViewModel = new RemindersIndexViewModel
+            {
+                GuildId = ulongGuildId,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                Reminders = reminderItems,
+                TotalCount = totalCount,
+                Stats = new ReminderStatsViewModel
+                {
+                    TotalCount = totalStats,
+                    PendingCount = pendingStats,
+                    DeliveredTodayCount = deliveredTodayStats,
+                    FailedCount = failedStats
+                },
+                CurrentPage = CurrentPage,
+                PageSize = PageSize,
+                StatusFilter = Status
+            };
         }
-
-        // Build view model
-        ViewModel = new RemindersIndexViewModel
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            GuildId = ulongGuildId,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            Reminders = reminderItems,
-            TotalCount = totalCount,
-            Stats = stats,
-            CurrentPage = CurrentPage,
-            PageSize = PageSize,
-            StatusFilter = Status
-        };
+            _logger.LogError(ex, "Failed to load reminders for guild {GuildId}", ulongGuildId);
+            ViewModel = new RemindersIndexViewModel
+            {
+                GuildId = ulongGuildId,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                CurrentPage = CurrentPage,
+                PageSize = PageSize,
+                StatusFilter = Status
+            };
+            ErrorMessage = "The reminders could not be loaded. Try again in a moment.";
+        }
 
         return Page();
     }

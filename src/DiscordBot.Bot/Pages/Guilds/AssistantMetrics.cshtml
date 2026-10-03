@@ -1,11 +1,42 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Guilds.AssistantMetricsModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = $"Assistant Metrics - {Model.Guild.Name}";
     Layout = "_GuildLayout";
+
+    // With nothing recorded every figure would read 0 (and a 0% success rate would be red), so
+    // the cards say "No data" instead of pretending to have measured something.
+    var hasData = Model.HasUsageData;
+    const string noData = "\u2014";
 }
 
+@if (!Model.IsAssistantConfigured)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+            Variant = AlertVariant.Info,
+            Title = "Assistant not configured",
+            Message = "No OpenRouter API key is set, so the assistant is switched off and nothing is recorded. Usage from before the key was removed, if any, is still shown below."
+        }' />
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+            Type = EmptyStateType.Error,
+            Title = "Metrics unavailable",
+            Description = Model.ErrorMessage,
+            PrimaryActionText = "Try again",
+            PrimaryActionUrl = Url.Page("AssistantMetrics", new { guildId = Model.Guild.Id })
+        }' />
+    </div>
+}
+else
+{
 <!-- Summary Cards -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <!-- Total Questions -->
@@ -16,7 +47,7 @@
                 </svg>
                 <span class="text-xs text-text-tertiary font-medium">Total Questions</span>
             </div>
-            <p class="text-2xl font-bold text-text-primary">@Model.TotalQuestions.ToString("N0")</p>
+            <p class="text-2xl font-bold text-text-primary">@(hasData ? DisplayFormat.Number(Model.TotalQuestions) : noData)</p>
         </div>
 
         <!-- Total Cost -->
@@ -27,7 +58,7 @@
                 </svg>
                 <span class="text-xs text-text-tertiary font-medium">Est. Cost (USD)</span>
             </div>
-            <p class="text-2xl font-bold text-text-primary">$@Model.TotalCost.ToString("F2")</p>
+            <p class="text-2xl font-bold text-text-primary">@(hasData ? "$" + Model.TotalCost.ToString("F2") : noData)</p>
         </div>
 
         <!-- Average Latency -->
@@ -39,7 +70,11 @@
                 <span class="text-xs text-text-tertiary font-medium">Avg Latency</span>
             </div>
             <p class="text-2xl font-bold text-text-primary">
-                @if (Model.AverageLatencyMs >= 1000)
+                @if (!hasData)
+                {
+                    <span>@noData</span>
+                }
+                else if (Model.AverageLatencyMs >= 1000)
                 {
                     <span>@((Model.AverageLatencyMs / 1000.0).ToString("F1"))s</span>
                 }
@@ -58,7 +93,7 @@
                 </svg>
                 <span class="text-xs text-text-tertiary font-medium">Cache Hit Rate</span>
             </div>
-            <p class="text-2xl font-bold text-text-primary">@Model.CacheHitRate.ToString("F1")<span class="text-sm font-normal text-text-tertiary">%</span></p>
+            <p class="text-2xl font-bold text-text-primary">@if (hasData) { <text>@Model.CacheHitRate.ToString("F1")<span class="text-sm font-normal text-text-tertiary">%</span></text> } else { <text>@noData</text> }</p>
         </div>
     </div>
 
@@ -67,13 +102,13 @@
         <!-- Success Rate -->
         <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
             <div class="flex items-center gap-2 mb-1">
-                <svg class="w-5 h-5 @(Model.SuccessRate >= 95 ? "text-success" : Model.SuccessRate >= 80 ? "text-warning" : "text-error")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="w-5 h-5 @(!hasData ? "text-text-tertiary" : Model.SuccessRate >= 95 ? "text-success" : Model.SuccessRate >= 80 ? "text-warning" : "text-error")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span class="text-xs text-text-tertiary font-medium">Success Rate</span>
             </div>
-            <p class="text-xl font-bold text-text-primary">@Model.SuccessRate.ToString("F1")<span class="text-sm font-normal text-text-tertiary">%</span></p>
-            <p class="text-xs text-text-tertiary mt-1">@Model.TotalFailedRequests failed requests</p>
+            <p class="text-xl font-bold text-text-primary">@if (hasData) { <text>@Model.SuccessRate.ToString("F1")<span class="text-sm font-normal text-text-tertiary">%</span></text> } else { <text>@noData</text> }</p>
+            <p class="text-xs text-text-tertiary mt-1">@(hasData ? DisplayFormat.Plural(Model.TotalFailedRequests, "failed request") : "No requests yet")</p>
         </div>
 
         <!-- Tool Calls -->
@@ -84,7 +119,7 @@
                 </svg>
                 <span class="text-xs text-text-tertiary font-medium">Tool Calls</span>
             </div>
-            <p class="text-xl font-bold text-text-primary">@Model.TotalToolCalls.ToString("N0")</p>
+            <p class="text-xl font-bold text-text-primary">@(hasData ? DisplayFormat.Number(Model.TotalToolCalls) : noData)</p>
             <p class="text-xs text-text-tertiary mt-1">Documentation lookups</p>
         </div>
 
@@ -96,8 +131,8 @@
                 </svg>
                 <span class="text-xs text-text-tertiary font-medium">Cache Stats</span>
             </div>
-            <p class="text-xl font-bold text-text-primary">@Model.TotalCacheHits.ToString("N0") <span class="text-sm font-normal text-success">hits</span></p>
-            <p class="text-xs text-text-tertiary mt-1">@Model.TotalCacheMisses.ToString("N0") misses</p>
+            <p class="text-xl font-bold text-text-primary">@(hasData ? DisplayFormat.Number(Model.TotalCacheHits) : noData) <span class="text-sm font-normal text-text-secondary">hits</span></p>
+            <p class="text-xs text-text-tertiary mt-1">@(hasData ? DisplayFormat.Number(Model.TotalCacheMisses) + " misses" : "No requests yet")</p>
         </div>
     </div>
 
@@ -131,7 +166,7 @@
                             var cacheRate = cacheTotal > 0 ? (double)metric.TotalCacheHits / cacheTotal * 100 : 0;
                             <tr class="hover:bg-bg-tertiary/50 transition-colors">
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-sm text-text-primary" data-utc="@metric.Date.ToString("o")" data-format="date">@metric.Date.ToString("MMM d")</span>
+                                    <span class="text-sm text-text-primary">@DisplayFormat.Time(metric.Date, "date")</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <span class="text-sm font-medium text-text-primary">@metric.TotalQuestions</span>
@@ -172,7 +207,7 @@
                     var cacheRate = cacheTotal > 0 ? (double)metric.TotalCacheHits / cacheTotal * 100 : 0;
                     <div class="p-4 hover:bg-bg-tertiary/50 transition-colors">
                         <div class="flex items-center justify-between mb-3">
-                            <span class="text-sm font-medium text-text-primary" data-utc="@metric.Date.ToString("o")" data-format="date">@metric.Date.ToString("MMM d, yyyy")</span>
+                            <span class="text-sm font-medium text-text-primary">@DisplayFormat.Time(metric.Date, "date")</span>
                             <span class="text-sm font-semibold text-accent-orange">$@metric.EstimatedCostUsd.ToString("F4")</span>
                         </div>
                         <div class="grid grid-cols-3 gap-2 text-xs">
@@ -199,8 +234,16 @@
                 <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
-                <p class="text-text-secondary mb-2">No usage data yet</p>
-                <p class="text-sm text-text-tertiary">Metrics will appear here once users start using the AI assistant.</p>
+                @if (Model.IsAssistantConfigured)
+                {
+                    <p class="text-text-secondary mb-2">No usage data yet</p>
+                    <p class="text-sm text-text-tertiary">Metrics will appear here once users start using the AI assistant.</p>
+                }
+                else
+                {
+                    <p class="text-text-secondary mb-2">Assistant not configured</p>
+                    <p class="text-sm text-text-tertiary">Add an OpenRouter API key to switch the assistant on; metrics appear once people use it.</p>
+                }
             </div>
         }
     </div>
@@ -439,7 +482,6 @@
                             <tr class="hover:bg-bg-tertiary/50 transition-colors">
                                 <td class="px-6 py-3 whitespace-nowrap">
                                     <span class="text-sm font-medium text-text-primary">@user.DisplayName</span>
-                                    <span class="block text-xs text-text-tertiary font-mono">@user.UserId</span>
                                 </td>
                                 <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-primary">@user.MessageCount.ToString("N0")</td>
                                 <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-secondary">@((user.InputTokens + user.OutputTokens).ToString("N0"))</td>
@@ -490,9 +532,9 @@
             <div class="text-sm text-info">
                 <p class="font-semibold mb-1">About Cost Estimates</p>
                 <p class="text-info/90">
-                    Costs are estimated based on Claude API token usage. Actual costs may vary slightly. Cache hits reduce costs significantly by reusing previously computed context.
+                    Costs are estimated from the token usage OpenRouter reports for each model. Actual costs may vary slightly. Cache hits reduce costs significantly by reusing previously computed context.
                 </p>
             </div>
         </div>
     </div>
-</div>
+}

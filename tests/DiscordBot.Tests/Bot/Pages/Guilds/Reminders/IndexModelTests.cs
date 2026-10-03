@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Pages.Guilds.Reminders;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -23,7 +22,7 @@ public class IndexModelTests
 {
     private readonly Mock<IReminderRepository> _mockReminderRepository;
     private readonly Mock<IGuildService> _mockGuildService;
-    private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IDiscordUserResolver> _mockUserResolver;
     private readonly Mock<ILogger<IndexModel>> _mockLogger;
     private readonly IndexModel _indexModel;
 
@@ -31,7 +30,10 @@ public class IndexModelTests
     {
         _mockReminderRepository = new Mock<IReminderRepository>();
         _mockGuildService = new Mock<IGuildService>();
-        _mockDiscordClient = new Mock<DiscordSocketClient>(new DiscordSocketConfig());
+        _mockUserResolver = new Mock<IDiscordUserResolver>();
+        _mockUserResolver
+            .Setup(r => r.ResolveUsersAsync(It.IsAny<IEnumerable<ulong>>()))
+            .ReturnsAsync(new Dictionary<ulong, (string Username, string? AvatarUrl)>());
         _mockLogger = new Mock<ILogger<IndexModel>>();
 
         // Default happy-path setup — empty reminder list
@@ -53,7 +55,7 @@ public class IndexModelTests
         _indexModel = new IndexModel(
             _mockReminderRepository.Object,
             _mockGuildService.Object,
-            _mockDiscordClient.Object,
+            _mockUserResolver.Object,
             _mockLogger.Object);
 
         // Wire up a minimal PageContext so RazorPage helper methods work
@@ -246,6 +248,64 @@ public class IndexModelTests
     // -----------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------
+
+    [Fact]
+    public async Task OnGetAsync_ResolvesEveryUserOnce_AndShowsTheirNames()
+    {
+        // Arrange
+        const long guildId = 111222333L;
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync((ulong)guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateGuildDto((ulong)guildId, "Test Guild"));
+
+        var reminders = new[]
+        {
+            new Reminder { Id = Guid.NewGuid(), GuildId = (ulong)guildId, UserId = 1, Message = "a", Status = ReminderStatus.Pending },
+            new Reminder { Id = Guid.NewGuid(), GuildId = (ulong)guildId, UserId = 1, Message = "b", Status = ReminderStatus.Pending },
+            new Reminder { Id = Guid.NewGuid(), GuildId = (ulong)guildId, UserId = 2, Message = "c", Status = ReminderStatus.Pending }
+        };
+        _mockReminderRepository
+            .Setup(r => r.GetByGuildAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<ReminderStatus?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((reminders.AsEnumerable(), 3));
+        _mockUserResolver
+            .Setup(r => r.ResolveUsersAsync(It.IsAny<IEnumerable<ulong>>()))
+            .ReturnsAsync(new Dictionary<ulong, (string Username, string? AvatarUrl)>
+            {
+                [1] = ("alice", null),
+                [2] = ("Unknown#2", null)
+            });
+
+        // Act
+        await _indexModel.OnGetAsync(guildId, CancellationToken.None);
+
+        // Assert
+        _mockUserResolver.Verify(r => r.ResolveUsersAsync(It.IsAny<IEnumerable<ulong>>()), Times.Once,
+            "one lookup serves the whole page, not one Discord request per row");
+        _indexModel.ViewModel.Reminders.Select(r => r.Username)
+            .Should().Equal("alice", "alice", "Unknown user");
+    }
+
+    [Fact]
+    public async Task OnGetAsync_WhenTheRepositoryFails_ShowsAnErrorInsteadOfAnEmptyList()
+    {
+        // Arrange
+        const long guildId = 111222333L;
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync((ulong)guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateGuildDto((ulong)guildId, "Test Guild"));
+        _mockReminderRepository
+            .Setup(r => r.GetByGuildAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<ReminderStatus?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database is down"));
+
+        // Act
+        var result = await _indexModel.OnGetAsync(guildId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<PageResult>();
+        _indexModel.ErrorMessage.Should().NotBeNullOrEmpty();
+        _indexModel.ErrorMessage.Should().NotContain("database is down", "raw exception text is not shown");
+        _indexModel.Header.GuildId.Should().Be((ulong)guildId, "the page chrome survives a failed load");
+    }
 
     private static GuildDto CreateGuildDto(ulong id, string name) => new()
     {
