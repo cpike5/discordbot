@@ -1,6 +1,6 @@
 # UX Polish Audit and Plan
 
-**Status:** In progress. Phases 0a through 15 done; Phase 16 (long-tail sweep) next.
+**Status:** Done. All phases (0a through 16) landed; open items are listed in each phase's Done note.
 **Date:** 2026-10-02
 **Scope:** The admin web portal (Razor Pages), the member portal (Soundboard, TTS, VOX), and the shared layout, components, CSS and JS behind them.
 
@@ -681,6 +681,16 @@ Each group of phases had an independent review before the next began. Fixes that
 
 - **Changes:** pluralisation (~30 sites); raw IDs replaced by names with the ID copyable; enum display names via a C# helper; "server" in copy (D7); remove `console.log`s, dead partials, `Pages/Index.cshtml.cs.bak` / `.temp`, unused scripts; update `docs/articles/design-system.md`, `docs/architecture/ui-inventory.md`, `.claude/agents/web-ui-portal.md`.
 - **Acceptance:** grep counts for `(s)`, `[..2]`, `onclick='`, `alert(`, `console.log` reach zero or are justified in a comment.
+
+**Done (Phase 16).** All listed changes landed. In `Pages` and `wwwroot/js` there are no `console.log`, native `alert`/`confirm`/`prompt` calls or inline `onclick='` handlers; the three `(s)` hits are JavaScript parameter names; seven slice patterns remain (GUID hex and ASCII ids), each with a comment. A Release build passes the full suite (5,651 .NET, 355 JS). Notes:
+
+- **Enum names (C-2).** `value.DisplayName()` (`Core/Extensions/EnumDisplayExtensions`) is the one way to show an enum; add `[Display(Name = …)]` only when the words differ from the member name (a test fails on run-together names). `DisplayNameFor<T>(string)` is for DTOs that carry the name as a string. `RatWatchStatusDisplay` is gone; `PurgeDisplay` keeps only the user-purge count labels. Option values, API fields and exports keep the enum name or number.
+- **Names (C-1).** `UserDisplay.Name` everywhere; `DiscordUserResolver` falls back to the stored username in `Users` before `Unknown#id`; the public leaderboard resolves through the same path in one batch. IDs moved to `title` or "(ID …)" text; a global copy-ID control does not exist yet.
+- **Text.** `TextDisplay` (C#) and `Format.initials` / `Format.truncate` (JS) cut by grapheme (E-1). `SafeHtml.escape` is the one escaper (14 copies removed; `discord-markdown.js` keeps its own because it also runs under node). Plurals via `DisplayFormat.Plural` / `Format.plural` (C-3); "server" and "sign in" in copy, Performance and Logs columns included (D7, C-4).
+- **Admin TTS presets.** `GuildTtsPresetsController` (`api/guilds/{guildId}/tts/presets/custom`, `RequireAdmin` + `GuildAccess`, antiforgery on writes) shares `CustomTtsPresetService` with the portal; `PresetBarViewModel.CustomPresetsUrl` points the bar at it, so admin presets work while the member portal is off. `ajax-sort.js` uses `ApiClient.getHtml`.
+- **Dead code removed.** Ten unreferenced partials and their view models (the audit counted 13; Phase 13 had already removed some), three orphaned command scripts, the dashboard's unused Chart.js include, `Index.cshtml.cs.bak` and `.temp`, the `navigation.js` server-action menu and its CSS, `PerformanceTabsController`, `CommandPerformanceViewModel.*Trend` and `FormatTrend`, the `.metric-trend*` and `.card-enhanced` CSS, and the `sw.js` `/exports/` bypass (`CACHE_VERSION` v3). `_Card` and `_SkeletonCard` are rendered only on `/Components` and stay as documented primitives.
+- **Docs.** `design-system.md` v2.1 rewrites the toggle, badge, alert and status sections and adds row actions, dialogs and toasts, empty/loading/error states, formatting and charts; the Buttons, Cards, Inputs and Typography code samples still carry old hex (`site.css` is the source of truth). `ui-inventory.md` routes match the `@page` directives; `feature-map.md` and `service-catalog.md` cover the services added in Phases 5–15; docs that named deleted scripts are fixed. When you add a component, add it to `ui-inventory.md` and the `/Components` showcase.
+- **Open (for a later pass):** search results still show "User ID" / "Channel ID" subtitles; Logs CSV writes raw action and category names; moderation and Rat Watch analytics resolve names without the `Users` fallback; about 100 `data-utc` sites could move to `DisplayFormat.Time`; design-system code samples for buttons, cards, inputs and typography still carry old hex.
 
 ## Definition of done for UI work
 
