@@ -41,6 +41,7 @@ public class GuildTtsPresetsController : ControllerBase
 
     /// <summary>Saves a custom preset for the signed-in admin.</summary>
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateCustomPreset(
@@ -69,6 +70,7 @@ public class GuildTtsPresetsController : ControllerBase
 
     /// <summary>Deletes one of the signed-in admin's custom presets.</summary>
     [HttpDelete("{id:int}")]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

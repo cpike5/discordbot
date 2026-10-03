@@ -104,6 +104,8 @@ Services for Azure Cognitive Services TTS and SSML generation.
 | `StylePresetProvider` | Bot/Services | Singleton implementation with 12 built-in presets across 4 categories; supports lookup by ID or category |
 | `ISsmlBuilder` | Core Interfaces | SSML markup generation for advanced TTS features |
 | `ISsmlValidator` | Core Interfaces | SSML markup validation |
+| `CustomTtsPresetService` | Bot/Services/Tts | A person's saved (custom) TTS presets: validation, the 20-per-person limit, ownership check, and the response shape. Shared by `PortalTtsPresetsController` (member portal) and `GuildTtsPresetsController` (admin page) so the two cannot drift |
+| `GuildTtsPresetsController` | Bot/Controllers | Admin REST face of `CustomTtsPresetService`: `GET/POST/DELETE api/guilds/{guildId}/tts/presets/custom` behind `RequireAdmin` + `GuildAccess` (POST/DELETE validate the anti-forgery token), keyed to the admin's linked Discord account; the admin TTS page's preset bar uses it because the portal route refuses while the member portal is off |
 
 ---
 
@@ -511,8 +513,10 @@ Lightweight helper classes for common formatting, validation, and calculation ta
 | `SearchDisplayHelper` | Bot/Helpers | Search result display formatting and presentation |
 | `SearchScoringHelper` | Bot/Helpers | Search result relevance scoring and ranking |
 | `DisplayFormat` | Bot/Helpers | Server twin of `format.js`: `Time(...)` renders a `<time>` with a UTC fallback, plus `Iso`, `Plural`, `Number`, `Duration`, `Currency`. Use `Iso(value)` for `data-utc`, never `ToString("o")` on an `Unspecified` value |
-| `PurgeDisplay` | Bot/Helpers | Plain names for the purge pages (entity types, per-table record counts) |
-| `RatWatchStatusDisplay` | Bot/Helpers | The one text for a `RatWatchStatus` ("Cleared early", not the enum name) |
+| `PurgeDisplay` | Bot/Helpers | Plain names for the purge pages' per-table record counts (`CountLabel(key)`); the bulk-purge entity types are an enum and read through `DisplayName()` |
+| `EnumDisplayExtensions` | Core/Extensions | `DisplayName()`, `DisplayNameLower()`, `Description()` from `[Display]` on an enum member, falling back to `Humanize(...)`; the one text for any enum in copy ("Cleared early" for a `RatWatchStatus`, not the enum name) |
+| `TextDisplay` | Bot/Helpers | Cuts user text by text element, not UTF-16 unit: `Initials`, `WordInitials`, `Truncate`, `Take`; script twin is `format.js` |
+| `ConsentDisplay` | Bot/Helpers | `Via(source)` names where a consent change was made ("the web portal", "a Discord command") |
 | `UserDisplay` | Bot/Helpers | Shows `Unknown#id` resolver results as "Unknown user" |
 | `FormFieldState` | Bot/Helpers | Glue between `ModelState` and the form partials (`FieldError`, `StateOf`, channel select options) |
 | `FlaggedEventReviewRules` | Bot/Helpers | Which review steps (dismiss, acknowledge, record outcome) fit which `FlaggedEventStatus`, (`FlaggedEventBatchOutcome` holds the batch result messages) |

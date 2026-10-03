@@ -36,6 +36,8 @@ public static class FeatureRequestDisplay
     {
         var singleLine = string.Join(' ', (description ?? string.Empty).Split(
             new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        return singleLine.Length <= maxLength ? singleLine : TextDisplay.Take(singleLine, maxLength).TrimEnd() + "...";
+        // Counted and cut in text elements; with no ellipsis, Truncate returns the text unchanged exactly when it fits.
+        var cut = TextDisplay.Truncate(singleLine, maxLength, string.Empty);
+        return cut == singleLine ? singleLine : cut.TrimEnd() + "...";
     }
 }

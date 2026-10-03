@@ -1279,7 +1279,7 @@ One date filter for the analytics pages, Rat Watch Incidents and the admin Rat W
 
 ## `_RatWatchStatusBadge`
 
-A Rat Watch status as a dot and words ("Cleared early"). The words come from `RatWatchStatusDisplay.DisplayName()` (`Helpers/`), the one place a `RatWatchStatus` becomes text, so filters, tables, the incident dialog and the CSV agree and no enum name reaches a user.
+A Rat Watch status as a dot and words ("Cleared early"). The words come from `status.DisplayName()` (`EnumDisplayExtensions`, `Core/Extensions/`), the one place a `RatWatchStatus` becomes text, so filters, tables, the incident dialog and the CSV agree and no enum name reaches a user.
 
 ---
 

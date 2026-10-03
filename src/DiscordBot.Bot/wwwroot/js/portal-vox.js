@@ -595,7 +595,8 @@
                 const letterClips = grouped.get(letter);
 
                 // Section header
-                html += `<div class="vox-section-header" data-letter="${letter}" id="section-${voxState.activeGroup}-${letter}">${letter}</div>`;
+                const safeLetter = SafeHtml.escape(letter);
+                html += `<div class="vox-section-header" data-letter="${safeLetter}" id="section-${SafeHtml.escape(voxState.activeGroup)}-${safeLetter}">${safeLetter}</div>`;
 
                 // Clip tiles for this section
                 letterClips.forEach(clip => {

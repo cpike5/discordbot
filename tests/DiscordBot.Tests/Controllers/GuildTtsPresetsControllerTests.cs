@@ -54,6 +54,17 @@ public class GuildTtsPresetsControllerTests
         policies.Should().NotContain("PortalGuildMember");
     }
 
+    [Theory]
+    [InlineData(nameof(GuildTtsPresetsController.CreateCustomPreset))]
+    [InlineData(nameof(GuildTtsPresetsController.DeleteCustomPreset))]
+    public void StateChangingActions_RequireTheAntiForgeryToken(string action)
+    {
+        // The admin page's cookie session makes these cross-site-forgeable without the token;
+        // api-client.js sends it from the page's __RequestVerificationToken input.
+        typeof(GuildTtsPresetsController).GetMethod(action)!
+            .GetCustomAttribute<ValidateAntiForgeryTokenAttribute>().Should().NotBeNull();
+    }
+
     [Fact]
     public void Controller_RoutesOnTheGuildId_SoGuildAccessCanCheckIt()
     {

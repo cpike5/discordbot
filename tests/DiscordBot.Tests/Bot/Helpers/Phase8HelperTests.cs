@@ -109,4 +109,16 @@ public class FeatureRequestDisplayTests
 
         FeatureRequestDisplay.Excerpt(text, 80).Should().HaveLength(83).And.EndWith("...");
     }
+
+    [Fact]
+    public void Excerpt_EmojiText_IsCountedInCharactersAndCutOnWholeEmoji()
+    {
+        var fits = string.Concat(Enumerable.Repeat("\U0001F600", 50));
+        var tooLong = string.Concat(Enumerable.Repeat("\U0001F600", 100));
+
+        // 50 emoji are 100 UTF-16 units but 50 characters, so they fit in 80 untouched.
+        FeatureRequestDisplay.Excerpt(fits, 80).Should().Be(fits);
+        FeatureRequestDisplay.Excerpt(tooLong, 80).Should()
+            .Be(string.Concat(Enumerable.Repeat("\U0001F600", 80)) + "...");
+    }
 }

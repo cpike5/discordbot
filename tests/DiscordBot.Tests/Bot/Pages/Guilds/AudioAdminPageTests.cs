@@ -426,6 +426,14 @@ public class AudioAdminPageTests : IDisposable
     }
 
     [Fact]
+    public void AuditLog_AChannelTheBotCannotResolveShowsItsId()
+    {
+        var (model, _) = CreateAudioLog();
+
+        model.ResolveChannelName(555123456789).Should().Be("unknown (ID 555123456789)");
+    }
+
+    [Fact]
     public async Task AuditLog_AnUnreadableUserFilterShowsNothingNotEverything()
     {
         var (model, repo) = CreateAudioLog();

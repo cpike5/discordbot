@@ -93,7 +93,8 @@ Converts text messages to speech using Azure Cognitive Services and plays them i
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | `/tts <message> [voice]` (TtsModule) |
-| **Services** | `IAudioService`, `ITtsService`, `ITtsSettingsService`, `ITtsPlaybackService`, `IAzureTtsService`, `ISsmlBuilder`, `IStylePresetProvider` |
+| **Services** | `IAudioService`, `ITtsService`, `ITtsSettingsService`, `ITtsPlaybackService`, `IAzureTtsService`, `ISsmlBuilder`, `IStylePresetProvider`, `CustomTtsPresetService` (Bot/Services/Tts; saved custom presets, shared by the portal and admin endpoints) |
+| **REST Controllers** | `PortalTtsPresetsController` (member portal presets), `GuildTtsPresetsController` (`api/guilds/{guildId}/tts/presets/custom`, admin page preset bar) |
 | **UI Pages** | Portal: TTS player; Admin: TTS settings configuration |
 | **Database Entities** | `TtsMessage`, `GuildTtsSettings` |
 | **External Services** | Azure Cognitive Services (Speech API) |
@@ -607,7 +608,7 @@ Shared front-end behaviour that every page builds on. Details: [UI Inventory](ui
 | **Dialogs** | `quick-actions.js` is the only modal layer; `_ConfirmationModal`, `_TypedConfirmationModal`, `confirm-forms.js` |
 | **Forms** | `_FormInput`, `_FormTextarea`, `_FormSelect`, `_FormToggle`, `_RadioCardGroup`; `data-submit-guard` (`loading-manager.js`), `unsaved-changes.js`, `form-focus.js`; `FormFieldState` glues ModelState to the partials |
 | **Formatting** | `format.js` and `Helpers/DisplayFormat` (one formatter for dates, plurals, numbers, durations, currency); `timezone.js`; `DateRangeFilter.presetRange` |
-| **Display names** | `PurgeDisplay`, `RatWatchStatusDisplay`, `UserDisplay` (`Unknown#id` becomes "Unknown user"), `FlaggedEventReviewRules`; never `ToString()` on an enum in copy |
+| **Display names** | `EnumDisplayExtensions` (`status.DisplayName()`), `PurgeDisplay`, `UserDisplay` (`Unknown#id` becomes "Unknown user"), `FlaggedEventReviewRules`; never `ToString()` on an enum in copy |
 | **Safety** | `SafeHtml.escape` (`safe-html.js`), `ReturnUrlHelper.Sanitize` (local return URLs only), `CsvField.NeutralizeFormula` (CSV exports) |
 | **Theme and PWA** | `ThemeRootTagHelper` + `_ThemeHead` + `_ThemeToggle` (follows the OS until a choice is saved), `chart-theme.js`; `_PwaHead`, `sw.js` |
 | **Live connection** | `dashboard-hub.js` states `connecting`, `connected`, `reconnecting`, `disconnected` with unlimited retry; pages rejoin groups on `reconnected` |

@@ -202,7 +202,7 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 |-----------|------|---------|-----------|
 | **Status Indicator** | `_StatusIndicator.cshtml` | Online/offline/idle/busy status dot | `StatusIndicatorViewModel` |
 | **Status Badge** | `_StatusBadge.cshtml` | Flagged-event status as a `.status-badge` pill (styles in `site.css`) | `FlaggedEventStatus` |
-| **Rat Watch Status Badge** | `_RatWatchStatusBadge.cshtml` | Rat Watch status as a dot plus words (`RatWatchStatusDisplay.DisplayName()`), so colour is never the only signal | `RatWatchStatus` |
+| **Rat Watch Status Badge** | `_RatWatchStatusBadge.cshtml` | Rat Watch status as a dot plus words (`status.DisplayName()`), so colour is never the only signal | `RatWatchStatus` |
 | **Severity Badge** | `_SeverityBadge.cshtml` | Severity as a `.severity-badge` pill, with a pulse dot when critical (styles in `site.css`) | `Severity` |
 | **Bot Status Banner** | `_BotStatusBanner.cshtml` | Bot status banner for page top | `BotStatusBannerViewModel` |
 | **Connection Status** | `_ConnectionStatus.cshtml` | SignalR connection pill (`Id` and `Live` parameters; used inside `_ConnectionBanner`) | `ConnectionStatusViewModel` |

@@ -159,7 +159,8 @@ public class IndexModel : PaginatedGuildPageModel
 
     /// <summary>
     /// Resolves a Discord channel ID to a channel name.
-    /// Falls back to "unknown-channel" if the channel cannot be resolved.
+    /// Falls back to <c>unknown (ID 123)</c> if the channel cannot be resolved, so the row still says
+    /// which channel it was (the page puts the "#" in front).
     /// </summary>
     public string ResolveChannelName(ulong channelId)
     {
@@ -175,7 +176,7 @@ public class IndexModel : PaginatedGuildPageModel
             // Ignore resolution failures
         }
 
-        return "unknown-channel";
+        return $"unknown (ID {channelId})";
     }
 
     /// <summary>

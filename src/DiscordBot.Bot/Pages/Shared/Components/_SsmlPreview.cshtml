@@ -452,14 +452,21 @@
 
                             // Highlight attributes
                             if (attributes) {
-                                const attrHighlighted = attributes.replace(
-                                    /(\s+)([\w:-]+)(=)("([^"]*)"|'([^']*)')/g,
-                                    (match, space, attrName, equals, quotedValue) => {
-                                        const value = quotedValue.substring(1, quotedValue.length - 1);
-                                        const quote = quotedValue[0];
-                                        return `${space}<span class="ssml-attribute">${attrName}</span>${equals}${quote}<span class="ssml-value">${SafeHtml.escape(value)}</span>${quote}`;
-                                    }
-                                );
+                                // Text between the matched attributes (an unquoted value, a stray "<") is
+                                // escaped like every other segment this function inserts.
+                                const attrPattern = /(\s+)([\w:-]+)(=)("([^"]*)"|'([^']*)')/g;
+                                let attrHighlighted = '';
+                                let lastIndex = 0;
+                                let attrMatch;
+                                while ((attrMatch = attrPattern.exec(attributes)) !== null) {
+                                    const [whole, space, attrName, equals, quotedValue] = attrMatch;
+                                    const value = quotedValue.substring(1, quotedValue.length - 1);
+                                    const quote = quotedValue[0];
+                                    attrHighlighted += SafeHtml.escape(attributes.slice(lastIndex, attrMatch.index))
+                                        + `${space}<span class="ssml-attribute">${attrName}</span>${equals}${quote}<span class="ssml-value">${SafeHtml.escape(value)}</span>${quote}`;
+                                    lastIndex = attrMatch.index + whole.length;
+                                }
+                                attrHighlighted += SafeHtml.escape(attributes.slice(lastIndex));
                                 highlighted += attrHighlighted;
                             }
 

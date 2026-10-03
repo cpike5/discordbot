@@ -97,9 +97,12 @@ public static class SearchDisplayHelper
     /// <returns>The original or truncated string.</returns>
     public static string Truncate(string text, int maxLength)
     {
-        if (text.Length <= maxLength)
+        // Length is counted in text elements (what a person sees as one character), the same unit
+        // the cut uses, so an emoji is neither counted twice nor split. With no ellipsis, Truncate
+        // hands the text back unchanged exactly when it fits.
+        if (TextDisplay.Truncate(text, maxLength, string.Empty) == text)
             return text;
 
-        return TextDisplay.Take(text, maxLength - 3) + "...";
+        return TextDisplay.Truncate(text, maxLength - 3);
     }
 }

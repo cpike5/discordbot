@@ -64,6 +64,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/scheduled-messages/{id}` | DELETE | Delete scheduled message |
 | `/api/guilds/{guildId}/scheduled-messages/{id}/execute` | POST | Execute scheduled message immediately |
 | `/api/guilds/{guildId}/scheduled-messages/validate-cron` | POST | Validate cron expression |
+| `/api/guilds/{guildId}/tts/presets/custom` | GET | List the signed-in admin's custom TTS presets |
+| `/api/guilds/{guildId}/tts/presets/custom` | POST | Save a custom TTS preset |
+| `/api/guilds/{guildId}/tts/presets/custom/{id}` | DELETE | Delete a custom TTS preset |
 | `/api/guilds/{guildId}/members` | GET | List guild members (filtered, paginated) |
 | `/api/guilds/{guildId}/members/{userId}` | GET | Get specific guild member by user ID |
 | `/api/guilds/{guildId}/members/export` | GET | Export guild members to CSV |
@@ -7334,6 +7337,69 @@ curl -X GET "http://localhost:5000/api/autocomplete/channels?search=general&guil
   -H "accept: application/json" \
   -H "Authorization: Bearer your-token-here"
 ```
+
+---
+
+## Admin TTS Preset Endpoints
+
+The preset bar on the admin Text-to-Speech page (`/Guilds/TextToSpeech/{guildId}`) saves a person's custom
+presets here. It used to post to the member portal route (`/api/portal/tts/{guildId}/presets/custom`), which
+refuses everyone while the guild's member portal is off. Both routes share `CustomTtsPresetService`, so the
+limits, validation and JSON are identical; only the policies differ. Presets belong to a Discord account:
+they are keyed to the signed-in admin's linked Discord user, not to the guild.
+
+**Base URL:** `/api/guilds/{guildId}/tts/presets/custom`
+
+**Authorization:** `RequireAdmin` and `GuildAccess`. `POST` and `DELETE` also validate the anti-forgery
+token (`RequestVerificationToken` header, which `ApiClient` sends when the page has a
+`__RequestVerificationToken` input); a request without it is rejected with 400 before the action runs.
+
+| Method | Path | Body | Success | Errors |
+|--------|------|------|---------|--------|
+| GET | `/` | none | 200 `[ preset ]`, oldest first | 400 `discord_link_required` |
+| POST | `/` | `{ name, voiceName, style?, speed, pitch, icon? }` | 201 `preset` | 400 `discord_link_required`; 400 validation error (name or voice missing, name over 50 characters); 400 `preset_limit_reached` (20 per person) |
+| DELETE | `/{id}` | none | 204 | 400 `discord_link_required`; 404 when the preset does not exist or is not the caller's |
+
+**Request fields (POST):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Required, at most 50 characters (trimmed) |
+| `voiceName` | string | Required Azure voice name |
+| `style` | string? | Optional speaking style |
+| `speed` | number | Speech rate, clamped to 0.5 to 2.0 (default 1.0) |
+| `pitch` | number | Pitch multiplier, clamped to 0.5 to 2.0 (default 1.0) |
+| `icon` | string? | Optional icon identifier |
+
+**Preset (response):**
+
+```json
+{
+  "id": 12,
+  "name": "Narrator",
+  "voiceName": "en-US-GuyNeural",
+  "style": "newscast",
+  "speed": 1.0,
+  "pitch": 1.0,
+  "icon": null,
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+```
+
+**Response: 400 Bad Request (no linked Discord account)**
+
+```json
+{
+  "message": "Link your Discord account to save presets",
+  "detail": "Custom presets are saved to your Discord account. Link it from your profile, then try again.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00",
+  "errorCode": "discord_link_required"
+}
+```
+
+Validation failures use the same `ApiErrorDto` shape with the service's message and detail (for example
+"Preset name is required"); `errorCode` is set only for `preset_limit_reached` and `discord_link_required`.
 
 ---
 

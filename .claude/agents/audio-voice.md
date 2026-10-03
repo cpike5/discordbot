@@ -36,9 +36,9 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 
 ### Text-to-Speech (Azure)
 - **Entities:** `TtsMessage`, `GuildTtsSettings`
-- **Services:** `AzureTtsService` (527 lines), `Tts/TtsSettingsService`, `Tts/SsmlBuilder`, `Tts/SsmlValidator` (631 lines), `Tts/StylePresetProvider`, `Tts/VoiceCapabilityProvider` (649 lines), `Tts/TtsPlaybackService`, `Tts/TtsHistoryService`
+- **Services:** `AzureTtsService` (527 lines), `Tts/TtsSettingsService`, `Tts/SsmlBuilder`, `Tts/SsmlValidator` (631 lines), `Tts/StylePresetProvider`, `Tts/CustomTtsPresetService` (saved custom presets; one rule set for the portal and admin endpoints), `Tts/VoiceCapabilityProvider` (649 lines), `Tts/TtsPlaybackService`, `Tts/TtsHistoryService`
 - **Commands:** `TtsModule`
-- **Controllers:** `PortalTtsController` (1,089 lines)
+- **Controllers:** `PortalTtsController` (1,089 lines), `PortalTtsPresetsController` (member portal custom presets), `GuildTtsPresetsController` (admin `api/guilds/{guildId}/tts/presets/custom`, `RequireAdmin` + `GuildAccess`, anti-forgery validated; used by the admin TTS page's preset bar)
 - **Pages:** `Guilds/TextToSpeech/Index.cshtml` (script `wwwroot/js/tts-page.js`; Send/Preview take the on-screen voice settings as JSON, `Services/Tts/WavAudio` wraps preview audio), `Portal/TTS/Index.cshtml`
 - **Config:** `AzureSpeechOptions`, `AzureSpeechSsmlOptions`
 
