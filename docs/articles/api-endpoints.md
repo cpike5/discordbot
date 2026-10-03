@@ -263,6 +263,8 @@ curl http://localhost:5000/metrics
 
 The Performance Metrics API provides structured JSON endpoints for monitoring bot performance, health, and operational metrics. All endpoints require authentication with the `RequireViewer` policy (minimum Viewer role).
 
+> **Removed (UX polish Phase 16).** `GET /api/performance/tabs/{overview,health,commands,api,system,alerts}` (`PerformanceTabsController`) was never called by the UI and its partial paths did not resolve. The dashboard loads tab HTML from the page handler `GET /Admin/Performance?handler=Partial&tabId=<tab>&hours=<n>` (through `ApiClient.getHtml`).
+
 **Base Path:** `/api/metrics`
 
 **Authorization:** All endpoints require authentication (minimum Viewer role)

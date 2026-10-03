@@ -37,8 +37,7 @@ authenticated, and a stale guild or moderation view is worse than none, so:
   file does), stale-while-revalidate otherwise. The runtime cache is capped at 150 entries.
   Redirected or non-OK responses are never stored.
 - **Bypassed entirely:** non-GET requests, cross-origin requests (Google Fonts, Discord CDN),
-  `/api/`, `/hubs/` (SignalR), `/Account/`, `/signin-*`, `/health`, `/metrics`, `/swagger`,
-  `/exports/`.
+  `/api/`, `/hubs/` (SignalR), `/Account/`, `/signin-*`, `/health`, `/metrics`, `/swagger`.
 
 The routing decision is the pure `classifyRequest` function in `sw.js`, unit tested in
 `wwwroot/js/__tests__/sw.test.js` (`npm test` in `src/DiscordBot.Bot`).

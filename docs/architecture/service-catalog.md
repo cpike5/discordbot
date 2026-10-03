@@ -191,6 +191,7 @@ Services for user lifecycle, guild membership, and user data operations.
 | `IUserDiscordGuildService` | Core Interfaces | Cross-mapping of user/guild relationships |
 | `UserDiscordGuildService` | Bot/Services | Manages user presence across multiple Discord guilds |
 | `IGuildService` | Core Interfaces | Guild-level operations and metadata |
+| `IGuildDetailsAggregator` / `GuildDetailsAggregator` | Bot/Interfaces, Bot/Services/Guilds (scoped) | Builds the `Guilds/Details` page: one `GuildDetailsAggregateDto` with the guild record plus every widget (welcome, scheduled messages, Rat Watch, reminders, members, audio, assistant). Each section loads on its own, so one failure becomes a retry widget and the rest still render. Keeps `Details.cshtml.cs` to routing and view-model assembly |
 | `MemberSyncService` | Bot/Services | Background service: full guild member sync on startup + daily reconciliation |
 | `MemberSyncQueue` | Bot/Services | Queues pending member sync operations |
 | `MemberEventHandler` | (Handler) | Reacts to member join/leave/update events |
@@ -328,6 +329,10 @@ Services for tracking performance metrics, latency, and system health.
 | `MetricValueCollector` | Bot/Services | Gathers metric data for alert evaluation |
 | `IAlertIncidentManager` | Bot Interfaces | Manages alert incident creation and transitions |
 | `AlertIncidentManager` | Bot/Services | Creates and manages alert incidents |
+| `IPerformanceDashboardAggregator` / `PerformanceDashboardAggregator` | Bot/Interfaces, Bot/Services/Performance (scoped) | The only place Performance tab view models (`overview`, `health`, `commands`, `api`, `system`, `alerts`) are built; `Pages/Admin/Performance/Index` only routes. `hours` is clamped here and in the handler |
+| `PerformanceDashboardTabs` | Bot/Services/Performance | Tab ids and `TabUrl(tab, hours)`; every link to a Performance tab (alert notifications, search) is built with it, never from the retired standalone routes |
+| `IPerformanceMetricsQueryService` / `PerformanceMetricsQueryService` | Core Interfaces, Bot/Services/Performance (scoped) | Historical and statistical calculations (time-range bucketing, database and memory history, command error rates) behind the thin `PerformanceMetricsController` endpoints |
+| `PerformanceAlertService.ValidateThresholds` | Bot/Services | Rejects alert thresholds where warning is not below critical; the Alerts tab validates the same rule in the browser |
 
 ---
 
@@ -364,6 +369,7 @@ Services for user notifications, performance alerts, and subscriptions.
 |---------|----------|---------|
 | `INotificationService` | Core Interfaces | Notification CRUD operations |
 | `NotificationService` | Bot/Services | Notification persistence and delivery (~469 lines after split) |
+| `INotificationWriter.DeleteMatchingAsync` | Core Interfaces (`NotificationService`, `NotificationRepository`) | Deletes the notifications a filtered list shows (the same `NotificationQueryDto` filters; no filters means all). The page sends `before`, the time it rendered, so notifications that arrived afterwards survive "Delete all" |
 | `INotificationBroadcaster` | Bot Interfaces | Broadcasts notifications to clients |
 | `NotificationBroadcaster` | Bot/Services | Real-time notification broadcasting |
 | `NotificationMapper` | Bot/Services | Maps between notification domain and DTO models |
@@ -461,6 +467,7 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `ILlmModelResolver` | Core Interfaces/LLM | Resolves each `LlmMode`'s effective model slug (DB setting → bound options → `OpenRouter:DefaultModel`), with per-mode caching invalidated on `ISettingsService.SettingsChanged`. The single resolution path — the guild/DM assistant context factories, `FeatureRequestConversationService`, and `LlmModelsController.GetDefaults` all call it instead of reading options or settings directly. Also resolves catalog pricing (`LlmCatalogPricing`) for the cost fallback. |
 | `LlmModelResolver` | Infrastructure/Services/LLM | Singleton implementation; resolves scoped `ILlmModelRepository` via `IServiceScopeFactory` per call, same pattern as `SettingsService`; logs a once-per-slug warning when the resolved slug is not enabled |
 | `AssistantInteractionLogRetentionService` | Bot/Services/LLM | `MonitoredBackgroundService`; daily sweep (`Llm:RetentionSweepIntervalHours`, default 24, `0` disables) of three tables nobody was cleaning up before: guild `AssistantInteractionLog` and the `LlmUsageRecord` ledger by `Assistant:Privacy:InteractionLogRetentionDays`, and DM `DmAssistantInteractionLog` by `DmAssistant:InteractionLogRetentionDays`; a table's sweep is skipped when its retention is `0` or less; registered ungated, batch size `Llm:RetentionBatchSize` (default 1000) |
+| `IAssistantTelemetryReader` / `AssistantTelemetryReader` | Core Interfaces/LLM, Infrastructure/Services (scoped) | Read side of the guild assistant's usage metrics and interaction log behind one dependency. Registered without an `OpenRouter:ApiKey`, so `Guilds/AssistantMetrics` opens ("Assistant not configured", dashes for no data) on an install with no key |
 
 ---
 
@@ -473,6 +480,9 @@ Services for managing application configuration and options.
 | `BotConfiguration` | Bot/Services | Central configuration options holder |
 | `DiscordOAuthSettings` | Bot/Services | OAuth2 configuration container |
 | `ISettingsRepository` | Core Interfaces | Settings persistence layer |
+| `ISettingsSectionService` / `SettingsSectionService` | Bot/Interfaces, Bot/Services/Settings (scoped) | The Admin Settings tabs: load the view model, `SaveCategoryAsync` (keeps only that category's keys; the result carries `changeCount`), reset one tab or all, save command modules, audit logging. Returns `SettingsSectionResult` |
+| `IAppearanceSettingsService` / `AppearanceSettingsService` | Bot/Interfaces, Bot/Services/Settings (scoped) | The Appearance tab: SuperAdmin check, theme list, save and reset. Non-SuperAdmins cannot save or reset the Appearance category |
+| `IBotControlService` / `BotControlService` | Bot/Interfaces, Bot/Services/Settings (scoped) | The Bot Control tab: restart and shutdown with audit logging |
 
 ---
 
@@ -500,6 +510,16 @@ Lightweight helper classes for common formatting, validation, and calculation ta
 | `VoiceChannelHelper` | Bot/Helpers | Voice channel validation for command modules |
 | `SearchDisplayHelper` | Bot/Helpers | Search result display formatting and presentation |
 | `SearchScoringHelper` | Bot/Helpers | Search result relevance scoring and ranking |
+| `DisplayFormat` | Bot/Helpers | Server twin of `format.js`: `Time(...)` renders a `<time>` with a UTC fallback, plus `Iso`, `Plural`, `Number`, `Duration`, `Currency`. Use `Iso(value)` for `data-utc`, never `ToString("o")` on an `Unspecified` value |
+| `PurgeDisplay` | Bot/Helpers | Plain names for the purge pages (entity types, per-table record counts) |
+| `RatWatchStatusDisplay` | Bot/Helpers | The one text for a `RatWatchStatus` ("Cleared early", not the enum name) |
+| `UserDisplay` | Bot/Helpers | Shows `Unknown#id` resolver results as "Unknown user" |
+| `FormFieldState` | Bot/Helpers | Glue between `ModelState` and the form partials (`FieldError`, `StateOf`, channel select options) |
+| `FlaggedEventReviewRules` | Bot/Helpers | Which review steps (dismiss, acknowledge, record outcome) fit which `FlaggedEventStatus`, (`FlaggedEventBatchOutcome` holds the batch result messages) |
+| `CsvField` | Bot/Helpers | `NeutralizeFormula` prefixes cells that start with `=`, `+`, `-`, `@` so a spreadsheet does not run them; used by every CSV export |
+| `ReturnUrlHelper` | Bot/Helpers | `Sanitize` accepts only local return URLs (login, Back links) |
+| `SsmlLimits` | Bot/Helpers | `Complexity(ssml)` (number of opening tags), compared with the guild's `MaxSsmlComplexity` by both the portal API and the admin TTS page |
+| `ThemeRootTagHelper` | Bot/TagHelpers | Puts `theme-root` on `<html>` so `_ThemeHead` and `theme.js` can render the saved theme, or follow `prefers-color-scheme` when none is saved |
 | `ServiceActivityHelper` | Bot/Tracing | Eliminates ~757 lines of tracing boilerplate across 10 services |
 
 ---

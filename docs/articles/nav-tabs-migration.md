@@ -79,7 +79,7 @@ public class PerformanceModel : PageModel
 }
 
 @section Scripts {
-    <script src="~/js/performance-tabs.js"></script>
+    <script src="~/js/performance-tabs.js"></script> <!-- historical: this file was deleted -->
 }
 
 @await Html.PartialAsync("Components/_PerformanceTabs", Model.Tabs)
@@ -178,7 +178,7 @@ public class PerformanceModel : PageModel
 | ID-based div selectors | `data-nav-panel-for` attributes | Consistent, clearer intent |
 | Manual tab styling | Auto-styled via variant | Underline, Pills, or Bordered |
 | `performance-tabs.css` | `nav-tabs.css` | Shared stylesheet |
-| `performance-tabs.js` | `nav-tabs.js` | Shared JavaScript |
+| `performance-tabs.js` | `nav-tabs.js` | Shared JavaScript (the Performance dashboard has since moved on to `tab-panel.js` and `performance/dashboard.js`; `performance-tabs.js` no longer exists) |
 
 ### ViewModel Mapping
 
@@ -666,7 +666,7 @@ Once all pages are migrated, remove legacy components:
    - `audio-tabs.css`
 
 5. Delete old JavaScript (if not shared):
-   - `performance-tabs.js`
+   - ~~`performance-tabs.js`~~ (deleted in UX polish Phase 13)
    - `audio-tabs.js`
 
 6. Update documentation:

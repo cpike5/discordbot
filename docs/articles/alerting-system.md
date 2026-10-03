@@ -4,6 +4,8 @@
 **Last Updated:** 2025-01-28
 **Related Issue:** [#1337](https://github.com/cpike5/discordbot/issues/1337)
 
+> **Update (UX polish Phase 13).** The Alerts page is now the `alerts` tab of the one Performance dashboard (`/Admin/Performance?tab=alerts`); `/Admin/Performance/Alerts` redirects there. The page script is `wwwroot/js/performance/tabs/alerts.js`, subscribed to the hub through `performance/live.js`. Build links with `PerformanceDashboardTabs.TabUrl`.
+
 ---
 
 ## Table of Contents
@@ -431,7 +433,7 @@ public interface IPerformanceNotifier
 #### Client Implementation
 
 ```javascript
-// In wwwroot/js/performance/alerts-realtime.js
+// In wwwroot/js/performance/tabs/alerts.js (subscribed through performance/live.js)
 connection.on("OnAlertTriggered", (incident) => {
     // Add incident to UI list
     // Play notification sound
@@ -1063,7 +1065,7 @@ Threshold management interface:
 
 ### Real-Time JavaScript Integration
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\wwwroot\js\performance\alerts-realtime.js`
+**Location:** `src/DiscordBot.Bot/wwwroot/js/performance/tabs/alerts.js` (the hub subscription itself is `performance/live.js`)
 
 ```javascript
 // Connect to DashboardHub

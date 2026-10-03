@@ -211,26 +211,6 @@
     margin-left: 0.25rem;
 }
 
-.metric-trend {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    margin-top: 0.5rem;
-}
-
-.metric-trend-up {
-    color: var(--color-success);
-}
-
-.metric-trend-down {
-    color: var(--color-error);
-}
-
-.metric-trend-neutral {
-    color: var(--color-text-secondary);
-}
-
 /* ===== Health Status Components ===== */
 .health-status {
     display: inline-flex;

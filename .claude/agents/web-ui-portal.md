@@ -10,23 +10,28 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 
 ## Domain Map
 
-### Shared Component Library (25+ components)
+### Shared Component Library (57 partials)
 **Location:** `Bot/Pages/Shared/Components/`
 - **Form Controls:** `_FormInput`, `_FormTextarea`, `_FormSelect`, `_FormToggle` (`role=switch`, unchecked posts `false`), `_RadioCardGroup` / `_RadioCard`. Validation classes are `.input-validation-error|warning|success` (the names tag helpers emit)
-- **UI Elements:** `_Button`, `_Badge`, `_Card`, `_EnhancedCard`
-- **Status:** `_Alert`, `_EmptyState`, `_ConnectionStatus`
+- **UI Elements:** `_Button`, `_Badge`, `_Card`
+- **Status:** `_Alert`, `_EmptyState`, `_ConnectionStatus`, `_StatusBadge` / `_SeverityBadge` / `_RatWatchStatusBadge` (one definition of `.status-badge` and `.severity-badge` in `site.css`; status always in words, never colour alone)
+- **Tabs:** `_TabPanel` + `tab-panel.js` is the in-page tab control (ignores a hash that is not its own tab id); `_NavTabs` + `nav-tabs.js` for page-navigation tabs. Do not hand-roll tabs
 - **Navigation:** `_GuildBreadcrumb`, `_CommandBreadcrumb`
 - **Headers:** `_GuildHeader`, `_CommandHeader`
-- **Bot Status:** `_BotStatusBanner`, `_BotStatusCard`
+- **Bot Status:** `_BotStatusBanner`
 - **Dashboard:** `_ConnectedServersWidget` (container-query row/card layout, rows redrawn by `dashboard-actions.js`), `_DashboardWidget`. `Pages/Index.cshtml` hides what the role cannot use and closes the grid (D8); hero numbers come from `IDashboardStatsProvider` and are pushed by `IDashboardStatsBroadcaster` as `StatsUpdated` (field names in `DashboardStatsDto` = `wwwroot/js/dashboard-stats.js`; a test guards it). `dashboard-realtime.js` draws the live feed and stats only; connection state is the layout banner's job
-- **Activity:** `_ActivityFeed`, `_ActivityFeedTimeline`
+- **Activity:** `_ActivityFeedTimeline`
 - **Modals:** `_ConfirmationModal`, `_TypedConfirmationModal`, `_CommandLogDetailsModal`. One layer, `wwwroot/js/quick-actions.js`: `quickActions.openDialog/closeDialog` (motion via `.qa-open`, scroll lock, `inert` background, focus trap, stacking), `showConfirmationModal`, and the Promise API `confirm/alert/typedConfirm`. Confirmation forms post to their own `action` (the partial puts `handler=` in the URL), do not follow redirects (TempData must survive), and skip forms with `data-custom-submit`. Cancel/backdrop are `data-modal-dismiss`, never inline handlers
-- **Loading/empty/unsaved:** `_Skeleton`, `_SkeletonCard`, `_SkeletonTable`, `_SkeletonLines` and `wwwroot/js/skeleton.js` (`Skeleton.show` waits 300ms); `_EmptyState` and its JS twin `wwwroot/js/empty-state.js` (`EmptyState.render/filtered/error`); `wwwroot/js/unsaved-changes.js` (`data-unsaved-changes` on a form, `UnsavedChanges.markClean(form)` after a fetch save). `_Pagination` state rules live on `PaginationViewModel` (unit tested)
-- **Data Cards:** `_AuditLogCard`, `_CommandStatsCard`
+- **Loading/empty/unsaved:** `_Skeleton`, `_SkeletonCard`, `_SkeletonTable`, `_SkeletonLines` and `wwwroot/js/skeleton.js` (`Skeleton.show` waits 300ms; five states per data region: loading, empty, filtered-empty with Clear filters, error with Retry, success); `_EmptyState` and its JS twin `wwwroot/js/empty-state.js` (`EmptyState.render/filtered/error`); `wwwroot/js/unsaved-changes.js` (`data-unsaved-changes` on a form, `UnsavedChanges.markClean(form)` after a fetch save); `form-focus.js` (`data-focus-first-error`: focus the first `aria-invalid` field after a failed POST); `section-gate.js` (a switched-off section is `inert` with its reason beside it). `_Pagination` state rules live on `PaginationViewModel` (unit tested). `FormFieldState` (`Bot/Helpers`) glues ModelState to the form partials
+- **Data Cards:** `_AuditLogCard`, `_HeroMetricCard`, `_DashboardWidget` (header, retry state, empty state, or a body partial; no HTML built in C#)
+- **Charts:** `chart-theme.js` sets Chart.js chrome from the tokens and redraws on `themechange`; series colours from `ChartTheme.colors()` (`analytics-charts.js`, `Performance.ChartUtils` build on it). Every chart gets `_ChartDataTable` (a visually hidden table, wrapped in a div so it cannot widen the page) and error/empty states. Never set `Chart.defaults.color` on a page
+- **Filters and lists:** `_DateRangeFilter` (the one date filter, on `DateRangeFilter.presetRange`, local days), `_Pagination` (bind `pageNumber`), `_SortDropdown` + `ajax-sort.js`; wide tables become cards under `md` (D13); row buttons are `.row-actions` + `.row-action-btn`; `bulk-selection.js` for table-and-card checkboxes; `confirm-forms.js` (`data-confirm-*`) for confirmed row posts
 - **Input:** `_AutocompleteInput`
-- **Previews:** `_GuildPreviewPopup`
+- **Previews:** there are no preview partials; `preview-popup.js` builds the user/guild popup from JSON (see User/Guild Preview Popups below)
 - **Currency:** `_CurrencyWalletPanel` — holder list + ledger + the mint/fine/adjust dialog for one currency (member chosen with the user picker), filled by `wwwroot/js/currency/currency-wallets.js`. `_CurrencyManageModals` (editor + mint authorities, shared by both currency pages), `_CurrencyCard` / `_CurrencyRow` (patched in place by `currency-manage.js`, never a reload; a create clones the page's `<template>`). `CanMint`/`CanFine`/`CanAdminister` decide which actions render at all; `window.CurrencyWallets.setCurrency(id, symbol)` repoints it (the bot-wide page starts with none selected).
 - **Showcase:** `Components.cshtml` — living reference, keep updated when adding components
+- **Page-only partials** (not shared components): `Admin/Performance/Tabs/*`, `Admin/Logs/Tabs/*`, `Commands/Tabs/*`, `Guilds/Widgets/*` (bodies for `_DashboardWidget`), `Admin/_SettingsTabFooter`, `Portal/Shared/*`. They are fetched as HTML fragments or included once and never include the layout
+- **Dead partials are deleted, not kept.** Phase 16 removed ten unreferenced ones (`_EnhancedCard`, `_BotStatusCard`, `_GuildStatsCard`, `_RecentActivityCard`, `_CommandStatsCard`, `_ActivityFeed`, the four preview-popup partials) together with their view models. Before adding a component, check `ui-inventory.md`; a partial nothing renders is dead code
 
 ### Layouts
 - `_Layout.cshtml` — Main application layout
@@ -90,7 +95,7 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 **Thin page models via aggregators/section services** (`Bot/Interfaces`, implementations under `Bot/Services/<Area>`, registered scoped in `ApplicationServiceExtensions`/`PerformanceMetricsServiceExtensions`): the three heaviest page models were split so the `.cshtml.cs` files stay request routing + view-model assembly only, with data aggregation and audit logging in services.
 - `Pages/Guilds/Details.cshtml.cs` (14 deps → 4) delegates to `IGuildDetailsAggregator` (`Bot/Services/Guilds/GuildDetailsAggregator`), which returns one `GuildDetailsAggregateDto` covering the guild record plus every widget (welcome, scheduled messages, rat watch, reminders, members, audio, assistant). `IGuildService`/`IGuildMembershipService` stay on the page model for `OnPostSyncAsync` and the `CanEdit` check.
 - `Pages/Admin/Settings.cshtml.cs` (7 deps → 4) delegates to `ISettingsSectionService` (General/Features/Advanced/Commands save+reset+audit log), `IAppearanceSettingsService` (Appearance tab: SuperAdmin check, theme list/save/reset, all under `Bot/Services/Settings`), and `IBotControlService` (Bot Control tab: status view model, restart/shutdown + audit log). All handler names (`asp-page-handler` values) and JSON response shapes are unchanged; save/reset operations share a `SettingsSectionResult { Success, Message, Errors, RestartRequired, ChangeCount, StatusCode, ThemeName }` return type. Phase 11: saves are per tab (`SaveCategoryAsync` keeps only that category's keys; the JSON carries `changeCount`), and the reset handlers redirect with a toast instead of returning JSON.
-- `Pages/Admin/Performance/Index.cshtml.cs` (12 deps → 2) delegates every tab builder (`overview`/`health`/`commands`/`api`/`system`/`alerts`) to `IPerformanceDashboardAggregator` (`Bot/Services/Performance/PerformanceDashboardAggregator`), the only place tab view models are built; the sibling `CommandsModel`/`HealthMetricsModel`/`ApiMetricsModel`/`SystemHealthModel`/`AlertsModel` pages are now permanent-redirect stubs to the shell's `?tab=` addresses (UX plan Phase 13).
+- `Pages/Admin/Performance/Index.cshtml.cs` (12 deps → 2) delegates every tab builder (`overview`/`health`/`commands`/`api`/`system`/`alerts`) to `IPerformanceDashboardAggregator` (`Bot/Services/Performance/PerformanceDashboardAggregator`), the only place tab view models are built; the sibling `CommandsModel`/`HealthMetricsModel`/`ApiMetricsModel`/`SystemHealthModel`/`AlertsModel` pages are `PerformanceTabRedirectModel` stubs that redirect (302, so browsers do not cache them) to the shell's `?tab=` addresses (UX plan Phase 13). Build links with `PerformanceDashboardTabs.TabUrl`. "Live" only on tabs that declare `live = { group, events, snapshot }` (`performance/live.js` joins and rejoins the hub group); the tab HTML comes from `?handler=Partial&tabId=&hours=`. `PerformanceTabsController` (`api/performance/tabs`) was removed as unused.
 
 When adding a new section/tab to Settings or the Performance dashboard, or a new widget to Guild Details, add the data-fetch to the matching aggregator/section service (with a unit test covering happy path + one failure path) rather than back into the page model.
 
@@ -108,7 +113,7 @@ When adding a new section/tab to Settings or the Performance dashboard, or a new
 - **Search** renders its validation message, counts every match (`SearchResultsViewModel.TotalMatches`), and links command logs to the Details page only for moderators (`CanOpenCommandLogDetails`); viewers get `/Commands?tab=execution-logs&log=<id>`.
 - **CommandLogs/Details** takes `?returnUrl=` for Back (sanitised).
 
-### Design System ("Graphite", v2.0 — `docs/articles/design-system.md`)
+### Design System ("Graphite", v2.1 — `docs/articles/design-system.md`)
 - **Tokens live in `wwwroot/css/site.css`**; `tailwind.config.js` only maps utilities onto them. Every colour has an RGB triplet (`--color-x-rgb`) so `bg-success/20` follows the theme. Never hard-code hex — use `var(--color-…)` in CSS/`<style>` blocks and the token classes in markup.
 - **Accents have jobs**: ember (`accent-orange`) = selected/active/primary; signal blue (`accent-blue`) = links/info/focus. Semantic colours are soft tints (12% fill + hairline) except on buttons.
 - **Inks and fills**: each accent/semantic colour has an ink (`--color-success`, text and lines) and a darker fill (`--color-success-fill`, `-fill-hover`, `-fill-active`) that white text reads on. Tailwind `bg-*` resolves to the fill, every other utility to the ink. Text on a warning fill is `text-on-warning`, never white. `DesignTokenContrastTests` checks every pairing at 4.5:1 in both themes, so a token change that breaks contrast fails the build.
@@ -121,11 +126,11 @@ When adding a new section/tab to Settings or the Performance dashboard, or a new
 
 ### Client-Side Stack
 - **Tailwind CSS** — Utility-first styling
-- **Vanilla JS modules** in `wwwroot/js/` — one file per page or widget; partial views are fetched with `fetch()` for tab loading and AJAX sorting
+- **Vanilla JS modules** in `wwwroot/js/` — one file per page or widget; partial views are fetched with `ApiClient.getHtml` for tab loading and AJAX sorting (the 2026-10 sweep deleted the orphaned `command-error-handler.js`, `command-loading-states.js` and `command-stats-chart.js`; an orphan check is: grep the script name across `src/` and `tests/`)
 - **SignalR** — Real-time dashboard updates
 
 ### User/Guild Preview Popups
-Loaded globally in `_Layout.cshtml`:
+Built by `preview-popup.js`, loaded globally in `_Layout.cshtml` (no partials):
 ```razor
 <span class="preview-trigger" data-preview-type="user"
       data-user-id="@item.UserId" data-context-guild-id="@Model.GuildId">@item.Username</span>
@@ -139,6 +144,7 @@ Loaded globally in `_Layout.cshtml`:
 - **User text in markup:** never inside an inline handler (`onclick="f('@name')"` is XSS: the browser decodes the entity first) — use `data-*` + `this.dataset`. JS-built markup uses `textContent` or `SafeHtml.escape` (`wwwroot/js/safe-html.js`). Full rules: `docs/architecture/patterns.md` § User Data in Markup and Scripts
 - **Large controllers:** AnalyticsController (698) — search specific methods. PortalTts and PortalSoundboard controllers were split by sub-resource (see REST API Controllers above); PerformanceMetricsController's calculation logic moved to `IPerformanceMetricsQueryService`.
 - **Preview popups** loaded globally — use `preview-trigger` classes for user/guild names
+- **Service worker:** `wwwroot/sw.js` caches static assets only; bump `CACHE_VERSION` when its caching behaviour or bypass list changes (`wwwroot/js/__tests__/sw.test.js` covers `classifyRequest`). Personal-data exports live in `{ContentRoot}/data/exports`, not wwwroot
 - **Tailwind purge:** Ensure dynamically generated classes are in Tailwind content config
 - **Partial-view endpoints** (fetched by page JS) return HTML fragments, not full pages — don't include layout
 - **Portal pages** use `_PortalLayout` — don't mix admin and portal layouts

@@ -13,7 +13,7 @@
  * - A tab module (Performance.Tabs.X) has init(hours), destroy() and optionally `live`
  *   (see live.js). Only a tab with `live` is called Live; every other tab says when it was last
  *   loaded, and a cached tab shows the age of its data.
- * - Exposed as Performance.Dashboard (and window.PerformanceTabs for older callers).
+ * - Exposed as Performance.Dashboard.
  */
 (function (root, factory) {
     const api = factory(root);
@@ -22,7 +22,6 @@
     } else {
         root.Performance = root.Performance || {};
         root.Performance.Dashboard = api.dashboard;
-        root.PerformanceTabs = api.dashboard; // for older callers
         if (typeof document !== 'undefined') {
             const start = function () {
                 if (document.querySelector('[data-performance-tabs]')) api.dashboard.init();

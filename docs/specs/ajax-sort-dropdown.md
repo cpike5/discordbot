@@ -961,7 +961,7 @@ Then in JS, prevent default only when AJAX is enabled.
 ## References
 
 - **Existing Patterns:** `nav-tabs.js` AJAX implementation (lines 476-584)
-- **URL State:** `url-state.js` for inspiration on `pushState` usage
+- **URL State:** `commands-page.js` (the query string is the state, `history.pushState` on Apply) for inspiration on `pushState` usage
 - **Design System:** `component-api.md` for component conventions
 - **Discord IDs:** Always use strings in JavaScript (see CLAUDE.md gotchas)
 

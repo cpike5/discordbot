@@ -1,7 +1,7 @@
 # Discord Bot Admin UI - Design System
 
-**Version:** 2.0 ("Graphite")
-**Last Updated:** 2026-09-02
+**Version:** 2.1 ("Graphite")
+**Last Updated:** 2026-10-03
 **Target Framework:** ASP.NET Core Razor Pages + Tailwind CSS 3.4
 
 ---
@@ -1464,315 +1464,43 @@ numericInput.addEventListener('input', () => slider.value = numericInput.value);
 
 #### Toggle Switch
 
-> **Superseded.** The `.form-toggle*` classes below no longer exist in `site.css`. Use the `_FormToggle` partial on the canonical `.toggle` classes (see [Component API](component-api.md#formtoggle-component)). The section is kept until the Phase 16 rewrite of this page.
+A binary on/off setting. Use the `_FormToggle` partial (`Pages/Shared/Components/_FormToggle.cshtml`); it renders the canonical `.toggle` markup, so a hand-written switch should not exist. API and the "unchecked posts `false`" rule are in [Component API](component-api.md#formtoggle-component).
 
-Interactive switch controls for binary on/off settings. Provides immediate visual feedback and is ideal for settings that take effect instantly without requiring form submission.
+```razor
+<partial name="Components/_FormToggle" model="new FormToggleViewModel {
+    Id = "enableWelcome", Name = "Input.Enabled", Label = "Send a welcome message",
+    Description = "Posted when a member joins.", IsChecked = Model.Input.Enabled }" />
+```
 
-**Usage:** Enable/disable features, boolean settings, instant toggles
+Markup the partial produces:
 
 ```html
-<!-- Standard toggle with label on right -->
-<label class="form-toggle">
-  <input
-    type="checkbox"
-    class="form-toggle-input"
-    role="switch"
-    aria-checked="false"
-    onchange="this.setAttribute('aria-checked', this.checked)"
-  />
-  <span class="form-toggle-track" aria-hidden="true">
-    <span class="form-toggle-thumb"></span>
-  </span>
-  <span class="form-toggle-label">Enable notifications</span>
+<label class="toggle">
+  <input type="checkbox" class="toggle-input" role="switch" id="enableWelcome" name="Input.Enabled" value="true" />
+  <span class="toggle-slider" aria-hidden="true"></span>
 </label>
-
-<!-- Toggle with description -->
-<label class="form-toggle">
-  <input
-    type="checkbox"
-    class="form-toggle-input"
-    role="switch"
-    checked
-    aria-checked="true"
-    onchange="this.setAttribute('aria-checked', this.checked)"
-  />
-  <span class="form-toggle-track" aria-hidden="true">
-    <span class="form-toggle-thumb"></span>
-  </span>
-  <span class="form-toggle-content">
-    <span class="form-toggle-label">Email notifications</span>
-    <span class="form-toggle-description">Receive email alerts for important events.</span>
-  </span>
-</label>
-
-<!-- Toggle with label on left -->
-<label class="form-toggle form-toggle-label-left">
-  <input
-    type="checkbox"
-    class="form-toggle-input"
-    role="switch"
-    checked
-    aria-checked="true"
-    onchange="this.setAttribute('aria-checked', this.checked)"
-  />
-  <span class="form-toggle-track" aria-hidden="true">
-    <span class="form-toggle-thumb"></span>
-  </span>
-  <span class="form-toggle-label">Show online status</span>
-</label>
-
-<!-- Settings list pattern -->
-<div class="form-toggle-row">
-  <div class="form-toggle-row-content">
-    <div class="form-toggle-row-title">Push Notifications</div>
-    <div class="form-toggle-row-description">Receive push notifications on your device for real-time alerts.</div>
-  </div>
-  <label class="form-toggle">
-    <input
-      type="checkbox"
-      class="form-toggle-input"
-      role="switch"
-      checked
-      aria-checked="true"
-      onchange="this.setAttribute('aria-checked', this.checked)"
-    />
-    <span class="form-toggle-track" aria-hidden="true">
-      <span class="form-toggle-thumb"></span>
-    </span>
-    <span class="sr-only">Push Notifications</span>
-  </label>
-</div>
 ```
 
-```css
-/* Toggle base styles */
-.form-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  cursor: pointer;
-}
-
-.form-toggle-input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-/* Track */
-.form-toggle-track {
-  position: relative;
-  display: inline-block;
-  width: 2.75rem;           /* 44px */
-  height: 1.5rem;           /* 24px */
-  background-color: #3f4447;
-  border-radius: 9999px;
-  flex-shrink: 0;
-  transition: background-color 0.2s ease-in-out;
-}
-
-/* Thumb/Handle */
-.form-toggle-thumb {
-  position: absolute;
-  top: 0.125rem;            /* 2px */
-  left: 0.125rem;
-  width: 1.25rem;           /* 20px */
-  height: 1.25rem;
-  background-color: #d7d3d0;
-  border-radius: 50%;
-  transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
-}
-
-/* Hover state */
-.form-toggle:hover .form-toggle-track {
-  background-color: #4a4f52;
-}
-
-.form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
-  background-color: #e5591f;
-}
-
-/* Focus state */
-.form-toggle-input:focus-visible + .form-toggle-track {
-  outline: 2px solid #098ecf;
-  outline-offset: 2px;
-}
-
-/* Checked/On state */
-.form-toggle-input:checked + .form-toggle-track {
-  background-color: #cb4e1b;
-}
-
-.form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
-  transform: translateX(1.25rem);  /* 20px */
-  background-color: white;
-}
-
-/* Disabled state */
-.form-toggle-input:disabled + .form-toggle-track {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.form-toggle-input:disabled ~ .form-toggle-content,
-.form-toggle-input:disabled ~ .form-toggle-label {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Label content */
-.form-toggle-label {
-  font-size: 0.875rem;
-  color: #d7d3d0;
-  line-height: 1.4;
-}
-
-.form-toggle-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.form-toggle-description {
-  font-size: 0.75rem;
-  color: #a8a5a3;
-  line-height: 1.4;
-}
-
-/* Label on left variant */
-.form-toggle-label-left {
-  flex-direction: row-reverse;
-  justify-content: flex-end;
-}
-
-/* Settings row pattern */
-.form-toggle-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 1rem 0;
-  border-bottom: 1px solid #3f4447;
-}
-
-.form-toggle-row:last-child {
-  border-bottom: none;
-}
-
-.form-toggle-row-content {
-  flex: 1;
-  padding-right: 1rem;
-}
-
-.form-toggle-row-title {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #d7d3d0;
-  margin-bottom: 0.25rem;
-}
-
-.form-toggle-row-description {
-  font-size: 0.75rem;
-  color: #a8a5a3;
-}
-
-/* Size variants */
-.form-toggle-sm .form-toggle-track {
-  width: 2.25rem;           /* 36px */
-  height: 1.25rem;          /* 20px */
-}
-
-.form-toggle-sm .form-toggle-thumb {
-  width: 1rem;              /* 16px */
-  height: 1rem;
-}
-
-.form-toggle-sm .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
-  transform: translateX(1rem);
-}
-
-.form-toggle-sm .form-toggle-label {
-  font-size: 0.75rem;
-}
-
-.form-toggle-lg .form-toggle-track {
-  width: 3.25rem;           /* 52px */
-  height: 1.75rem;          /* 28px */
-}
-
-.form-toggle-lg .form-toggle-thumb {
-  width: 1.5rem;            /* 24px */
-  height: 1.5rem;
-}
-
-.form-toggle-lg .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
-  transform: translateX(1.5rem);
-}
-
-.form-toggle-lg .form-toggle-label {
-  font-size: 1rem;
-}
-```
-
-**States:**
+| Part | Class | Notes |
+|------|-------|-------|
+| Wrapper | `.toggle` (`.toggle-disabled` when disabled) | Flex row, the whole label is clickable |
+| Input | `.toggle-input` | Visually hidden, still focusable; `role="switch"`; named by its `<label for>` and described by the description |
+| Track and handle | `.toggle-slider` | 40 by 22px; off is `--color-bg-hover` with a strong border, on is the ember fill (`--color-accent-orange-fill`) |
 
 | State | Appearance |
 |-------|------------|
-| Off | Dark gray track (#3f4447), gray handle on left |
-| On | Orange track (#cb4e1b), white handle on right |
-| Hover (off) | Lighter gray track (#4a4f52) |
-| Hover (on) | Lighter orange track (#e5591f) |
-| Focus | Blue outline ring around track |
-| Disabled (off) | Reduced opacity (50%), no hover effects |
-| Disabled (on) | Orange track with reduced opacity, white handle |
+| Off | Neutral track, grey handle on the left |
+| On | Ember track, white handle on the right |
+| Focus | Two-ring focus outline (surface gap, then signal blue), only for keyboard focus |
+| Disabled | 50% opacity and `not-allowed`; a disabled toggle posts nothing (no hidden `false` field either) |
 
-**Variants:**
+Rules:
 
-| Variant | Description | Class |
-|---------|-------------|-------|
-| Base | Default size (44px × 24px) | `.form-toggle` |
-| Small | Compact size (36px × 20px) | `.form-toggle-sm` |
-| Large | Larger size (52px × 28px) | `.form-toggle-lg` |
-| Label Left | Label on left side | `.form-toggle-label-left` |
-| With Description | Label + description text | Use `.form-toggle-content` wrapper |
-| Settings Row | Horizontal row layout | `.form-toggle-row` |
-
-**Accessibility:**
-
-- Use `role="switch"` on input element
-- Include `aria-checked` attribute (update with JavaScript on change)
-- Use `aria-hidden="true"` on visual track element
-- Clickable label toggles state
-- Keyboard: Space or Enter to toggle
-- Visible focus indicator (blue ring)
-- Screen reader announces "switch" role and checked state
-
-**Tailwind Equivalent:**
-
-```html
-<label class="flex items-center gap-3 cursor-pointer">
-  <input type="checkbox" class="sr-only peer" role="switch" />
-  <span class="relative inline-block w-11 h-6 bg-border-primary rounded-full flex-shrink-0 transition-colors
-    peer-checked:bg-accent-orange
-    peer-hover:bg-bg-hover peer-checked:peer-hover:bg-accent-orange-hover
-    peer-focus-visible:ring-2 peer-focus-visible:ring-accent-blue peer-focus-visible:ring-offset-2
-    peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"
-    aria-hidden="true">
-    <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-text-secondary rounded-full transition-transform
-      peer-checked:translate-x-5 peer-checked:bg-white"></span>
-  </span>
-  <span class="text-sm text-text-primary peer-disabled:opacity-50">Enable notifications</span>
-</label>
-```
-
-**Prototype Reference:**
-
-See `docs/prototypes/forms/components/06-toggle-switch.html` for interactive examples including:
-- Standard toggle patterns
-- Size variants (small, base, large)
-- Label positioning options
-- Settings list integration
-- Icon and text label variations
+- An unchecked checkbox posts nothing, so the partial appends a hidden `false` input after the checkbox (`PostsFalseWhenOff`, default on). Turn it off only for scripts that read `checked` themselves.
+- Never write `onchange="…aria-checked…"`: `role="switch"` on a native checkbox already exposes the checked state.
+- A switch that must be confirmed before it saves sits alone in its own `<form>` and a script calls `form.requestSubmit()` after the confirm (`wwwroot/js/privacy.js`).
+- Use the toggle for settings that are saved with the rest of the form. For a setting that saves on change, give it its own form and a pending state.
+- The legacy `.form-toggle*` classes (`-sm`, `-lg`, `-row`, `-label-left`) were deleted with Phase 15; there are no size variants today.
 
 #### Progress Bar
 
@@ -2584,59 +2312,46 @@ Use the `data-utc` attribute pattern to automatically convert stored UTC timesta
 
 #### Badges
 
+Badges are soft tints: ink text on a 12% fill with a hairline (`rgba(var(--color-x-fill-rgb), 0.12)`), so they follow the theme. A filled badge (`badge-solid`) is the exception, not the default. Use the `_Badge` partial (`BadgeViewModel`) or the classes directly.
+
 ```html
 <span class="badge badge-orange">Admin</span>
 <span class="badge badge-blue">Moderator</span>
-<span class="badge badge-gray">Member</span>
+<span class="badge badge-purple">Guild</span>
 <span class="badge badge-success">Active</span>
 <span class="badge badge-warning">Pending</span>
 <span class="badge badge-error">Banned</span>
+<span class="badge badge-info">Info</span>
+<span class="badge badge-gray">Member</span>
 ```
 
-```css
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1;
-  border-radius: 9999px;
-  white-space: nowrap;
-}
+| Modifier | Effect |
+|----------|--------|
+| `badge-solid` (with a colour) | Filled with the colour's fill token and white text (`text-on-warning` for warning) |
+| `badge-outline` | No fill |
+| `badge-subtle` | No hairline |
+| `badge-pill`, `badge-sm`, `badge-lg`, `badge-case` | Radius, size, and "keep the case I wrote" |
+| `badge-remove` | The remove button inside a removable chip; give it an `aria-label` |
 
-.badge-orange {
-  color: #ffffff;
-  background-color: #cb4e1b;
-}
+Never carry meaning by colour alone: the badge text says what the state is.
 
-.badge-blue {
-  color: #ffffff;
-  background-color: #098ecf;
-}
+#### Status and severity badges
 
-.badge-gray {
-  color: #d7d3d0;
-  background-color: #3f4447;
-}
+Pills for things with a lifecycle, defined once in `site.css` (the page stylesheets add none):
 
-.badge-success {
-  color: #ffffff;
-  background-color: #10b981;
-}
+| Class | Used for | Partial |
+|-------|----------|---------|
+| `.status-badge.status-pending` / `-acknowledged` / `-actioned` / `-dismissed` | Flagged event status | `_StatusBadge` (`FlaggedEventStatus`) |
+| `.status-badge.online`, `.status-badge-connected`, `-success`, `-warning`, `-reconnecting`, `-error`, `.offline`, `-secondary` | Connection, incident and service status | classes |
+| `.severity-badge.severity-low` / `-medium` / `-high` / `-critical` (+ `-warning`, `-info`) | Moderation severity and performance alert severity | `_SeverityBadge` (`Severity`) |
+| `.pulse-dot` | The live dot inside a critical badge (stops under reduced motion) | classes |
+| Dot plus words | Rat Watch status ("Cleared early", never the enum name) | `_RatWatchStatusBadge` |
 
-.badge-warning {
-  color: #1d2022;
-  background-color: #f59e0b;
-}
-
-.badge-error {
-  color: #ffffff;
-  background-color: #ef4444;
-}
-```
+Display names come from helpers (`RatWatchStatusDisplay.DisplayName()`, `PurgeDisplay`, `DisplayFormat`), never from `ToString()` on an enum.
 
 #### Status Indicators
+
+A dot plus a word for presence-like state. The dot has a soft halo in the state's ink.
 
 ```html
 <span class="status-indicator status-online">Online</span>
@@ -2645,134 +2360,54 @@ Use the `data-utc` attribute pattern to automatically convert stored UTC timesta
 <span class="status-indicator status-offline">Offline</span>
 ```
 
-```css
-.status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.status-indicator::before {
-  content: "";
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-}
-
-.status-online {
-  color: #10b981;
-}
-.status-online::before {
-  background-color: #10b981;
-}
-
-.status-idle {
-  color: #f59e0b;
-}
-.status-idle::before {
-  background-color: #f59e0b;
-}
-
-.status-busy {
-  color: #ef4444;
-}
-.status-busy::before {
-  background-color: #ef4444;
-}
-
-.status-offline {
-  color: #7a7876;
-}
-.status-offline::before {
-  background-color: #7a7876;
-}
-```
+`.status-online` / `-idle` / `-busy` use the success, warning and error inks (`--color-success` and friends) and `--color-text-tertiary` for offline. `_StatusIndicator` is the partial form (`StatusIndicatorViewModel`).
 
 #### Alert/Notification Banners
 
+An alert is for **persistent page state** (a load failure, a degraded service, a validation summary). The result of an action is a toast. Use the `_Alert` partial (`AlertViewModel`); a dismissible alert works with no callback (`data-alert-dismiss` is wired globally), and a static one is `role="status"`.
+
 ```html
-<div class="alert alert-info">
-  <svg class="alert-icon"><!-- info icon --></svg>
+<div class="alert alert-warning" role="status">
+  <svg class="alert-icon" aria-hidden="true"><!-- icon --></svg>
   <div class="alert-content">
-    <p class="alert-title">Information</p>
-    <p class="alert-message">Your changes have been saved successfully.</p>
+    <p class="alert-title">Voice is not configured</p>
+    <p class="alert-message">Ask a server admin to enable audio.</p>
   </div>
-  <button class="alert-close" aria-label="Dismiss">×</button>
+  <button type="button" class="alert-close" data-alert-dismiss aria-label="Dismiss">&times;</button>
 </div>
 ```
 
-```css
-.alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid;
-}
+The variants are `alert-info`, `-success`, `-warning` and `-error`. Each is a 7% tint with a 25% hairline and a 3px rule on the leading edge in the variant's ink, with the icon and title in that ink. Colours come from `--color-info`, `--color-success`, `--color-warning` and `--color-error` (and their `-fill-rgb` triplets), so there is no hex to maintain.
 
-.alert-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-}
+#### Row actions
 
-.alert-content {
-  flex: 1;
-}
+Per-row buttons (edit, cancel, delete) use `.row-actions` on the group and `.row-action-btn` on each button (`.row-action-btn-danger` for the destructive one; 44px under `pointer: coarse`). The group fades in on row hover and on `:focus-within`, and is always visible on hover-less devices. Do not use `opacity-0 group-hover:opacity-100`. Rows become cards under `md` (D13); the card keeps the same group.
 
-.alert-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
+#### Dialogs, toasts and feedback
 
-.alert-message {
-  font-size: 0.875rem;
-}
+| Need | Use |
+|------|-----|
+| A confirmation | `_ConfirmationModal` (posts to its own `action`; the handler is in the URL) or `quickActions.confirm(...)` from script |
+| A confirmation that must be typed (bulk or irreversible) | `_TypedConfirmationModal` or `quickActions.typedConfirm(...)` |
+| A page's own dialog markup | `quickActions.openDialog(el)` / `closeDialog(el)`; cancel and backdrop carry `data-modal-dismiss` |
+| The result of an action | `toast.success/error/warning/info(msg, { action })`, or `TempData.SetSuccessToast(...)` and friends from a handler |
+| Persistent page state | `_Alert` with a plain `ErrorMessage` property (never `[TempData]`) |
+| A script request | `ApiClient` (session-expiry toast, plain-language errors, 30s timeout); never a raw `fetch`, `alert`, `confirm` or `prompt` |
+| A posted form | `data-submit-guard` (pending state, no double submit) and, for editable forms, `data-unsaved-changes` |
 
-.alert-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.15s ease-in-out;
-}
+`quick-actions.js` is the only modal layer: enter and exit motion, scroll lock, `inert` background, focus trap and return, stacking. See [Component API](component-api.md) for every signature.
 
-.alert-close:hover {
-  opacity: 1;
-}
+#### Empty, loading and error states
 
-/* Alert variants */
-.alert-info {
-  background-color: rgba(6, 182, 212, 0.1);
-  border-color: rgba(6, 182, 212, 0.3);
-  color: #06b6d4;
-}
+Every data region has five states: loading, empty, filtered-empty (with "Clear filters"), error (with Retry, in plain language) and success. Use `_EmptyState` or its script twin `EmptyState.render/filtered/error`; `_Skeleton*` or `Skeleton.show` (which waits 300ms, so a fast response never flashes). Pagination is `_Pagination` and binds `pageNumber` (Razor Pages reserves `page`).
 
-.alert-success {
-  background-color: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #10b981;
-}
+#### Dates, numbers and live status
 
-.alert-warning {
-  background-color: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.3);
-  color: #f59e0b;
-}
+Format through `Format` (`format.js`) in script and `DisplayFormat` in Razor (`Time(...)` renders a `<time>`), never a local helper. Server dates go in `data-utc` via `DisplayFormat.Iso`. `<time data-relative-time>` refreshes itself and shows the absolute time on hover and focus. Put `[data-stale-badge][hidden]` beside anything labelled "Live"; the layout's `_ConnectionBanner` reports the hub and the sidebar footer reports the bot.
 
-.alert-error {
-  background-color: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-```
+#### Charts
+
+Chart.js charts take their chrome (axes, grid, legend, tooltip) from `chart-theme.js`, which reads the tokens and redraws on `themechange`; series colours come from `ChartTheme.colors()` (or `AnalyticsCharts` / `Performance.ChartUtils` on top of it). Never hard-code hex, and never set `Chart.defaults.color` on a page. Every chart has a text alternative: a summary name and a visually hidden table (`_ChartDataTable`, or `ChartUtils.describeChart`), plus empty and error states.
 
 ### Navigation Tabs
 
@@ -3119,7 +2754,7 @@ Skeleton loaders provide content placeholders that mimic the layout of the actua
 
 ```css
 .skeleton {
-  background: linear-gradient(90deg, #2f3336 0%, #3f4447 50%, #2f3336 100%);
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 0%, var(--color-bg-hover) 50%, var(--color-bg-tertiary) 100%);
   background-size: 200% 100%;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
@@ -3131,15 +2766,12 @@ Skeleton loaders provide content placeholders that mimic the layout of the actua
 
 /* Static variant (no animation) */
 .skeleton-static {
-  background: #2f3336;
+  background: var(--color-bg-tertiary);
   animation: none;
 }
 ```
 
-**Gradient Colors:**
-- Start/End: `#2f3336` (bg-tertiary)
-- Mid-point: `#3f4447` (border-primary)
-- Animation Duration: 1.5s ease-in-out infinite
+**Gradient colours:** `--color-bg-tertiary` at the ends, `--color-bg-hover` in the middle, 1.5s ease-in-out, off under reduced motion (a flat `--color-bg-tertiary`).
 
 #### Skeleton Types
 
@@ -3391,16 +3023,10 @@ LoadingManager.hideContainerLoading('statsCardContainer');
 function refreshStats() {
   LoadingManager.showContainerLoading('statsCardContainer', 'Refreshing...');
 
-  fetch('/api/stats')
-    .then(response => response.json())
-    .then(data => {
-      updateStatsUI(data);
-      LoadingManager.hideContainerLoading('statsCardContainer');
-    })
-    .catch(error => {
-      console.error(error);
-      LoadingManager.hideContainerLoading('statsCardContainer');
-    });
+  ApiClient.get('/api/stats')
+    .then(data => updateStatsUI(data))
+    .catch(() => toast.error('Could not refresh the statistics.'))
+    .finally(() => LoadingManager.hideContainerLoading('statsCardContainer'));
 }
 </script>
 ```
@@ -3409,28 +3035,16 @@ function refreshStats() {
 
 ### Form Submission Helper
 
-**JavaScript API** for automatic form submission handling:
+A form that posts to the server gets `data-submit-guard`. On submit the submit button is disabled and shows a spinner (its icon slot and label are kept), the form is `aria-busy`, and everything is released again when the page returns from the back/forward cache (`pageshow`). `data-submit-guard="download"` releases after a moment, for a response that is a file download and never navigates.
 
-```javascript
-LoadingManager.handleFormSubmit('myForm', {
-  buttonSelector: '[type="submit"]',
-  loadingText: 'Submitting...',
-  onSuccess: async (response) => {
-    console.log('Form submitted successfully');
-    window.location.href = '/success';
-  },
-  onError: async (error) => {
-    console.error('Form submission failed', error);
-    alert('Submission failed. Please try again.');
-  }
-});
+```html
+<form method="post" data-submit-guard data-unsaved-changes>
+  <!-- fields -->
+  <button type="submit" class="btn btn-primary">Save</button>
+</form>
 ```
 
-**Automatic behavior:**
-- Submit button shows loading state on submit
-- Form data sent via Fetch API
-- Success/error callbacks invoked based on response
-- Button loading state automatically cleared
+For a form saved over `ApiClient`, drive the button yourself with `LoadingManager.setButtonLoading(btn, true, 'Saving...')`, report the result with a toast, and call `UnsavedChanges.markClean(form)`. `LoadingManager.handleFormSubmit` still exists for older pages; do not use it in new code (it has no timeout, error text or session-expiry handling).
 
 ---
 
@@ -4181,6 +3795,12 @@ Start with mobile styles, then enhance for larger screens:
 ---
 
 ## Changelog
+
+### Version 2.1 (2026-10-03) — UX polish
+- Ink and fill tokens (`--color-x` for text and lines, `--color-x-fill*` for backgrounds under white text), `text-on-warning`, and `DesignTokenContrastTests` holding every pairing at 4.5:1 in both themes.
+- Theme: layouts carry `theme-root` and `_ThemeHead`, follow `prefers-color-scheme` until a choice is saved, `_ThemeToggle` switches without a reload; charts follow through `chart-theme.js`.
+- Touch: `viewport-fit=cover` with `--safe-*` insets, 16px inputs and 44px controls under `pointer: coarse`, `.row-actions` and `.row-action-btn` instead of hover-only reveals.
+- Rewrote the toggle section (the `.form-toggle*` CSS is gone; `_FormToggle` and `.toggle` with `role="switch"`), the badge, status and alert sections, and added sections for row actions, dialogs and feedback, empty/loading/error states, formatting and charts.
 
 ### Version 2.0 (2026-09-02) — "Graphite"
 - Complete visual overhaul: graphite canvas, hairline rules, ember as the single selection/primary accent, signal blue demoted to links and information.

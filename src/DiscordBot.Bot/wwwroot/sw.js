@@ -14,7 +14,7 @@
  *
  * Bump CACHE_VERSION when the precache list or caching behaviour changes.
  */
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const PRECACHE = `discordbot-precache-${CACHE_VERSION}`;
 const RUNTIME = `discordbot-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
@@ -29,7 +29,7 @@ const PRECACHE_URLS = [
 
 const STATIC_PREFIXES = ['/css/', '/js/', '/images/', '/lib/'];
 const BYPASS_PREFIXES = [
-    '/api/', '/hubs/', '/account/', '/signin-', '/signout', '/health', '/metrics', '/swagger', '/exports/'
+    '/api/', '/hubs/', '/account/', '/signin-', '/signout', '/health', '/metrics', '/swagger'
 ];
 
 /**
