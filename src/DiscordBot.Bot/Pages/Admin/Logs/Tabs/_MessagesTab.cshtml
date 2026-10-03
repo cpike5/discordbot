@@ -120,8 +120,8 @@
 
             <!-- Row 3: Source Type -->
             <div>
-                <label class="block text-sm font-medium text-text-primary mb-2">Source Type</label>
-                <div class="flex flex-wrap items-center gap-4">
+                <span id="messageSourceLabel" class="block text-sm font-medium text-text-primary mb-2">Source Type</span>
+                <div class="flex flex-wrap items-center gap-4" role="radiogroup" aria-labelledby="messageSourceLabel">
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="MessageSource" value="" checked="@(string.IsNullOrEmpty(Model.MessageSource))" class="w-4 h-4">
                         <span class="text-sm text-text-primary">All</span>
@@ -167,6 +167,21 @@
         </form>
     </div>
 
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg">
+            <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                Type = EmptyStateType.Error,
+                Title = "Could not load messages",
+                Description = Model.ErrorMessage,
+                PrimaryActionText = "Retry",
+                PrimaryActionUrl = Model.CurrentUrl,
+                Announce = true
+            }' />
+        </div>
+    }
+    else
+    {
     <!-- Results Summary -->
     @if (Model.MessageLogsViewModel.Messages.Any())
     {
@@ -257,11 +272,12 @@
                                         </span>
                                     }
                                 </td>
-                                <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">
-                                    @message.Content
+                                <td class="px-6 py-4 text-sm text-text-primary min-w-[16rem] max-w-md">
+                                    <div class="log-content line-clamp-2 break-words whitespace-pre-line" data-log-content>@message.Content</div>
+                                    <button type="button" class="hidden mt-1 text-xs text-accent-blue hover:underline" data-log-content-toggle aria-expanded="false">Show more</button>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
-                                    <a asp-page="/Admin/MessageLogs/Details" asp-route-id="@message.Id" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <a asp-page="/Admin/MessageLogs/Details" asp-route-id="@message.Id" asp-route-returnUrl="@Model.CurrentUrl" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View details" aria-label="View message details">
                                         <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -276,18 +292,22 @@
                         <tr>
                             <td colspan="7" class="px-6 py-12 text-center">
                                 @{
-                                    var emptyTitle = !string.IsNullOrEmpty(Model.MessageSearchTerm) || Model.AuthorId.HasValue || Model.MessageGuildId.HasValue || Model.ChannelId.HasValue
-                                        ? "No messages found"
-                                        : "No messages logged yet";
-                                    var emptyDesc = !string.IsNullOrEmpty(Model.MessageSearchTerm) || Model.AuthorId.HasValue || Model.MessageGuildId.HasValue || Model.ChannelId.HasValue
-                                        ? "Try adjusting your search or filters"
-                                        : "Messages will appear here as they are logged";
+                                    var filteredEmpty = Model.MessageHasUserFilters;
+                                    var emptyTitle = filteredEmpty
+                                        ? "No messages match your filters"
+                                        : Model.MessageDatesDefaulted ? "No messages in the last 7 days" : "No messages in this date range";
+                                    var emptyDesc = filteredEmpty
+                                        ? "Try different filters, or clear them to see every logged message."
+                                        : "Messages appear here as the bot logs them. Pick an earlier From Date to look further back.";
                                 }
-                                <partial name="Shared/Components/_EmptyState" model="new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                                <partial name="Shared/Components/_EmptyState" model='new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
                                     Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
                                     Title = emptyTitle,
-                                    Description = emptyDesc
-                                }" />
+                                    Description = emptyDesc,
+                                    PrimaryActionText = filteredEmpty ? "Clear filters" : null,
+                                    PrimaryActionUrl = filteredEmpty ? Url.Page("/Admin/Logs/Index", new { tab = "messages" }) : null,
+                                    Announce = true
+                                }' />
                             </td>
                         </tr>
                     }
@@ -326,4 +346,5 @@
             </div>
         }
     </div>
+    }
 </div>

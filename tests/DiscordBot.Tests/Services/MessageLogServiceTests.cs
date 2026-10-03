@@ -437,7 +437,7 @@ public class MessageLogServiceTests
         result.Should().NotBeEmpty();
 
         var csvContent = System.Text.Encoding.UTF8.GetString(result);
-        csvContent.Should().Contain("Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId");
+        csvContent.Should().Contain("Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp (UTC),LoggedAt (UTC),HasAttachments,HasEmbeds,ReplyToMessageId");
         csvContent.Should().Contain("Hello world");
         csvContent.Should().Contain("Test message");
         csvContent.Should().Contain("DM message");

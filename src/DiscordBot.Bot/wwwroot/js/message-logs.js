@@ -7,8 +7,9 @@
 
     const CHANNEL_SEARCH_INPUT_ID = 'ChannelId-search';
     const CHANNEL_HIDDEN_INPUT_ID = 'ChannelId';
-    const GUILD_HIDDEN_INPUT_ID = 'GuildId';
-    const CLEAR_FILTERS_SELECTOR = 'a[href*="MessageLogs"]';
+    // The guild filter's hidden input; the channel autocomplete reads it through guildIdSource
+    const GUILD_HIDDEN_INPUT_ID = 'MessageGuildId';
+    const GUILD_SEARCH_INPUT_ID = 'MessageGuildId-search';
 
     /**
      * Updates the channel input state based on guild selection.
@@ -63,7 +64,7 @@
         }
 
         // Listen for guild autocomplete clear events
-        const guildSearchInput = document.getElementById('GuildId-search');
+        const guildSearchInput = document.getElementById(GUILD_SEARCH_INPUT_ID);
         if (guildSearchInput) {
             guildSearchInput.addEventListener('autocomplete:clear', function() {
                 updateChannelInputState();
@@ -78,17 +79,6 @@
 
         // Set initial channel input state
         updateChannelInputState();
-
-        // Handle Clear Filters link - reset all autocomplete fields
-        const clearFiltersLink = document.querySelector(CLEAR_FILTERS_SELECTOR);
-        if (clearFiltersLink) {
-            clearFiltersLink.addEventListener('click', function() {
-                // Clear all autocomplete instances
-                if (window.AutocompleteManager) {
-                    window.AutocompleteManager.destroyAll();
-                }
-            });
-        }
     }
 
     // Initialize when DOM is ready

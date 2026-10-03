@@ -468,4 +468,16 @@ public class NotificationService : INotificationService
         await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
         return deleted;
     }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteMatchingAsync(
+        string userId,
+        NotificationQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Deleting notifications matching a filter for user {UserId}", userId);
+        var deleted = await _repository.DeleteMatchingAsync(userId, query, cancellationToken);
+        await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
+        return deleted;
+    }
 }

@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -25,9 +26,17 @@ public class DetailsModel : PageModel
 
     public MessageLogDetailViewModel ViewModel { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(long id)
+    /// <summary>
+    /// Where Back goes: the Messages tab with the filters and page the user came from.
+    /// </summary>
+    public string ReturnUrl { get; private set; } = string.Empty;
+
+    public async Task<IActionResult> OnGetAsync(long id, string? returnUrl)
     {
         _logger.LogDebug("Loading message log details for ID: {MessageLogId}", id);
+
+        // The return URL lands in an href, so only same-site paths are accepted
+        ReturnUrl = ReturnUrlHelper.Sanitize(returnUrl, Url.Page("/Admin/Logs/Index", new { tab = "messages" }) ?? "/Admin/Logs?tab=messages");
 
         var message = await _messageLogService.GetByIdAsync(id);
 

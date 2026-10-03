@@ -622,7 +622,7 @@ Exports message logs matching the query criteria to a CSV file.
 **Response: 200 OK (text/csv)**
 
 ```csv
-Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId
+Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp (UTC),LoggedAt (UTC),HasAttachments,HasEmbeds,ReplyToMessageId
 12345,1234567890123456789,987654321098765432,1111111111111111111,2222222222222222222,ServerChannel,"Hello, world!",2025-12-30T10:30:00.0000000Z,2025-12-30T10:30:01.0000000Z,False,False,
 12346,1234567890123456790,987654321098765432,1111111111111111111,2222222222222222222,ServerChannel,"How are you?",2025-12-30T10:31:00.0000000Z,2025-12-30T10:31:01.0000000Z,False,False,1234567890123456789
 ```

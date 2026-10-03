@@ -1535,7 +1535,7 @@ The following default thresholds are seeded during database migration:
 | `gateway_latency` | Gateway Latency | 100 | 200 | ms | Yes |
 | `command_p95_latency` | Command P95 Latency | 300 | 500 | ms | Yes |
 | `error_rate` | Error Rate | 1.0 | 5.0 | % | Yes |
-| `memory_usage` | Memory Usage | 400 | 480 | MB | Yes |
+| `memory_usage` | Memory Usage | 1024 | 1536 | MB | Yes |
 | `api_rate_limit_usage` | API Rate Limit | 85 | 95 | % | Yes |
 | `database_query_time` | Database Query Time | 50 | 100 | ms | Yes |
 | `bot_disconnected` | Bot Disconnected | - | 1 | event | Yes |
@@ -1545,6 +1545,8 @@ The following default thresholds are seeded during database migration:
 - Event-based metrics (bot_disconnected, service_failure) only have critical thresholds
 - Thresholds can be customized per deployment via the Alerts page UI
 - All metrics are enabled by default but can be disabled individually
+- The memory thresholds were 400/480 MB until a data migration raised them (the bot's idle working set is about 620 MB, so the old values raised a critical alert on a fresh install). The migration only changes a row still at the old defaults that no one has edited, so a value you set on the Alerts page is kept
+- `bot_disconnected` is not evaluated when `Discord:OfflineMode` is on: the bot never connects there by design, so there is nothing to alert on
 
 #### Incident Lifecycle
 

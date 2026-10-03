@@ -4287,7 +4287,7 @@ GET /api/messages/export?guildId=123456789012345678&startDate=2024-12-01T00:00:0
 **Response: 200 OK**
 
 ```csv
-Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildName,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId
+Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildName,Source,Content,Timestamp (UTC),LoggedAt (UTC),HasAttachments,HasEmbeds,ReplyToMessageId
 1,1234567890123456789,987654321098765432,JohnDoe#1234,111222333444555666,general,123456789012345678,My Awesome Server,ServerChannel,"Hello, world!",2024-12-08T15:30:00Z,2024-12-08T15:30:01Z,false,false,
 2,9876543210987654321,111222333444555666,JaneSmith#5678,111222333444555666,announcements,123456789012345678,My Awesome Server,ServerChannel,Check out this cool link!,2024-12-08T15:25:00Z,2024-12-08T15:25:00Z,true,true,1234567890123456789
 ```

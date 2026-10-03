@@ -177,23 +177,61 @@ public class NotificationsController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes all notifications for the current user.
+    /// Deletes notifications for the current user. With no filter parameters it deletes all of
+    /// them; with any filter it deletes only the notifications the notification list would show
+    /// for the same filters, so "Delete all" on a filtered list never removes anything unseen.
     /// </summary>
+    /// <param name="type">Optional notification type filter.</param>
+    /// <param name="isRead">Optional read status filter (true = read only, false = unread only).</param>
+    /// <param name="severity">Optional severity filter.</param>
+    /// <param name="startDate">Optional start of the date range (inclusive, from midnight).</param>
+    /// <param name="endDate">Optional end of the date range; the whole of that day is included.</param>
+    /// <param name="searchTerm">Optional search term for title/message.</param>
+    /// <param name="guildId">Optional guild ID filter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Number of notifications deleted.</returns>
     [HttpPost("delete-all")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<int>> DeleteAll(CancellationToken cancellationToken = default)
+    public async Task<ActionResult<int>> DeleteAll(
+        [FromQuery] NotificationType? type = null,
+        [FromQuery] bool? isRead = null,
+        [FromQuery] AlertSeverity? severity = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] ulong? guildId = null,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
 
-        _logger.LogDebug("User {UserId} deleting all notifications", userId);
+        var hasFilter = type.HasValue || isRead.HasValue || severity.HasValue ||
+                        startDate.HasValue || endDate.HasValue ||
+                        !string.IsNullOrWhiteSpace(searchTerm) || guildId.HasValue;
 
-        var deleted = await _notificationService.DeleteAllAsync(userId, cancellationToken);
-        return Ok(deleted);
+        if (!hasFilter)
+        {
+            _logger.LogDebug("User {UserId} deleting all notifications", userId);
+            return Ok(await _notificationService.DeleteAllAsync(userId, cancellationToken));
+        }
+
+        _logger.LogDebug("User {UserId} deleting all notifications that match a filter", userId);
+
+        var query = new NotificationQueryDto
+        {
+            Type = type,
+            IsRead = isRead,
+            Severity = severity,
+            StartDate = startDate,
+            // Same end-of-day rule as the notification list page
+            EndDate = endDate?.Date.AddDays(1).AddTicks(-1),
+            SearchTerm = searchTerm,
+            GuildId = guildId
+        };
+
+        return Ok(await _notificationService.DeleteMatchingAsync(userId, query, cancellationToken));
     }
 
     /// <summary>
