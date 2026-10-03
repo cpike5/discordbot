@@ -35,18 +35,13 @@ public class CommandAnalyticsService : ICommandAnalyticsService
         _logger.LogDebug("Retrieving comprehensive analytics from {StartDate} to {EndDate} for guild {GuildId}",
             start, end, guildId);
 
-        // Fetch all required data in parallel for better performance
-        var usageOverTimeTask = GetUsageOverTimeAsync(start, end, guildId, cancellationToken);
-        var successRateTask = GetSuccessRateAsync(start, guildId, cancellationToken);
-        var performanceTask = GetCommandPerformanceAsync(start, guildId, 10, cancellationToken);
-        var topCommandsTask = GetTopCommandsAsync(start, guildId, 10, cancellationToken);
-
-        await Task.WhenAll(usageOverTimeTask, successRateTask, performanceTask, topCommandsTask);
-
-        var usageOverTime = await usageOverTimeTask;
-        var successRate = await successRateTask;
-        var performance = await performanceTask;
-        var topCommands = await topCommandsTask;
+        // One at a time: these queries share a single scoped DbContext, which allows one
+        // operation at once (running them with Task.WhenAll intermittently threw
+        // "A second operation was started on this context instance" and failed the tab)
+        var usageOverTime = await GetUsageOverTimeAsync(start, end, guildId, cancellationToken);
+        var successRate = await GetSuccessRateAsync(start, guildId, cancellationToken);
+        var performance = await GetCommandPerformanceAsync(start, guildId, 10, cancellationToken);
+        var topCommands = await GetTopCommandsAsync(start, guildId, 10, cancellationToken);
 
         // Calculate aggregate metrics
         var totalCommands = usageOverTime.Sum(x => x.Count);

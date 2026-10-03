@@ -76,6 +76,7 @@ public class SearchModel : PageModel
 
         // Check if user has permission to view admin categories
         var canViewUsers = (await _authorizationService.AuthorizeAsync(User, "RequireAdmin")).Succeeded;
+        var canOpenLogDetails = (await _authorizationService.AuthorizeAsync(User, "RequireModerator")).Succeeded;
 
         // Execute unified search using the new ISearchService
         var searchQuery = new SearchQueryDto
@@ -92,6 +93,8 @@ public class SearchModel : PageModel
         {
             SearchTerm = unifiedResult.SearchTerm,
             CanViewUsers = canViewUsers,
+            CanOpenCommandLogDetails = canOpenLogDetails,
+            ReturnUrl = Request.Path + Request.QueryString,
 
             // Map legacy Guilds category (backward compatibility)
             GuildResults = unifiedResult.Guilds.Items

@@ -66,7 +66,7 @@ public class CommandsApiController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load Command List tab content");
-            return StatusCode(500, CreateErrorHtml("Failed to load command list data"));
+            return Failure(500, "The command list could not be loaded. Try again.");
         }
     }
 
@@ -115,17 +115,11 @@ public class CommandsApiController : Controller
                 pageNumber = 1;
             }
 
-            // Validate date range (max 90 days)
-            if (startDate.HasValue && endDate.HasValue)
+            var rangeError = ValidateDateRange(startDate, endDate);
+            if (rangeError != null)
             {
-                var dateRange = (endDate.Value - startDate.Value).TotalDays;
-                if (dateRange > 90)
-                {
-                    _logger.LogWarning(
-                        "Date range exceeds 90 days. Start={Start}, End={End}",
-                        startDate, endDate);
-                    return BadRequest(CreateErrorHtml("Date range cannot exceed 90 days"));
-                }
+                _logger.LogWarning("Invalid date range for command logs. Start={Start}, End={End}", startDate, endDate);
+                return Failure(400, rangeError);
             }
 
             // Build query
@@ -143,6 +137,14 @@ public class CommandsApiController : Controller
 
             // Fetch data
             var paginatedLogs = await _commandLogService.GetLogsAsync(query, cancellationToken);
+
+            // A page past the end (a stale link, or rows deleted since) shows the last page instead of nothing
+            if (paginatedLogs.Items.Count == 0 && paginatedLogs.TotalCount > 0 && pageNumber > 1)
+            {
+                query.Page = (int)Math.Ceiling(paginatedLogs.TotalCount / (double)pageSize);
+                paginatedLogs = await _commandLogService.GetLogsAsync(query, cancellationToken);
+            }
+
             var guilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
             // Build view model
@@ -161,6 +163,18 @@ public class CommandsApiController : Controller
             // Store guilds in ViewData for the partial view
             ViewData["AvailableGuilds"] = guilds;
 
+            // Pagination links are real deep links to the page (the page script fetches instead)
+            ViewData["PaginationBaseUrl"] = Url.Page("/Commands/Index", new
+            {
+                tab = "execution-logs",
+                StartDate = FormatDate(startDate),
+                EndDate = FormatDate(endDate),
+                GuildId = guildId,
+                CommandName = string.IsNullOrWhiteSpace(commandName) ? null : commandName,
+                SearchTerm = string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm,
+                StatusFilter = statusFilter
+            });
+
             _logger.LogDebug(
                 "Loaded {LogCount} logs (page {Page} of {TotalPages})",
                 viewModel.Logs.Count, viewModel.CurrentPage, viewModel.TotalPages);
@@ -170,7 +184,7 @@ public class CommandsApiController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load Execution Logs tab content");
-            return StatusCode(500, CreateErrorHtml("Failed to load command logs"));
+            return Failure(500, "Command logs could not be loaded. Try again.");
         }
     }
 
@@ -199,13 +213,11 @@ public class CommandsApiController : Controller
             var end = endDate ?? DateTime.UtcNow.Date;
             var start = startDate ?? end.AddDays(-30);
 
-            // Validate date range (max 90 days)
-            if ((end - start).TotalDays > 90)
+            var rangeError = ValidateDateRange(start, end);
+            if (rangeError != null)
             {
-                _logger.LogWarning(
-                    "Date range exceeds 90 days. Start={Start}, End={End}",
-                    start, end);
-                return BadRequest(CreateErrorHtml("Date range cannot exceed 90 days"));
+                _logger.LogWarning("Invalid date range for analytics. Start={Start}, End={End}", start, end);
+                return Failure(400, rangeError);
             }
 
             // Fetch analytics data
@@ -215,6 +227,8 @@ public class CommandsApiController : Controller
             var guilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
             // Build view model
+            ViewData["HasActiveFilters"] = guildId.HasValue || startDate.HasValue || endDate.HasValue;
+
             var viewModel = new CommandAnalyticsViewModel
             {
                 TotalCommands = analyticsData.TotalCommands,
@@ -242,7 +256,7 @@ public class CommandsApiController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load Analytics tab content");
-            return StatusCode(500, CreateErrorHtml("Failed to load analytics data"));
+            return Failure(500, "Analytics could not be loaded. Try again.");
         }
     }
 
@@ -264,7 +278,7 @@ public class CommandsApiController : Controller
             if (log == null)
             {
                 _logger.LogWarning("Command log not found: {LogId}", id);
-                return NotFound(CreateErrorHtml("Command log not found"));
+                return Failure(404, "That command log no longer exists.");
             }
 
             var viewModel = ViewModels.Components.CommandLogDetailsModalViewModel.FromDto(log);
@@ -278,41 +292,61 @@ public class CommandsApiController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load command log details for ID {LogId}", id);
-            return StatusCode(500, CreateErrorHtml("Failed to load command log details"));
+            return Failure(500, "The command log could not be loaded. Try again.");
         }
     }
 
     #region Helpers
 
+    /// <summary>The longest date range a logs or analytics request may cover.</summary>
+    internal const int MaxRangeDays = 90;
+
     /// <summary>
-    /// Creates an HTML error state for display in tabs.
+    /// Checks a date range. Returns the message to show next to the date fields, or null when
+    /// the range is fine (either end may be missing).
     /// </summary>
-    /// <param name="message">The error message to display.</param>
-    /// <returns>A ContentResult containing formatted error HTML.</returns>
-    private static ContentResult CreateErrorHtml(string message)
+    internal static string? ValidateDateRange(DateTime? start, DateTime? end)
     {
-        var html = $@"
-<div class=""tab-error-state"">
-    <div class=""tab-error-content"">
-        <svg class=""tab-error-icon"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor"">
-            <path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"" />
-        </svg>
-        <h3 class=""tab-error-title"">Error Loading Content</h3>
-        <p class=""tab-error-message"">{System.Web.HttpUtility.HtmlEncode(message)}</p>
-        <button class=""btn btn-secondary tab-retry-btn"" onclick=""window.CommandTabs?.retryCurrentTab()"">
-            <svg class=""btn-svg-icon"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor"">
-                <path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"" />
-            </svg>
-            Retry
-        </button>
-    </div>
-</div>";
+        if (!start.HasValue || !end.HasValue)
+        {
+            return null;
+        }
+
+        if (start.Value.Date > end.Value.Date)
+        {
+            return "The start date must be on or before the end date.";
+        }
+
+        if ((end.Value.Date - start.Value.Date).TotalDays > MaxRangeDays)
+        {
+            return $"Choose a date range of {MaxRangeDays} days or less.";
+        }
+
+        return null;
+    }
+
+    private static string? FormatDate(DateTime? date) => date?.ToString("yyyy-MM-dd");
+
+    /// <summary>
+    /// A failed tab load as problem JSON, which the page script shows as plain text. The
+    /// <c>detail</c> is copy written for the user, never exception text. (The action's
+    /// <c>[Produces("text/html")]</c> would try to format an object as HTML, so the body is
+    /// written out as a content result.)
+    /// </summary>
+    private static ContentResult Failure(int statusCode, string detail)
+    {
+        var body = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            title = statusCode >= 500 ? "Could not load" : "Request not valid",
+            status = statusCode,
+            detail
+        });
 
         return new ContentResult
         {
-            Content = html,
-            ContentType = "text/html",
-            StatusCode = 500
+            Content = body,
+            ContentType = "application/problem+json",
+            StatusCode = statusCode
         };
     }
 

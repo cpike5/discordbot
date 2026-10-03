@@ -1,125 +1,158 @@
-@* AJAX-loaded partial view for Command List tab. *@
-@* Requires JavaScript initialization after load. *@
-@* Dependencies: window.CommandTabs (for tab state management) *@
+@* Command List tab: rendered by the page itself and by GET /api/commands/list. *@
+@* wwwroot/js/commands-page.js filters it in the browser ([data-command-search]) and runs the *@
+@* module headers ([data-module-toggle]). Nothing here carries script. *@
 @model DiscordBot.Bot.ViewModels.Pages.CommandsListViewModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 
 @if (Model.HasModules)
 {
-    <!-- Command Modules -->
-    <div class="space-y-4">
-        @foreach (var module in Model.Modules)
-        {
-            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" id="module-@module.ModuleId">
-                <!-- Module Header (clickable to expand/collapse) -->
-                <button type="button"
-                        class="w-full flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
-                        onclick="toggleModule('@module.ModuleId')"
-                        aria-expanded="true"
-                        aria-controls="commands-@module.ModuleId">
-                    <div class="flex items-center gap-3">
-                        <!-- Module Icon -->
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white flex-shrink-0">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div class="text-left">
-                            <h2 class="text-lg font-semibold text-text-primary">
-                                @module.DisplayName
-                                @if (module.IsSlashGroup && !string.IsNullOrEmpty(module.GroupName))
-                                {
-                                    <span class="text-text-tertiary font-normal text-sm ml-2">/@module.GroupName</span>
-                                }
-                            </h2>
-                            @if (!string.IsNullOrEmpty(module.Description))
-                            {
-                                <p class="text-sm text-text-secondary">@module.Description</p>
-                            }
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-text-tertiary">@module.CommandCount command@(module.CommandCount != 1 ? "s" : "")</span>
-                        <svg class="w-5 h-5 text-text-tertiary transition-transform duration-200 module-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-module="@module.ModuleId">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
-                </button>
+    <div data-command-list data-total-commands="@Model.TotalCommandCount">
+        <!-- Search -->
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+            <div class="relative flex-1 max-w-xl">
+                <label for="commandSearch" class="sr-only">Search commands</label>
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="search" id="commandSearch" data-command-search autocomplete="off" spellcheck="false"
+                       placeholder="Search commands, options and descriptions"
+                       class="form-input w-full pl-10" />
+            </div>
+            <p class="text-sm text-text-secondary" role="status" aria-live="polite" data-command-search-status>
+                @DisplayFormat.Plural(Model.TotalCommandCount, "command") in @DisplayFormat.Plural(Model.ModuleCount, "module")
+            </p>
+        </div>
 
-                <!-- Command List (collapsible) -->
-                <div id="commands-@module.ModuleId" class="border-t border-border-primary">
-                    <div class="divide-y divide-border-secondary">
-                        @foreach (var command in module.Commands)
-                        {
-                            <div class="px-6 py-4 hover:bg-bg-hover/30 transition-colors">
-                                <div class="flex flex-col lg:flex-row lg:items-start gap-3">
-                                    <!-- Command Name and Parameters -->
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex flex-wrap items-center gap-2 mb-1">
-                                            <code class="text-accent-orange font-mono font-semibold text-sm">@command.FullDisplayName</code>
-                                            @if (!string.IsNullOrEmpty(command.ParametersDisplay))
+        <!-- Modules -->
+        <div class="space-y-4" data-command-modules>
+            @foreach (var module in Model.Modules)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" id="module-@module.ModuleId" data-command-module>
+                    <h2 class="m-0">
+                        <button type="button"
+                                class="w-full flex items-center justify-between gap-3 px-4 sm:px-6 py-4 text-left hover:bg-bg-hover/50 transition-colors"
+                                data-module-toggle="@module.ModuleId"
+                                aria-expanded="true"
+                                aria-controls="commands-@module.ModuleId">
+                            <span class="flex items-center gap-3 min-w-0">
+                                <span class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white flex-shrink-0" aria-hidden="true">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </span>
+                                <span class="min-w-0">
+                                    <span class="block text-lg font-semibold text-text-primary">
+                                        @module.DisplayName
+                                        @if (module.IsSlashGroup && !string.IsNullOrEmpty(module.GroupName))
+                                        {
+                                            <span class="text-text-secondary font-normal text-sm ml-2">/@module.GroupName</span>
+                                        }
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(module.Description))
+                                    {
+                                        <span class="block text-sm text-text-secondary font-normal">@module.Description</span>
+                                    }
+                                </span>
+                            </span>
+                            <span class="flex items-center gap-3 flex-shrink-0">
+                                <span class="text-sm text-text-secondary hidden sm:inline" data-module-count data-total="@module.CommandCount">@DisplayFormat.Plural(module.CommandCount, "command")</span>
+                                <svg class="w-5 h-5 text-text-secondary transition-transform duration-200 module-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </span>
+                        </button>
+                    </h2>
+
+                    <div id="commands-@module.ModuleId" class="border-t border-border-primary" data-module-body>
+                        <div class="divide-y divide-border-secondary">
+                            @foreach (var command in module.Commands)
+                            {
+                                var searchText = string.Join(' ', new[]
+                                {
+                                    command.FullDisplayName,
+                                    command.Description,
+                                    command.ParametersDisplay,
+                                    module.DisplayName,
+                                    string.Join(' ', command.Parameters.Select(p => $"{p.Name} {p.Description}"))
+                                }.Where(t => !string.IsNullOrWhiteSpace(t))).ToLowerInvariant();
+
+                                <div class="px-4 sm:px-6 py-4 hover:bg-bg-hover/30 transition-colors scroll-mt-24" id="cmd-@command.FullDisplayName.TrimStart('/').Replace(' ', '-')" data-command-row data-search="@searchText">
+                                    <div class="flex flex-col lg:flex-row lg:items-start gap-3">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                                <code class="text-accent-orange font-mono font-semibold text-sm break-all">@command.FullDisplayName</code>
+                                                @if (!string.IsNullOrEmpty(command.ParametersDisplay))
+                                                {
+                                                    <code class="text-text-secondary font-mono text-sm break-all">@command.ParametersDisplay</code>
+                                                }
+                                            </div>
+                                            <p class="text-sm text-text-secondary">@command.Description</p>
+
+                                            @if (command.HasParameters)
                                             {
-                                                <code class="text-text-tertiary font-mono text-sm">@command.ParametersDisplay</code>
+                                                <div class="mt-3 space-y-2">
+                                                    @foreach (var param in command.Parameters)
+                                                    {
+                                                        <div class="flex flex-wrap items-start gap-x-2 text-sm">
+                                                            <span class="font-mono text-text-primary">@param.Name</span>
+                                                            <span class="text-text-secondary">(@param.Type@(param.IsRequired ? ", required" : ", optional"))</span>
+                                                            @if (!string.IsNullOrEmpty(param.Description))
+                                                            {
+                                                                <span class="text-text-secondary">- @param.Description</span>
+                                                            }
+                                                        </div>
+                                                        @if (param.HasChoices)
+                                                        {
+                                                            <div class="ml-4 text-xs text-text-secondary">
+                                                                Choices: @string.Join(", ", param.Choices!)
+                                                            </div>
+                                                        }
+                                                    }
+                                                </div>
                                             }
                                         </div>
-                                        <p class="text-sm text-text-secondary">@command.Description</p>
 
-                                        <!-- Parameters Details (if any) -->
-                                        @if (command.HasParameters)
+                                        @if (command.HasPreconditions)
                                         {
-                                            <div class="mt-3 space-y-2">
-                                                @foreach (var param in command.Parameters)
+                                            <div class="flex flex-wrap gap-2 lg:flex-shrink-0">
+                                                @foreach (var badge in command.PreconditionBadges)
                                                 {
-                                                    <div class="flex items-start gap-2 text-sm">
-                                                        <span class="font-mono text-text-primary">@param.Name</span>
-                                                        <span class="text-text-tertiary">(@param.Type@(param.IsRequired ? ", required" : ", optional"))</span>
-                                                        @if (!string.IsNullOrEmpty(param.Description))
-                                                        {
-                                                            <span class="text-text-secondary">- @param.Description</span>
-                                                        }
-                                                    </div>
-                                                    @if (param.HasChoices)
-                                                    {
-                                                        <div class="ml-4 text-xs text-text-tertiary">
-                                                            Choices: @string.Join(", ", param.Choices!)
-                                                        </div>
-                                                    }
+                                                    <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="badge" />
                                                 }
                                             </div>
                                         }
                                     </div>
-
-                                    <!-- Precondition Badges -->
-                                    @if (command.HasPreconditions)
-                                    {
-                                        <div class="flex flex-wrap gap-2 lg:flex-shrink-0">
-                                            @foreach (var badge in command.PreconditionBadges)
-                                            {
-                                                <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="badge" />
-                                            }
-                                        </div>
-                                    }
                                 </div>
-                            </div>
-                        }
+                            }
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
+            }
+        </div>
+
+        <!-- Filtered-empty state, shown by the script when nothing matches the search -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12" data-command-search-empty hidden>
+            <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="@(new EmptyStateViewModel
+            {
+                Type = EmptyStateType.NoResults,
+                Title = "No commands match your search",
+                Description = "Check the spelling, or search for part of a command name or description.",
+                PrimaryActionText = "Clear search",
+                PrimaryActionIconPath = "",
+                PrimaryActionAttributes = new Dictionary<string, string> { ["data-command-search-clear"] = "" }
+            })" />
+        </div>
     </div>
 }
 else
 {
-    <!-- Empty State -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
-        @{
-            var emptyState = new EmptyStateViewModel
-            {
-                Type = EmptyStateType.NoData,
-                Title = "No commands loaded",
-                Description = "The bot hasn't loaded any command modules yet. Commands will appear once the bot has connected to Discord."
-            };
-        }
-        <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState" />
+        <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="@(new EmptyStateViewModel
+        {
+            Type = EmptyStateType.NoData,
+            Title = "No commands loaded",
+            Description = "The bot hasn't loaded any command modules yet. Commands will appear once the bot has connected to Discord."
+        })" />
     </div>
 }

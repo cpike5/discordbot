@@ -19,7 +19,7 @@
                 </svg>
             </li>
             <li>
-                <a href="/Commands?tab=logs" class="text-text-secondary hover:text-accent-blue transition-colors">Command Logs</a>
+                <a asp-page="/Commands/Index" asp-route-tab="execution-logs" class="text-text-secondary hover:text-accent-blue transition-colors">Command logs</a>
             </li>
             <li class="text-text-tertiary">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,11 +55,11 @@
                 }
             </div>
             <div class="flex items-center gap-3">
-                <a href="/Commands?tab=logs" class="btn btn-secondary">
+                <a href="@Model.BackUrl" class="btn btn-secondary">
                     <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to Logs
+                    Back
                 </a>
             </div>
         </div>
@@ -104,7 +104,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <p class="text-sm font-mono text-text-primary">@log.Id</p>
-                    <button onclick="copyToClipboard('@log.Id')"
+                    <button type="button" data-copy="@log.Id" aria-label="Copy Log ID"
                             class="text-text-tertiary hover:text-accent-blue transition-colors"
                             title="Copy Log ID">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -179,7 +179,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <p class="text-sm font-mono text-text-primary">@log.GuildId</p>
-                        <button onclick="copyToClipboard('@log.GuildId')"
+                        <button type="button" data-copy="@log.GuildId" aria-label="Copy Guild ID"
                                 class="text-text-tertiary hover:text-accent-blue transition-colors"
                                 title="Copy Guild ID">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -217,7 +217,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <p class="text-sm font-mono text-text-primary">@log.UserId</p>
-                    <button onclick="copyToClipboard('@log.UserId')"
+                    <button type="button" data-copy="@log.UserId" aria-label="Copy User ID"
                             class="text-text-tertiary hover:text-accent-blue transition-colors"
                             title="Copy User ID">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -271,13 +271,15 @@
 
 @section Scripts {
     <script>
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                ToastManager.show('success', 'Copied to clipboard');
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-                ToastManager.show('error', 'Failed to copy to clipboard');
+        // Copy buttons carry their value in data-copy; nothing is written into handler text
+        document.addEventListener('click', function (event) {
+            var button = event.target.closest && event.target.closest('[data-copy]');
+            if (!button) return;
+            navigator.clipboard.writeText(button.getAttribute('data-copy')).then(function () {
+                toast.success('Copied to clipboard.');
+            }).catch(function () {
+                toast.error('Could not copy. Select the text and copy it yourself.');
             });
-        }
+        });
     </script>
 }
