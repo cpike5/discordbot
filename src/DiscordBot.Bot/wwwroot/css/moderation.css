@@ -128,30 +128,31 @@
   border: 1px solid var(--color-border-primary, var(--color-border-primary));
 }
 
-.user-tag-removable {
-  cursor: pointer;
-}
-
-.user-tag-removable:hover {
-  background-color: var(--color-bg-hover, var(--color-bg-hover));
-  border-color: var(--color-error, var(--color-error));
-  color: var(--color-error, var(--color-error));
-}
-
+/* The remove control is a real button, so keyboard users can reach it */
 .user-tag-remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1rem;
-  height: 1rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  margin-right: -0.25rem;
+  border: 0;
   border-radius: 50%;
   background-color: transparent;
+  color: inherit;
   cursor: pointer;
-  transition: background-color 150ms ease-out;
+  transition: background-color 150ms ease-out, color 150ms ease-out;
 }
 
 .user-tag-remove:hover {
   background-color: var(--color-error-bg, rgba(var(--color-error-rgb), 0.1));
+  color: var(--color-error);
+}
+
+.user-tag-remove:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
 }
 
 .user-tag-remove svg {
@@ -159,11 +160,24 @@
   height: 0.75rem;
 }
 
+@media (pointer: coarse) {
+  .user-tag-remove {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
 /* Tag color variants */
 .user-tag-warning {
   background-color: var(--color-warning-bg, rgba(var(--color-warning-rgb), 0.1));
   border-color: var(--color-warning-border, rgba(var(--color-warning-rgb), 0.3));
   color: var(--color-warning, var(--color-warning));
+}
+
+.user-tag-success {
+  background-color: var(--color-success-bg, rgba(var(--color-success-rgb), 0.1));
+  border-color: var(--color-success-border, rgba(var(--color-success-rgb), 0.3));
+  color: var(--color-success);
 }
 
 .user-tag-danger {

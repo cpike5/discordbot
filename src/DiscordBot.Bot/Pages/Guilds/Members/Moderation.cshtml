@@ -1,381 +1,345 @@
 @page "/Guilds/{guildId:long}/Members/{userId:long}/Moderation"
 @model DiscordBot.Bot.Pages.Guilds.Members.ModerationModel
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"{Model.ViewModel.DisplayName} - Moderation";
     Layout = "_GuildLayout";
+
+    var vm = Model.ViewModel;
+    var canAttribute = vm.CurrentUserId != 0;
+    var appliedTagNames = vm.Tags.Select(t => t.TagName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var addableTags = vm.AvailableTags.Where(t => !appliedTagNames.Contains(t.Name)).ToList();
+
+    var tabs = new TabPanelViewModel
+    {
+        Id = "modProfileTabs",
+        AriaLabel = "User moderation sections",
+        ActiveTabId = "cases",
+        NavigationMode = TabNavigationMode.InPage,
+        PersistenceMode = TabPersistenceMode.UrlHash,
+        StyleVariant = TabStyleVariant.Underline,
+        Tabs = new[]
+        {
+            new TabItemViewModel { Id = "cases", Label = "Cases", BadgeCount = vm.Cases.Count, BadgeVariant = TabBadgeVariant.Default,
+                IconPathOutline = "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
+            new TabItemViewModel { Id = "notes", Label = "Notes", BadgeCount = vm.Notes.Count, BadgeVariant = TabBadgeVariant.Info,
+                IconPathOutline = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" },
+            new TabItemViewModel { Id = "flags", Label = "Flags", BadgeCount = vm.FlaggedEvents.Count, BadgeVariant = TabBadgeVariant.Warning,
+                IconPathOutline = "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" }
+        }
+    };
 }
 
 @section Styles {
+    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/moderation.css" asp-append-version="true" />
 }
 
-<!-- User Header (breadcrumb/header/nav now in layout) -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
-        <div class="flex flex-col md:flex-row md:items-start gap-6">
-            <!-- Avatar and Basic Info -->
-            <div class="flex items-start gap-4 flex-1">
-                @if (!string.IsNullOrEmpty(Model.ViewModel.AvatarUrl))
-                {
-                    <img src="@Model.ViewModel.AvatarUrl" alt="@Model.ViewModel.DisplayName" class="w-20 h-20 rounded-full flex-shrink-0" />
-                }
-                else
-                {
-                    var avatarGradients = new[] {
-                        "from-accent-blue to-accent-orange",
-                        "from-success to-accent-blue",
-                        "from-warning to-error",
-                        "from-error to-accent-orange",
-                        "from-info to-success"
-                    };
-                    var gradientIndex = Math.Abs(Model.UserId.GetHashCode()) % avatarGradients.Length;
-                    var gradientClass = avatarGradients[gradientIndex];
-                    <div class="w-20 h-20 rounded-full bg-gradient-to-br @gradientClass flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
-                        @(Model.ViewModel.DisplayName.Length >= 2 ? Model.ViewModel.DisplayName[..2].ToUpper() : Model.ViewModel.DisplayName.ToUpper())
-                    </div>
-                }
-                <div class="flex-1 min-w-0">
-                    <div class="flex flex-wrap items-center gap-2 mb-2">
-                        <h1 class="text-2xl font-bold text-text-primary">@Model.ViewModel.DisplayName</h1>
-                        <span class="text-sm text-text-tertiary font-mono">@@@Model.ViewModel.Username</span>
-                    </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                            <span class="text-text-tertiary block">Account Created</span>
-                            <p class="text-text-secondary" data-utc="@Model.ViewModel.AccountCreatedAt.ToString("o")" data-format="date"></p>
-                        </div>
-                        <div>
-                            <span class="text-text-tertiary block">Joined Server</span>
-                            @if (Model.ViewModel.JoinedGuildAt.HasValue)
-                            {
-                                <p class="text-text-secondary" data-utc="@Model.ViewModel.JoinedGuildAt.Value.ToString("o")" data-format="date"></p>
-                            }
-                            else
-                            {
-                                <p class="text-text-secondary">Unknown</p>
-                            }
-                        </div>
-                        <div>
-                            <span class="text-text-tertiary block">User ID</span>
-                            <p class="text-text-secondary font-mono">@Model.UserId</p>
-                        </div>
-                        <div>
-                            <span class="text-text-tertiary block">Server Roles</span>
-                            <p class="text-text-secondary">@(Model.ViewModel.Roles.Any() ? string.Join(", ", Model.ViewModel.Roles) : "None")</p>
-                        </div>
-                    </div>
+<!-- User header (breadcrumb, page title and navigation come from the layout) -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
+    <div class="flex items-start gap-4">
+        @if (!string.IsNullOrEmpty(vm.AvatarUrl))
+        {
+            <img src="@vm.AvatarUrl" alt="" class="w-20 h-20 rounded-full flex-shrink-0" />
+        }
+        else
+        {
+            var avatarGradients = new[] {
+                "from-accent-blue to-accent-orange",
+                "from-success to-accent-blue",
+                "from-warning to-error",
+                "from-error to-accent-orange",
+                "from-info to-success"
+            };
+            var gradientClass = avatarGradients[(int)(Model.UserId % (ulong)avatarGradients.Length)];
+            <div class="w-20 h-20 rounded-full bg-gradient-to-br @gradientClass flex items-center justify-center text-white font-bold text-xl flex-shrink-0" aria-hidden="true">
+                @(vm.DisplayName.Length >= 2 ? vm.DisplayName[..2].ToUpper() : vm.DisplayName.ToUpper())
+            </div>
+        }
+        <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+                <h2 class="text-xl sm:text-2xl font-bold text-text-primary break-words">@vm.DisplayName</h2>
+                <span class="text-sm text-text-secondary font-mono break-all">@@@vm.Username</span>
+            </div>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <dt class="text-text-secondary">Account created</dt>
+                    <dd class="text-text-primary">@DisplayFormat.Time(vm.AccountCreatedAt, "date")</dd>
                 </div>
+                <div>
+                    <dt class="text-text-secondary">Joined server</dt>
+                    <dd class="text-text-primary">@DisplayFormat.Time(vm.JoinedGuildAt, "date", empty: "Unknown")</dd>
+                </div>
+                <div>
+                    <dt class="text-text-secondary">User ID</dt>
+                    <dd class="text-text-primary font-mono break-all">@Model.UserId</dd>
+                </div>
+                <div>
+                    <dt class="text-text-secondary">Server roles</dt>
+                    <dd class="text-text-primary break-words">@(vm.Roles.Any() ? string.Join(", ", vm.Roles) : "None")</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>
+
+@if (!canAttribute)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Info,
+            Message = attributionNotice
+        }" />
+    </div>
+}
+
+<!-- Tags -->
+<section class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6" aria-labelledby="userTagsHeading">
+    <h2 id="userTagsHeading" class="text-lg font-semibold text-text-primary mb-4">User tags</h2>
+    <div class="flex flex-wrap items-center gap-2" id="userTagsContainer">
+        @foreach (var tag in vm.Tags)
+        {
+            <span class="user-tag @ModTagStyle.CssClass(tag.TagCategory)" data-tag-chip data-tag-name="@tag.TagName" data-tag-class="@ModTagStyle.CssClass(tag.TagCategory)">
+                <span class="break-all">@tag.TagName</span>
+                <button type="button"
+                        class="user-tag-remove"
+                        data-remove-tag="@tag.TagName"
+                        aria-label="Remove tag @tag.TagName">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </span>
+        }
+        <p id="noTagsText" class="text-sm text-text-secondary @(vm.Tags.Any() ? "hidden" : "")">No tags yet.</p>
+
+        <div class="relative" id="addTagDropdownContainer">
+            <button type="button"
+                    id="addTagBtn"
+                    class="btn btn-secondary btn-sm"
+                    aria-expanded="false"
+                    aria-controls="tagDropdown"
+                    @(canAttribute ? "" : "disabled")>
+                <svg class="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add tag
+            </button>
+            <div id="tagDropdown" class="hidden absolute top-full left-0 mt-1 w-56 max-w-[calc(100vw-2rem)] bg-bg-tertiary border border-border-primary rounded-lg shadow-lg overflow-hidden z-10" role="group" aria-label="Tags you can add">
+                <p id="tagDropdownEmpty" class="px-3 py-4 text-center text-sm text-text-secondary @(addableTags.Any() ? "hidden" : "")">
+                    @(vm.AvailableTags.Any() ? "Every tag is already on this user." : "No tags exist yet. Create some in Moderation settings.")
+                </p>
+                @foreach (var tag in addableTags)
+                {
+                    <button type="button"
+                            class="w-full px-3 py-2 text-sm text-left text-text-primary hover:bg-bg-hover transition-colors"
+                            data-add-tag="@tag.Name"
+                            data-tag-class="@ModTagStyle.CssClass(tag.Category)">
+                        <span class="user-tag @ModTagStyle.CssClass(tag.Category) break-all">@tag.Name</span>
+                    </button>
+                }
             </div>
         </div>
     </div>
+</section>
 
-    <!-- Tags Section -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
-        <h2 class="text-lg font-semibold text-text-primary mb-4">User Tags</h2>
-        <div class="flex flex-wrap items-center gap-2" id="userTagsContainer">
-            @foreach (var tag in Model.ViewModel.Tags)
-            {
-                <span class="user-tag user-tag-removable user-tag-@tag.TagCategory.ToString().ToLower()" data-tag-name="@tag.TagName" onclick="removeTag(this.dataset.tagName)">
-                    @tag.TagName
-                    <span class="user-tag-remove" title="Remove tag">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </span>
-                </span>
-            }
-            <!-- Add Tag Dropdown -->
-            <div class="relative" id="addTagDropdownContainer">
-                <button type="button" id="addTagBtn" class="user-tag hover:border-accent-blue hover:text-accent-blue transition-colors" onclick="toggleTagDropdown()">
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Tag
-                </button>
-                <div id="tagDropdown" class="hidden absolute top-full left-0 mt-1 w-48 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg overflow-hidden z-10">
-                    @if (Model.ViewModel.AvailableTags.Any())
+<!-- Tabs -->
+<partial name="Shared/Components/_TabPanel" model="tabs" />
+
+<div class="bg-bg-secondary border border-border-primary rounded-lg">
+    <!-- Cases -->
+    <div data-tab-panel-for="modProfileTabs" data-tab-id="cases" id="modProfileTabs-panel-cases" role="tabpanel" aria-labelledby="modProfileTabs-tab-cases">
+        <div class="overflow-x-auto">
+            <table class="w-full" aria-label="Moderation cases">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Case</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Action</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Reason</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Moderator</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (vm.Cases.Any())
                     {
-                        @foreach (var tag in Model.ViewModel.AvailableTags.Where(t => !Model.ViewModel.Tags.Any(ut => ut.TagName == t.Name)))
+                        @foreach (var moderationCase in vm.Cases)
                         {
-                            <button type="button" class="w-full px-3 py-2 text-sm text-left text-text-primary hover:bg-bg-hover transition-colors" data-tag-name="@tag.Name" onclick="addTag(this.dataset.tagName)">
-                                <span class="user-tag user-tag-@tag.Category.ToString().ToLower()">@tag.Name</span>
-                            </button>
+                            var badgeClass = moderationCase.Type switch
+                            {
+                                CaseType.Warn => "bg-warning-bg text-warning border border-warning-border",
+                                CaseType.Mute => "bg-info-bg text-info border border-info-border",
+                                CaseType.Kick => "bg-error-bg text-error border border-error-border",
+                                CaseType.Ban => "bg-error-bg text-error border border-error-border",
+                                _ => "bg-bg-tertiary text-text-secondary border border-border-primary"
+                            };
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-4 sm:px-6 py-4 text-sm font-medium text-text-primary whitespace-nowrap">#@moderationCase.CaseNumber</td>
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium @badgeClass">
+                                        @moderationCase.Type.ToString()
+                                        @if (moderationCase.Duration.HasValue)
+                                        {
+                                            <text>(@DisplayFormat.Duration(moderationCase.Duration.Value))</text>
+                                        }
+                                    </span>
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 text-sm text-text-secondary break-words min-w-[12rem]">@(moderationCase.Reason ?? "No reason provided")</td>
+                                <td class="px-4 sm:px-6 py-4 text-sm text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@moderationCase.ModeratorUserId" data-context-guild-id="@Model.GuildId">@moderationCase.ModeratorUsername</td>
+                                <td class="px-4 sm:px-6 py-4 text-sm text-text-secondary whitespace-nowrap">@DisplayFormat.Time(moderationCase.CreatedAt, "date")</td>
+                            </tr>
                         }
                     }
                     else
                     {
-                        <div class="px-3 py-4 text-center text-sm text-text-tertiary">
-                            No tags available
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tab Navigation -->
-    <div class="settings-tabs mb-6" role="tablist" aria-label="User moderation sections">
-        <button type="button" class="settings-tab settings-tab-active" id="tab-btn-cases" role="tab" aria-selected="true" aria-controls="tab-cases" data-tab="cases" onclick="switchTab('cases')">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            Cases
-            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-error text-white">@Model.ViewModel.Cases.Count</span>
-        </button>
-        <button type="button" class="settings-tab" id="tab-btn-notes" role="tab" aria-selected="false" aria-controls="tab-notes" data-tab="notes" onclick="switchTab('notes')">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            Notes
-            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-blue text-white">@Model.ViewModel.Notes.Count</span>
-        </button>
-        <button type="button" class="settings-tab" id="tab-btn-flags" role="tab" aria-selected="false" aria-controls="tab-flags" data-tab="flags" onclick="switchTab('flags')">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-            </svg>
-            Flags
-            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning text-on-warning">@Model.ViewModel.FlaggedEvents.Count</span>
-        </button>
-    </div>
-
-    <!-- Tab Content -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg">
-        <!-- Cases Tab -->
-        <div id="tab-cases" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-cases">
-            <div class="overflow-x-auto">
-                <table class="w-full" role="table" aria-label="Moderation cases">
-                    <thead class="bg-bg-tertiary">
                         <tr>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Case</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Action</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Reason</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Moderator</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Date</th>
+                            <td colspan="5" class="px-6 py-8">
+                                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                                    Type = EmptyStateType.NoData,
+                                    Title = noCasesTitle,
+                                    Description = noCasesText,
+                                    Size = EmptyStateSize.Compact
+                                }" />
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border-primary">
-                        @if (Model.ViewModel.Cases.Any())
-                        {
-                            @foreach (var moderationCase in Model.ViewModel.Cases)
-                            {
-                                var badgeClass = moderationCase.Type switch
-                                {
-                                    CaseType.Warn => "bg-warning-bg text-warning border border-warning-border",
-                                    CaseType.Mute => "bg-info-bg text-info border border-info-border",
-                                    CaseType.Kick => "bg-error-bg text-error border border-error-border",
-                                    CaseType.Ban => "bg-error-bg text-error border border-error-border",
-                                    _ => "bg-bg-tertiary text-text-secondary border border-border-primary"
-                                };
-                                <tr class="hover:bg-bg-hover/50 transition-colors">
-                                    <td class="px-6 py-4 text-sm font-medium text-text-primary">#@moderationCase.CaseNumber</td>
-                                    <td class="px-6 py-4">
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium @badgeClass">
-                                            @moderationCase.Type.ToString()
-                                            @if (moderationCase.Duration.HasValue)
-                                            {
-                                                <text> (@FormatDuration(moderationCase.Duration.Value))</text>
-                                            }
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 text-sm text-text-secondary">@(moderationCase.Reason ?? "No reason provided")</td>
-                                    <td class="px-6 py-4 text-sm text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@moderationCase.ModeratorUserId" data-context-guild-id="@Model.GuildId">@moderationCase.ModeratorUsername</td>
-                                    <td class="px-6 py-4 text-sm text-text-tertiary" data-utc="@moderationCase.CreatedAt.ToString("o")" data-format="date"></td>
-                                </tr>
-                            }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="5" class="px-6 py-12">
-                                    <div class="text-center">
-                                        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                                        </svg>
-                                        <h3 class="text-sm font-medium text-text-primary mb-1">No moderation cases found</h3>
-                                        <p class="text-sm text-text-tertiary">This user has no moderation cases.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            <div class="p-4 border-t border-border-primary text-sm text-text-tertiary">
-                Showing @Model.ViewModel.Cases.Count moderation case@(Model.ViewModel.Cases.Count == 1 ? "" : "s")
-            </div>
-        </div>
-
-        <!-- Notes Tab -->
-        <div id="tab-notes" class="tab-content hidden p-6" role="tabpanel" aria-labelledby="tab-btn-notes">
-            <!-- Add Note Form -->
-            <div class="mb-6">
-                <h3 class="text-sm font-semibold text-text-primary mb-2">Add New Note</h3>
-                <div class="flex gap-3">
-                    <textarea id="newNoteText" rows="2" placeholder="Add a note about this user..." class="flex-1 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors resize-none"></textarea>
-                    <button type="button" class="self-end px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors" onclick="addNote()">
-                        Add Note
-                    </button>
-                </div>
-            </div>
-
-            <!-- Notes List -->
-            <div class="space-y-4" id="notesListContainer">
-                @if (Model.ViewModel.Notes.Any())
-                {
-                    @foreach (var note in Model.ViewModel.Notes.OrderByDescending(n => n.CreatedAt))
-                    {
-                        <div class="note-item" data-note-id="@note.Id">
-                            <div class="note-meta">
-                                <span class="font-medium text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@note.AuthorUserId" data-context-guild-id="@Model.GuildId">@note.AuthorUsername</span>
-                                <span>-</span>
-                                <span data-utc="@note.CreatedAt.ToString("o")" data-format="datetime"></span>
-                                @if (note.AuthorUserId == Model.ViewModel.CurrentUserId)
-                                {
-                                    <button type="button" class="ml-auto text-error hover:text-error-hover text-xs" onclick="deleteNote('@note.Id')">Delete</button>
-                                }
-                            </div>
-                            <p class="note-content">@note.Content</p>
-                        </div>
                     }
-                }
-                else
-                {
-                    <div class="text-center py-8">
-                        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        <h3 class="text-sm font-medium text-text-primary mb-1">No notes yet</h3>
-                        <p class="text-sm text-text-tertiary">Add a note about this user above.</p>
+                </tbody>
+            </table>
+        </div>
+        <div class="p-4 border-t border-border-primary text-sm text-text-secondary">
+            @DisplayFormat.Plural(vm.Cases.Count, "moderation case")
+        </div>
+    </div>
+
+    <!-- Notes -->
+    <div data-tab-panel-for="modProfileTabs" data-tab-id="notes" id="modProfileTabs-panel-notes" role="tabpanel" aria-labelledby="modProfileTabs-tab-notes" class="p-4 sm:p-6" hidden>
+        <form id="addNoteForm" class="mb-6" novalidate>
+            <label for="newNoteText" class="form-label block mb-2">Add a note</label>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <textarea id="newNoteText"
+                          name="content"
+                          rows="2"
+                          maxlength="2000"
+                          dir="auto"
+                          placeholder="Add a note about this user..."
+                          aria-describedby="newNoteHelp"
+                          class="form-textarea flex-1"
+                          @(canAttribute ? "" : "disabled")></textarea>
+                <button type="submit" id="addNoteBtn" class="btn btn-primary sm:self-end" data-loading-text="Adding…" @(canAttribute ? "" : "disabled")>
+                    Add note
+                </button>
+            </div>
+            <p id="newNoteHelp" class="form-help mt-1">Only moderators see notes. They are attributed to you.</p>
+            <p id="newNoteError" class="form-error mt-1 hidden" role="alert"></p>
+        </form>
+
+        <ul class="space-y-4" id="notesListContainer">
+            @foreach (var note in vm.Notes.OrderByDescending(n => n.CreatedAt))
+            {
+                <li class="note-item" data-note-id="@note.Id">
+                    <div class="note-meta">
+                        <span class="font-medium text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@note.AuthorUserId" data-context-guild-id="@Model.GuildId">@note.AuthorUsername</span>
+                        <span aria-hidden="true">-</span>
+                        <span>@DisplayFormat.Time(note.CreatedAt, "datetime-short")</span>
+                        @if (note.AuthorUserId == vm.CurrentUserId)
+                        {
+                            <button type="button" class="btn btn-ghost btn-sm ml-auto text-error" data-delete-note="@note.Id" aria-label="Delete this note">Delete</button>
+                        }
                     </div>
-                }
-            </div>
+                    <p class="note-content whitespace-pre-wrap break-words" dir="auto">@note.Content</p>
+                </li>
+            }
+        </ul>
+        <div id="notesEmpty" class="@(vm.Notes.Any() ? "hidden" : "")">
+            <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                Type = EmptyStateType.NoData,
+                Title = noNotesTitle,
+                Description = noNotesText,
+                Size = EmptyStateSize.Compact
+            }" />
         </div>
+    </div>
 
-        <!-- Flags Tab -->
-        <div id="tab-flags" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-btn-flags">
-            <div class="overflow-x-auto">
-                <table class="w-full" role="table" aria-label="Flagged events">
-                    <thead class="bg-bg-tertiary">
-                        <tr>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Severity</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Rule</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Channel</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border-primary">
-                        @if (Model.ViewModel.FlaggedEvents.Any())
+    <!-- Flags -->
+    <div data-tab-panel-for="modProfileTabs" data-tab-id="flags" id="modProfileTabs-panel-flags" role="tabpanel" aria-labelledby="modProfileTabs-tab-flags" hidden>
+        <div class="overflow-x-auto">
+            <table class="w-full" aria-label="Flagged events">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Severity</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Rule</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Channel</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Date</th>
+                        <th scope="col" class="px-4 sm:px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (vm.FlaggedEvents.Any())
+                    {
+                        @foreach (var flag in vm.FlaggedEvents.OrderByDescending(f => f.CreatedAt))
                         {
-                            @foreach (var flag in Model.ViewModel.FlaggedEvents.OrderByDescending(f => f.CreatedAt))
-                            {
-                                var severityClass = flag.Severity switch
-                                {
-                                    Severity.Low => "severity-low",
-                                    Severity.Medium => "severity-medium",
-                                    Severity.High => "severity-high",
-                                    Severity.Critical => "severity-critical",
-                                    _ => "severity-low"
-                                };
-                                var statusClass = flag.Status switch
-                                {
-                                    FlaggedEventStatus.Pending => "status-pending",
-                                    FlaggedEventStatus.Dismissed => "status-dismissed",
-                                    FlaggedEventStatus.Actioned => "status-actioned",
-                                    _ => "status-pending"
-                                };
-                                var ruleClass = flag.RuleType switch
-                                {
-                                    RuleType.Spam => "rule-spam",
-                                    RuleType.Content => "rule-content",
-                                    RuleType.Raid => "rule-raid",
-                                    _ => "rule-spam"
-                                };
-                                <tr class="hover:bg-bg-hover/50 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <span class="severity-badge @severityClass">@flag.Severity.ToString()</span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-2">
-                                            <span class="rule-icon @ruleClass">
-                                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    @if (flag.RuleType == RuleType.Spam)
-                                                    {
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                    }
-                                                    else if (flag.RuleType == RuleType.Content)
-                                                    {
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                    }
-                                                </svg>
-                                            </span>
-                                            <span class="text-sm text-text-secondary">@flag.RuleType.ToString()</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 text-sm text-text-secondary">@(flag.ChannelName ?? "N/A")</td>
-                                    <td class="px-6 py-4">
-                                        <span class="status-badge @statusClass">@flag.Status.ToString()</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-sm text-text-tertiary" data-utc="@flag.CreatedAt.ToString("o")" data-format="relative"></td>
-                                </tr>
-                            }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="5" class="px-6 py-12">
-                                    <div class="text-center">
-                                        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                                        </svg>
-                                        <h3 class="text-sm font-medium text-text-primary mb-1">No flagged events found</h3>
-                                        <p class="text-sm text-text-tertiary">This user has no flagged events.</p>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    <partial name="Shared/Components/_SeverityBadge" model="flag.Severity" />
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-2">
+                                        <partial name="Shared/Components/_RuleTypeIcon" model="flag.RuleType" />
+                                        <span class="text-sm text-text-secondary">@flag.RuleType.ToString()</span>
                                     </div>
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 text-sm text-text-secondary break-all">@(flag.ChannelId > 0 ? $"#{flag.ChannelName}" : "Not channel-specific")</td>
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    <partial name="Shared/Components/_StatusBadge" model="flag.Status" />
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 text-sm text-text-secondary whitespace-nowrap">@DisplayFormat.Time(flag.CreatedAt, "datetime-short")</td>
+                                <td class="px-4 sm:px-6 py-4 text-right whitespace-nowrap">
+                                    <a asp-page="/Guilds/FlaggedEvents/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@flag.Id" class="btn btn-ghost btn-sm text-accent-blue" aria-label="View @flag.RuleType flagged event">View</a>
                                 </td>
                             </tr>
                         }
-                    </tbody>
-                </table>
-            </div>
-            <div class="p-4 border-t border-border-primary text-sm text-text-tertiary">
-                Showing @Model.ViewModel.FlaggedEvents.Count flagged event@(Model.ViewModel.FlaggedEvents.Count == 1 ? "" : "s")
-            </div>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="px-6 py-8">
+                                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                                    Type = EmptyStateType.NoData,
+                                    Title = noFlagsTitle,
+                                    Description = noFlagsText,
+                                    Size = EmptyStateSize.Compact
+                                }" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="p-4 border-t border-border-primary text-sm text-text-secondary">
+            @DisplayFormat.Plural(vm.FlaggedEvents.Count, "flagged event")
         </div>
     </div>
+</div>
 
 @section Scripts {
-    <script src="~/js/user-moderation-profile.js"></script>
+    <script src="~/js/user-moderation-profile.js" asp-append-version="true"></script>
     <script>
-        // Initialize page with guild/user IDs as strings to preserve precision
+        // IDs are strings so Discord snowflakes keep every digit
         window.moderationGuildId = '@Model.GuildId';
         window.moderationUserId = '@Model.UserId';
-        window.currentUserId = '@Model.ViewModel.CurrentUserId';
+        window.currentUserId = '@vm.CurrentUserId';
     </script>
 }
 
 @functions {
-    private string FormatDuration(TimeSpan duration)
-    {
-        if (duration.TotalDays >= 1)
-        {
-            var days = (int)duration.TotalDays;
-            return days == 1 ? "1 day" : $"{days} days";
-        }
-        if (duration.TotalHours >= 1)
-        {
-            var hours = (int)duration.TotalHours;
-            return hours == 1 ? "1 hour" : $"{hours} hours";
-        }
-        if (duration.TotalMinutes >= 1)
-        {
-            var minutes = (int)duration.TotalMinutes;
-            return minutes == 1 ? "1 minute" : $"{minutes} minutes";
-        }
-        var seconds = (int)duration.TotalSeconds;
-        return seconds == 1 ? "1 second" : $"{seconds} seconds";
-    }
+    private const string attributionNotice = "Your account is not linked to a Discord account, so notes and tags cannot be attributed to you. Link one from your profile to add them.";
+    private const string noCasesTitle = "No moderation cases";
+    private const string noCasesText = "This user has no warnings, mutes, kicks or bans on record.";
+    private const string noNotesTitle = "No notes yet";
+    private const string noNotesText = "Add a note above to leave context for other moderators.";
+    private const string noFlagsTitle = "No flagged events";
+    private const string noFlagsText = "Auto-moderation has not flagged this user.";
 }

@@ -1,493 +1,258 @@
 /**
- * Member Directory JavaScript
- * Handles filter panel, bulk selection, and member detail modal
+ * Member directory: filter panel, role picker, bulk selection and the member detail dialog.
+ *
+ * Selection comes from bulk-selection.js (one set per member, so the table and card layouts
+ * agree); the dialog is a quickActions dialog; requests go through ApiClient. Discord IDs are
+ * handled as strings throughout.
  */
-
 (function () {
     'use strict';
 
-    // Guild ID is accessed via window.memberDirectoryGuildId when needed
-    // (set by the Razor page after this script loads)
+    var selection = null;
+    var memberDialog = null;
+    var currentMemberId = null;
+    var loadToken = 0;
 
-    // DOM element references
-    let filterToggle, filterContent, filterChevron;
-    let roleMultiSelectToggle, roleMultiSelectDropdown;
-    let selectAllCheckbox, memberCheckboxes, bulkActionsToolbar, selectedCountSpan;
-    let memberDetailModal, memberDetailLoading, memberDetailError, memberDetailContent;
-    let lastFocusedElement = null;
+    function byId(id) { return document.getElementById(id); }
 
-    /**
-     * Initialize the member directory functionality
-     */
-    function init() {
-        // Cache DOM elements
-        filterToggle = document.getElementById('filterToggle');
-        filterContent = document.getElementById('filterContent');
-        filterChevron = document.getElementById('filterChevron');
-        roleMultiSelectToggle = document.getElementById('roleMultiSelectToggle');
-        roleMultiSelectDropdown = document.getElementById('roleMultiSelectDropdown');
-        selectAllCheckbox = document.getElementById('selectAll');
-        bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
-        selectedCountSpan = document.getElementById('selectedCount');
-        memberDetailModal = document.getElementById('memberDetailModal');
-        memberDetailLoading = document.getElementById('memberDetailLoading');
-        memberDetailError = document.getElementById('memberDetailError');
-        memberDetailContent = document.getElementById('memberDetailContent');
+    function guildId() { return window.memberDirectoryGuildId; }
 
-        // Set up event listeners
-        setupFilterPanel();
-        setupRoleMultiSelect();
-        setupBulkSelection();
-        setupModalKeyboardHandling();
-        setupFilterFormClearSelection();
-    }
+    /* ---------------------------------------------------------------- filter panel */
 
-    /**
-     * Set up filter panel expand/collapse
-     */
     function setupFilterPanel() {
-        if (!filterToggle || !filterContent || !filterChevron) return;
+        var toggle = byId('filterToggle');
+        var content = byId('filterContent');
+        var chevron = byId('filterChevron');
+        if (!toggle || !content) return;
 
-        filterToggle.addEventListener('click', function () {
-            const isExpanded = this.getAttribute('aria-expanded') === 'true';
-            this.setAttribute('aria-expanded', !isExpanded);
-            filterContent.classList.toggle('hidden');
-            filterChevron.classList.toggle('rotate-180');
+        toggle.addEventListener('click', function () {
+            var expanded = toggle.getAttribute('aria-expanded') === 'true';
+            toggle.setAttribute('aria-expanded', String(!expanded));
+            content.classList.toggle('hidden');
+            if (chevron) chevron.classList.toggle('rotate-180');
         });
     }
 
-    /**
-     * Set up role multi-select dropdown
-     */
     function setupRoleMultiSelect() {
-        if (!roleMultiSelectToggle || !roleMultiSelectDropdown) return;
+        var toggle = byId('roleMultiSelectToggle');
+        var dropdown = byId('roleMultiSelectDropdown');
+        if (!toggle || !dropdown) return;
 
-        // Toggle dropdown
-        roleMultiSelectToggle.addEventListener('click', function (e) {
+        function setOpen(open, returnFocus) {
+            toggle.setAttribute('aria-expanded', String(open));
+            dropdown.classList.toggle('hidden', !open);
+            if (!open && returnFocus) toggle.focus();
+        }
+
+        toggle.addEventListener('click', function (e) {
             e.preventDefault();
-            const isExpanded = this.getAttribute('aria-expanded') === 'true';
-            this.setAttribute('aria-expanded', !isExpanded);
-            roleMultiSelectDropdown.classList.toggle('hidden');
+            setOpen(toggle.getAttribute('aria-expanded') !== 'true');
         });
 
-        // Close dropdown when clicking outside
         document.addEventListener('click', function (e) {
-            if (!roleMultiSelectToggle.contains(e.target) && !roleMultiSelectDropdown.contains(e.target)) {
-                roleMultiSelectToggle.setAttribute('aria-expanded', 'false');
-                roleMultiSelectDropdown.classList.add('hidden');
+            if (!toggle.contains(e.target) && !dropdown.contains(e.target)) setOpen(false);
+        });
+
+        // Escape closes it from the button or from inside the list; tabbing out closes it too
+        dropdown.parentElement.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+                e.stopPropagation();
+                setOpen(false, true);
             }
         });
+        dropdown.parentElement.addEventListener('focusout', function (e) {
+            if (e.relatedTarget && !dropdown.parentElement.contains(e.relatedTarget)) setOpen(false);
+        });
 
-        // Update selected text when checkboxes change
-        const roleCheckboxes = roleMultiSelectDropdown.querySelectorAll('.role-checkbox');
-        roleCheckboxes.forEach(function (checkbox) {
-            checkbox.addEventListener('change', updateRoleSelectedText);
+        dropdown.addEventListener('change', function () {
+            var count = dropdown.querySelectorAll('.role-checkbox:checked').length;
+            byId('roleSelectedText').textContent = count === 0
+                ? 'All roles'
+                : Format.plural(count, 'role', 'roles') + ' selected';
         });
     }
 
-    /**
-     * Update the role multi-select button text
-     */
-    function updateRoleSelectedText() {
-        const roleCheckboxes = roleMultiSelectDropdown.querySelectorAll('.role-checkbox:checked');
-        const selectedText = document.getElementById('roleSelectedText');
+    /** "Joined before" must not be earlier than "Joined after"; the browser shows the message. */
+    function setupDateValidation() {
+        var after = byId('JoinedAfter');
+        var before = byId('JoinedBefore');
+        if (!after || !before) return;
 
-        if (roleCheckboxes.length === 0) {
-            selectedText.textContent = 'All roles';
-        } else if (roleCheckboxes.length === 1) {
-            selectedText.textContent = '1 role selected';
-        } else {
-            selectedText.textContent = roleCheckboxes.length + ' roles selected';
+        function check() {
+            var invalid = after.value && before.value && before.value < after.value;
+            before.setCustomValidity(invalid ? '"Joined before" must be on or after "Joined after".' : '');
         }
+        after.addEventListener('input', check);
+        before.addEventListener('input', check);
+        check();
     }
 
-    /**
-     * Set up bulk selection functionality
-     */
+    /* ---------------------------------------------------------------- bulk selection */
+
     function setupBulkSelection() {
-        // Select all checkbox
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', function () {
-                const checkboxes = document.querySelectorAll('.member-checkbox');
-                checkboxes.forEach(function (cb) {
-                    cb.checked = selectAllCheckbox.checked;
-                });
-                updateBulkSelection();
-            });
-        }
+        if (typeof BulkSelection === 'undefined') return;
+        selection = BulkSelection.init({ noun: ['member', 'members'] });
 
-        // Individual checkbox changes
-        document.querySelectorAll('.member-checkbox').forEach(function (cb) {
-            cb.addEventListener('change', updateBulkSelection);
-        });
-    }
+        var exportButton = document.querySelector('[data-export-selected]');
+        if (!exportButton) return;
 
-    /**
-     * Set up filter form to clear selection when filters are applied
-     * Selection is cleared on form submit since the page will reload with new results
-     */
-    function setupFilterFormClearSelection() {
-        const filterForm = document.getElementById('filterForm');
-        if (!filterForm) return;
-
-        filterForm.addEventListener('submit', function () {
-            // Clear selection state before form submits (page reload will reset anyway)
-            // This provides immediate visual feedback
-            deselectAll();
-        });
-
-        // Also clear selection when reset link is clicked
-        const resetLink = filterForm.querySelector('a[asp-page="Index"]') ||
-                          filterForm.querySelector('a.btn-secondary');
-        if (resetLink) {
-            resetLink.addEventListener('click', function () {
-                deselectAll();
-            });
-        }
-    }
-
-    /**
-     * Update bulk selection state and toolbar visibility
-     */
-    function updateBulkSelection() {
-        memberCheckboxes = document.querySelectorAll('.member-checkbox');
-        const checkedCheckboxes = document.querySelectorAll('.member-checkbox:checked');
-        const checkedCount = checkedCheckboxes.length;
-
-        if (bulkActionsToolbar && selectedCountSpan) {
-            if (checkedCount > 0) {
-                bulkActionsToolbar.classList.remove('hidden');
-                selectedCountSpan.textContent = checkedCount;
-            } else {
-                bulkActionsToolbar.classList.add('hidden');
-            }
-        }
-
-        // Update select-all checkbox state (indeterminate)
-        if (selectAllCheckbox && memberCheckboxes.length > 0) {
-            selectAllCheckbox.checked = checkedCount === memberCheckboxes.length;
-            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < memberCheckboxes.length;
-        }
-    }
-
-    /**
-     * Deselect all members
-     */
-    window.deselectAll = function () {
-        document.querySelectorAll('.member-checkbox').forEach(function (cb) {
-            cb.checked = false;
-        });
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-        }
-        updateBulkSelection();
-    };
-
-    /**
-     * Export selected members
-     */
-    window.exportSelected = function () {
-        const selectedCheckboxes = document.querySelectorAll('.member-checkbox:checked');
-        const selectedIds = Array.from(selectedCheckboxes).map(function (cb) {
-            return cb.value;
-        });
-
-        if (selectedIds.length === 0) {
-            if (typeof ToastManager !== 'undefined') {
-                ToastManager.show('warning', 'No members selected');
-            }
-            return;
-        }
-
-        // Build export URL with selected IDs using repeated query parameters
-        // ASP.NET Core model binding expects: userIds=id1&userIds=id2&userIds=id3
-        const params = new URLSearchParams();
-        selectedIds.forEach(function (id) {
-            params.append('userIds', id);
-        });
-        const exportUrl = '/api/guilds/' + window.memberDirectoryGuildId + '/members/export?' + params.toString();
-
-        // Trigger download
-        window.location.href = exportUrl;
-
-        if (typeof ToastManager !== 'undefined') {
-            ToastManager.show('info', 'Exporting ' + selectedIds.length + ' member(s)...');
-        }
-    };
-
-    /**
-     * View member details in modal
-     * @param {string} userId - The user ID to view
-     */
-    window.viewMemberDetails = async function (userId) {
-        if (!memberDetailModal) return;
-
-        // Store the button that triggered the modal for focus return
-        lastFocusedElement = document.activeElement;
-
-        // Show modal with loading state
-        memberDetailModal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-
-        memberDetailLoading.classList.remove('hidden');
-        memberDetailError.classList.add('hidden');
-        memberDetailContent.classList.add('hidden');
-
-        try {
-            const response = await fetch('/api/guilds/' + window.memberDirectoryGuildId + '/members/' + userId);
-
-            if (!response.ok) {
-                throw new Error('Member not found');
-            }
-
-            const member = await response.json();
-            populateMemberModal(member);
-
-            memberDetailLoading.classList.add('hidden');
-            memberDetailContent.classList.remove('hidden');
-
-        } catch (error) {
-            console.error('Failed to load member details:', error);
-            memberDetailLoading.classList.add('hidden');
-            memberDetailError.classList.remove('hidden');
-        }
-
-        // Focus first focusable element in modal
-        const closeButton = memberDetailModal.querySelector('button[aria-label="Close modal"]');
-        if (closeButton) {
-            closeButton.focus();
-        }
-    };
-
-    /**
-     * Populate the member detail modal with data
-     * @param {Object} member - The member data
-     */
-    function populateMemberModal(member) {
-        // Avatar
-        const avatarImg = document.getElementById('modalAvatar');
-        const avatarPlaceholder = document.getElementById('modalAvatarPlaceholder');
-        const avatarInitials = document.getElementById('modalAvatarInitials');
-
-        if (member.avatarHash) {
-            const ext = member.avatarHash.startsWith('a_') ? 'gif' : 'png';
-            avatarImg.src = 'https://cdn.discordapp.com/avatars/' + member.userId + '/' + member.avatarHash + '.' + ext + '?size=160';
-            avatarImg.alt = member.displayName;
-            avatarImg.classList.remove('hidden');
-            avatarPlaceholder.classList.add('hidden');
-        } else {
-            avatarImg.classList.add('hidden');
-            avatarPlaceholder.classList.remove('hidden');
-            avatarInitials.textContent = member.displayName.substring(0, 2).toUpperCase();
-        }
-
-        // Basic info
-        document.getElementById('modalDisplayName').textContent = member.displayName;
-        document.getElementById('modalUsername').textContent = '@' + member.username;
-        document.getElementById('modalUserId').textContent = member.userId;
-        document.getElementById('modalNickname').textContent = member.nickname || 'None';
-
-        // Dates
-        const joinDate = new Date(member.joinedAt);
-        document.getElementById('modalJoinDate').textContent = formatDate(joinDate);
-        document.getElementById('modalJoinAge').textContent = formatRelativeTime(joinDate);
-
-        if (member.accountCreatedAt) {
-            const accountDate = new Date(member.accountCreatedAt);
-            document.getElementById('modalAccountCreated').textContent = formatDate(accountDate);
-            document.getElementById('modalAccountAge').textContent = formatRelativeTime(accountDate);
-        } else {
-            document.getElementById('modalAccountCreated').textContent = 'Unknown';
-            document.getElementById('modalAccountAge').textContent = '';
-        }
-
-        if (member.lastActiveAt) {
-            const lastActiveDate = new Date(member.lastActiveAt);
-            document.getElementById('modalLastActive').textContent = formatRelativeTime(lastActiveDate);
-            document.getElementById('modalLastActiveExact').textContent = formatDateTime(lastActiveDate);
-        } else {
-            document.getElementById('modalLastActive').textContent = 'Never';
-            document.getElementById('modalLastActiveExact').textContent = '';
-        }
-
-        // Roles
-        const roleList = document.getElementById('modalRoleList');
-        const noRoles = document.getElementById('modalNoRoles');
-        const roleCount = document.getElementById('modalRoleCount');
-        const roleCountStat = document.getElementById('modalRoleCountStat');
-
-        roleList.innerHTML = '';
-
-        if (member.roles && member.roles.length > 0) {
-            noRoles.classList.add('hidden');
-            roleCount.textContent = '(' + member.roles.length + ')';
-            roleCountStat.textContent = member.roles.length;
-
-            // Sort roles by position (highest first)
-            const sortedRoles = [...member.roles].sort((a, b) => b.position - a.position);
-
-            sortedRoles.forEach(function (role) {
-                const colorHex = role.color > 0 ? '#' + role.color.toString(16).padStart(6, '0') : '#99aab5';
-                const roleSpan = document.createElement('span');
-                roleSpan.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium text-white';
-                roleSpan.style.backgroundColor = colorHex;
-                roleSpan.innerHTML = '<span class="w-2 h-2 rounded-full bg-white/30"></span>' + escapeHtml(role.name);
-                roleList.appendChild(roleSpan);
-            });
-        } else {
-            noRoles.classList.remove('hidden');
-            roleCount.textContent = '(0)';
-            roleCountStat.textContent = '0';
-        }
-
-        // Status
-        const memberStatus = document.getElementById('modalMemberStatus');
-        if (member.isActive) {
-            memberStatus.textContent = 'Active';
-            memberStatus.className = 'text-2xl font-bold text-success';
-        } else {
-            memberStatus.textContent = 'Inactive';
-            memberStatus.className = 'text-2xl font-bold text-error';
-        }
-
-        // Update moderation profile link
-        const moderationLink = document.getElementById('modalModerationLink');
-        if (moderationLink) {
-            moderationLink.href = '/Guilds/' + window.memberDirectoryGuildId + '/Members/' + member.userId + '/Moderation';
-        }
-    }
-
-    /**
-     * Close the member detail modal
-     */
-    window.closeMemberModal = function () {
-        if (!memberDetailModal) return;
-
-        memberDetailModal.classList.add('hidden');
-        document.body.style.overflow = '';
-
-        // Return focus to the trigger element
-        if (lastFocusedElement) {
-            lastFocusedElement.focus();
-            lastFocusedElement = null;
-        }
-    };
-
-    /**
-     * Copy user ID to clipboard
-     */
-    window.copyUserId = function () {
-        const userId = document.getElementById('modalUserId').textContent;
-        navigator.clipboard.writeText(userId).then(function () {
-            if (typeof ToastManager !== 'undefined') {
-                ToastManager.show('success', 'User ID copied to clipboard');
-            }
-        }).catch(function () {
-            if (typeof ToastManager !== 'undefined') {
-                ToastManager.show('error', 'Failed to copy user ID');
-            }
-        });
-    };
-
-    /**
-     * Set up keyboard handling for modal
-     */
-    function setupModalKeyboardHandling() {
-        document.addEventListener('keydown', function (e) {
-            if (!memberDetailModal || memberDetailModal.classList.contains('hidden')) return;
-
-            // Close on Escape
-            if (e.key === 'Escape') {
-                closeMemberModal();
+        exportButton.addEventListener('click', function () {
+            var ids = selection.ids();
+            if (ids.length === 0) {
+                toast.warning('Select at least one member to export.');
                 return;
             }
 
-            // Focus trap
-            if (e.key === 'Tab') {
-                const focusableElements = memberDetailModal.querySelectorAll(
-                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-                );
-                const firstElement = focusableElements[0];
-                const lastElement = focusableElements[focusableElements.length - 1];
+            var params = new URLSearchParams();
+            ids.forEach(function (id) { params.append('UserIds', id); });
+            var url = exportButton.dataset.exportUrl + (exportButton.dataset.exportUrl.indexOf('?') >= 0 ? '&' : '?') + params.toString();
 
-                if (e.shiftKey && document.activeElement === firstElement) {
-                    e.preventDefault();
-                    lastElement.focus();
-                } else if (!e.shiftKey && document.activeElement === lastElement) {
-                    e.preventDefault();
-                    firstElement.focus();
-                }
+            // A file download does not navigate, so give the button a short pending state by hand
+            LoadingManager.setButtonLoading(exportButton, true, 'Exporting…');
+            window.location.assign(url);
+            toast.info('Exporting ' + Format.plural(ids.length, 'member', 'members') + '. The download starts in a moment.');
+            setTimeout(function () { LoadingManager.setButtonLoading(exportButton, false); }, 3000);
+        });
+    }
+
+    /* ---------------------------------------------------------------- member dialog */
+
+    function showPanel(which) {
+        byId('memberDetailLoading').classList.toggle('hidden', which !== 'loading');
+        byId('memberDetailError').classList.toggle('hidden', which !== 'error');
+        byId('memberDetailContent').classList.toggle('hidden', which !== 'content');
+    }
+
+    function openMember(userId, trigger) {
+        var modal = byId('memberDetailModal');
+        if (!modal) return;
+
+        memberDialog = modal;
+        if (trigger && trigger.focus) trigger.focus();
+        quickActions.openDialog(modal, { initialFocus: '[data-modal-dismiss][aria-label]' });
+        loadMember(userId);
+    }
+
+    async function loadMember(userId) {
+        currentMemberId = String(userId);
+        var token = ++loadToken;
+        showPanel('loading');
+
+        try {
+            var member = await ApiClient.get('/api/guilds/' + encodeURIComponent(guildId()) + '/members/' + encodeURIComponent(userId));
+            if (token !== loadToken) return;
+            populateMemberModal(member);
+            showPanel('content');
+        } catch (err) {
+            if (token !== loadToken) return;
+            var text = err && err.status === 404
+                ? 'This member may have left the server.'
+                : (err && err.message) || 'Something went wrong. Try again.';
+            byId('memberDetailErrorText').textContent = text;
+            showPanel('error');
+        }
+    }
+
+    function populateMemberModal(member) {
+        var avatar = byId('modalAvatar');
+        var placeholder = byId('modalAvatarPlaceholder');
+
+        if (member.avatarHash) {
+            var ext = member.avatarHash.indexOf('a_') === 0 ? 'gif' : 'png';
+            avatar.src = 'https://cdn.discordapp.com/avatars/' + member.userId + '/' + member.avatarHash + '.' + ext + '?size=160';
+            avatar.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        } else {
+            avatar.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            byId('modalAvatarInitials').textContent = (member.displayName || '?').substring(0, 2).toUpperCase();
+        }
+
+        byId('modalDisplayName').textContent = member.displayName;
+        byId('modalUsername').textContent = '@' + member.username;
+        byId('modalUserId').textContent = String(member.userId);
+        byId('modalNickname').textContent = member.nickname || 'None';
+
+        byId('modalJoinDate').textContent = Format.formatDate(member.joinedAt, 'date');
+        byId('modalJoinAge').textContent = Format.relativeTime(member.joinedAt);
+
+        if (member.accountCreatedAt) {
+            byId('modalAccountCreated').textContent = Format.formatDate(member.accountCreatedAt, 'date');
+            byId('modalAccountAge').textContent = Format.relativeTime(member.accountCreatedAt);
+        } else {
+            byId('modalAccountCreated').textContent = 'Unknown';
+            byId('modalAccountAge').textContent = '';
+        }
+
+        if (member.lastActiveAt) {
+            byId('modalLastActive').textContent = Format.relativeTime(member.lastActiveAt);
+            byId('modalLastActiveExact').textContent = Format.formatDate(member.lastActiveAt, 'datetime');
+        } else {
+            byId('modalLastActive').textContent = 'Never';
+            byId('modalLastActiveExact').textContent = '';
+        }
+
+        var roleList = byId('modalRoleList');
+        roleList.replaceChildren();
+        var roles = (member.roles || []).slice().sort(function (a, b) { return b.position - a.position; });
+        byId('modalNoRoles').classList.toggle('hidden', roles.length > 0);
+        byId('modalRoleCount').textContent = '(' + roles.length + ')';
+        byId('modalRoleCountStat').textContent = String(roles.length);
+
+        roles.forEach(function (role) {
+            var chip = document.createElement('span');
+            chip.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium text-white break-all';
+            // The colour is the role's own Discord colour, so it is data rather than a token
+            chip.style.backgroundColor = role.color > 0 ? '#' + role.color.toString(16).padStart(6, '0') : '#99aab5';
+            chip.textContent = role.name;
+            roleList.appendChild(chip);
+        });
+
+        var status = byId('modalMemberStatus');
+        status.textContent = member.isActive ? 'Active' : 'Inactive';
+        status.className = 'text-2xl font-bold ' + (member.isActive ? 'text-success' : 'text-text-secondary');
+
+        var link = byId('modalModerationLink');
+        if (link) {
+            link.href = '/Guilds/' + encodeURIComponent(guildId()) + '/Members/' + encodeURIComponent(member.userId) + '/Moderation';
+        }
+    }
+
+    async function copyUserId() {
+        var id = byId('modalUserId').textContent;
+        try {
+            await navigator.clipboard.writeText(id);
+            toast.success('User ID copied.');
+        } catch (e) {
+            toast.error('Could not copy the user ID. Select it and copy it by hand.');
+        }
+    }
+
+    function setupMemberDialog() {
+        document.addEventListener('click', function (e) {
+            var view = e.target.closest && e.target.closest('[data-member-view]');
+            if (view) {
+                openMember(view.dataset.memberView, view);
+                return;
+            }
+            if (e.target.closest && e.target.closest('[data-member-retry]') && currentMemberId) {
+                loadMember(currentMemberId);
+                return;
+            }
+            if (e.target.closest && e.target.closest('[data-copy-user-id]')) {
+                copyUserId();
             }
         });
     }
 
-    /**
-     * Format a date for display
-     * @param {Date} date - The date to format
-     * @returns {string} Formatted date string
-     */
-    function formatDate(date) {
-        return date.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+    function init() {
+        setupFilterPanel();
+        setupRoleMultiSelect();
+        setupDateValidation();
+        setupBulkSelection();
+        setupMemberDialog();
     }
 
-    /**
-     * Format a date and time for display
-     * @param {Date} date - The date to format
-     * @returns {string} Formatted date/time string
-     */
-    function formatDateTime(date) {
-        return date.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    /**
-     * Format relative time (e.g., "2 hours ago")
-     * @param {Date} date - The date to format
-     * @returns {string} Relative time string
-     */
-    function formatRelativeTime(date) {
-        const now = new Date();
-        const diffMs = now - date;
-        const diffSecs = Math.floor(diffMs / 1000);
-        const diffMins = Math.floor(diffSecs / 60);
-        const diffHours = Math.floor(diffMins / 60);
-        const diffDays = Math.floor(diffHours / 24);
-        const diffWeeks = Math.floor(diffDays / 7);
-        const diffMonths = Math.floor(diffDays / 30);
-        const diffYears = Math.floor(diffDays / 365);
-
-        if (diffSecs < 60) return 'Just now';
-        if (diffMins < 60) return diffMins + ' minute' + (diffMins === 1 ? '' : 's') + ' ago';
-        if (diffHours < 24) return diffHours + ' hour' + (diffHours === 1 ? '' : 's') + ' ago';
-        if (diffDays === 1) return 'Yesterday';
-        if (diffDays < 7) return diffDays + ' day' + (diffDays === 1 ? '' : 's') + ' ago';
-        if (diffWeeks < 4) return diffWeeks + ' week' + (diffWeeks === 1 ? '' : 's') + ' ago';
-        if (diffMonths < 12) return diffMonths + ' month' + (diffMonths === 1 ? '' : 's') + ' ago';
-        return diffYears + ' year' + (diffYears === 1 ? '' : 's') + ' ago';
-    }
-
-    /**
-     * Escape HTML special characters
-     * @param {string} text - The text to escape
-     * @returns {string} Escaped text
-     */
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

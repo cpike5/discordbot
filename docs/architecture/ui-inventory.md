@@ -65,10 +65,10 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/guild/{guildId}` | `Pages/Guilds/Index.cshtml` | Guild overview/dashboard |
 | `/guild/{guildId}/welcome` | `Pages/Guilds/Welcome.cshtml` | Guild welcome page |
 | `/guild/{guildId}/edit` | `Pages/Guilds/Edit.cshtml` | Guild settings editor |
-| `/guild/{guildId}/members` | `Pages/Guilds/Members/Index.cshtml` | Member directory |
-| `/guild/{guildId}/members/moderation/{memberId}` | `Pages/Guilds/Members/Moderation.cshtml` | Member moderation actions |
-| `/guild/{guildId}/members/{memberId}` | `Pages/Guilds/Members/_MemberDetailModal.cshtml` | Member detail popup |
-| `/guild/{guildId}/moderation-settings` | `Pages/Guilds/ModerationSettings/Index.cshtml` | Moderation rules configuration |
+| `/guild/{guildId}/members` | `Pages/Guilds/Members/Index.cshtml` | Member directory: filters, `bulk-selection.js` selection, `?handler=Export` CSV (current filters, or `UserIds` for a selection), card layout under `md` |
+| `/guild/{guildId}/members/{memberId}/moderation` | `Pages/Guilds/Members/Moderation.cshtml` | Moderation profile: cases, notes, flags on `_TabPanel` (hash), tag chips with real remove buttons, `ApiClient` notes and tags without reloads |
+| `/guild/{guildId}/members/{memberId}` | `Pages/Guilds/Members/_MemberDetailModal.cshtml` | Member detail dialog (`quickActions.openDialog`, filled from the members API) |
+| `/guild/{guildId}/moderation-settings` | `Pages/Guilds/ModerationSettings/Index.cshtml` | Moderation rules: `_TabPanel` (hash), one `data-unsaved-changes` form per tab, changed-fields-only saves, confirmed presets, template import dialog |
 | `/guild/{guildId}/reminders` | `Pages/Guilds/Reminders/Index.cshtml` | Scheduled reminders manager |
 | `/guild/{guildId}/scheduled-messages` | `Pages/Guilds/ScheduledMessages/Index.cshtml` | Scheduled messages list |
 | `/guild/{guildId}/scheduled-messages/create` | `Pages/Guilds/ScheduledMessages/Create.cshtml` | Create scheduled message |
@@ -76,8 +76,8 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/guild/{guildId}/analytics` | `Pages/Guilds/Analytics/Index.cshtml` | Analytics overview |
 | `/guild/{guildId}/analytics/engagement` | `Pages/Guilds/Analytics/Engagement.cshtml` | Engagement metrics |
 | `/guild/{guildId}/analytics/moderation` | `Pages/Guilds/Analytics/Moderation.cshtml` | Moderation analytics |
-| `/guild/{guildId}/flagged-events` | `Pages/Guilds/FlaggedEvents/Index.cshtml` | Flagged events/alerts |
-| `/guild/{guildId}/flagged-events/{id}` | `Pages/Guilds/FlaggedEvents/Details.cshtml` | Flagged event details |
+| `/guild/{guildId}/flagged-events` | `Pages/Guilds/FlaggedEvents/Index.cshtml` | Flagged events: filters (no forced date window), `_Pagination` (`pageNumber`), bulk and row review as confirmed form posts with TempData toasts, cards under `md` |
+| `/guild/{guildId}/flagged-events/{id}` | `Pages/Guilds/FlaggedEvents/Details.cshtml` | Flagged event details: acknowledge, dismiss and record outcome (also for acknowledged events), user-history links |
 | `/guild/{guildId}/ratwatch` | `Pages/Guilds/RatWatch/Index.cshtml` | RatWatch monitoring |
 | `/guild/{guildId}/assistant-settings` | `Pages/Guilds/AssistantSettings.cshtml` | AI assistant configuration: enable toggle, channel allow-list, per-guild tool checklist (grouped by `ToolCatalog` category; an empty selection means the house default set and the page says so), and rate-limit override |
 | `/guild/{guildId}/assistant-metrics` | `Pages/Guilds/AssistantMetrics.cshtml` | Assistant usage metrics (daily `AssistantUsageMetrics` aggregates) plus a **Cost by User** table sourced from the `LlmUsageRecord` ledger via `ILlmUsageRepository` (injected directly into `AssistantMetricsModel`, top 20 spenders over the same 30-day window, filtered by guild) and a **Tool Usage** table counted from `AssistantInteractionLog.ToolNames` via `IAssistantInteractionLogRepository.GetToolUsageAsync`, paired with `ToolCatalog` so tools that were never called still get a row, and a **Prompt Surface** panel from `IPromptSurfaceReporter` showing what the guild's advertised tool array costs per request (per-tool schema size and share of the prefix, with the tools the guild has turned off and the ones held back by a skill marked as not sent). The page lists no recent-interaction rows, so there is no `Model` column to add here. |

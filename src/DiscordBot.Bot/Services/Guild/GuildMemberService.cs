@@ -94,6 +94,7 @@ public class GuildMemberService : IGuildMemberService
             query.Page,
             query.PageSize,
             query.UserIds,
+            query.NeverActive,
             cancellationToken);
 
         // Get Discord guild for role information
@@ -182,6 +183,7 @@ public class GuildMemberService : IGuildMemberService
             !query.JoinedAtEnd.HasValue &&
             !query.LastActiveAtStart.HasValue &&
             !query.LastActiveAtEnd.HasValue &&
+            !query.NeverActive &&
             (query.UserIds == null || !query.UserIds.Any()))
         {
             var activeOnly = query.IsActive ?? true;
@@ -204,6 +206,7 @@ public class GuildMemberService : IGuildMemberService
             page: 1,
             pageSize: 1, // Just get one item to get the total count
             query.UserIds,
+            query.NeverActive,
             cancellationToken);
 
         _logger.LogDebug("Member count for guild {GuildId}: {Count}", guildId, totalCount);
@@ -244,6 +247,7 @@ public class GuildMemberService : IGuildMemberService
             query.Page,
             query.PageSize,
             query.UserIds,
+            query.NeverActive,
             cancellationToken);
 
         if (members.Count == 0)
@@ -259,7 +263,7 @@ public class GuildMemberService : IGuildMemberService
         var csv = new StringBuilder();
 
         // CSV Header
-        csv.AppendLine("UserId,Username,Discriminator,GlobalDisplayName,Nickname,DisplayName,JoinedAt,LastActiveAt,AccountCreatedAt,RoleIds,RoleNames,IsActive");
+        csv.AppendLine("UserId,Username,Discriminator,GlobalDisplayName,Nickname,DisplayName,JoinedAt (UTC),LastActiveAt (UTC),AccountCreatedAt (UTC),RoleIds,RoleNames,IsActive");
 
         // CSV Rows
         foreach (var member in members)
@@ -360,7 +364,7 @@ public class GuildMemberService : IGuildMemberService
         // Create a deterministic string representation of the query
         var queryString = $"{guildId}|{query.SearchTerm}|{string.Join(",", query.RoleIds ?? new List<ulong>())}|" +
             $"{query.JoinedAtStart:O}|{query.JoinedAtEnd:O}|{query.LastActiveAtStart:O}|{query.LastActiveAtEnd:O}|" +
-            $"{query.IsActive}|{query.SortBy}|{query.SortDescending}|{query.Page}|{query.PageSize}";
+            $"{query.IsActive}|{query.NeverActive}|{query.SortBy}|{query.SortDescending}|{query.Page}|{query.PageSize}";
 
         // Hash the query string to create a shorter cache key
         using var sha256 = SHA256.Create();
