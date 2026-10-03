@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -165,7 +166,7 @@ public class RatWatchAnalyticsModel : PageModel
             ViewModel = new RatWatchAnalyticsViewModel
             {
                 GuildId = GuildId ?? 0,
-                GuildName = guildName ?? "All Guilds",
+                GuildName = guildName ?? "All servers",
                 GuildIconUrl = null,
                 Summary = summary,
                 TimeSeries = timeSeries.ToList(),
@@ -267,7 +268,7 @@ public class RatWatchAnalyticsModel : PageModel
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found when resolving username for user {UserId}", guildId, userId);
-                return "Unknown User";
+                return UserDisplay.UnknownName;
             }
 
             var user = guild.GetUser(userId);
@@ -288,12 +289,12 @@ public class RatWatchAnalyticsModel : PageModel
             }
 
             _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to get username for user {UserId} in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
     }
 }

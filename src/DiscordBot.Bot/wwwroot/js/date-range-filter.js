@@ -241,7 +241,6 @@
             }
         }
 
-        console.log('Applying filters:', filters);
 
         // Detect if the date range matches a preset and update button styling
         const formToFilterMap = {
@@ -372,7 +371,6 @@
 
         // Check if both date inputs are empty
         if (!startDateInput.value && !endDateInput.value) {
-            console.log('No date filters set, applying default 7-day filter');
 
             applyPreset(startDateInput, endDateInput, '7days');
 

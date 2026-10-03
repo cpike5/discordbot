@@ -666,11 +666,11 @@ const VoiceChannelPanel = (function() {
             html += '<li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-lg group" data-queue-position="' + position + '">' +
                 '<span class="w-5 h-5 flex items-center justify-center text-xs text-text-tertiary font-medium">' + position + '</span>' +
                 '<div class="flex-1 min-w-0">' +
-                '<p class="text-sm text-text-primary truncate">' + escapeHtml(item.name) + '</p>' +
+                '<p class="text-sm text-text-primary truncate">' + SafeHtml.escape(item.name) + '</p>' +
                 '<p class="text-xs text-text-tertiary">' + formatDuration(item.durationSeconds || 0) + '</p>' +
                 '</div>' +
                 '<button type="button" class="skip-queue-btn p-1 text-text-tertiary hover:text-accent-blue row-actions" ' +
-                'data-position="' + position + '" title="Skip to next" aria-label="Skip ' + escapeHtml(item.name) + '">' +
+                'data-position="' + position + '" title="Skip to next" aria-label="Skip ' + SafeHtml.escape(item.name) + '">' +
                 '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>' +
                 '</button></li>';
         });
@@ -687,13 +687,6 @@ const VoiceChannelPanel = (function() {
             return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
         }
         return minutes + ':' + String(secs).padStart(2, '0');
-    }
-
-    function escapeHtml(text) {
-        if (window.SafeHtml && SafeHtml.escape) return SafeHtml.escape(text);
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     // ------------------------------------------------------------------

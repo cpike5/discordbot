@@ -12,7 +12,7 @@
             {
                 <div class="w-14 h-14 rounded-lg bg-accent-blue-muted flex items-center justify-center">
                     <span class="text-xl font-semibold text-accent-blue">
-                        @(Model.Name.FirstOrDefault().ToString().ToUpperInvariant())
+                        @TextDisplay.Initials(Model.Name, 1)
                     </span>
                 </div>
             }
@@ -22,7 +22,7 @@
                 @Model.Name
             </span>
             <span class="preview-displayname block text-xs text-text-secondary">
-                @Model.MemberCount.ToString("N0") members
+                @DisplayFormat.Plural(Model.MemberCount, "member")
                 @if (Model.OnlineMemberCount.HasValue)
                 {
                     <span class="text-text-tertiary">(@Model.OnlineMemberCount.Value.ToString("N0") online)</span>
@@ -82,7 +82,7 @@
     <!-- Footer -->
     <div class="preview-footer">
         <a href="@Model.DetailsUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center">
-            View Guild
+            View server
         </a>
         <a href="@Model.SettingsUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors text-center">
             Settings

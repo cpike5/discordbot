@@ -12,8 +12,8 @@
     var entityCards = Enum.GetValues<BulkPurgeEntityType>().Select(t => new RadioCardViewModel
     {
         Value = t.ToString(),
-        Title = PurgeDisplay.EntityLabel(t),
-        Description = PurgeDisplay.EntityDescription(t)
+        Title = t.DisplayName(),
+        Description = t.Description()
     }).ToList();
 
     var preview = Model.PreviewResult;
@@ -48,7 +48,7 @@
             <partial name="Shared/Components/_Alert" model='new AlertViewModel {
                 Variant = AlertVariant.Success,
                 Title = "Purge complete",
-                Message = $"Deleted {outcome.DeletedCount:N0} {PurgeDisplay.EntityNoun(outcome.EntityType)}.{(string.IsNullOrEmpty(outcome.CorrelationId) ? "" : $" Audit reference: {outcome.CorrelationId}")}",
+                Message = $"Deleted {DisplayFormat.Plural(outcome.DeletedCount, "record")} from {outcome.EntityType.DisplayNameLower()}.{(string.IsNullOrEmpty(outcome.CorrelationId) ? "" : $" Audit reference: {outcome.CorrelationId}")}",
                 IsDismissible = true
             }' />
         </div>
@@ -149,7 +149,7 @@
                     <dl class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div class="bg-bg-tertiary rounded-lg p-4">
                             <dt class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Record type</dt>
-                            <dd class="text-lg font-semibold text-text-primary">@PurgeDisplay.EntityLabel(preview.EntityType)</dd>
+                            <dd class="text-lg font-semibold text-text-primary">@preview.EntityType.DisplayName()</dd>
                         </div>
                         <div class="bg-bg-tertiary rounded-lg p-4">
                             <dt class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Date range</dt>
@@ -166,7 +166,15 @@
                         <div class="mb-6 p-3 bg-info-bg border border-info-border rounded-md">
                             <p class="text-sm text-info">
                                 <span class="font-semibold">Server filter:</span>
-                                <span class="font-mono">@preview.GuildId</span>
+                                @if (!string.IsNullOrEmpty(Model.GuildFilterName))
+                                {
+                                    <span>@Model.GuildFilterName</span>
+                                }
+                                else
+                                {
+                                    <span>Unknown server</span>
+                                }
+                                <span class="font-mono text-xs text-text-secondary">(ID @preview.GuildId)</span>
                             </p>
                         </div>
                     }
@@ -182,7 +190,7 @@
                             <button type="submit" class="btn btn-error"
                                     data-purge-confirm
                                     data-confirm-title="Permanently delete records"
-                                    data-confirm-message="You are about to permanently delete @preview.EstimatedCount.ToString("N0") @PurgeDisplay.EntityNoun(preview.EntityType) (date range: @preview.DateRange). This cannot be undone."
+                                    data-confirm-message="You are about to permanently delete @DisplayFormat.Plural(preview.EstimatedCount, "record") from @preview.EntityType.DisplayNameLower() (date range: @preview.DateRange). This cannot be undone."
                                     data-confirm-required="CONFIRM"
                                     data-confirm-label="Type CONFIRM to continue"
                                     data-confirm-action="Purge records"
@@ -190,7 +198,7 @@
                                 <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
-                                Purge @preview.EstimatedCount.ToString("N0") @PurgeDisplay.EntityNoun(preview.EntityType)
+                                Purge @DisplayFormat.Plural(preview.EstimatedCount, "record")
                             </button>
                             <p class="mt-2 text-xs text-text-secondary">
                                 You will be asked to type CONFIRM before anything is deleted.
@@ -203,7 +211,7 @@
                     <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
                         Type = EmptyStateType.NoResults,
                         Title = "No records match",
-                        Description = $"There are no {PurgeDisplay.EntityNoun(preview.EntityType)} for this date range and server. Try a wider range, or clear the server ID.",
+                        Description = $"There are no records in {preview.EntityType.DisplayNameLower()} for this date range and server. Try a wider range, or clear the server ID.",
                         HeadingLevel = 3
                     }' />
                 }

@@ -17,8 +17,9 @@
  *     onAfterLoad, onError })` does the same with callbacks; there is one listener, however
  *     often it is configured.
  *
- * The partial is HTML, which ApiClient deliberately refuses to return as data, so this one
- * request uses fetch(). Session expiry is still reported: ApiClient watches same-origin fetches.
+ * The partial is HTML, so it is read with ApiClient.getHtml: the 30 second timeout, the
+ * plain-language errors and the "sign in again" toast on an expired session all come with it.
+ * A newer sort aborts the request that is still in flight.
  *
  * Exposed as window.AjaxSort (browser) and module.exports (Node/tests).
  */
@@ -56,7 +57,8 @@
         initialized: false,
         options: {},
         lastDetail: null,   // the most recent sortchange detail: where to fetch, what to swap
-        sequence: 0         // a slower, older response must not overwrite a newer one
+        sequence: 0,        // a slower, older response must not overwrite a newer one
+        controller: null    // aborts the request a newer sort has made pointless
     };
 
     function safeCall(fn, a, b) {
@@ -160,18 +162,15 @@
             target.setAttribute('aria-busy', 'true');
             target.classList.add('opacity-60', 'pointer-events-none');
 
+            if (state.controller) state.controller.abort();
+            const controller = new AbortController();
+            state.controller = controller;
+
             let ok = false;
             try {
-                const response = await fetch(buildPartialUrl(detail.partialUrl, paramName, sortValue, root.location.origin), {
-                    headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
-                    credentials: 'same-origin'
-                });
-
-                if (!response.ok) {
-                    throw new Error('The list request failed with status ' + response.status);
-                }
-
-                const html = await response.text();
+                const html = await root.ApiClient.getHtml(
+                    buildPartialUrl(detail.partialUrl, paramName, sortValue, root.location.origin),
+                    { signal: controller.signal, errorMessage: FAILURE_MESSAGE });
                 if (mine !== state.sequence) return false; // a newer sort has taken over
 
                 target.innerHTML = html;
@@ -189,10 +188,11 @@
                 }));
                 safeCall(options.onAfterLoad, target, sortValue);
             } catch (error) {
-                if (mine !== state.sequence) return false;
+                if (mine !== state.sequence || (error && error.name === 'AbortError')) return false;
                 console.error('AjaxSort: Failed to load content:', error);
-                // The old list is still on screen. Say what happened and offer another try.
-                if (root.toast && typeof root.toast.error === 'function') {
+                // The old list is still on screen. Say what happened and offer another try. An
+                // expired session already has its own "sign in again" toast.
+                if (!(error && error.sessionExpired) && root.toast && typeof root.toast.error === 'function') {
                     root.toast.error(FAILURE_MESSAGE, {
                         key: 'ajax-sort-failed',
                         action: { label: 'Retry', onClick: function () { AjaxSort.load(detail, options, push); } }
@@ -204,6 +204,7 @@
                 safeCall(options.onError, error, target);
             } finally {
                 if (mine === state.sequence) {
+                    if (state.controller === controller) state.controller = null;
                     target.removeAttribute('aria-busy');
                     target.classList.remove('opacity-60', 'pointer-events-none');
                 }

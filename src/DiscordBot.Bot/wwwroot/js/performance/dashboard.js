@@ -405,7 +405,7 @@
         module: function (tabId) {
             const tabs = root.Performance && root.Performance.Tabs;
             if (!tabs) return null;
-            const name = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+            const name = tabId.charAt(0).toUpperCase() + tabId.slice(1); // tabId is an ASCII id from the page, not user text
             return tabs[name] || null;
         },
 

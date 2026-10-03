@@ -588,7 +588,6 @@
 
                     if (oldestKey) {
                         container._loadedPanels.delete(oldestKey);
-                        console.log('TabPanel: Removed oldest cache entry:', oldestKey);
                     }
                 }
 
@@ -607,7 +606,6 @@
 
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    console.log('TabPanel: Request aborted:', tabId);
                     // Note: Loading state still needs to be cleared even when aborted
                     // This is handled in the finally block below
                     return;
@@ -656,9 +654,9 @@
          */
         showErrorState: function(container, message, panelId, tabId) {
             container.removeAttribute('aria-busy');
-            const escapedMessage = this.escapeHtml(message);
-            const escapedPanelId = this.escapeHtml(panelId);
-            const escapedTabId = this.escapeHtml(tabId);
+            const escapedMessage = SafeHtml.escape(message);
+            const escapedPanelId = SafeHtml.escape(panelId);
+            const escapedTabId = SafeHtml.escape(tabId);
 
             container.innerHTML = `
                 <div class="tab-panel-error">
@@ -722,17 +720,6 @@
                 // Replace to execute
                 oldScript.parentNode.replaceChild(newScript, oldScript);
             });
-        },
-
-        /**
-         * Escape HTML to prevent XSS.
-         * @param {string} text - The text to escape
-         * @returns {string} The escaped text
-         */
-        escapeHtml: function(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         },
 
         /**

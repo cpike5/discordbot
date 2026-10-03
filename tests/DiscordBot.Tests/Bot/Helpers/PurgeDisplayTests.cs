@@ -1,5 +1,4 @@
 using DiscordBot.Bot.Helpers;
-using DiscordBot.Core.Enums;
 using FluentAssertions;
 using Xunit;
 
@@ -7,31 +6,6 @@ namespace DiscordBot.Tests.Bot.Helpers;
 
 public class PurgeDisplayTests
 {
-    [Theory]
-    [InlineData(BulkPurgeEntityType.Messages, "Message logs")]
-    [InlineData(BulkPurgeEntityType.AuditLogs, "Audit logs")]
-    [InlineData(BulkPurgeEntityType.CommandLogs, "Command logs")]
-    [InlineData(BulkPurgeEntityType.ModerationCases, "Moderation cases")]
-    public void EntityLabel_IsPlainLanguage(BulkPurgeEntityType type, string expected)
-    {
-        PurgeDisplay.EntityLabel(type).Should().Be(expected);
-    }
-
-    [Fact]
-    public void EntityNoun_IsLowerCase_ForSentences()
-    {
-        PurgeDisplay.EntityNoun(BulkPurgeEntityType.ModerationCases).Should().Be("moderation cases");
-    }
-
-    [Fact]
-    public void EveryEntityType_HasADescription()
-    {
-        foreach (var type in Enum.GetValues<BulkPurgeEntityType>())
-        {
-            PurgeDisplay.EntityDescription(type).Should().NotBeNullOrEmpty($"{type} needs a description on its card");
-        }
-    }
-
     [Theory]
     [InlineData("MessageLogs", "Message logs")]
     [InlineData("RatRecords_Anonymized", "Rat Watch records (anonymized)")]

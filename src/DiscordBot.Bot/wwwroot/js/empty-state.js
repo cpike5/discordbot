@@ -94,7 +94,7 @@
     }
 
     /**
-     * True for a relative URL or an http(s) one. Anything else with a scheme (javascript:, data:,
+     * True for a relative URL or an http or https one. Anything else with a scheme (javascript:, data:,
      * vbscript:) is refused: these URLs can come from page data, and the browser ignores tabs and
      * newlines inside a scheme, so those are stripped before looking.
      */

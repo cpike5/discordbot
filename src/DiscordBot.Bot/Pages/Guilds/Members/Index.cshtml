@@ -230,7 +230,7 @@ else
                                     else
                                     {
                                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
-                                            @(member.DisplayName.Length >= 2 ? member.DisplayName[..2].ToUpper() : member.DisplayName.ToUpper())
+                                            @TextDisplay.Initials(member.DisplayName)
                                         </div>
                                     }
                                     <div class="min-w-0">
@@ -312,7 +312,7 @@ else
                     else
                     {
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
-                            @(member.DisplayName.Length >= 2 ? member.DisplayName[..2].ToUpper() : member.DisplayName.ToUpper())
+                            @TextDisplay.Initials(member.DisplayName)
                         </div>
                     }
                     <div class="min-w-0 flex-1">

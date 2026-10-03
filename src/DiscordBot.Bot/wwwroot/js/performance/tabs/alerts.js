@@ -36,7 +36,7 @@
 
         ['warning', 'critical'].forEach(function (field) {
             const text = String(row[field] === undefined || row[field] === null ? '' : row[field]).trim();
-            const original = String(row['original' + field.charAt(0).toUpperCase() + field.slice(1)] || '').trim();
+            const original = String(row['original' + field.charAt(0).toUpperCase() + field.slice(1)] || '').trim(); // field is a fixed ASCII property name
             if (text === '') {
                 if (original !== '') {
                     result[field] = 'Enter a number. A threshold that is set cannot be cleared.';

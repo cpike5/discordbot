@@ -334,10 +334,10 @@ public class DetailsModel : GuildPageModelBase
                 // Check if this is an AJAX request
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
-                    return new JsonResult(new { success = true, message = "Guild synced successfully" });
+                    return new JsonResult(new { success = true, message = "Server synced successfully" });
                 }
 
-                TempData.SetSuccessToast("Guild synced successfully");
+                TempData.SetSuccessToast("Server synced successfully");
                 return RedirectToPage(new { guildId });
             }
             else
@@ -346,10 +346,10 @@ public class DetailsModel : GuildPageModelBase
 
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
-                    return new JsonResult(new { success = false, message = "Guild not found in Discord client" });
+                    return new JsonResult(new { success = false, message = "Server not found in Discord client" });
                 }
 
-                TempData.SetErrorToast("Guild not found in Discord client");
+                TempData.SetErrorToast("Server not found in Discord client");
                 return RedirectToPage(new { guildId });
             }
         }
@@ -359,10 +359,10 @@ public class DetailsModel : GuildPageModelBase
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
-                return new JsonResult(new { success = false, message = "An error occurred while syncing the guild" });
+                return new JsonResult(new { success = false, message = "An error occurred while syncing the server" });
             }
 
-            TempData.SetErrorToast("An error occurred while syncing the guild");
+            TempData.SetErrorToast("An error occurred while syncing the server");
             return RedirectToPage(new { guildId });
         }
     }

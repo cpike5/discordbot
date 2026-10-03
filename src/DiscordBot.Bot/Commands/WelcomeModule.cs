@@ -135,7 +135,7 @@ public class WelcomeModule : InteractionModuleBase<SocketInteractionContext>
 
                 var errorEmbed = new EmbedBuilder()
                     .WithTitle("Error")
-                    .WithDescription("Failed to enable welcome messages. Guild not found.")
+                    .WithDescription("Failed to enable welcome messages. Server not found.")
                     .WithColor(Color.Red)
                     .WithCurrentTimestamp()
                     .WithFooter("Admin Command")
@@ -209,7 +209,7 @@ public class WelcomeModule : InteractionModuleBase<SocketInteractionContext>
 
                 var errorEmbed = new EmbedBuilder()
                     .WithTitle("Error")
-                    .WithDescription("Failed to disable welcome messages. Guild not found.")
+                    .WithDescription("Failed to disable welcome messages. Server not found.")
                     .WithColor(Color.Red)
                     .WithCurrentTimestamp()
                     .WithFooter("Admin Command")
@@ -287,7 +287,7 @@ public class WelcomeModule : InteractionModuleBase<SocketInteractionContext>
 
                 var errorEmbed = new EmbedBuilder()
                     .WithTitle("Error")
-                    .WithDescription("Failed to set welcome channel. Guild not found.")
+                    .WithDescription("Failed to set welcome channel. Server not found.")
                     .WithColor(Color.Red)
                     .WithCurrentTimestamp()
                     .WithFooter("Admin Command")
@@ -367,7 +367,7 @@ public class WelcomeModule : InteractionModuleBase<SocketInteractionContext>
 
                 var errorEmbed = new EmbedBuilder()
                     .WithTitle("Error")
-                    .WithDescription("Failed to set welcome message. Guild not found.")
+                    .WithDescription("Failed to set welcome message. Server not found.")
                     .WithColor(Color.Red)
                     .WithCurrentTimestamp()
                     .WithFooter("Admin Command")

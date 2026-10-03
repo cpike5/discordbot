@@ -1,5 +1,6 @@
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 
 namespace DiscordBot.Bot.Helpers;
 
@@ -7,16 +8,7 @@ namespace DiscordBot.Bot.Helpers;
 public static class FeatureRequestDisplay
 {
     /// <summary>The words for a status.</summary>
-    public static string Label(FeatureRequestStatus status) => status switch
-    {
-        FeatureRequestStatus.Submitted => "Submitted",
-        FeatureRequestStatus.GeneratingDocs => "Writing documentation",
-        FeatureRequestStatus.DocsGenerated => "Documentation ready",
-        FeatureRequestStatus.DocGenFailed => "Documentation failed",
-        FeatureRequestStatus.Approved => "Approved",
-        FeatureRequestStatus.Rejected => "Rejected",
-        _ => "Unknown"
-    };
+    public static string Label(FeatureRequestStatus status) => status.DisplayName();
 
     /// <summary>The badge colour for a status.</summary>
     public static BadgeVariant Variant(FeatureRequestStatus status) => status switch
@@ -44,6 +36,6 @@ public static class FeatureRequestDisplay
     {
         var singleLine = string.Join(' ', (description ?? string.Empty).Split(
             new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        return singleLine.Length <= maxLength ? singleLine : singleLine[..maxLength].TrimEnd() + "...";
+        return singleLine.Length <= maxLength ? singleLine : TextDisplay.Take(singleLine, maxLength).TrimEnd() + "...";
     }
 }

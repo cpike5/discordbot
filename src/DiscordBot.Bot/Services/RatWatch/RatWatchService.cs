@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
@@ -828,7 +829,7 @@ public class RatWatchService : IRatWatchService
 
     /// <summary>
     /// Gets the guild name from Discord or falls back to the database name.
-    /// Returns "Unknown Guild" if neither is available.
+    /// Returns "Unknown server" if neither is available.
     /// </summary>
     private string GetGuildName(ulong guildId, string? databaseName)
     {
@@ -844,7 +845,7 @@ public class RatWatchService : IRatWatchService
         }
 
         _logger.LogDebug("Guild {GuildId} not found in Discord client or database", guildId);
-        return "Unknown Guild";
+        return "Unknown server";
     }
 
     /// <inheritdoc/>
@@ -977,7 +978,7 @@ public class RatWatchService : IRatWatchService
 
     /// <summary>
     /// Gets the username for a Discord user.
-    /// Returns "Unknown User" if the user cannot be found.
+    /// Returns "Unknown user" if the user cannot be found.
     /// </summary>
     private async Task<string> GetUsernameAsync(ulong userId, ulong guildId)
     {
@@ -987,7 +988,7 @@ public class RatWatchService : IRatWatchService
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found when resolving username for user {UserId}", guildId, userId);
-                return "Unknown User";
+                return UserDisplay.UnknownName;
             }
 
             var user = guild.GetUser(userId);
@@ -1009,12 +1010,12 @@ public class RatWatchService : IRatWatchService
             }
 
             _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to get username for user {UserId} in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
     }
 }

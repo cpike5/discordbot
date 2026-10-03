@@ -169,7 +169,7 @@ public class IndexModel : PageModel
         {
             Id = "clearCommandsModal",
             Title = "Clear & Re-register Commands Globally",
-            Message = "This will clear all registered commands (global and guild-specific) and re-register them globally. Global commands may take up to 1 hour to propagate to all servers. Are you sure you want to continue?",
+            Message = "This will clear all registered commands (global and server-specific) and re-register them globally. Global commands may take up to 1 hour to propagate to all servers. Are you sure you want to continue?",
             ConfirmText = "Clear & Re-register",
             CancelText = "Cancel",
             Variant = ConfirmationVariant.Warning,

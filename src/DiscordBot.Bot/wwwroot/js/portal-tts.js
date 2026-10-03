@@ -891,7 +891,7 @@
 
         // Update count
         if (countEl) {
-            countEl.textContent = historyEntries.length > 0 ? historyEntries.length + ' messages' : '';
+            countEl.textContent = historyEntries.length > 0 ? Format.plural(historyEntries.length, 'message') : '';
         }
 
         // Show/hide empty state
@@ -936,11 +936,11 @@
 
         return `
             <div class="tts-history-entry${entry.isFavorite ? ' favorite' : ''}" data-entry-id="${entry.id}">
-                <div class="tts-history-message" dir="auto">${escapeHtml(truncatedMessage)}</div>
+                <div class="tts-history-message" dir="auto">${SafeHtml.escape(truncatedMessage)}</div>
                 <div class="tts-history-meta">
-                    <span class="tts-history-voice">${escapeHtml(voiceShort)}</span>
-                    ${settingsStr ? `<span class="tts-history-settings">${escapeHtml(settingsStr)}</span>` : ''}
-                    <span class="tts-history-time">${escapeHtml(timeAgo)}</span>
+                    <span class="tts-history-voice">${SafeHtml.escape(voiceShort)}</span>
+                    ${settingsStr ? `<span class="tts-history-settings">${SafeHtml.escape(settingsStr)}</span>` : ''}
+                    <span class="tts-history-time">${SafeHtml.escape(timeAgo)}</span>
                 </div>
                 <div class="tts-history-actions">
                     <button class="tts-history-btn replay-btn" data-action="replay" data-id="${entry.id}" title="Replay with original settings">
@@ -1147,15 +1147,6 @@
         if (diffHr < 24) return diffHr + 'h ago';
         if (diffDay < 7) return diffDay + 'd ago';
         return date.toLocaleDateString();
-    }
-
-    /**
-     * Escape HTML special characters to prevent XSS.
-     */
-    function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     // ========================================

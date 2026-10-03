@@ -164,7 +164,7 @@ public class GuildsControllerTests
 
         var error = notFoundResult.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Guild not found");
+        error!.Message.Should().Be("Server not found");
         error.Detail.Should().Contain(guildId.ToString());
         error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
@@ -240,7 +240,7 @@ public class GuildsControllerTests
 
         var error = notFoundResult.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Guild not found");
+        error!.Message.Should().Be("Server not found");
         error.Detail.Should().Contain(guildId.ToString());
         error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
@@ -300,7 +300,7 @@ public class GuildsControllerTests
 
         var messageProperty = value!.GetType().GetProperty("Message");
         messageProperty.Should().NotBeNull();
-        messageProperty!.GetValue(value).Should().Be("Guild synced successfully");
+        messageProperty!.GetValue(value).Should().Be("Server synced successfully");
 
         var guildIdProperty = value.GetType().GetProperty("GuildId");
         guildIdProperty.Should().NotBeNull();
@@ -330,7 +330,7 @@ public class GuildsControllerTests
 
         var error = notFoundResult.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Guild not found");
+        error!.Message.Should().Be("Server not found");
         error.Detail.Should().Contain(guildId.ToString());
         error.Detail.Should().Contain("connected to the bot");
         error.StatusCode.Should().Be(StatusCodes.Status404NotFound);

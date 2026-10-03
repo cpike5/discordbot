@@ -80,7 +80,7 @@ public class AnalyticsController : ControllerBase
 
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
+                Message = "Server not found",
                 Detail = $"No guild with ID {guildId} exists in the database.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()

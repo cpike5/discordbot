@@ -112,7 +112,6 @@ const DashboardHub = (function() {
      */
     async function connect() {
         if (connection && isConnected) {
-            console.log('[DashboardHub] Already connected');
             return true;
         }
         // The layout and page scripts both call connect() on load. Share the attempt in flight;
@@ -166,7 +165,6 @@ const DashboardHub = (function() {
         });
 
         connection.onreconnected((connectionId) => {
-            console.log('[DashboardHub] Reconnected with ID:', connectionId);
             isConnected = true;
             retryCount = 0;
             authFailed = false;
@@ -178,7 +176,6 @@ const DashboardHub = (function() {
         connection.onclose((error) => {
             isConnected = false;
             if (stopped || restarting) {
-                console.log('[DashboardHub] Connection closed');
                 if (!restarting) {
                     setConnectionState('disconnected');
                     triggerEvent('disconnected', { error });
@@ -252,7 +249,6 @@ const DashboardHub = (function() {
         recovering = false;
         setConnectionState('connected');
 
-        console.log('[DashboardHub] Connected successfully');
         triggerEvent('connected', { connectionId: connection.connectionId });
         if (wasRecovering) {
             // Pages rejoin their groups on 'reconnected'; group membership does not survive a new connection.
@@ -297,7 +293,6 @@ const DashboardHub = (function() {
         if (connection) {
             try {
                 await connection.stop();
-                console.log('[DashboardHub] Disconnected');
             } catch (error) {
                 console.error('[DashboardHub] Error during disconnect:', error);
             }
@@ -330,7 +325,6 @@ const DashboardHub = (function() {
 
         try {
             await connection.invoke('JoinGuildGroup', guildId);
-            console.log('[DashboardHub] Joined guild group:', guildId);
         } catch (error) {
             console.error('[DashboardHub] Failed to join guild group:', error);
         }
@@ -349,7 +343,6 @@ const DashboardHub = (function() {
 
         try {
             await connection.invoke('LeaveGuildGroup', guildId);
-            console.log('[DashboardHub] Left guild group:', guildId);
         } catch (error) {
             console.error('[DashboardHub] Failed to leave guild group:', error);
         }
@@ -385,7 +378,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('JoinPerformanceGroup');
-            console.log('[DashboardHub] Joined performance group');
             return true;
         } catch (error) {
             console.error('[DashboardHub] Failed to join performance group:', error);
@@ -404,7 +396,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('LeavePerformanceGroup');
-            console.log('[DashboardHub] Left performance group');
         } catch (error) {
             console.error('[DashboardHub] Failed to leave performance group:', error);
         }
@@ -438,7 +429,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('JoinAlertsGroup');
-            console.log('[DashboardHub] Joined alerts group');
             return true;
         } catch (error) {
             console.error('[DashboardHub] Failed to join alerts group:', error);
@@ -457,7 +447,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('LeaveAlertsGroup');
-            console.log('[DashboardHub] Left alerts group');
         } catch (error) {
             console.error('[DashboardHub] Failed to leave alerts group:', error);
         }
@@ -491,7 +480,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('JoinSystemHealthGroup');
-            console.log('[DashboardHub] Joined system health group');
             return true;
         } catch (error) {
             console.error('[DashboardHub] Failed to join system health group:', error);
@@ -510,7 +498,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('LeaveSystemHealthGroup');
-            console.log('[DashboardHub] Left system health group');
         } catch (error) {
             console.error('[DashboardHub] Failed to leave system health group:', error);
         }
@@ -545,7 +532,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('JoinGuildAudioGroup', guildId);
-            console.log('[DashboardHub] Joined guild audio group:', guildId);
         } catch (error) {
             console.error('[DashboardHub] Failed to join guild audio group:', error);
         }
@@ -563,7 +549,6 @@ const DashboardHub = (function() {
         }
         try {
             await connection.invoke('LeaveGuildAudioGroup', guildId);
-            console.log('[DashboardHub] Left guild audio group:', guildId);
         } catch (error) {
             console.error('[DashboardHub] Failed to leave guild audio group:', error);
         }

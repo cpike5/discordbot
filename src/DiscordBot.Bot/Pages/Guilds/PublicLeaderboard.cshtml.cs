@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -297,7 +298,7 @@ public class PublicLeaderboardModel : PageModel
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found when resolving username for user {UserId}", guildId, userId);
-                return "Unknown User";
+                return UserDisplay.UnknownName;
             }
 
             var user = guild.GetUser(userId);
@@ -319,12 +320,12 @@ public class PublicLeaderboardModel : PageModel
             }
 
             _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to get username for user {UserId} in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
     }
 }

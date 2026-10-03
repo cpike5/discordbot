@@ -388,24 +388,19 @@ public class IndexModel : PageModel
             return "??";
 
         var words = name.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+            return "??";
 
-        if (words.Length >= 2)
-        {
-            // Take first letter of first two words
-            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[1][0])}";
-        }
-        else if (words.Length == 1 && words[0].Length >= 2)
-        {
-            // Take first two letters of single word
-            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[0][1])}";
-        }
-        else if (words.Length == 1 && words[0].Length == 1)
-        {
-            // Single character, duplicate it
-            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[0][0])}";
-        }
+        // Text elements, not chars: a name that starts with an emoji keeps it whole (UX plan E-1).
+        var initials = words.Length >= 2
+            ? TextDisplay.Take(words[0], 1) + TextDisplay.Take(words[1], 1)
+            : TextDisplay.Take(words[0], 2);
 
-        return "??";
+        // A single character is shown twice, as before.
+        if (words.Length == 1 && initials == TextDisplay.Take(words[0], 1))
+            initials += initials;
+
+        return initials.ToUpperInvariant();
     }
 
     /// <summary>

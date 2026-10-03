@@ -328,7 +328,7 @@ else
                                         else
                                         {
                                             <div class="w-10 h-10 rounded-full bg-error flex items-center justify-center text-white font-bold text-sm" aria-hidden="true">
-                                                @(offender.Username.Length >= 2 ? offender.Username.Substring(0, 2).ToUpper() : offender.Username.ToUpper())
+                                                @TextDisplay.Initials(offender.Username)
                                             </div>
                                         }
                                         <p class="font-medium text-text-primary">@offender.Username</p>

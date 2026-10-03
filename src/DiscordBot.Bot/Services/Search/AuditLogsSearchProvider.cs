@@ -2,6 +2,7 @@ using System.Security.Claims;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Services.Search;
@@ -60,17 +61,17 @@ public class AuditLogsSearchProvider : ISearchProvider
             .Select(x => new SearchResultItemDto
             {
                 Id = x.Log.Id.ToString(),
-                Title = $"{x.Log.CategoryName}: {x.Log.ActionName}",
+                Title = $"{EnumDisplayExtensions.DisplayNameFor<AuditLogCategory>(x.Log.CategoryName)}: {EnumDisplayExtensions.DisplayNameFor<AuditLogAction>(x.Log.ActionName)}",
                 Subtitle = x.Log.ActorDisplayName ?? "System",
                 Description = $"Target: {x.Log.TargetType ?? "N/A"} ({x.Log.TargetId ?? "N/A"})",
-                BadgeText = x.Log.CategoryName,
+                BadgeText = EnumDisplayExtensions.DisplayNameFor<AuditLogCategory>(x.Log.CategoryName),
                 BadgeVariant = SearchDisplayHelper.GetAuditLogBadgeVariant(x.Log.CategoryName),
                 Url = $"/Admin/AuditLogs/Details/{x.Log.Id}",
                 RelevanceScore = SearchScoringHelper.Clamp(x.Score),
                 Timestamp = x.Log.Timestamp,
                 Metadata = new Dictionary<string, string>
                 {
-                    ["Action"] = x.Log.ActionName,
+                    ["Action"] = EnumDisplayExtensions.DisplayNameFor<AuditLogAction>(x.Log.ActionName),
                     ["ActorType"] = x.Log.ActorTypeName,
                     ["GuildId"] = x.Log.GuildId?.ToString() ?? "N/A"
                 }

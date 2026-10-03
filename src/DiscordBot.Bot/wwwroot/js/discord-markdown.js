@@ -33,6 +33,8 @@
     var CLOSE = '\uE001';
     var PLACEHOLDER = new RegExp(OPEN + '(\\d+)' + CLOSE, 'g');
 
+    // Same escape set as SafeHtml.escape. Kept here because this module also runs standalone under
+    // node (its tests) and is exported as DiscordMarkdown.escapeHtml, so it cannot assume SafeHtml.
     function escapeHtml(value) {
         return String(value === null || value === undefined ? '' : value)
             .replace(/&/g, '&amp;')

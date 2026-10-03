@@ -64,8 +64,8 @@ public class AudioController : ControllerBase
             _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
             return BadRequest(new ApiErrorDto
             {
-                Message = "Audio is not enabled for this guild",
-                Detail = "Enable audio in the guild settings before using voice features.",
+                Message = "Audio is not enabled for this server",
+                Detail = "Enable audio in the server settings before using voice features.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -78,7 +78,7 @@ public class AudioController : ControllerBase
             return NotFound(new ApiErrorDto
             {
                 Message = "Failed to join voice channel",
-                Detail = "The guild or voice channel was not found, or the bot lacks permission to join.",
+                Detail = "The server or voice channel was not found, or the bot lacks permission to join.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -107,7 +107,7 @@ public class AudioController : ControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not currently connected to a voice channel in this server.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -152,7 +152,7 @@ public class AudioController : ControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not currently connected to a voice channel in this server.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -200,7 +200,7 @@ public class AudioController : ControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not currently connected to a voice channel in this server.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });

@@ -398,7 +398,7 @@ public class ComponentsModel : PageModel
         {
             Id = "showcase-warning-modal",
             Title = "Are you sure?",
-            Message = "This will reset the bot configuration for this guild to default values. Custom command prefixes and module settings will be lost.",
+            Message = "This will reset the bot configuration for this server to default values. Custom command prefixes and module settings will be lost.",
             ConfirmText = "Reset Configuration",
             CancelText = "Keep Current",
             Variant = ConfirmationVariant.Warning,
@@ -409,8 +409,8 @@ public class ComponentsModel : PageModel
         DangerConfirmation = new ConfirmationModalViewModel
         {
             Id = "showcase-danger-modal",
-            Title = "Delete Guild Data",
-            Message = "This will permanently delete all stored data for this guild including audit logs, command history, and custom settings. This action cannot be undone.",
+            Title = "Delete Server Data",
+            Message = "This will permanently delete all stored data for this server including audit logs, command history, and custom settings. This action cannot be undone.",
             ConfirmText = "Delete Everything",
             CancelText = "Cancel",
             Variant = ConfirmationVariant.Danger,

@@ -55,7 +55,7 @@
             };
             var gradientClass = avatarGradients[(int)(Model.UserId % (ulong)avatarGradients.Length)];
             <div class="w-20 h-20 rounded-full bg-gradient-to-br @gradientClass flex items-center justify-center text-white font-bold text-xl flex-shrink-0" aria-hidden="true">
-                @(vm.DisplayName.Length >= 2 ? vm.DisplayName[..2].ToUpper() : vm.DisplayName.ToUpper())
+                @TextDisplay.Initials(vm.DisplayName)
             </div>
         }
         <div class="flex-1 min-w-0">
@@ -179,7 +179,7 @@
                                 <td class="px-4 sm:px-6 py-4 text-sm font-medium text-text-primary whitespace-nowrap">#@moderationCase.CaseNumber</td>
                                 <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium @badgeClass">
-                                        @moderationCase.Type.ToString()
+                                        @moderationCase.Type.DisplayName()
                                         @if (moderationCase.Duration.HasValue)
                                         {
                                             <text>(@DisplayFormat.Duration(moderationCase.Duration.Value))</text>
@@ -288,7 +288,7 @@
                                 <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center gap-2">
                                         <partial name="Shared/Components/_RuleTypeIcon" model="flag.RuleType" />
-                                        <span class="text-sm text-text-secondary">@flag.RuleType.ToString()</span>
+                                        <span class="text-sm text-text-secondary">@flag.RuleType.DisplayName()</span>
                                     </div>
                                 </td>
                                 <td class="px-4 sm:px-6 py-4 text-sm text-text-secondary break-all">@(flag.ChannelId > 0 ? $"#{flag.ChannelName}" : "Not channel-specific")</td>

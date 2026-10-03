@@ -140,7 +140,7 @@
     {
       var user = await UserManager.GetUserAsync(User);
       var displayName = user?.DisplayName ?? user?.Email ?? "User";
-      var initials = string.Join("", displayName.Split(' ').Take(2).Select(w => w.FirstOrDefault())).ToUpper();
+      var initials = TextDisplay.WordInitials(displayName, 2, "U");
       var avatarUrl = user?.DiscordAvatarUrl;
 
       <div class="topbar-divider hidden sm:block"></div>

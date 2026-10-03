@@ -156,7 +156,7 @@
                         <option value="">All Categories</option>
                         @foreach (var category in Enum.GetValues<AuditLogCategory>())
                         {
-                            <option value="@((int)category)" selected="@(Model.Category == category)">@category</option>
+                            <option value="@((int)category)" selected="@(Model.Category == category)">@category.DisplayName()</option>
                         }
                     </select>
                 </div>
@@ -172,7 +172,7 @@
                         <option value="">All Actions</option>
                         @foreach (var action in Enum.GetValues<AuditLogAction>())
                         {
-                            <option value="@((int)action)" selected="@(Model.Action == action)">@action</option>
+                            <option value="@((int)action)" selected="@(Model.Action == action)">@action.DisplayName()</option>
                         }
                     </select>
                 </div>

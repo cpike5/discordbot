@@ -101,7 +101,7 @@ public class ModerationScreensTests : IClassFixture<ModerationScreensTests.AppFi
     {
         var html = await _app.Host.Client.GetStringAsync($"/Guilds/FlaggedEvents/Details/{GuildId}/{AppFixture.OtherAcknowledgedId}");
 
-        html.Should().Contain("#Unknown#42").And.NotContain("#{");
+        html.Should().Contain("#unknown-channel").And.NotContain("#{");
     }
 
     [Fact]

@@ -63,13 +63,6 @@
             return window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
         }
 
-        // HTML escape utility to prevent XSS
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        }
-
 
         // The voice panel announces connect and disconnect; the play hint follows
         document.addEventListener('voicepanel:change', () => updatePlayButton(voxEls.playBtn ? !voxEls.playBtn.disabled : false));
@@ -307,8 +300,8 @@
 
             voxState.highlightedIndex = -1;
             voxEls.autocompleteDropdown.innerHTML = matches.map((clip, idx) => `
-                <div class="vox-autocomplete-item" role="option" id="${prefix}-option-${idx}" data-clip-name="${escapeHtml(clip.name)}" data-index="${idx}">
-                    <span class="vox-autocomplete-name">${escapeHtml(clip.name)}</span>
+                <div class="vox-autocomplete-item" role="option" id="${prefix}-option-${idx}" data-clip-name="${SafeHtml.escape(clip.name)}" data-index="${idx}">
+                    <span class="vox-autocomplete-name">${SafeHtml.escape(clip.name)}</span>
                     <span class="vox-autocomplete-duration">${clip.durationSeconds.toFixed(1)}s</span>
                 </div>
             `).join('');
@@ -459,7 +452,7 @@
 
                 const tokenClass = isMatched ? 'matched' : 'skipped';
                 const gap = idx < words.length - 1 ? '<span class="vox-token-gap">·</span>' : '';
-                return `<span class="vox-token ${tokenClass}">${escapeHtml(word)}</span>${gap}`;
+                return `<span class="vox-token ${tokenClass}">${SafeHtml.escape(word)}</span>${gap}`;
             }).join('');
 
             // Add word gap duration
@@ -568,11 +561,11 @@
             const filtered = [...prefixMatches, ...substringMatches];
 
             if (voxEls.clipCount) {
-                voxEls.clipCount.textContent = searchTerm ? `${filtered.length} matching` : `${filtered.length} clips`;
+                voxEls.clipCount.textContent = searchTerm ? `${filtered.length} matching` : Format.plural(filtered.length, 'clip');
             }
 
             if (filtered.length === 0) {
-                const escapedQuery = escapeHtml(searchTerm);
+                const escapedQuery = SafeHtml.escape(searchTerm);
                 voxEls.clipGrid.innerHTML = searchTerm
                     ? `<div class="vox-token-empty">No clips match '${escapedQuery}'</div>`
                     : '<div class="vox-token-empty">No clips found</div>';
@@ -583,7 +576,7 @@
             // Group clips by first letter
             const grouped = new Map();
             filtered.forEach(clip => {
-                const letter = clip.name.charAt(0).toUpperCase();
+                const letter = Format.initials(clip.name, 1, '#');
                 if (!grouped.has(letter)) {
                     grouped.set(letter, []);
                 }
@@ -608,11 +601,11 @@
                 letterClips.forEach(clip => {
                     html += `
                         <button class="vox-clip-tile"
-                                data-clip-name="${escapeHtml(clip.name)}"
+                                data-clip-name="${SafeHtml.escape(clip.name)}"
                                 data-tile-index="${tileIndex}"
                                 role="gridcell"
                                 tabindex="-1">
-                            <div class="vox-clip-name">${escapeHtml(clip.name)}</div>
+                            <div class="vox-clip-name">${SafeHtml.escape(clip.name)}</div>
                             <div class="vox-clip-duration">${clip.durationSeconds.toFixed(1)}s</div>
                         </button>
                     `;
@@ -1008,10 +1001,10 @@
                                 title="Put this message back in the box"
                                 dir="auto"
                                 data-action="replay"
-                                data-message="${escapeHtml(entry.message)}"
-                                data-clip-group="${escapeHtml(entry.clipGroup)}"
-                                data-word-gap="${Number(entry.wordGapMs)}">${escapeHtml(entry.message)}</button>
-                        <span class="vox-history-meta">${escapeHtml(entry.clipGroup)} &middot; ${timeAgo}</span>
+                                data-message="${SafeHtml.escape(entry.message)}"
+                                data-clip-group="${SafeHtml.escape(entry.clipGroup)}"
+                                data-word-gap="${Number(entry.wordGapMs)}">${SafeHtml.escape(entry.message)}</button>
+                        <span class="vox-history-meta">${SafeHtml.escape(entry.clipGroup)} &middot; ${timeAgo}</span>
                         <div class="vox-history-actions">
                             <button type="button" class="vox-history-action-btn ${favClass}"
                                     data-action="favorite"

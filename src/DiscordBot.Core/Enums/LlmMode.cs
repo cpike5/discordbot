@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using DiscordBot.Core.Extensions;
+
 namespace DiscordBot.Core.Enums;
 
 /// <summary>
@@ -8,8 +11,11 @@ namespace DiscordBot.Core.Enums;
 /// </summary>
 public enum LlmMode
 {
+    [Display(Name = "Server assistant")]
     GuildAssistant,
+    [Display(Name = "DM assistant")]
     DmAssistant,
+    [Display(Name = "Feature requests")]
     FeatureRequests
 }
 
@@ -39,13 +45,9 @@ public static class LlmModeSettings
     };
 
     /// <summary>Human-readable label for the mode, for admin-facing UI and error messages.</summary>
-    public static string LabelFor(LlmMode mode) => mode switch
-    {
-        LlmMode.GuildAssistant => "Guild Assistant",
-        LlmMode.DmAssistant => "DM Assistant",
-        LlmMode.FeatureRequests => "Feature Requests",
-        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown LLM mode.")
-    };
+    public static string LabelFor(LlmMode mode) => Enum.IsDefined(mode)
+        ? mode.DisplayName()
+        : throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown LLM mode.");
 
     /// <summary>All modes, in the stable order the admin UI and defaults endpoint display them.</summary>
     public static readonly IReadOnlyList<LlmMode> All = new[]

@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -371,7 +372,7 @@ public class IndexModel : GuildPageModelBase
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
             if (!settings.AudioEnabled)
             {
-                TempData.SetErrorToast("Audio features are not enabled for this guild.");
+                TempData.SetErrorToast("Audio features are not enabled for this server.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -382,7 +383,7 @@ public class IndexModel : GuildPageModelBase
 
             if (discoveredFiles.Count == 0)
             {
-                TempData.SetWarningToast("No sound files found in the guild's directory.");
+                TempData.SetWarningToast("No sound files found in the server's directory.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -445,7 +446,7 @@ public class IndexModel : GuildPageModelBase
             {
                 _logger.LogInformation("Discovered {Count} new sounds for guild {GuildId}",
                     newSoundsCount, guildId);
-                TempData.SetSuccessToast($"Discovered {newSoundsCount} new sound(s).");
+                TempData.SetSuccessToast($"Discovered {DisplayFormat.Plural(newSoundsCount, "new sound")}.");
             }
             else
             {

@@ -12,7 +12,7 @@
             {
                 <div class="w-12 h-12 rounded-full bg-accent-blue-muted flex items-center justify-center">
                     <span class="text-lg font-semibold text-accent-blue">
-                        @(Model.Username.FirstOrDefault().ToString().ToUpperInvariant())
+                        @TextDisplay.Initials(Model.Username, 1)
                     </span>
                 </div>
             }

@@ -44,7 +44,7 @@
             percent = Math.round(done / total * 100);
         }
         if (percent !== null) percent = Math.max(0, Math.min(100, percent));
-        var detail = total > 0 ? done.toLocaleString() + ' of ' + total.toLocaleString() + ' records' : null;
+        var detail = total > 0 ? done.toLocaleString() + ' of ' + (typeof Format !== 'undefined' ? Format.plural(total, 'record') : total.toLocaleString() + ' records') : null;
         return { percent: percent, message: dto.message || null, detail: detail };
     }
 

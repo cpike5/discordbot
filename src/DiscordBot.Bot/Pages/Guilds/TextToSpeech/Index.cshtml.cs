@@ -208,7 +208,7 @@ public class IndexModel : GuildPageModelBase
             VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
 
             // Build SSML component view models
-            BuildSsmlComponentViewModels(settings);
+            BuildSsmlComponentViewModels(settings, guildId);
 
             return Page();
         }
@@ -546,7 +546,7 @@ public class IndexModel : GuildPageModelBase
         switch (ex)
         {
             case TtsUpstreamUnavailableException unavailable:
-                _logger.LogError(ex, "Azure Speech unreachable for guild {GuildId} after {Attempts} attempt(s)", guildId, unavailable.Attempts);
+                _logger.LogError(ex, "Azure Speech unreachable for guild {GuildId} after {Attempts} attempts", guildId, unavailable.Attempts);
                 return Failure("The speech service could not be reached. This is usually temporary; try again in a moment.", StatusCodes.Status503ServiceUnavailable, code: "tts_upstream_unavailable");
             case SsmlValidationException invalid:
                 _logger.LogWarning(ex, "SSML validation failed for guild {GuildId}", guildId);
@@ -686,7 +686,8 @@ public class IndexModel : GuildPageModelBase
     /// Builds the SSML component view models for the TTS page.
     /// </summary>
     /// <param name="settings">The guild's TTS settings.</param>
-    private void BuildSsmlComponentViewModels(GuildTtsSettings settings)
+    /// <param name="guildId">The guild the page is for.</param>
+    private void BuildSsmlComponentViewModels(GuildTtsSettings settings, ulong guildId)
     {
         // Build mode switcher
         ModeSwitcher = new ModeSwitcherViewModel
@@ -711,7 +712,9 @@ public class IndexModel : GuildPageModelBase
                 new() { Id = "shouting", Name = "Shouting", Icon = "speaker-wave", VoiceName = "en-US-GuyNeural", Style = "shouting", Speed = 1.15m, Pitch = 1.3m, Description = "Loud, forceful delivery" }
             },
             ContainerId = "presetBar",
-            OnPresetApply = "handlePresetApply"
+            OnPresetApply = "handlePresetApply",
+            // The member portal's endpoint refuses everyone while EnableMemberPortal is off
+            CustomPresetsUrl = $"/api/guilds/{guildId}/tts/presets/custom"
         };
 
         // Build style selector with default styles

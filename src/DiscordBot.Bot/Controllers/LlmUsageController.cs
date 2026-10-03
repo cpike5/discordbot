@@ -1,7 +1,9 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -202,7 +204,8 @@ public class LlmUsageController : ApiControllerBase
     {
         var (username, avatarUrl) = names.TryGetValue(row.UserId, out var resolved)
             ? resolved
-            : ($"Unknown#{row.UserId}", null);
+            : (UserDisplay.UnknownName, null);
+        username = UserDisplay.Name(username);
 
         return new LlmUsageByUserDto
         {
@@ -230,6 +233,7 @@ public class LlmUsageController : ApiControllerBase
     private static LlmUsageByModeDto ToDto(LlmUsageByMode row) => new()
     {
         Mode = row.Mode.ToString(),
+        ModeLabel = row.Mode.DisplayName(),
         MessageCount = row.MessageCount,
         InputTokens = row.InputTokens,
         OutputTokens = row.OutputTokens,
@@ -247,13 +251,14 @@ public class LlmUsageController : ApiControllerBase
 
     private static LlmUsageRecordRowDto ToDto(LlmUsageRecord row, IReadOnlyDictionary<ulong, (string Username, string? AvatarUrl)> names)
     {
-        var displayName = names.TryGetValue(row.UserId, out var resolved) ? resolved.Username : $"Unknown#{row.UserId}";
+        var displayName = UserDisplay.Name(names.TryGetValue(row.UserId, out var resolved) ? resolved.Username : null);
 
         return new LlmUsageRecordRowDto
         {
             Id = row.Id,
             Timestamp = row.Timestamp,
             Mode = row.Mode.ToString(),
+            ModeLabel = row.Mode.DisplayName(),
             UserId = row.UserId.ToString(),
             DisplayName = displayName,
             GuildId = row.GuildId?.ToString(),

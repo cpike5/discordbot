@@ -1298,6 +1298,9 @@ Rules: dates arrive from the server as UTC and show in the viewer's time zone, l
 | `duration(ms, { maxUnits })` | "2d 5h", "5h 30m", "45s", "<1s" |
 | `currency(amount, symbol, { iso })` | Virtual currency "1,250 🪙" (whole units, symbol after); `{ iso: true }` for an ISO code like `USD` |
 | `parseUtc(value)` | A `Date`, or `null` |
+| `initials(text, count = 2, fallback = '?')` | The first characters of a name, upper-cased, for an avatar placeholder; emoji and accented letters stay whole (`Intl.Segmenter`). Never `name.substring(0, 2)` |
+| `truncate(text, max, ellipsis = '...')` | Cut to `max` characters without splitting an emoji |
+| `graphemes(text)` | The text as an array of user-perceived characters |
 | `scan(root)` | Binds relative-time elements under `root` (see below) |
 
 **Relative time in markup.** `<time data-relative-time="2026-10-03T12:00:00Z"></time>` renders the wording, refreshes every 30 seconds (and when the tab becomes visible), and shows the absolute time with zone in a tooltip on hover and on keyboard focus. A lone element gets `tabindex="0"` so keyboard users can reach the tooltip. One inside a link, button or other focusable control, or inside a table, gets no Tab stop of its own and carries the absolute time as its `title` instead (focusing the enclosing control shows the tooltip too). `data-utc="…" data-format="relative"` does the same through `timezone.js`.
@@ -1311,7 +1314,21 @@ Rules: dates arrive from the server as UTC and show in the viewer's time zone, l
 | `Date(value, style)`, `RelativeTime(value, now)` | UTC / English fallback text; the script replaces it in the viewer's language |
 | `Plural`, `Number`, `Duration`, `Currency` | Final as rendered; pass a `CultureInfo` in tests |
 
+**Names, initials and cuts (UX plan C-2, E-1).** Three server helpers keep raw names out of the markup:
+
+- `TextDisplay` (`Helpers/TextDisplay.cs`): `Initials(text, count, fallback)`, `WordInitials(text)`, `Truncate(text, max)` and `Take(text, count)` count text elements, so an emoji or an accented letter is never split. Never write `name[..2]`, `Substring(0, 1)` or `name[0].ToString()` for user text (a GUID's hex digits are fine). The script twin is `Format.initials` / `Format.truncate`.
+- `EnumDisplayExtensions` (`DiscordBot.Core.Extensions`, imported into every Razor page): `value.DisplayName()` ("Cleared early"), `DisplayNameLower()` for a sentence, `Description()`, and `DisplayNameFor<TEnum>("PermissionChanged")` for DTOs that carry the member name as a string. A member reads from `[Display(Name = "...", Description = "...")]`, else its own name split into words, so only a member whose words differ from its name needs an attribute. Never `status.ToString()` in text a person reads (`PurgeDisplay` keeps only the user-purge table keys, which are not an enum). `NoCoreEnumMember_ReadsAsRunTogetherWords` fails the build for a run-together name.
+- `UserDisplay.Name(resolved)` maps the resolver's `Unknown#id` to "Unknown user". `DiscordUserResolver` now falls back to the username the bot stored (the `Users` table) before it answers `Unknown#id`, so offline mode shows real names for anyone the bot has seen. `ConsentDisplay.Via(source)` names where a consent change was made ("the web portal").
+
 **Date presets.** `wwwroot/js/date-range-filter.js` is the only preset helper. `DateRangeFilter.presetRange('today' | 'yesterday' | '7days' | '30days' | '90days')` returns `{ start, end }` as `YYYY-MM-DD` in the viewer's local calendar (`toISOString()` is UTC and gives the wrong day in the local evening); `applyPreset(startInput, endInput, preset)` fills two date inputs and `detectPreset(start, end)` names a matching range. Pages that still compute presets with `toISOString()` should switch as they are reworked.
+
+**Escaping in scripts.** `SafeHtml.escape(value)` (`wwwroot/js/safe-html.js`, loaded first by both layouts) is the only HTML escaper; null and undefined give an empty string and quotes are escaped, so the result is safe in element content and in quoted attributes. Do not add another `escapeHtml` (the `textContent`/`innerHTML` trick leaves quotes alone). `discord-markdown.js` keeps an equivalent private copy only because it also runs under node in its tests.
+
+---
+
+## Preset Bar: custom presets endpoint
+
+`_PresetBar` (`PresetBarViewModel`) saves, lists and deletes a person's custom TTS presets. By default it talks to the member portal's `/api/portal/tts/{guildId}/presets/custom`, which refuses everyone while the guild's `EnableMemberPortal` is off. A page that is not the portal sets `CustomPresetsUrl` (rendered as `data-custom-presets-url`); the admin Text-to-Speech page passes `/api/guilds/{guildId}/tts/presets/custom` (`GuildTtsPresetsController`, `RequireAdmin` + `GuildAccess`). GET lists, POST saves, DELETE `{url}/{id}` removes, with the same JSON either way (both go through `CustomTtsPresetService`: 50-character names, 20 presets each, ownership checked). Presets belong to the signed-in person's Discord account, so an admin who never linked Discord gets a 400 `discord_link_required` ("Link your Discord account to save presets"). The portal page calls `presetBar_loadCustomPresets('portalPresetBar')` on load; `tts-page.js` does the same for the admin bar.
 
 ---
 

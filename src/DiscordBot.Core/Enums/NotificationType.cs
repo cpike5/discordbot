@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DiscordBot.Core.Enums;
 
 /// <summary>
@@ -18,6 +20,7 @@ public enum NotificationType
     /// <summary>
     /// Notification about guild events (joined, left, settings changed).
     /// </summary>
+    [Display(Name = "Server event")]
     GuildEvent = 3,
 
     /// <summary>

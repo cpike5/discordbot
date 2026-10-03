@@ -62,7 +62,7 @@ public class SoundsController : ControllerBase
             return NotFound(new ApiErrorDto
             {
                 Message = "Sound not found",
-                Detail = "The requested sound does not exist or does not belong to this guild.",
+                Detail = "The requested sound does not exist or does not belong to this server.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -128,7 +128,7 @@ public class SoundsController : ControllerBase
             return NotFound(new ApiErrorDto
             {
                 Message = "No sounds to export",
-                Detail = "This guild has no sounds configured.",
+                Detail = "This server has no sounds configured.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
             });

@@ -113,7 +113,7 @@
         <span class="text-sm text-text-tertiary" data-command-count-label>
             @if (Model.TopCommands.Any())
             {
-                <text>Showing top @Model.TopCommands.Count commands</text>
+                <text>Showing top @DisplayFormat.Plural(Model.TopCommands.Count, "command")</text>
             }
             else
             {

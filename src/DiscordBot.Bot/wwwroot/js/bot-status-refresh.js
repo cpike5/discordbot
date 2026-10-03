@@ -404,7 +404,6 @@
             DashboardHub.on('connected', refresh);
         }
 
-        console.log(`Bot status auto-refresh initialized (initial retry: ${INITIAL_RETRY_MS / 1000}s, interval: ${REFRESH_INTERVAL_MS / 1000}s)`);
     }
 
     // Initialize when DOM is ready

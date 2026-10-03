@@ -142,7 +142,7 @@ public class IndexModelSyncTests
         value.Should().BeEquivalentTo(new
         {
             success = true,
-            message = "Guild synced successfully"
+            message = "Server synced successfully"
         }, "successful sync should return success=true with message");
 
         _mockGuildService.Verify(
@@ -175,7 +175,7 @@ public class IndexModelSyncTests
         value.Should().BeEquivalentTo(new
         {
             success = false,
-            message = "Guild not found in Discord client"
+            message = "Server not found in Discord client"
         }, "failed sync should return success=false with message");
 
         _mockGuildService.Verify(
@@ -259,7 +259,7 @@ public class IndexModelSyncTests
         value.Should().BeEquivalentTo(new
         {
             success = false,
-            message = "An error occurred while syncing the guild"
+            message = "An error occurred while syncing the server"
         }, "exception should return success=false with error message");
 
         _mockGuildService.Verify(
@@ -571,7 +571,7 @@ public class IndexModelSyncTests
         value.Should().BeEquivalentTo(new
         {
             success = false,
-            message = "An error occurred while syncing guilds"
+            message = "An error occurred while syncing servers"
         }, "exception should return success=false with error message");
 
         _mockGuildService.Verify(

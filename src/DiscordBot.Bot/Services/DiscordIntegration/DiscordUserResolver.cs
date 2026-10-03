@@ -1,19 +1,24 @@
 using Discord.WebSocket;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Bot.Services.DiscordIntegration;
 
 /// <summary>
 /// Resolves Discord user IDs to display information using the Discord REST API
-/// with a short-lived in-memory cache (5 minute TTL) to reduce API calls.
+/// with a short-lived in-memory cache (5 minute TTL) to reduce API calls. When Discord cannot be
+/// reached (offline mode, a deleted account, an outage) it falls back to the username the bot
+/// stored the last time it saw the user (the <c>Users</c> table), and only then to
+/// <c>Unknown#id</c>, which the screens render as "Unknown user" (<c>UserDisplay</c>).
 /// </summary>
 public class DiscordUserResolver : IDiscordUserResolver
 {
     private readonly DiscordSocketClient _client;
     private readonly IMemoryCache _cache;
     private readonly ILogger<DiscordUserResolver> _logger;
+    private readonly IServiceScopeFactory? _scopeFactory;
 
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
     private const string CacheKeyPrefix = "discord_user_";
@@ -21,11 +26,13 @@ public class DiscordUserResolver : IDiscordUserResolver
     public DiscordUserResolver(
         DiscordSocketClient client,
         IMemoryCache cache,
-        ILogger<DiscordUserResolver> logger)
+        ILogger<DiscordUserResolver> logger,
+        IServiceScopeFactory? scopeFactory = null)
     {
         _client = client;
         _cache = cache;
         _logger = logger;
+        _scopeFactory = scopeFactory;
     }
 
     /// <inheritdoc/>
@@ -74,12 +81,36 @@ public class DiscordUserResolver : IDiscordUserResolver
                 return (user.Username, user.GetAvatarUrl() ?? user.GetDefaultAvatarUrl());
             }
 
-            return ($"Unknown#{userId}", null);
+            return await FallbackAsync(userId);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to resolve username for user {UserId}", userId);
-            return ($"Unknown#{userId}", null);
+            return await FallbackAsync(userId);
         }
+    }
+
+    /// <summary>The username the bot stored when it last saw the user, else <c>Unknown#id</c>.</summary>
+    private async Task<(string Username, string? AvatarUrl)> FallbackAsync(ulong userId)
+    {
+        if (_scopeFactory is not null)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var users = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+                var stored = await users.GetByDiscordIdAsync(userId);
+                if (!string.IsNullOrWhiteSpace(stored?.Username))
+                {
+                    return (stored.Username, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Stored username lookup failed for user {UserId}", userId);
+            }
+        }
+
+        return ($"Unknown#{userId}", null);
     }
 }

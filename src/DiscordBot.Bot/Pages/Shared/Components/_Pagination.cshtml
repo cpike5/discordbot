@@ -10,6 +10,7 @@
     var showSummary = Model.Style == PaginationStyle.Full && Model.ShowItemCount;
     var showSelector = Model.Style == PaginationStyle.Full && Model.ShowsPageSizeSelector;
     var showNav = Model.HasMultiplePages;
+    // GUID hex digits (ASCII), safe to slice
     var uid = Guid.NewGuid().ToString("N")[..8];
 }
 

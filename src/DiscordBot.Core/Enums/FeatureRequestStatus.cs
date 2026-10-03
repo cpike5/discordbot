@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DiscordBot.Core.Enums;
 
 /// <summary>
@@ -6,8 +8,11 @@ namespace DiscordBot.Core.Enums;
 public enum FeatureRequestStatus
 {
     Submitted,
+    [Display(Name = "Writing documentation")]
     GeneratingDocs,
+    [Display(Name = "Documentation ready")]
     DocsGenerated,
+    [Display(Name = "Documentation failed")]
     DocGenFailed,
     Approved,
     Rejected

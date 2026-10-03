@@ -45,7 +45,7 @@
         var n = parseWholeNumber(raw);
         if (n === null) return 'Enter ' + rule.label + ' as a whole number.';
         if (n < rule.min || n > rule.max) {
-            var label = rule.label.charAt(0).toUpperCase() + rule.label.slice(1);
+            var label = rule.label.charAt(0).toUpperCase() + rule.label.slice(1); // rule.label is fixed ASCII copy from the page
             return label + ' must be from ' + rule.min + ' to ' + rule.max + (rule.unit ? ' ' + rule.unit : '') + '.';
         }
         return null;

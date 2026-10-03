@@ -93,7 +93,7 @@
             <h2 id="userInfoHeading" class="text-lg font-semibold text-text-primary mb-4">User</h2>
             <div class="flex flex-wrap items-center gap-4">
                 <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-bold text-lg flex-shrink-0" aria-hidden="true">
-                    @(evt.Username.Length > 0 ? evt.Username[0].ToString().ToUpper() : "?")
+                    @TextDisplay.Initials(evt.Username, 1)
                 </div>
                 <div class="min-w-0 flex-1">
                     <div class="text-text-primary font-medium break-all">@evt.Username</div>
@@ -207,7 +207,7 @@
             else
             {
                 <p class="text-sm text-text-secondary">
-                    This event has been @evt.Status.ToString().ToLowerInvariant() and is closed.
+                    This event has been @evt.Status.DisplayNameLower() and is closed.
                 </p>
             }
 

@@ -796,7 +796,7 @@
             } else if (failed && succeeded) {
                 toast.error(Format.plural(succeeded, 'sound', 'sounds') + ' uploaded, ' + failed + ' did not. The list says why.');
             } else if (failed) {
-                toast.error(items.length === 1 ? items[0].message : failed + ' sounds did not upload. The list says why.');
+                toast.error(items.length === 1 ? items[0].message : Format.plural(failed, 'sound') + ' did not upload. The list says why.');
             } else {
                 toast.success(succeeded === 1 ? items[0].message : 'Uploaded ' + Format.plural(succeeded, 'sound', 'sounds') + '.');
             }

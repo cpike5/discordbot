@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DiscordBot.Core.Enums;
 
 /// <summary>
@@ -23,11 +25,13 @@ public enum AuditLogAction
     /// <summary>
     /// A user logged in to the system.
     /// </summary>
+    [Display(Name = "Signed in")]
     Login = 4,
 
     /// <summary>
     /// A user logged out of the system.
     /// </summary>
+    [Display(Name = "Signed out")]
     Logout = 5,
 
     /// <summary>
@@ -118,16 +122,19 @@ public enum AuditLogAction
     /// <summary>
     /// The LLM model catalog was refreshed from OpenRouter.
     /// </summary>
+    [Display(Name = "Model catalog refreshed")]
     LlmCatalogRefreshed = 23,
 
     /// <summary>
     /// An LLM model was added to the admin allowlist.
     /// </summary>
+    [Display(Name = "Model enabled")]
     LlmModelEnabled = 24,
 
     /// <summary>
     /// An LLM model was removed from the admin allowlist.
     /// </summary>
+    [Display(Name = "Model disabled")]
     LlmModelDisabled = 25,
 
     /// <summary>

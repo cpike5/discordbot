@@ -369,15 +369,6 @@
         }
     }
 
-    // ========================================
-    // Sound Card Element Creation
-    // ========================================
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
     function formatDuration(seconds) {
         seconds = Math.floor(seconds);
         if (seconds < 60) return seconds + 's';
@@ -399,7 +390,7 @@
 
         const canDelete = sound.uploadedById && sound.uploadedById === currentUserId;
         const deleteButtonHtml = canDelete
-            ? `<button class="delete-btn row-actions" data-sound-id="${sound.id}" title="Delete sound" aria-label="Delete ${escapeHtml(sound.name)}">
+            ? `<button class="delete-btn row-actions" data-sound-id="${sound.id}" title="Delete sound" aria-label="Delete ${SafeHtml.escape(sound.name)}">
                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                    </svg>
@@ -417,11 +408,11 @@
             ? price + (sound.currencySymbol ? ' ' + sound.currencySymbol : '')
             : '';
         const priceHtml = priceLabel
-            ? `<div class="sound-price" title="Costs ${escapeHtml(priceLabel)} to play">${escapeHtml(priceLabel)}</div>`
+            ? `<div class="sound-price" title="Costs ${SafeHtml.escape(priceLabel)} to play">${SafeHtml.escape(priceLabel)}</div>`
             : '';
 
         card.innerHTML = `
-            <button class="preview-btn" data-sound-id="${sound.id}" title="Preview in browser" aria-label="Preview ${escapeHtml(sound.name)} in browser">
+            <button class="preview-btn" data-sound-id="${sound.id}" title="Preview in browser" aria-label="Preview ${SafeHtml.escape(sound.name)} in browser">
                 <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                 </svg>
@@ -436,7 +427,7 @@
                     <path d="M8 5v14l11-7z"/>
                 </svg>
             </div>
-            <div class="sound-name">${escapeHtml(sound.name)}</div>
+            <div class="sound-name">${SafeHtml.escape(sound.name)}</div>
             <div class="sound-plays">${sound.playCount || 0} plays</div>
             ${durationHtml}
             ${priceHtml}

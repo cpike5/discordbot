@@ -1455,15 +1455,15 @@ else
                 <h3>Clip Library</h3>
                 <div class="stat-item">
                     <span class="stat-label">VOX</span>
-                    <span class="stat-value">@Model.VoxClipCount clips</span>
+                    <span class="stat-value">@DisplayFormat.Plural(Model.VoxClipCount, "clip")</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">FVOX</span>
-                    <span class="stat-value">@Model.FvoxClipCount clips</span>
+                    <span class="stat-value">@DisplayFormat.Plural(Model.FvoxClipCount, "clip")</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">HGrunt</span>
-                    <span class="stat-value">@Model.HgruntClipCount clips</span>
+                    <span class="stat-value">@DisplayFormat.Plural(Model.HgruntClipCount, "clip")</span>
                 </div>
             </div>
             </div>

@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Agents.Configuration;
@@ -263,7 +264,8 @@ public class AssistantMetricsModel : GuildPageModelBase
         var names = await _userResolver.ResolveUsersAsync(costByUser.Select(u => u.UserId));
         CostByUser = costByUser.Select(u =>
         {
-            var (username, avatarUrl) = names.TryGetValue(u.UserId, out var resolved) ? resolved : ("Unknown user", null);
+            var (username, avatarUrl) = names.TryGetValue(u.UserId, out var resolved) ? resolved : (UserDisplay.UnknownName, null);
+            username = UserDisplay.Name(username);
             return new LlmUsageByUserDto
             {
                 UserId = u.UserId.ToString(),
