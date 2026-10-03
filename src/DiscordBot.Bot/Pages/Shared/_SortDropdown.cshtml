@@ -6,7 +6,10 @@
     var wrapperId = $"{Model.Id}Wrapper";
 }
 
-<div class="relative sort-dropdown-wrapper" id="@wrapperId">
+<div class="relative sort-dropdown-wrapper" id="@wrapperId"
+     data-current-sort="@Model.CurrentSort"
+     data-default-sort="@(Model.SortOptions.FirstOrDefault()?.Value ?? Model.CurrentSort)"
+     @if (Model.UseAjax) { <text>data-param-name="@Model.ParameterName" data-target-selector="@Model.TargetSelector" data-partial-url="@Model.PartialUrl"</text> }>
     <button type="button"
             id="@toggleId"
             class="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
@@ -133,6 +136,49 @@
         }
     });
 
+    /**
+     * Show `sortValue` as the selected option (label, check mark, aria-selected) without firing
+     * a sortchange. AjaxSort calls this through wrapper.sortDropdown when Back or Forward
+     * restores an earlier sort.
+     */
+    function setSelected(sortValue) {
+        const allOptions = dropdown.querySelectorAll('[role="option"]');
+        allOptions.forEach(opt => {
+            const isSelected = opt.dataset.sortValue === sortValue;
+            opt.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            opt.classList.toggle('bg-bg-hover', isSelected);
+            opt.classList.toggle('font-medium', isSelected);
+
+            const existing = opt.querySelector('svg.sort-checkmark');
+            if (isSelected) {
+                const selectedTextSpan = document.getElementById(toggleId.replace('Toggle', 'SelectedText'));
+                const label = opt.querySelector('span');
+                if (selectedTextSpan && label) selectedTextSpan.textContent = label.textContent;
+
+                const flexDiv = opt.querySelector('div');
+                if (flexDiv && !existing) {
+                    const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    checkmark.setAttribute('class', 'w-4 h-4 text-success sort-checkmark');
+                    checkmark.setAttribute('fill', 'none');
+                    checkmark.setAttribute('viewBox', '0 0 24 24');
+                    checkmark.setAttribute('stroke', 'currentColor');
+                    checkmark.setAttribute('aria-hidden', 'true');
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('stroke-linecap', 'round');
+                    path.setAttribute('stroke-linejoin', 'round');
+                    path.setAttribute('stroke-width', '2');
+                    path.setAttribute('d', 'M5 13l4 4L19 7');
+                    checkmark.appendChild(path);
+                    flexDiv.appendChild(checkmark);
+                }
+            } else if (existing) {
+                existing.remove();
+            }
+        });
+        wrapper.dataset.currentSort = sortValue;
+    }
+    wrapper.sortDropdown = { setSelected: setSelected };
+
     // AJAX mode: Handle sort option clicks
     if (useAjax) {
         const ajaxButtons = dropdown.querySelectorAll('[data-ajax-sort]');
@@ -144,53 +190,14 @@
 
                 const sortValue = this.dataset.sortValue;
 
-                // Update dropdown visual state
-                const selectedTextSpan = document.getElementById(toggleId.replace('Toggle', 'SelectedText'));
-                if (selectedTextSpan) {
-                    selectedTextSpan.textContent = this.querySelector('span').textContent;
-                }
-
-                // Update all options: remove checkmark, styling from old; add to new
-                const allOptions = dropdown.querySelectorAll('[role="option"]');
-                allOptions.forEach(opt => {
-                    if (opt.dataset.sortValue === sortValue) {
-                        // This is the newly selected option
-                        opt.setAttribute('aria-selected', 'true');
-                        opt.classList.add('bg-bg-hover', 'font-medium');
-
-                        // Add checkmark if not present
-                        const flexDiv = opt.querySelector('div');
-                        if (flexDiv && !flexDiv.querySelector('svg.sort-checkmark')) {
-                            const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                            checkmark.setAttribute('class', 'w-4 h-4 text-success sort-checkmark');
-                            checkmark.setAttribute('fill', 'none');
-                            checkmark.setAttribute('viewBox', '0 0 24 24');
-                            checkmark.setAttribute('stroke', 'currentColor');
-                            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                            path.setAttribute('stroke-linecap', 'round');
-                            path.setAttribute('stroke-linejoin', 'round');
-                            path.setAttribute('stroke-width', '2');
-                            path.setAttribute('d', 'M5 13l4 4L19 7');
-                            checkmark.appendChild(path);
-                            flexDiv.appendChild(checkmark);
-                        }
-                    } else {
-                        // Old selection
-                        opt.setAttribute('aria-selected', 'false');
-                        opt.classList.remove('bg-bg-hover', 'font-medium');
-
-                        // Remove checkmark if present
-                        const checkmark = opt.querySelector('svg.sort-checkmark');
-                        if (checkmark) {
-                            checkmark.remove();
-                        }
-                    }
-                });
+                // Update the dropdown to show the new choice
+                setSelected(sortValue);
 
                 // Close dropdown
                 toggle.setAttribute('aria-expanded', 'false');
                 dropdown.classList.add('hidden');
                 currentFocusIndex = -1;
+                toggle.focus();
 
                 // Dispatch custom event for page to handle
                 const event = new CustomEvent('sortchange', {

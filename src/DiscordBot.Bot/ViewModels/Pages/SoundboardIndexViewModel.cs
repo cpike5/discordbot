@@ -217,6 +217,12 @@ public record SoundboardIndexViewModel
     public List<SoundViewModel> Sounds { get; init; } = new();
 
     /// <summary>
+    /// The guild's sound categories, rendered into each sound's category select on the server so
+    /// the list is complete even after the sounds are re-rendered by a sort (and without a script).
+    /// </summary>
+    public List<SoundCategoryOption> Categories { get; init; } = new();
+
+    /// <summary>
     /// Gets the maximum number of sounds allowed per guild.
     /// </summary>
     public int MaxSoundsPerGuild { get; init; }
@@ -310,7 +316,7 @@ public record SoundboardIndexViewModel
             MaxSoundsPerGuild = settings.MaxSoundsPerGuild,
             MaxFileSizeBytes = settings.MaxFileSizeBytes,
             MaxDurationSeconds = settings.MaxDurationSeconds,
-            SupportedFormats = "MP3, WAV, OGG", // Static for now, could be made configurable
+            SupportedFormats = "MP3, WAV, OGG, M4A", // Static for now, could be made configurable
             CurrentSort = currentSort
         };
     }
@@ -370,3 +376,9 @@ public record SoundboardIndexViewModel
         return $"{bytes / (1024.0 * 1024.0 * 1024.0):F1} GB";
     }
 }
+
+
+/// <summary>
+/// A sound category as shown in a category select.
+/// </summary>
+public record SoundCategoryOption(int Id, string Name);

@@ -3,6 +3,7 @@
 @using DiscordBot.Bot.Pages.Guilds.AudioModerationLog
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Core.Enums
+@using DiscordBot.Bot.Helpers
 @{
     ViewData["Title"] = $"Audio Log - {Model.GuildName}";
     Layout = "_GuildLayout";
@@ -54,7 +55,7 @@
 
 <!-- Filter Bar -->
 <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
-    <form method="get" id="filterForm">
+    <form method="get" id="filterForm" data-submit-guard>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- Feature Type Filter -->
             <div>
@@ -76,8 +77,21 @@
                        id="UserFilter"
                        name="UserFilter"
                        value="@Model.UserFilter"
-                       placeholder="Discord User ID..."
-                       class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary placeholder-text-tertiary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" />
+                       placeholder="Discord user ID"
+                       inputmode="numeric"
+                       autocomplete="off"
+                       spellcheck="false"
+                       aria-describedby="@(Model.UserFilterError != null ? "UserFilter-error" : "UserFilter-help")"
+                       aria-invalid="@(Model.UserFilterError != null ? "true" : null)"
+                       class="w-full px-3 py-2 bg-bg-primary border @(Model.UserFilterError != null ? "border-error" : "border-border-primary") rounded-md text-text-primary placeholder-text-tertiary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" />
+                @if (Model.UserFilterError != null)
+                {
+                    <p id="UserFilter-error" class="mt-1 text-xs text-error" role="alert">@Model.UserFilterError</p>
+                }
+                else
+                {
+                    <p id="UserFilter-help" class="mt-1 text-xs text-text-tertiary">Digits only. Copy it from Discord with Developer Mode on.</p>
+                }
             </div>
 
             <!-- Date From Filter -->
@@ -97,7 +111,13 @@
                        id="DateTo"
                        name="DateTo"
                        value="@Model.DateTo?.ToString("yyyy-MM-dd")"
-                       class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" />
+                       aria-describedby="@(Model.DateRangeError != null ? "DateTo-error" : null)"
+                       aria-invalid="@(Model.DateRangeError != null ? "true" : null)"
+                       class="w-full px-3 py-2 bg-bg-primary border @(Model.DateRangeError != null ? "border-error" : "border-border-primary") rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" />
+                @if (Model.DateRangeError != null)
+                {
+                    <p id="DateTo-error" class="mt-1 text-xs text-error" role="alert">@Model.DateRangeError</p>
+                }
             </div>
         </div>
 
@@ -105,7 +125,7 @@
             <a href="@Url.Page("/Guilds/AudioModerationLog/Index", new { guildId = Model.GuildId })" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
                 Clear Filters
             </a>
-            <button type="submit" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
+            <button type="submit" class="btn btn-primary" data-loading-text="Applying…">
                 Apply Filters
             </button>
         </div>
@@ -114,12 +134,39 @@
 
 @if (!Model.LogEntries.Any())
 {
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
-        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-        </svg>
-        <h3 class="text-sm font-medium text-text-primary mb-1">No audio playback events found</h3>
-        <p class="text-sm text-text-tertiary">@(Model.HasActiveFilters ? "Try adjusting your filters." : "No audio has been played in this guild yet.")</p>
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sm:p-12">
+        @if (!Model.FiltersValid)
+        {
+            <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                Type = EmptyStateType.NoResults,
+                Title = "Fix the filters to see events",
+                Description = "Nothing is listed until the filters above can be read. The message under each one says what to change.",
+                PrimaryActionText = "Clear filters",
+                PrimaryActionUrl = Url.Page("/Guilds/AudioModerationLog/Index", new { guildId = Model.GuildId }),
+                Size = EmptyStateSize.Default
+            }' />
+        }
+        else if (Model.HasActiveFilters)
+        {
+            <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                Type = EmptyStateType.NoResults,
+                Title = "No playback events match your filters",
+                Description = "Try a wider date range or a different feature, or clear the filters to see every event.",
+                PrimaryActionText = "Clear filters",
+                PrimaryActionUrl = Url.Page("/Guilds/AudioModerationLog/Index", new { guildId = Model.GuildId }),
+                Size = EmptyStateSize.Default
+            }' />
+        }
+        else
+        {
+            <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                Type = EmptyStateType.FirstTime,
+                Title = "No audio has been played yet",
+                Description = "Soundboard, TTS and VOX plays on this server are listed here as they happen.",
+                IconSvgPath = "M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z",
+                Size = EmptyStateSize.Default
+            }' />
+        }
     </div>
 }
 else
@@ -142,7 +189,7 @@ else
                     {
                         <tr class="hover:bg-bg-hover transition-colors">
                             <td class="px-4 py-4 whitespace-nowrap">
-                                <span class="text-sm text-text-secondary" data-utc="@entry.PlayedAt.ToString("o")" data-format="datetime"></span>
+                                <span class="text-sm text-text-secondary">@DisplayFormat.Time(entry.PlayedAt)</span>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 @if (entry.UserId != 0)
@@ -188,7 +235,7 @@ else
                     <div>
                         <partial name="Shared/Components/_Badge" model="IndexModel.BuildFeatureBadge(entry.FeatureType)" />
                     </div>
-                    <span class="text-xs text-text-tertiary" data-utc="@entry.PlayedAt.ToString("o")" data-format="datetime"></span>
+                    <span class="text-xs text-text-tertiary">@DisplayFormat.Time(entry.PlayedAt)</span>
                 </div>
                 <div class="space-y-2">
                     <div class="flex items-center gap-2">

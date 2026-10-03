@@ -401,22 +401,17 @@
                 // Copy to clipboard
                 await navigator.clipboard.writeText(ssmlText);
 
-                // Show toast notification
-                if (typeof showToast === 'function') {
-                    showToast('info', 'SSML copied to clipboard');
-                } else {
-                    console.log('SSML copied to clipboard');
-                }
-
-                // Trigger callback if specified
+                // The page's copy callback reports it when there is one; otherwise say so here.
                 const callback = container.dataset.callbackCopy;
                 if (callback && typeof window[callback] === 'function') {
                     window[callback]();
+                } else if (window.toast) {
+                    toast.success('SSML copied to clipboard.', { key: 'ssml-copied' });
                 }
             } catch (error) {
-                console.error('Failed to copy SSML:', error);
-                if (typeof showToast === 'function') {
-                    showToast('error', 'Failed to copy SSML');
+                // Clipboard access can be refused (insecure page, permissions); say what to do instead
+                if (window.toast) {
+                    toast.error('Could not copy the SSML. Select the text and copy it yourself.', { key: 'ssml-copy-failed' });
                 }
             }
         };

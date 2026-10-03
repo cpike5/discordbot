@@ -84,6 +84,22 @@ public class IndexModel : PaginatedGuildPageModel
     public string? GuildIconUrl { get; set; }
 
     /// <summary>
+    /// What is wrong with the user filter, when it is not a Discord user ID. The log then shows
+    /// no rows rather than quietly ignoring the filter and listing everybody.
+    /// </summary>
+    public string? UserFilterError { get; private set; }
+
+    /// <summary>
+    /// What is wrong with the date range, when the end is before the start.
+    /// </summary>
+    public string? DateRangeError { get; private set; }
+
+    /// <summary>
+    /// Whether the filters can be applied. When not, no query runs and the page says why.
+    /// </summary>
+    public bool FiltersValid => UserFilterError == null && DateRangeError == null;
+
+    /// <summary>
     /// Whether any filters are currently active.
     /// </summary>
     public bool HasActiveFilters =>
@@ -176,11 +192,32 @@ public class IndexModel : PaginatedGuildPageModel
         GuildName = guild.Name;
         GuildIconUrl = guild.IconUrl;
 
-        // Parse user filter to ulong if provided
         ulong? userIdFilter = null;
-        if (!string.IsNullOrWhiteSpace(UserFilter) && ulong.TryParse(UserFilter.Trim(), out var parsedUserId))
+        if (!string.IsNullOrWhiteSpace(UserFilter))
         {
-            userIdFilter = parsedUserId;
+            if (TryParseUserId(UserFilter, out var parsedUserId))
+            {
+                userIdFilter = parsedUserId;
+            }
+            else
+            {
+                UserFilterError = "Enter a Discord user ID: digits only, like 123456789012345678. You can paste a mention too.";
+                ModelState.AddModelError(nameof(UserFilter), UserFilterError);
+            }
+        }
+
+        if (DateFrom.HasValue && DateTo.HasValue && DateFrom.Value.Date > DateTo.Value.Date)
+        {
+            DateRangeError = "The end date is before the start date. Swap them or pick a later end date.";
+            ModelState.AddModelError(nameof(DateTo), DateRangeError);
+        }
+
+        if (!FiltersValid)
+        {
+            // Show nothing, not everything: an unreadable filter is not "no filter"
+            PopulateGuildLayout(guild.Id, guild.Name, guild.IconUrl, "audio", "Audio Log",
+                $"Audio playback history for {guild.Name}");
+            return Page();
         }
 
         // Adjust DateTo to include the entire day
@@ -210,5 +247,25 @@ public class IndexModel : PaginatedGuildPageModel
             $"Audio playback history for {guild.Name}");
 
         return Page();
+    }
+
+    /// <summary>
+    /// Reads a Discord user ID from filter text: plain digits, or a pasted mention (&lt;@123&gt;).
+    /// </summary>
+    internal static bool TryParseUserId(string? text, out ulong userId)
+    {
+        userId = 0;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+        if (trimmed.StartsWith("<@", StringComparison.Ordinal) && trimmed.EndsWith('>'))
+        {
+            trimmed = trimmed[2..^1].TrimStart('!');
+        }
+
+        return trimmed.All(char.IsAsciiDigit) && ulong.TryParse(trimmed, out userId) && userId != 0;
     }
 }
