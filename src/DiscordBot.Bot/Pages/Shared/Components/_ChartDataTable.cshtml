@@ -1,10 +1,12 @@
 @model DiscordBot.Bot.ViewModels.Components.ChartDataTableViewModel
 @*
-    The figures behind a chart, as a table that is visually hidden (sr-only) but read by screen
+    The figures behind a chart, as a table that is visually hidden (sr-only wrapper) but read by screen
     readers. The chart's canvas names it with aria-describedby="@Model.Id". Rendered on the server
     from the same model the chart's JSON island comes from; cell text is encoded by Razor.
 *@
-<table id="@Model.Id" class="sr-only">
+@* The wrapper is what is visually hidden: a table ignores sr-only's 1px width and would widen the page *@
+<div class="sr-only">
+<table id="@Model.Id">
     <caption>@Model.Caption</caption>
     <thead>
         <tr>
@@ -33,3 +35,4 @@
         }
     </tbody>
 </table>
+</div>

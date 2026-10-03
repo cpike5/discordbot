@@ -61,6 +61,16 @@
         return Math.abs(n) >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
     }
 
+    /**
+     * One colour for each of `count` bars. A per-bar array, not a single string: Chart.js shares
+     * resolved options between bars when the colour is a plain value, and chart-theme.js redraws
+     * with update('none'), which leaves shared options as they were, so a bar chart would keep
+     * the old theme's colour.
+     */
+    function each(color, count) {
+        return new Array(count).fill(color);
+    }
+
     /** The JSON island a page embeds its chart data in, or null. */
     function readData(id) {
         const el = root.document && root.document.getElementById(id);
@@ -221,5 +231,5 @@
         }
     }
 
-    return { DAYS, number, dayLabel, compact, readData, create, heatmap, heatStep };
+    return { DAYS, number, dayLabel, compact, each, readData, create, heatmap, heatStep };
 });

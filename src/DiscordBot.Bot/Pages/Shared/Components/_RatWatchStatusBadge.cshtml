@@ -1,0 +1,21 @@
+@model DiscordBot.Core.Enums.RatWatchStatus
+@using DiscordBot.Core.Enums
+@*
+    A Rat Watch status as a pill: a dot in the status colour and the status in words
+    ("Cleared early", never the enum name), so the colour is never the only signal.
+*@
+@{
+    var (pill, dot) = Model switch
+    {
+        RatWatchStatus.Pending => ("bg-warning/20 text-warning", "bg-warning"),
+        RatWatchStatus.ClearedEarly => ("bg-success/20 text-success", "bg-success"),
+        RatWatchStatus.Voting => ("bg-accent-blue/20 text-accent-blue", "bg-accent-blue"),
+        RatWatchStatus.Guilty => ("bg-error/20 text-error", "bg-error"),
+        RatWatchStatus.NotGuilty => ("bg-success/20 text-success", "bg-success"),
+        RatWatchStatus.Cancelled => ("bg-error/20 text-error", "bg-error"),
+        _ => ("bg-bg-tertiary text-text-secondary", "bg-text-tertiary")
+    };
+}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap @pill">
+    <span class="w-1.5 h-1.5 rounded-full @dot mr-1.5" aria-hidden="true"></span>@Model.DisplayName()
+</span>

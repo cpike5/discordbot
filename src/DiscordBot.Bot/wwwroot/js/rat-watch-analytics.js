@@ -167,7 +167,7 @@
                 datasets: [{
                     label: 'Total Watches',
                     data: users.map(u => u.watchesAgainst),
-                    backgroundColor: c.fills.primary,
+                    backgroundColor: A.each(c.fills.primary, users.length),
                     borderRadius: 4
                 }]
             },
@@ -197,7 +197,7 @@
     }
 
     function recolorTopUsers(chart, c) {
-        chart.data.datasets[0].backgroundColor = c.fills.primary;
+        chart.data.datasets[0].backgroundColor = A.each(c.fills.primary, chart.data.labels.length);
     }
 
     function init() {

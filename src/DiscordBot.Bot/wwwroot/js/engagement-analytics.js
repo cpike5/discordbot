@@ -79,13 +79,13 @@
                     {
                         label: 'Messages',
                         data: channels.map(ch => ch.messageCount),
-                        backgroundColor: c.fills.secondary,
+                        backgroundColor: A.each(c.fills.secondary, channels.length),
                         borderRadius: 4
                     },
                     {
                         label: 'Engagement Rate (%)',
                         data: channels.map(ch => ch.engagementRate),
-                        backgroundColor: c.fills.primary,
+                        backgroundColor: A.each(c.fills.primary, channels.length),
                         borderRadius: 4
                     }
                 ]
@@ -117,8 +117,9 @@
 
     function recolorChannels(chart, c) {
         const [messages, rate] = chart.data.datasets;
-        messages.backgroundColor = c.fills.secondary;
-        rate.backgroundColor = c.fills.primary;
+        const n = chart.data.labels.length;
+        messages.backgroundColor = A.each(c.fills.secondary, n);
+        rate.backgroundColor = A.each(c.fills.primary, n);
     }
 
     function init() {

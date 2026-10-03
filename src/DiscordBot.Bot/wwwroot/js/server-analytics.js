@@ -85,7 +85,7 @@
                 datasets: [{
                     label: 'Messages',
                     data: channels.map(ch => ch.messageCount),
-                    backgroundColor: c.fills.secondary,
+                    backgroundColor: A.each(c.fills.secondary, channels.length),
                     borderRadius: 4
                 }]
             },
@@ -111,7 +111,7 @@
     }
 
     function recolorChannels(chart, c) {
-        chart.data.datasets[0].backgroundColor = c.fills.secondary;
+        chart.data.datasets[0].backgroundColor = A.each(c.fills.secondary, chart.data.labels.length);
     }
 
     function init() {

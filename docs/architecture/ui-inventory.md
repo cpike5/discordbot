@@ -73,12 +73,14 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/guild/{guildId}/scheduled-messages` | `Pages/Guilds/ScheduledMessages/Index.cshtml` | Scheduled messages list |
 | `/guild/{guildId}/scheduled-messages/create` | `Pages/Guilds/ScheduledMessages/Create.cshtml` | Create scheduled message |
 | `/guild/{guildId}/scheduled-messages/edit/{id}` | `Pages/Guilds/ScheduledMessages/Edit.cshtml` | Edit scheduled message |
-| `/guild/{guildId}/analytics` | `Pages/Guilds/Analytics/Index.cshtml` | Analytics overview |
-| `/guild/{guildId}/analytics/engagement` | `Pages/Guilds/Analytics/Engagement.cshtml` | Engagement metrics |
-| `/guild/{guildId}/analytics/moderation` | `Pages/Guilds/Analytics/Moderation.cshtml` | Moderation analytics |
+| `/guild/{guildId}/analytics` | `Pages/Guilds/Analytics/Index.cshtml` | Analytics overview: `_DateRangeFilter`, charts on `ChartTheme` (`server-analytics.js`), a data table behind every chart, load failure as an error state with Try again |
+| `/guild/{guildId}/analytics/engagement` | `Pages/Guilds/Analytics/Engagement.cshtml` | Engagement metrics (`engagement-analytics.js`); the retention funnel is text over proportional bars and works at 320; no placeholder cards |
+| `/guild/{guildId}/analytics/moderation` | `Pages/Guilds/Analytics/Moderation.cshtml` | Moderation analytics (`moderation-analytics.js`); escalation steps carry the action name, not just a letter |
 | `/guild/{guildId}/flagged-events` | `Pages/Guilds/FlaggedEvents/Index.cshtml` | Flagged events: filters (no forced date window), `_Pagination` (`pageNumber`), bulk and row review as confirmed form posts with TempData toasts, cards under `md` |
 | `/guild/{guildId}/flagged-events/{id}` | `Pages/Guilds/FlaggedEvents/Details.cshtml` | Flagged event details: acknowledge, dismiss and record outcome (also for acknowledged events), user-history links |
-| `/guild/{guildId}/ratwatch` | `Pages/Guilds/RatWatch/Index.cshtml` | RatWatch monitoring |
+| `/guild/{guildId}/ratwatch` | `Pages/Guilds/RatWatch/Index.cshtml` | RatWatch settings tab: `_FormSelect`/`_FormInput`/`_FormToggle` settings form (a stored time zone the list does not know stays selectable), row actions through `quickActions.confirm` (`rat-watch-manage.js`), `_Pagination` on `pageNumber`, cards under `md` |
+| `/guild/{guildId}/ratwatch/analytics` | `Pages/Guilds/RatWatch/Analytics.cshtml` | RatWatch analytics tab (`rat-watch-analytics.js`), leaderboards in `_TabPanel` |
+| `/guild/{guildId}/ratwatch/incidents` | `Pages/Guilds/RatWatch/Incidents.cshtml` | Incident browser: filters, `_Pagination` on `pageNumber`, incident dialog on `quickActions.openDialog` (`rat-watch-incidents.js`), `?handler=ExportCsv` exports every row the filters select (UTC, formula-guarded, capped at 10,000), cards under `md` |
 | `/guild/{guildId}/assistant-settings` | `Pages/Guilds/AssistantSettings.cshtml` | AI assistant configuration: enable toggle, channel allow-list, per-guild tool checklist (grouped by `ToolCatalog` category; an empty selection means the house default set and the page says so), and rate-limit override |
 | `/guild/{guildId}/assistant-metrics` | `Pages/Guilds/AssistantMetrics.cshtml` | Assistant usage metrics (daily `AssistantUsageMetrics` aggregates) plus a **Cost by User** table sourced from the `LlmUsageRecord` ledger via `ILlmUsageRepository` (injected directly into `AssistantMetricsModel`, top 20 spenders over the same 30-day window, filtered by guild) and a **Tool Usage** table counted from `AssistantInteractionLog.ToolNames` via `IAssistantInteractionLogRepository.GetToolUsageAsync`, paired with `ToolCatalog` so tools that were never called still get a row, and a **Prompt Surface** panel from `IPromptSurfaceReporter` showing what the guild's advertised tool array costs per request (per-tool schema size and share of the prefix, with the tools the guild has turned off and the ones held back by a skill marked as not sent). The page lists no recent-interaction rows, so there is no `Model` column to add here. |
 | `/guild/{guildId}/soundboard` | `Pages/Guilds/Soundboard/Index.cshtml` | Soundboard management |
@@ -505,7 +507,8 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| Filter Panel | `wwwroot/js/shared/filter-panel.js` | Collapsible filters + date presets |
+| Filter Panel | `wwwroot/js/shared/filter-panel.js` | `toggleFilterPanel()` for `<filter-panel>`, and the `data-date-preset` buttons of `_DateRangeFilter` (local dates via `DateRangeFilter.presetRange`) |
+| Analytics charts | `wwwroot/js/analytics-charts.js` | Chart creation on `ChartTheme` with theme recolouring, token-class heatmap; used by the four analytics page modules |
 | NavTabs | `wwwroot/js/shared/nav-tabs.js` | Tab switching (page/in-page/AJAX) |
 | Toast System | `wwwroot/js/toast.js` | `toast.success/error/warning/info`, legacy aliases, server toasts, `_Alert` dismiss |
 | API Client | `wwwroot/js/api-client.js` | Fetch wrapper: anti-forgery, session-expiry toast, plain-language errors, timeout |

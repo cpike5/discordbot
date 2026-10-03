@@ -298,7 +298,8 @@ else
         </div>
         @if (Model.ViewModel.RepeatOffenders.Any())
         {
-            <div class="overflow-x-auto">
+            @* relative: the screen-reader text in the table is absolutely positioned, and only a positioned scroller clips it *@
+            <div class="overflow-x-auto relative">
                 <table class="w-full">
                     <thead class="bg-bg-primary/50">
                         <tr>

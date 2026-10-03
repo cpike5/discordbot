@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Helpers;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -33,6 +35,35 @@ public record RatWatchIndexViewModel
     /// Gets the configured timezone for the guild.
     /// </summary>
     public string Timezone { get; init; } = "Eastern Standard Time";
+
+    /// <summary>The time zones the settings form offers: the stored id and the label shown for it.</summary>
+    public static IReadOnlyList<(string Id, string Label)> KnownTimezones { get; } = new[]
+    {
+        ("Eastern Standard Time", "Eastern Time"),
+        ("Central Standard Time", "Central Time"),
+        ("Mountain Standard Time", "Mountain Time"),
+        ("Pacific Standard Time", "Pacific Time"),
+        ("UTC", "UTC")
+    };
+
+    /// <summary>
+    /// The options for the time zone select. A stored value the list does not know (set through a
+    /// command, or by an older version) stays selectable, as its own id, instead of silently turning
+    /// into another zone the next time the form is saved.
+    /// </summary>
+    public IReadOnlyList<SelectOption> TimezoneOptions
+    {
+        get
+        {
+            var options = KnownTimezones.Select(t => new SelectOption { Value = t.Id, Text = t.Label }).ToList();
+            if (!string.IsNullOrWhiteSpace(Timezone) && KnownTimezones.All(t => t.Id != Timezone))
+            {
+                options.Insert(0, new SelectOption { Value = Timezone, Text = $"{Timezone} (current)" });
+            }
+
+            return options;
+        }
+    }
 
     /// <summary>
     /// Gets the maximum hours in advance a watch can be scheduled.
@@ -208,17 +239,7 @@ public record RatWatchItemViewModel
     /// <summary>
     /// Gets the status display text.
     /// </summary>
-    public string StatusText => Status switch
-    {
-        RatWatchStatus.Pending => "Pending",
-        RatWatchStatus.Voting => "Voting",
-        RatWatchStatus.Guilty => "Guilty",
-        RatWatchStatus.NotGuilty => "Not Guilty",
-        RatWatchStatus.ClearedEarly => "Cleared",
-        RatWatchStatus.Expired => "Expired",
-        RatWatchStatus.Cancelled => "Cancelled",
-        _ => "Unknown"
-    };
+    public string StatusText => Status.DisplayName();
 
     /// <summary>
     /// Gets the status badge variant.
