@@ -350,11 +350,11 @@ public class SettingsSectionService : ISettingsSectionService
         }
     }
 
-    public async Task<SettingsSectionResult> ResetAllAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<SettingsSectionResult> ResetAllAsync(string userId, CancellationToken cancellationToken = default, bool includeAppearance = true)
     {
         try
         {
-            var result = await _settingsService.ResetAllAsync(userId, cancellationToken);
+            var result = await _settingsService.ResetAllAsync(userId, cancellationToken, includeAppearance);
 
             if (!result.Success)
             {
@@ -381,6 +381,7 @@ public class SettingsSectionService : ISettingsSectionService
                 Details = JsonSerializer.Serialize(new
                 {
                     Operation = "ResetAll",
+                    IncludedAppearance = includeAppearance,
                     RestartRequired = result.RestartRequired
                 })
             });

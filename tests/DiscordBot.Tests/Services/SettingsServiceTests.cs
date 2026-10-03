@@ -1115,6 +1115,41 @@ public class SettingsServiceTests
     #region ResetAllAsync Tests
 
     [Fact]
+    public async Task ResetAllAsync_WithoutAppearance_LeavesTheAppearanceCategoryAlone()
+    {
+        _mockRepository
+            .Setup(r => r.DeleteByCategoryAsync(It.IsAny<SettingCategory>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.ResetAllAsync("user123", CancellationToken.None, includeAppearance: false);
+
+        result.Success.Should().BeTrue();
+        _mockRepository.Verify(
+            r => r.DeleteByCategoryAsync(SettingCategory.Appearance, It.IsAny<CancellationToken>()),
+            Times.Never);
+        _mockRepository.Verify(
+            r => r.DeleteByCategoryAsync(SettingCategory.General, It.IsAny<CancellationToken>()),
+            Times.Once);
+        result.UpdatedKeys.Should().NotContain("Appearance:DefaultThemeId", "that setting was not reset");
+        result.UpdatedKeys.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task ResetAllAsync_ByDefault_ResetsAppearanceToo()
+    {
+        _mockRepository
+            .Setup(r => r.DeleteByCategoryAsync(It.IsAny<SettingCategory>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.ResetAllAsync("user123");
+
+        _mockRepository.Verify(
+            r => r.DeleteByCategoryAsync(SettingCategory.Appearance, It.IsAny<CancellationToken>()),
+            Times.Once);
+        result.UpdatedKeys.Should().Contain("Appearance:DefaultThemeId");
+    }
+
+    [Fact]
     public async Task ResetAllAsync_DeletesAllSettings()
     {
         // Arrange

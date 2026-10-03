@@ -172,7 +172,11 @@ public class SettingsModel : PageModel
     {
         _logger.LogCritical("Reset ALL settings requested by user {UserId}", User.Identity?.Name);
         var userId = User.Identity?.Name ?? "Unknown";
-        var result = await _settingsSectionService.ResetAllAsync(userId);
+
+        // Appearance (the default theme) is SuperAdmin-only everywhere else, so "reset all" leaves it
+        // alone for anyone else, as the per-category handlers refuse it
+        var includeAppearance = await _appearanceSettingsService.IsSuperAdminAsync(User);
+        var result = await _settingsSectionService.ResetAllAsync(userId, includeAppearance: includeAppearance);
         return RedirectWithToast(result, category);
     }
 
