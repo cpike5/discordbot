@@ -39,8 +39,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
-  const emailError = document.getElementById('email-error');
-  const passwordError = document.getElementById('password-error');
+  const emailError = document.getElementById('email-message');
+  const passwordError = document.getElementById('password-message');
 
   // Validate email on blur
   if (emailInput) {
@@ -48,8 +48,9 @@ document.addEventListener('DOMContentLoaded', function() {
       validateEmail();
     });
 
-    // Clear error on focus
-    emailInput.addEventListener('focus', function() {
+    // Clear the error once the user edits the field (not on focus: when the server sends the
+    // page back with errors, focus lands on the first bad field and its error must stay)
+    emailInput.addEventListener('input', function() {
       clearError(emailInput, emailError);
     });
   }
@@ -60,11 +61,21 @@ document.addEventListener('DOMContentLoaded', function() {
       validatePassword();
     });
 
-    // Clear error on focus
-    passwordInput.addEventListener('focus', function() {
+    passwordInput.addEventListener('input', function() {
       clearError(passwordInput, passwordError);
     });
   }
+
+  // Check both fields before the form is sent. The first bad field takes focus. The double-submit
+  // guard (data-submit-guard) sees the cancelled submit and leaves the button alone.
+  loginForm.addEventListener('submit', function(event) {
+    const emailOk = validateEmail();
+    const passwordOk = validatePassword();
+    if (emailOk && passwordOk) return;
+
+    event.preventDefault();
+    (emailOk ? passwordInput : emailInput).focus();
+  });
 
   function validateEmail() {
     const email = emailInput.value.trim();
@@ -105,11 +116,8 @@ document.addEventListener('DOMContentLoaded', function() {
   function clearError(input, errorElement) {
     input.classList.remove('error');
     input.setAttribute('aria-invalid', 'false');
-    // Don't clear server-side validation messages
-    if (errorElement && errorElement.classList.contains('field-validation-error')) {
-      return;
-    }
     if (errorElement) {
+      errorElement.classList.remove('field-validation-error');
       errorElement.textContent = '';
     }
   }

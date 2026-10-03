@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -6,7 +8,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace DiscordBot.Bot.Pages.Account;
 
@@ -78,16 +79,70 @@ public class ProfileModel : PageModel
     /// <summary>
     /// Available themes for selection.
     /// </summary>
-    public SelectList AvailableThemes { get; set; } = null!;
+    public IReadOnlyList<ThemeDto> AvailableThemes { get; set; } = Array.Empty<ThemeDto>();
 
     /// <summary>
-    /// The currently selected theme ID.
+    /// The theme the user chose, or null to follow the system's light or dark setting
+    /// ("Match my system"). Posted by the theme radios; the empty value binds to null.
     /// </summary>
     [BindProperty]
     public int? SelectedThemeId { get; set; }
 
     /// <summary>
-    /// The current theme's display name.
+    /// The theme radios: "Match my system" first (value empty, which saves no choice), then each
+    /// active theme.
+    /// </summary>
+    public RadioCardGroupViewModel ThemeChoices
+    {
+        get
+        {
+            const string systemIcon = "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z";
+            const string sunIcon = "M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z";
+            const string moonIcon = "M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z";
+
+            var options = new List<RadioCardViewModel>
+            {
+                new()
+                {
+                    Id = "theme-system",
+                    Value = string.Empty,
+                    Title = "Match my system",
+                    Description = "Use light or dark to match your device, and switch when it does.",
+                    IconPath = systemIcon
+                }
+            };
+            options.AddRange(AvailableThemes.Select(theme => new RadioCardViewModel
+            {
+                Id = $"theme-{theme.Id}",
+                Value = theme.Id.ToString(),
+                Title = theme.DisplayName,
+                Description = theme.Description,
+                IconPath = theme.ThemeKey == ThemeAppearance.LightThemeKey ? sunIcon
+                    : theme.ThemeKey == ThemeAppearance.DarkThemeKey ? moonIcon
+                    : null
+            }));
+
+            return new RadioCardGroupViewModel
+            {
+                Id = "theme",
+                Name = nameof(SelectedThemeId),
+                Legend = "Color scheme",
+                Columns = 1,
+                Options = options,
+                SelectedValue = SelectedThemeId?.ToString() ?? string.Empty
+            };
+        }
+    }
+
+    /// <summary>
+    /// Whether the user has saved a theme choice. False means pages follow the browser's
+    /// <c>prefers-color-scheme</c>.
+    /// </summary>
+    public bool HasSavedTheme => CurrentThemeSource == ThemeSource.User;
+
+    /// <summary>
+    /// The display name of the theme the user's saved choice names, or of the site default when
+    /// no choice is saved.
     /// </summary>
     public string CurrentThemeName { get; set; } = string.Empty;
 
@@ -155,12 +210,18 @@ public class ProfileModel : PageModel
             return NotFound("User not found.");
         }
 
-        // Validate that a theme is selected
+        // A value that is not a number must not be mistaken for "no theme"
+        if (!ModelState.IsValid)
+        {
+            TempData.SetErrorToast("The selected theme is not available.");
+            return RedirectToPage();
+        }
+
+        // No theme selected means "Match my system": forget the saved choice so pages follow the
+        // browser's light or dark setting again
         if (!SelectedThemeId.HasValue)
         {
-            _logger.LogWarning("User {UserId} attempted to save without selecting a theme", user.Id);
-            TempData.SetErrorToast("Please select a theme.");
-            return RedirectToPage();
+            return await ClearThemePreferenceAsync(user.Id);
         }
 
         // Validate theme exists and is active
@@ -211,19 +272,45 @@ public class ProfileModel : PageModel
         return RedirectToPage();
     }
 
+    private async Task<IActionResult> ClearThemePreferenceAsync(string userId)
+    {
+        _logger.LogInformation("User {UserId} clearing their theme preference to follow the system", userId);
+
+        try
+        {
+            if (await _themeService.SetUserThemeAsync(userId, null))
+            {
+                Response.Cookies.Delete(IThemeService.ThemePreferenceCookieName);
+                TempData.SetSuccessToast("Your theme now follows your system's light or dark setting.");
+            }
+            else
+            {
+                _logger.LogWarning("Failed to clear theme preference for user {UserId}", userId);
+                TempData.SetErrorToast("Could not switch to your system's setting. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing theme preference for user {UserId}", userId);
+            TempData.SetErrorToast("An error occurred while saving your preferences.");
+        }
+
+        return RedirectToPage();
+    }
+
     private async Task LoadThemeDataAsync(string userId)
     {
         try
         {
             // Load available themes
             var themes = await _themeService.GetActiveThemesAsync();
-            AvailableThemes = new SelectList(themes, nameof(ThemeDto.Id), nameof(ThemeDto.DisplayName));
+            AvailableThemes = themes;
 
-            // Load current theme
+            // Load current theme. Only a saved choice is "selected"; otherwise the user follows the system.
             var currentTheme = await _themeService.GetUserThemeAsync(userId);
-            SelectedThemeId = currentTheme.Theme.Id;
             CurrentThemeName = currentTheme.Theme.DisplayName;
             CurrentThemeSource = currentTheme.Source;
+            SelectedThemeId = currentTheme.Source == ThemeSource.User ? currentTheme.Theme.Id : null;
 
             _logger.LogDebug("Loaded {ThemeCount} themes. Current theme: {ThemeName} (Source: {Source})",
                 themes.Count, CurrentThemeName, CurrentThemeSource);
@@ -231,7 +318,7 @@ public class ProfileModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading theme data for user {UserId}", userId);
-            AvailableThemes = new SelectList(Enumerable.Empty<ThemeDto>(), nameof(ThemeDto.Id), nameof(ThemeDto.DisplayName));
+            AvailableThemes = Array.Empty<ThemeDto>();
             ErrorMessage = "Failed to load theme preferences.";
         }
     }

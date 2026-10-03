@@ -1464,6 +1464,8 @@ numericInput.addEventListener('input', () => slider.value = numericInput.value);
 
 #### Toggle Switch
 
+> **Superseded.** The `.form-toggle*` classes below no longer exist in `site.css`. Use the `_FormToggle` partial on the canonical `.toggle` classes (see [Component API](component-api.md#formtoggle-component)). The section is kept until the Phase 16 rewrite of this page.
+
 Interactive switch controls for binary on/off settings. Provides immediate visual feedback and is ideal for settings that take effect instantly without requiring form submission.
 
 **Usage:** Enable/disable features, boolean settings, instant toggles

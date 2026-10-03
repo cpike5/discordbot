@@ -966,7 +966,7 @@ Switch on the canonical `.toggle` classes. The checkbox has `role="switch"`, is 
 
 **Unchecked posts `false`.** A browser omits an unchecked checkbox, so a form cannot tell "turned off" from "not on the form", and a bound `bool` never becomes false. With `PostsFalseWhenOff` (the default) a hidden `false` input with the same name follows the checkbox; a checked toggle posts `true,false` and the model binder reads the first. It is not rendered while the toggle is disabled (a disabled field posts nothing). Set `PostsFalseWhenOff = false` for scripts that read `checked` themselves: the Settings page does, with `AdditionalAttributes["data-setting-toggle"] = "true"`.
 
-Legacy `.form-toggle*` markup is still styled from `site.css` for the Privacy page only (Phase 15); Settings command modules and the `llm-models.js` catalog use the partial's `.toggle` markup.
+The legacy `.form-toggle*` markup and its CSS are gone: every toggle (Settings, the `llm-models.js` catalog, and the Privacy consent switches) uses this partial's `.toggle` markup. A switch that must be confirmed before it saves, like Privacy's, sits alone in its own `<form>`, carries a `data-*` hook in `AdditionalAttributes`, and a script confirms and then calls `form.requestSubmit()` (see `wwwroot/js/privacy.js`).
 
 ---
 

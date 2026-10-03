@@ -60,6 +60,12 @@ public class LoginModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// True when the posted email and password were rejected, so the view can flag the password
+    /// field and move focus there.
+    /// </summary>
+    public bool CredentialsRejected { get; private set; }
+
+    /// <summary>
     /// Auth error type from OAuth failure redirect (e.g. discord_unavailable, discord_expired, discord_error).
     /// </summary>
     [BindProperty(SupportsGet = true)]
@@ -107,10 +113,7 @@ public class LoginModel : PageModel
             return LocalRedirect(ReturnUrlHelper.Sanitize(returnUrl, Url.Content("~/")));
         }
 
-        if (!string.IsNullOrEmpty(ErrorMessage))
-        {
-            ModelState.AddModelError(string.Empty, ErrorMessage);
-        }
+        // ErrorMessage (a failed external sign-in) is shown by the view as the form-level alert.
 
         // Map OAuth error types to user-friendly messages
         if (!string.IsNullOrEmpty(AuthError))
@@ -237,6 +240,7 @@ public class LoginModel : PageModel
         }
 
         ModelState.AddModelError(string.Empty, "Invalid email or password. Please try again.");
+        CredentialsRejected = true;
         return Page();
     }
 
