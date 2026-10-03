@@ -964,10 +964,14 @@ public class UserManagementServiceTests : IDisposable
 
         _mockUserManager.Setup(um => um.FindByIdAsync(userId))
             .ReturnsAsync(user);
+        _mockUserManager.Setup(um => um.FindByIdAsync(actorUserId))
+            .ReturnsAsync(actor);
         _mockUserManager.Setup(um => um.UpdateAsync(user))
             .ReturnsAsync(IdentityResult.Success);
         _mockUserManager.Setup(um => um.GetRolesAsync(user))
             .ReturnsAsync(new List<string> { "Viewer" });
+        _mockUserManager.Setup(um => um.GetRolesAsync(actor))
+            .ReturnsAsync(new List<string> { "Admin" });
 
         // Act
         await _service.SetUserActiveStatusAsync(userId, false, actorUserId, "127.0.0.1");
@@ -1037,6 +1041,46 @@ public class UserManagementServiceTests : IDisposable
         log.Action.Should().Be(UserActivityAction.RoleAssigned);
         log.Details.Should().Contain("Viewer");
         log.Details.Should().Contain("Moderator");
+    }
+
+    #endregion
+
+    #region SetUserActiveStatus permission tests
+
+    [Theory]
+    [InlineData("Admin", "SuperAdmin", false)]
+    [InlineData("Moderator", "Viewer", false)]
+    [InlineData("Admin", "Moderator", true)]
+    [InlineData("SuperAdmin", "SuperAdmin", true)]
+    public async Task SetUserActiveStatus_FollowsTheRoleHierarchy(string actorRole, string targetRole, bool allowed)
+    {
+        // Arrange
+        var target = new ApplicationUser { Id = "target1", Email = "t@example.com", UserName = "t@example.com", IsActive = true };
+        var actor = new ApplicationUser { Id = "actor1", Email = "a@example.com", UserName = "a@example.com", IsActive = true };
+        _dbContext.Set<ApplicationUser>().AddRange(actor, target);
+        await _dbContext.SaveChangesAsync();
+
+        _mockUserManager.Setup(um => um.FindByIdAsync("target1")).ReturnsAsync(target);
+        _mockUserManager.Setup(um => um.FindByIdAsync("actor1")).ReturnsAsync(actor);
+        _mockUserManager.Setup(um => um.GetRolesAsync(target)).ReturnsAsync(new List<string> { targetRole });
+        _mockUserManager.Setup(um => um.GetRolesAsync(actor)).ReturnsAsync(new List<string> { actorRole });
+        _mockUserManager.Setup(um => um.UpdateAsync(target)).ReturnsAsync(IdentityResult.Success);
+
+        // Act
+        var result = await _service.SetUserActiveStatusAsync("target1", false, "actor1");
+
+        // Assert
+        result.Succeeded.Should().Be(allowed);
+        if (!allowed)
+        {
+            result.ErrorCode.Should().Be(UserManagementResult.InsufficientPermissions);
+            target.IsActive.Should().BeTrue("a refused request must not change the account");
+            _mockUserManager.Verify(um => um.UpdateAsync(It.IsAny<ApplicationUser>()), Times.Never);
+        }
+        else
+        {
+            target.IsActive.Should().BeFalse();
+        }
     }
 
     #endregion

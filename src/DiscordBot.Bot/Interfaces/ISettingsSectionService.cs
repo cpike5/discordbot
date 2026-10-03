@@ -22,11 +22,6 @@ public interface ISettingsSectionService
     Task<SettingsSectionResult> SaveCategoryAsync(string category, Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Saves all settings across all categories.
-    /// </summary>
-    Task<SettingsSectionResult> SaveAllAsync(Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Resets one category to its default values.
     /// </summary>
     Task<SettingsSectionResult> ResetCategoryAsync(string category, string userId, CancellationToken cancellationToken = default);

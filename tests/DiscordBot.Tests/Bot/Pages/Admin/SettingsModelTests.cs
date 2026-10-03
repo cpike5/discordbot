@@ -125,4 +125,79 @@ public class SettingsModelTests
         element.GetProperty("success").GetBoolean().Should().BeTrue();
         element.TryGetProperty("errors", out _).Should().BeFalse();
     }
+
+    // ---- Appearance is SuperAdmin-only, even through the generic handlers
+
+    [Theory]
+    [InlineData("Appearance")]
+    [InlineData("appearance")]
+    [InlineData(" Appearance ")]
+    public async Task OnPostSaveCategoryAsync_ForAppearance_IsForbiddenForANonSuperAdmin(string category)
+    {
+        _mockAppearanceSettingsService.Setup(a => a.IsSuperAdminAsync(It.IsAny<System.Security.Claims.ClaimsPrincipal>())).ReturnsAsync(false);
+
+        var result = await _settingsModel.OnPostSaveCategoryAsync(category);
+
+        result.Should().BeOfType<ForbidResult>();
+        _mockSettingsSectionService.Verify(
+            s => s.SaveCategoryAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostSaveCategoryAsync_ForTheNumericSpellingOfAppearance_IsAlsoForbidden()
+    {
+        var numeric = ((int)DiscordBot.Core.Enums.SettingCategory.Appearance).ToString();
+
+        var result = await _settingsModel.OnPostSaveCategoryAsync(numeric);
+
+        result.Should().BeOfType<ForbidResult>("the service parses numbers as categories too");
+        _mockSettingsSectionService.Verify(
+            s => s.SaveCategoryAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostSaveCategoryAsync_ForAppearance_IsAllowedForASuperAdmin()
+    {
+        _mockAppearanceSettingsService.Setup(a => a.IsSuperAdminAsync(It.IsAny<System.Security.Claims.ClaimsPrincipal>())).ReturnsAsync(true);
+        _mockSettingsSectionService
+            .Setup(s => s.SaveCategoryAsync("Appearance", It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SettingsSectionResult { Success = true, Message = "Saved." });
+
+        var result = await _settingsModel.OnPostSaveCategoryAsync("Appearance");
+
+        result.Should().BeOfType<JsonResult>();
+    }
+
+    [Fact]
+    public async Task OnPostResetCategoryAsync_ForAppearance_IsForbiddenForANonSuperAdmin()
+    {
+        var result = await _settingsModel.OnPostResetCategoryAsync("Appearance");
+
+        result.Should().BeOfType<ForbidResult>();
+        _mockSettingsSectionService.Verify(
+            s => s.ResetCategoryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostSaveCategoryAsync_ForOtherCategories_NeverAsksWhoTheCallerIs()
+    {
+        _mockSettingsSectionService
+            .Setup(s => s.SaveCategoryAsync("General", It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SettingsSectionResult { Success = true, Message = "Saved." });
+
+        await _settingsModel.OnPostSaveCategoryAsync("General");
+
+        _mockAppearanceSettingsService.Verify(a => a.IsSuperAdminAsync(It.IsAny<System.Security.Claims.ClaimsPrincipal>()), Times.Never);
+    }
+
+    [Fact]
+    public void SettingsPage_HasNoUnscopedSaveAllHandler()
+    {
+        typeof(SettingsModel).GetMethod("OnPostSaveAllAsync").Should().BeNull(
+            "a save-all would write keys from every tab, including the SuperAdmin-only ones");
+        typeof(ISettingsSectionService).GetMethod("SaveAllAsync").Should().BeNull();
+    }
 }

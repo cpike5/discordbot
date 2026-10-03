@@ -47,6 +47,16 @@ public static class FormFieldHelpers
         return ids.Count > 0 ? string.Join(' ', ids) : null;
     }
 
+    /// <summary>
+    /// True when the field renders a single help-or-message paragraph for assistive technology to
+    /// point at: the help text while the field has no state, the validation message while it has
+    /// one. Help text hidden behind a Success or Warning state is not rendered, so it is not counted.
+    /// </summary>
+    public static bool HasMessageElement(string? helpText, ValidationState state, string? validationMessage)
+        => state == ValidationState.None
+            ? !string.IsNullOrEmpty(helpText)
+            : !string.IsNullOrEmpty(validationMessage);
+
     /// <summary>The element ID of the message paragraph for a state.</summary>
     public static string MessageId(string id, ValidationState state) => state switch
     {

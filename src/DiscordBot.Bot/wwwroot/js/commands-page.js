@@ -199,7 +199,51 @@
         }
     }
 
+    /**
+     * Back and Forward reload the page only when the view they describe changed. A hash-only step
+     * (the skip link, an in-page anchor) leaves the path and query alone, and reloading for it
+     * would throw away the visitor's place and anything they typed.
+     * @param {string} shown path + query the page was last showing
+     * @param {string} pathname the location after the step
+     * @param {string} search the location's query after the step
+     */
+    function popstateNeedsReload(shown, pathname, search) {
+        return String(shown) !== String(pathname) + String(search || '');
+    }
+
+    /**
+     * Keeps hold of the skeleton the current load drew, so the next load (or an abort) can hide it.
+     * A skeleton that is still waiting out its delay would otherwise draw over the region after a
+     * newer load already rendered into it. A handle hides once; hiding it again is a no-op, so a
+     * stale load finishing late cannot clear the "busy" state of the load that replaced it.
+     * @param {function(HTMLElement, Object): {hide: function()}} showFn e.g. Skeleton.show
+     */
+    function createSkeletonSlot(showFn) {
+        var active = null;
+        return {
+            show: function (region, options) {
+                var raw = showFn(region, options);
+                var hidden = false;
+                var handle = {
+                    hide: function () {
+                        if (hidden) return;
+                        hidden = true;
+                        raw.hide();
+                        if (active === handle) active = null;
+                    }
+                };
+                active = handle;
+                return handle;
+            },
+            hideActive: function () {
+                if (active) active.hide();
+            }
+        };
+    }
+
     var pure = {
+        popstateNeedsReload: popstateNeedsReload,
+        createSkeletonSlot: createSkeletonSlot,
         TABS: TABS,
         TAB_FIELDS: TAB_FIELDS,
         normalizeTab: normalizeTab,
@@ -228,6 +272,8 @@
     var loaded = {};          // tab -> api url whose content is on screen
     var controller = null;    // the in-flight load's AbortController
     var loadToken = 0;
+    var skeletons = null;     // createSkeletonSlot(Skeleton.show), made on first use
+    var shownLocation = '';   // path + query the page is showing (see popstateNeedsReload)
 
     function $(selector, scope) { return (scope || document).querySelector(selector); }
     function $all(selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); }
@@ -252,6 +298,7 @@
             if (mode === 'push') window.history.pushState(null, '', url);
             else window.history.replaceState(null, '', url);
         } catch (e) { /* a sandboxed frame: the page still works */ }
+        shownLocation = window.location.pathname + window.location.search;
     }
 
     // ---- forms
@@ -398,6 +445,7 @@
     function abortLoad() {
         if (controller) controller.abort();
         controller = null;
+        if (skeletons) skeletons.hideActive();
     }
 
     function afterLoad(tab, region) {
@@ -444,21 +492,28 @@
         controller = localController;
 
         var url = apiUrl(tab, current.filters, current.page);
-        var skeleton = window.Skeleton.show(region, tab === 'analytics'
+        if (!skeletons) skeletons = createSkeletonSlot(window.Skeleton.show);
+        var skeleton = skeletons.show(region, tab === 'analytics'
             ? { kind: 'card', type: 'stats', label: 'Loading analytics' }
             : { kind: 'table', rows: 6, columns: 5, label: 'Loading command logs' });
         showRangeError(tab, '');
         delete loaded[tab];
 
         return window.ApiClient.getHtml(url, { signal: localController.signal }).then(function (html) {
-            if (token !== loadToken) return;
+            if (token !== loadToken) {
+                skeleton.hide();
+                return;
+            }
             skeleton.hide();
             region.innerHTML = html;
             loaded[tab] = url;
             afterLoad(tab, region);
             if (options.focus) focusRegion(region);
         }).catch(function (error) {
-            if (token !== loadToken || (error && error.name === 'AbortError')) return;
+            if (token !== loadToken || (error && error.name === 'AbortError')) {
+                skeleton.hide();
+                return;
+            }
             skeleton.hide();
             showFailure(tab, region, error, function () { load(tab, { focus: true }); });
         }).then(function () {
@@ -694,7 +749,12 @@
         document.addEventListener('submit', onSubmit);
         document.addEventListener('input', onInput);
         // Back and Forward: the URL is the state, so load the view it describes
-        window.addEventListener('popstate', function () { window.location.reload(); });
+        // (a hash-only step, such as the skip link, does not change the view: leave it alone)
+        shownLocation = window.location.pathname + window.location.search;
+        window.addEventListener('popstate', function () {
+            if (!popstateNeedsReload(shownLocation, window.location.pathname, window.location.search)) return;
+            window.location.reload();
+        });
 
         // Command list search from ?q=
         if (current.q) setCommandSearch(current.q, { silentUrl: true });

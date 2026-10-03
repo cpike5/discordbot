@@ -163,7 +163,7 @@ Beside each select:
 
 "Save AI Models" submits the dedicated `#aiModelsDefaultsForm` directly to
 `?handler=SaveCategory&category=AiModels` via `ApiClient.postRaw` - it is **not** included in
-`?handler=SaveAll` (that handler only reads `#settingsForm`, and the AI Models selects intentionally
+the page-wide save (which only reads `#settingsForm`, and the AI Models selects intentionally
 live outside it so the catalog toolbar doesn't mark the page dirty). Save the AI Models tab from its
 own "Save AI Models" button; "Save All" on another tab does not touch per-mode defaults.
 
@@ -485,26 +485,8 @@ public async Task<IActionResult> OnPostSaveCategoryAsync(string category)
 
 ### Save All
 
-**Endpoint:** `POST /Admin/Settings?handler=SaveAll`
-
-```csharp
-public async Task<IActionResult> OnPostSaveAllAsync()
-{
-    var userId = User.Identity?.Name ?? "Unknown";
-    var updateDto = new SettingsUpdateDto { Settings = FormSettings };
-
-    var result = await _settingsService.UpdateSettingsAsync(updateDto, userId);
-
-    return new JsonResult(new
-    {
-        success = true,
-        message = result.Changes.Count > 0
-            ? $"All settings saved successfully. {result.Changes.Count} setting(s) updated."
-            : "No changes detected.",
-        restartRequired = result.RestartRequired
-    });
-}
-```
+There is no server-side save-all handler. "Save All" in the page runs `SaveCategory` once for each
+tab with unsaved changes, so every request is scoped to one tab's keys.
 
 ### Reset Category
 

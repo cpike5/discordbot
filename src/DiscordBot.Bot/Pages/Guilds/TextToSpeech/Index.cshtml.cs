@@ -1,10 +1,12 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -13,6 +15,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Pages.Guilds.TextToSpeech;
 
@@ -34,6 +37,7 @@ public class IndexModel : GuildPageModelBase
     private readonly ISettingsService _settingsService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly ISsmlBuilder _ssmlBuilder;
+    private readonly IOptions<AzureSpeechSsmlOptions> _ssmlOptions;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -47,6 +51,7 @@ public class IndexModel : GuildPageModelBase
         ISettingsService settingsService,
         IGuildAudioSettingsRepository audioSettingsRepository,
         ISsmlBuilder ssmlBuilder,
+        IOptions<AzureSpeechSsmlOptions> ssmlOptions,
         ILogger<IndexModel> logger)
     {
         _ttsHistoryService = ttsHistoryService;
@@ -59,6 +64,7 @@ public class IndexModel : GuildPageModelBase
         _settingsService = settingsService;
         _audioSettingsRepository = audioSettingsRepository;
         _ssmlBuilder = ssmlBuilder;
+        _ssmlOptions = ssmlOptions;
         _logger = logger;
     }
 
@@ -335,6 +341,12 @@ public class IndexModel : GuildPageModelBase
                 return Failure($"That message is {request.Message.Length} characters; the limit is {settings.MaxMessageLength}.", field: "message");
             }
 
+            var ssmlRefusal = CheckProSsml(request, settings);
+            if (ssmlRefusal != null)
+            {
+                return ssmlRefusal;
+            }
+
             var options = ResolveOptions(request, settings);
 
             using var audioStream = await SynthesizeAsync(request, options, cancellationToken);
@@ -413,6 +425,12 @@ public class IndexModel : GuildPageModelBase
                 return Failure($"That message is {request.Message.Length} characters; the limit is {settings.MaxMessageLength}.", field: "message");
             }
 
+            var ssmlRefusal = CheckProSsml(request, settings);
+            if (ssmlRefusal != null)
+            {
+                return ssmlRefusal;
+            }
+
             var options = ResolveOptions(request, settings);
             using var audioStream = await SynthesizeAsync(request, options, cancellationToken);
             return File(WavAudio.WrapPcm(audioStream), "audio/wav", "tts-preview.wav");
@@ -426,6 +444,45 @@ public class IndexModel : GuildPageModelBase
             _logger.LogError(ex, "Error previewing TTS message for guild {GuildId}", guildId);
             return Failure("The preview could not be made. Try again.", StatusCodes.Status500InternalServerError);
         }
+    }
+
+    /// <summary>
+    /// Pro mode sends the SSML as written, so it is held to the same per-server rules as the portal's
+    /// SSML endpoint: SSML must be switched on for the server, within the document length limit, and
+    /// within the server's complexity limit. Null when the request carries no SSML or passes.
+    /// </summary>
+    private JsonResult? CheckProSsml(TtsSendDto request, GuildTtsSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(request.Ssml))
+        {
+            return null;
+        }
+
+        if (!settings.SsmlEnabled)
+        {
+            return Failure(
+                "Pro mode is off for this server. Turn on SSML in the text-to-speech settings first.",
+                StatusCodes.Status403Forbidden,
+                field: "ssml",
+                code: "ssml_not_enabled");
+        }
+
+        var maxLength = _ssmlOptions.Value.MaxDocumentLength;
+        if (request.Ssml.Length > maxLength)
+        {
+            return Failure($"That SSML is {request.Ssml.Length} characters; the limit is {maxLength}.", field: "ssml", code: "ssml_too_long");
+        }
+
+        var complexity = SsmlLimits.Complexity(request.Ssml);
+        if (complexity > settings.MaxSsmlComplexity)
+        {
+            return Failure(
+                $"That SSML is too complex ({complexity}); this server allows {settings.MaxSsmlComplexity}. Simplify the markup.",
+                field: "ssml",
+                code: "ssml_complexity_exceeded");
+        }
+
+        return null;
     }
 
     /// <summary>

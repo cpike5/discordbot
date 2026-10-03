@@ -136,19 +136,13 @@ public class SettingsModel : PageModel
     public async Task<IActionResult> OnPostSaveCategoryAsync(string category)
     {
         _logger.LogInformation("Settings save requested for category {Category} by user {UserId}", category, User.Identity?.Name);
+        if (await IsAppearanceRefusedAsync(category))
+        {
+            return new ForbidResult();
+        }
+
         var userId = User.Identity?.Name ?? "Unknown";
         var result = await _settingsSectionService.SaveCategoryAsync(category, FormSettings, userId);
-        return ToJsonResult(result);
-    }
-
-    /// <summary>
-    /// Handles POST requests to save all settings across all categories.
-    /// </summary>
-    public async Task<IActionResult> OnPostSaveAllAsync()
-    {
-        _logger.LogInformation("Save all settings requested by user {UserId}", User.Identity?.Name);
-        var userId = User.Identity?.Name ?? "Unknown";
-        var result = await _settingsSectionService.SaveAllAsync(FormSettings, userId);
         return ToJsonResult(result);
     }
 
@@ -161,6 +155,11 @@ public class SettingsModel : PageModel
     public async Task<IActionResult> OnPostResetCategoryAsync(string category)
     {
         _logger.LogWarning("Reset category {Category} requested by user {UserId}", category, User.Identity?.Name);
+        if (await IsAppearanceRefusedAsync(category))
+        {
+            return new ForbidResult();
+        }
+
         var userId = User.Identity?.Name ?? "Unknown";
         var result = await _settingsSectionService.ResetCategoryAsync(category, userId);
         return RedirectWithToast(result, category);
@@ -260,6 +259,25 @@ public class SettingsModel : PageModel
         var userId = User.Identity?.Name ?? "Unknown";
         var result = await _appearanceSettingsService.ResetThemeAsync(userId);
         return RedirectWithToast(result, "Appearance");
+    }
+
+    /// <summary>
+    /// True when <paramref name="category"/> is Appearance (the default theme) and the caller is not
+    /// a SuperAdmin. The generic save and reset handlers take any category name, so they must not
+    /// become a way around the SuperAdmin-only Appearance handlers.
+    /// </summary>
+    private async Task<bool> IsAppearanceRefusedAsync(string? category)
+    {
+        // Parse the way the service does (it accepts numeric ids too), so no spelling slips past
+        if (!Enum.TryParse<DiscordBot.Core.Enums.SettingCategory>(category, ignoreCase: true, out var parsed)
+            || parsed != DiscordBot.Core.Enums.SettingCategory.Appearance
+            || await _appearanceSettingsService.IsSuperAdminAsync(User))
+        {
+            return false;
+        }
+
+        _logger.LogWarning("Unauthorized attempt to change Appearance settings through the generic handler by user {UserId}", User.Identity?.Name);
+        return true;
     }
 
     private static IActionResult ToJsonResult(SettingsSectionResult result)

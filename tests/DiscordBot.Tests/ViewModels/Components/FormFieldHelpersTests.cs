@@ -64,4 +64,17 @@ public class FormFieldHelpersTests
         new RadioCardGroupViewModel { Name = "mode" }.ResolvedId.Should().Be("mode");
         new RadioCardGroupViewModel { Name = "mode", Id = "purge" }.ResolvedId.Should().Be("purge");
     }
+
+    [Theory]
+    [InlineData("help", ValidationState.None, null, true)]
+    [InlineData(null, ValidationState.None, "ignored", false)]
+    [InlineData("help", ValidationState.Error, "Pick one.", true)]
+    [InlineData("help", ValidationState.Error, null, false)]
+    [InlineData("help", ValidationState.Success, null, false)]   // help text is hidden behind a state, so nothing renders
+    [InlineData("help", ValidationState.Warning, "", false)]
+    [InlineData(null, ValidationState.Warning, "Check this.", true)]
+    public void HasMessageElement_IsTrueOnlyWhenAParagraphIsRendered(string? help, ValidationState state, string? message, bool expected)
+    {
+        FormFieldHelpers.HasMessageElement(help, state, message).Should().Be(expected);
+    }
 }

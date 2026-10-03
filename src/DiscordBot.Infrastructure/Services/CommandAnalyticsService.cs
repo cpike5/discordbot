@@ -39,9 +39,11 @@ public class CommandAnalyticsService : ICommandAnalyticsService
         // operation at once (running them with Task.WhenAll intermittently threw
         // "A second operation was started on this context instance" and failed the tab)
         var usageOverTime = await GetUsageOverTimeAsync(start, end, guildId, cancellationToken);
-        var successRate = await GetSuccessRateAsync(start, guildId, cancellationToken);
-        var performance = await GetCommandPerformanceAsync(start, guildId, 10, cancellationToken);
-        var topCommands = await GetTopCommandsAsync(start, guildId, 10, cancellationToken);
+        // All four cover the same window and guild: the totals, rates and rankings on the page must
+        // describe the same set of commands as the chart
+        var successRate = await _commandLogRepository.GetSuccessRateAsync(start, end, guildId, cancellationToken);
+        var performance = await _commandLogRepository.GetCommandPerformanceAsync(start, end, guildId, 10, cancellationToken);
+        var topCommands = await GetTopCommandsInWindowAsync(start, end, guildId, 10, cancellationToken);
 
         // Calculate aggregate metrics
         var totalCommands = usageOverTime.Sum(x => x.Count);
@@ -126,15 +128,21 @@ public class CommandAnalyticsService : ICommandAnalyticsService
         int limit = 10,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving top {Limit} commands since {Since} for guild {GuildId}",
-            limit, since, guildId);
+        return await GetTopCommandsInWindowAsync(since, null, guildId, limit, cancellationToken);
+    }
 
-        // Use GetCommandUsageStatsAsync and apply guild filter and limit
-        var allStats = await _commandLogRepository.GetCommandUsageStatsAsync(since, cancellationToken);
+    private async Task<IDictionary<string, int>> GetTopCommandsInWindowAsync(
+        DateTime? since,
+        DateTime? until,
+        ulong? guildId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Retrieving top {Limit} commands since {Since} until {Until} for guild {GuildId}",
+            limit, since, until, guildId);
 
-        // Note: The repository method doesn't support guild filtering for GetCommandUsageStatsAsync
-        // For now, we'll return the top commands without guild filtering
-        // This could be improved by adding guild filtering to the repository method
+        var allStats = await _commandLogRepository.GetCommandUsageStatsAsync(since, until, guildId, cancellationToken);
+
         var topCommands = allStats
             .OrderByDescending(x => x.Value)
             .Take(limit)

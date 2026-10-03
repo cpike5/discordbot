@@ -16,6 +16,11 @@ public class GuildAudioSettings
     public bool AudioEnabled { get; set; } = true;
 
     /// <summary>
+    /// The longest auto-leave timeout, in minutes, that any settings screen accepts.
+    /// </summary>
+    public const int MaxAutoLeaveTimeoutMinutes = 60;
+
+    /// <summary>
     /// Minutes of inactivity before the bot automatically leaves the voice channel.
     /// Set to 0 to stay indefinitely until manually disconnected.
     /// </summary>

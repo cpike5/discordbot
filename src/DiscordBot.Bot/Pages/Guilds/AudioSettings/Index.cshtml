@@ -99,11 +99,11 @@
             <div class="settings-row">
                 <div class="settings-row-content">
                     <label for="autoLeaveTimeout" class="settings-row-title">Auto-leave timeout</label>
-                    <div id="autoLeaveTimeout-desc" class="settings-row-description">Minutes of inactivity before the bot leaves the voice channel by itself, from 0 to 60. 0 means it stays until told to leave.</div>
+                    <div id="autoLeaveTimeout-desc" class="settings-row-description">Minutes of inactivity before the bot leaves the voice channel by itself, from 0 to @DiscordBot.Core.Entities.GuildAudioSettings.MaxAutoLeaveTimeoutMinutes. 0 means it stays until told to leave.</div>
                     <p id="autoLeaveTimeout-error" class="settings-field-error hidden" role="alert"></p>
                 </div>
                 <div class="input-with-unit">
-                    <input type="number" id="autoLeaveTimeout" name="autoLeaveTimeout" value="@Model.Settings.AutoLeaveTimeoutMinutes" min="0" max="60" step="1" inputmode="numeric" autocomplete="off" required
+                    <input type="number" id="autoLeaveTimeout" name="autoLeaveTimeout" value="@Model.Settings.AutoLeaveTimeoutMinutes" min="0" max="@DiscordBot.Core.Entities.GuildAudioSettings.MaxAutoLeaveTimeoutMinutes" step="1" inputmode="numeric" autocomplete="off" required
                            data-label="the auto-leave timeout" data-unit="minutes" aria-describedby="autoLeaveTimeout-desc autoLeaveTimeout-error" class="settings-input" />
                     <span class="input-unit" aria-hidden="true">minutes</span>
                 </div>

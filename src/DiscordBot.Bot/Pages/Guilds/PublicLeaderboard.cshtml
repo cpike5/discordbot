@@ -3,7 +3,9 @@
 @using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @{
-    ViewData["Title"] = $"Hall of Shame - {Model.GuildName}";
+    // Refusal and error states carry no guild name, so the title and share cards stay generic there
+    var hasGuildName = !string.IsNullOrEmpty(Model.GuildName);
+    ViewData["Title"] = hasGuildName ? $"Hall of Shame - {Model.GuildName}" : "Hall of Shame";
     Layout = null; // Public page - no sidebar/navbar
 }
 
@@ -17,7 +19,7 @@
 
     <!-- Open Graph meta tags for social sharing -->
     <meta property="og:title" content="@ViewData["Title"]" />
-    <meta property="og:description" content="View the Hall of Shame leaderboard for @Model.GuildName - accountability metrics and fun stats!" />
+    <meta property="og:description" content="@(hasGuildName ? $"View the Hall of Shame leaderboard for {Model.GuildName} - accountability metrics and fun stats!" : "View the Hall of Shame leaderboard - accountability metrics and fun stats!")" />
     <meta property="og:type" content="website" />
     @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
     {
@@ -27,7 +29,7 @@
     <!-- Twitter Card meta tags -->
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="@ViewData["Title"]" />
-    <meta name="twitter:description" content="View the Hall of Shame leaderboard for @Model.GuildName" />
+    <meta name="twitter:description" content="@(hasGuildName ? $"View the Hall of Shame leaderboard for {Model.GuildName}" : "View the Hall of Shame leaderboard")" />
 
     <!-- Compiled Tailwind CSS -->
     <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->

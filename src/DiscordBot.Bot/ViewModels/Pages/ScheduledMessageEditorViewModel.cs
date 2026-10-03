@@ -70,6 +70,12 @@ public class ScheduledMessageEditorViewModel
     /// </summary>
     public static string? ToUtcIso(DateTime? local, string? timeZone)
     {
-        return local.HasValue ? DisplayFormat.Iso(TimezoneHelper.ConvertToUtc(local.Value, timeZone)) : null;
+        // A time the zone skips (daylight-saving gap) stands for no instant: show no summary
+        if (!local.HasValue || TimezoneHelper.IsNonexistentLocalTime(local.Value, timeZone))
+        {
+            return null;
+        }
+
+        return DisplayFormat.Iso(TimezoneHelper.ConvertToUtc(local.Value, timeZone));
     }
 }

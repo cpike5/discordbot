@@ -554,6 +554,11 @@ public class IndexModel : GuildPageModelBase
         [FromBody] AssignCategoryDto request,
         CancellationToken cancellationToken = default)
     {
+        if (request == null)
+        {
+            return CategoryError("The request could not be read. Reload the page and try again.");
+        }
+
         var sound = await _soundService.GetByIdAsync(request.SoundId, guildId, cancellationToken);
         if (sound == null)
         {

@@ -189,9 +189,6 @@ public class SettingsSectionService : ISettingsSectionService
         return await SaveInternalAsync(category, scoped, userId, "Saved", "The settings could not be saved.", cancellationToken);
     }
 
-    public async Task<SettingsSectionResult> SaveAllAsync(Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default)
-        => await SaveInternalAsync("All", formSettings, userId, "Saved", "The settings could not be saved.", cancellationToken);
-
     /// <summary>The tab's name as users read it ("AiModels" is "AI Models").</summary>
     internal static string CategoryLabel(string category) => category switch
     {

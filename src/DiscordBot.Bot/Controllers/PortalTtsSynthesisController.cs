@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.Interfaces;
@@ -534,11 +535,7 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
     /// </summary>
     /// <param name="ssml">SSML markup to analyze.</param>
     /// <returns>Complexity score.</returns>
-    private static int CalculateSsmlComplexity(string ssml)
-    {
-        // Count opening tags as a rough approximation of complexity
-        return ssml.Split('<').Length - 1;
-    }
+    private static int CalculateSsmlComplexity(string ssml) => SsmlLimits.Complexity(ssml);
 
     /// <summary>
     /// Gets the capabilities of a specific TTS voice.

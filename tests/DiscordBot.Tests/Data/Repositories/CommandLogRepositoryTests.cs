@@ -392,6 +392,56 @@ public class CommandLogRepositoryTests : IDisposable
         result["test"].Should().Be(1);
     }
 
+    #region Analytics window tests
+
+    [Fact]
+    public async Task AnalyticsQueries_StopAtTheEndOfTheWindow_AndKeepToTheGuild()
+    {
+        // Arrange: a window of 10-20 days ago; one failure inside it, a log after it, a log in another guild
+        await SeedTestDataAsync();
+        _context.Guilds.Add(new Guild { Id = 555, Name = "Other Guild", JoinedAt = DateTime.UtcNow, IsActive = true });
+        await _context.SaveChangesAsync();
+
+        var now = DateTime.UtcNow;
+        var start = now.AddDays(-20);
+        var end = now.AddDays(-10);
+
+        CommandLog Log(ulong guildId, string command, DateTime at, bool success, int ms) => new()
+        {
+            Id = Guid.NewGuid(),
+            GuildId = guildId,
+            UserId = 987654321,
+            CommandName = command,
+            ExecutedAt = at,
+            ResponseTimeMs = ms,
+            Success = success
+        };
+
+        await _context.CommandLogs.AddRangeAsync(
+            Log(123456789, "ping", now.AddDays(-15), true, 100),
+            Log(123456789, "status", now.AddDays(-14), false, 300),
+            Log(123456789, "ping", now.AddDays(-2), true, 900),   // after the window
+            Log(555, "ping", now.AddDays(-15), true, 50));        // another guild
+        await _context.SaveChangesAsync();
+
+        // Act
+        var rate = await _repository.GetSuccessRateAsync(start, end, 123456789, CancellationToken.None);
+        var performance = await _repository.GetCommandPerformanceAsync(start, end, 123456789, 10, CancellationToken.None);
+        var usage = await _repository.GetCommandUsageStatsAsync(start, end, 123456789, CancellationToken.None);
+
+        // Assert
+        rate.SuccessCount.Should().Be(1);
+        rate.FailureCount.Should().Be(1);
+        performance.Should().HaveCount(2);
+        performance.Single(p => p.CommandName == "ping").ExecutionCount.Should().Be(1, "the later ping is outside the window");
+        usage.Should().BeEquivalentTo(new Dictionary<string, int> { ["ping"] = 1, ["status"] = 1 });
+
+        // The old, open-ended calls still see everything from the start
+        (await _repository.GetSuccessRateAsync(start, 123456789)).SuccessCount.Should().Be(2);
+    }
+
+    #endregion
+
     #region GetFilteredLogsAsync Tests
 
     [Fact]

@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -59,21 +60,21 @@ public class EditModel : GuildPageModelBase
         public bool AudioEnabled { get; set; } = true;
 
         [Display(Name = "Auto-leave Timeout")]
-        [Range(0, 1440, ErrorMessage = "Enter a whole number of minutes from 0 to 1440.")]
+        [Range(0, GuildAudioSettings.MaxAutoLeaveTimeoutMinutes, ErrorMessage = "Enter a whole number of minutes from 0 to 60.")]
         public int AutoLeaveTimeoutMinutes { get; set; } = 5;
 
         [Display(Name = "Queue Enabled")]
         public bool QueueEnabled { get; set; } = true;
     }
 
-    public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("User accessing guild edit page for guild {GuildId}", id);
+        _logger.LogInformation("User accessing guild edit page for guild {GuildId}", guildId);
 
-        var guild = await _guildService.GetGuildByIdAsync(id, cancellationToken);
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild == null)
         {
-            _logger.LogWarning("Guild {GuildId} not found", id);
+            _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound();
         }
 
@@ -82,7 +83,7 @@ public class EditModel : GuildPageModelBase
         // Load audio settings (don't fail the page if this fails)
         try
         {
-            var audioSettings = await _audioSettingsService.GetSettingsAsync(id, cancellationToken);
+            var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
             Input.AudioEnabled = audioSettings.AudioEnabled;
             Input.AutoLeaveTimeoutMinutes = audioSettings.AutoLeaveTimeoutMinutes;
             Input.QueueEnabled = audioSettings.QueueEnabled;
@@ -90,19 +91,19 @@ public class EditModel : GuildPageModelBase
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "Failed to load audio settings for guild {GuildId}", id);
+            _logger.LogError(ex, "Failed to load audio settings for guild {GuildId}", guildId);
         }
 
         LoadPage(guild, dirtyOnLoad: false);
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync(ulong id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User submitting guild edit for guild {GuildId}, IsActive={IsActive}, AudioEnabled={AudioEnabled}",
-            id, Input.IsActive, Input.AudioEnabled);
+            guildId, Input.IsActive, Input.AudioEnabled);
 
-        var guild = await _guildService.GetGuildByIdAsync(id, cancellationToken);
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild == null)
         {
             return NotFound();
@@ -111,20 +112,20 @@ public class EditModel : GuildPageModelBase
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("ModelState is invalid for guild {GuildId}. Errors: {Errors}",
-                id,
+                guildId,
                 string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
 
             LoadPage(guild, dirtyOnLoad: true);
             return Page();
         }
 
-        _logger.LogInformation("Updating guild {GuildId} with IsActive={IsActive}", id, Input.IsActive);
+        _logger.LogInformation("Updating guild {GuildId} with IsActive={IsActive}", guildId, Input.IsActive);
 
-        var result = await _guildService.UpdateGuildAsync(id, new GuildUpdateRequestDto { IsActive = Input.IsActive }, cancellationToken);
+        var result = await _guildService.UpdateGuildAsync(guildId, new GuildUpdateRequestDto { IsActive = Input.IsActive }, cancellationToken);
 
         if (result == null)
         {
-            _logger.LogWarning("Failed to update guild {GuildId} - guild not found", id);
+            _logger.LogWarning("Failed to update guild {GuildId} - guild not found", guildId);
             TempData.SetErrorToast("The server was not found. It may have been removed.");
             LoadPage(guild, dirtyOnLoad: true);
             return Page();
@@ -135,28 +136,28 @@ public class EditModel : GuildPageModelBase
         {
             try
             {
-                await _audioSettingsService.UpdateSettingsAsync(id, settings =>
+                await _audioSettingsService.UpdateSettingsAsync(guildId, settings =>
                 {
                     settings.AudioEnabled = Input.AudioEnabled;
                     settings.AutoLeaveTimeoutMinutes = Input.AutoLeaveTimeoutMinutes;
                     settings.QueueEnabled = Input.QueueEnabled;
                 }, cancellationToken);
 
-                _logger.LogInformation("Successfully updated audio settings for guild {GuildId}", id);
+                _logger.LogInformation("Successfully updated audio settings for guild {GuildId}", guildId);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogError(ex, "Failed to update audio settings for guild {GuildId}", id);
+                _logger.LogError(ex, "Failed to update audio settings for guild {GuildId}", guildId);
                 TempData.SetErrorToast("The server settings were saved, but the audio settings could not be. Try saving again.");
                 LoadPage(guild, dirtyOnLoad: true);
                 return Page();
             }
         }
 
-        _logger.LogInformation("Successfully updated guild {GuildId}", id);
+        _logger.LogInformation("Successfully updated guild {GuildId}", guildId);
         TempData.SetSuccessToast("Server settings saved.");
 
-        return RedirectToPage("Details", new { guildId = id });
+        return RedirectToPage("Details", new { guildId });
     }
 
     /// <summary>

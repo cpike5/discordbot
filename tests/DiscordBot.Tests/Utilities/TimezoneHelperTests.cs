@@ -115,6 +115,33 @@ public class TimezoneHelperTests
 
     #endregion
 
+    #region IsNonexistentLocalTime Tests
+
+    [Theory]
+    [InlineData("2026-03-08T02:30:00", "America/New_York", true)]   // clocks jump 02:00 -> 03:00
+    [InlineData("2026-03-08T03:30:00", "America/New_York", false)]
+    [InlineData("2026-11-01T01:30:00", "America/New_York", false)]  // an hour that happens twice still exists
+    [InlineData("2026-03-08T02:30:00", "Australia/Brisbane", false)] // no daylight saving there
+    [InlineData("2026-03-08T02:30:00", "UTC", false)]
+    [InlineData("2026-03-08T02:30:00", null, false)]
+    [InlineData("2026-03-08T02:30:00", "Not/AZone", false)]          // unknown zone is read as UTC
+    public void IsNonexistentLocalTime_IsTrueOnlyForATimeTheZoneSkips(string local, string? timezone, bool expected)
+    {
+        TimezoneHelper.IsNonexistentLocalTime(DateTime.Parse(local), timezone).Should().Be(expected);
+    }
+
+    [Fact]
+    public void ConvertToUtc_ForASkippedTime_Throws_SoCallersMustCheckFirst()
+    {
+        var skipped = new DateTime(2026, 3, 8, 2, 30, 0);
+
+        var act = () => TimezoneHelper.ConvertToUtc(skipped, "America/New_York");
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    #endregion
+
     #region ConvertToUtc Tests
 
     [Fact]

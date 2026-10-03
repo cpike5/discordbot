@@ -420,6 +420,16 @@ public class UserManagementService : IUserManagementService
                 "User not found");
         }
 
+        // Same hierarchy as every other user change: only a SuperAdmin may touch a SuperAdmin
+        if (!await CanManageUserAsync(actorUserId, userId, cancellationToken))
+        {
+            _logger.LogWarning("Actor {ActorId} attempted to change the active status of user {UserId} without permission",
+                actorUserId, userId);
+            return UserManagementResult.Failure(
+                UserManagementResult.InsufficientPermissions,
+                "You do not have permission to change this user's status");
+        }
+
         if (user.IsActive == isActive)
         {
             // No change needed
