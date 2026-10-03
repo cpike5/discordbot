@@ -406,3 +406,35 @@ test('a server error never shows its detail, which can be exception text', async
         }
     );
 });
+
+test('redirect: manual passes the mode to fetch and reports an opaque redirect as done', async () => {
+    global.document = { querySelector: () => null };
+
+    let capturedRedirect;
+    mockFetch(async (url, options) => {
+        capturedRedirect = options.redirect;
+        // What a browser returns for a manual redirect: opaque, status 0, no body
+        return { type: 'opaqueredirect', ok: false, status: 0, text: async () => '' };
+    });
+
+    const result = await ApiClient.postRaw('/Admin/Users/Edit?userId=1&handler=ResetPassword', 'a=b', { redirect: 'manual' });
+
+    assert.equal(capturedRedirect, 'manual');
+    assert.equal(result.ok, true);
+    assert.equal(result.redirected, true);
+    assert.equal(result.data, null);
+});
+
+test('follows redirects by default', async () => {
+    global.document = { querySelector: () => null };
+
+    let capturedRedirect;
+    mockFetch(async (url, options) => {
+        capturedRedirect = options.redirect;
+        return { ok: true, status: 200, text: async () => '{}' };
+    });
+
+    await ApiClient.getRaw('/api/thing');
+
+    assert.equal(capturedRedirect, 'follow');
+});

@@ -12,7 +12,7 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 
 ### Shared Component Library (25+ components)
 **Location:** `Bot/Pages/Shared/Components/`
-- **Form Controls:** `_FormInput`, `_FormSelect`, `_FormToggle`
+- **Form Controls:** `_FormInput`, `_FormTextarea`, `_FormSelect`, `_FormToggle` (`role=switch`, unchecked posts `false`), `_RadioCardGroup` / `_RadioCard`. Validation classes are `.input-validation-error|warning|success` (the names tag helpers emit)
 - **UI Elements:** `_Button`, `_Badge`, `_Card`, `_EnhancedCard`
 - **Status:** `_Alert`, `_EmptyState`, `_ConnectionStatus`
 - **Navigation:** `_GuildBreadcrumb`, `_CommandBreadcrumb`
@@ -20,7 +20,8 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - **Bot Status:** `_BotStatusBanner`, `_BotStatusCard`
 - **Dashboard:** `_ConnectedServersWidget`, `_DashboardWidget`
 - **Activity:** `_ActivityFeed`, `_ActivityFeedTimeline`
-- **Modals:** `_ConfirmationModal`, `_CommandLogDetailsModal`
+- **Modals:** `_ConfirmationModal`, `_TypedConfirmationModal`, `_CommandLogDetailsModal`. One layer, `wwwroot/js/quick-actions.js`: `quickActions.openDialog/closeDialog` (motion via `.qa-open`, scroll lock, `inert` background, focus trap, stacking), `showConfirmationModal`, and the Promise API `confirm/alert/typedConfirm`. Confirmation forms post to their own `action` (the partial puts `handler=` in the URL), do not follow redirects (TempData must survive), and skip forms with `data-custom-submit`. Cancel/backdrop are `data-modal-dismiss`, never inline handlers
+- **Loading/empty/unsaved:** `_Skeleton`, `_SkeletonCard`, `_SkeletonTable`, `_SkeletonLines` and `wwwroot/js/skeleton.js` (`Skeleton.show` waits 300ms); `_EmptyState` and its JS twin `wwwroot/js/empty-state.js` (`EmptyState.render/filtered/error`); `wwwroot/js/unsaved-changes.js` (`data-unsaved-changes` on a form, `UnsavedChanges.markClean(form)` after a fetch save). `_Pagination` state rules live on `PaginationViewModel` (unit tested)
 - **Data Cards:** `_AuditLogCard`, `_CommandStatsCard`
 - **Input:** `_AutocompleteInput`
 - **Previews:** `_GuildPreviewPopup`

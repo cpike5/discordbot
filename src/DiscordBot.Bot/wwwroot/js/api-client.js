@@ -206,6 +206,11 @@
      * @param {number} [options.timeout=30000] - ms before the request is aborted; 0 for none.
      * @param {AbortSignal} [options.signal] - caller's own abort signal (e.g. a newer search).
      *   An abort through it rejects with the browser's AbortError, untouched.
+     * @param {string} [options.redirect='follow'] - 'manual' to stop at a redirect instead of
+     *   following it. Following runs the redirect target's GET, which consumes TempData
+     *   (toasts, one-time values) meant for the page the user lands on next. A manual redirect
+     *   resolves with `{ ok: true, redirected: true, status: 0, data: null }`: the handler
+     *   finished, and the caller navigates itself (see quickActions' confirm forms).
      * @param {string} [options.responseType] - 'blob' to read the body as a Blob
      *   (audio synthesize/preview endpoints) instead of JSON/text. Only applied
      *   when the response is ok; error bodies are always parsed as JSON/text so
@@ -220,7 +225,8 @@
             credentials = 'same-origin',
             timeout = DEFAULT_TIMEOUT_MS,
             signal,
-            responseType
+            responseType,
+            redirect
         } = options;
 
         // Mark the request as script-initiated, so the server answers an expired
@@ -267,12 +273,18 @@
                     headers: finalHeaders,
                     body: finalBody,
                     credentials,
+                    redirect: redirect || 'follow',
                     signal: controller ? controller.signal : signal
                 });
             } catch (err) {
                 if (timedOut) throw new ApiClientError(TIMEOUT_MESSAGE, 0, null, null, 'timeout');
                 if (err && err.name === 'AbortError') throw err;
                 throw new ApiClientError(NETWORK_MESSAGE, 0, null, null, 'network');
+            }
+
+            // redirect: 'manual' answers a redirect with an opaque, empty response
+            if (response.type === 'opaqueredirect') {
+                return { ok: true, status: 0, redirected: true, data: null, response };
             }
 
             if (isSessionExpired(response)) {

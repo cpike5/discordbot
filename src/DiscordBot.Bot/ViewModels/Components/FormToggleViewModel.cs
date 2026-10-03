@@ -1,7 +1,7 @@
 namespace DiscordBot.Bot.ViewModels.Components;
 
 /// <summary>
-/// View model for a toggle switch form control.
+/// View model for a toggle switch form control (<c>_FormToggle</c>, over the <c>.toggle</c> classes).
 /// </summary>
 public record FormToggleViewModel
 {
@@ -34,4 +34,20 @@ public record FormToggleViewModel
     /// Gets whether the toggle is disabled (not interactive).
     /// </summary>
     public bool IsDisabled { get; init; }
+
+    /// <summary>
+    /// Gets whether an unchecked toggle posts <c>false</c>. An unchecked checkbox posts nothing,
+    /// so a form cannot tell "turned off" from "not on the form" and a bound <c>bool</c> never
+    /// becomes false. When true (the default) a hidden <c>false</c> input follows the checkbox with
+    /// the same name; a checked toggle posts <c>true,false</c> and the model binder reads the first.
+    /// Not rendered while the toggle is disabled, because a disabled field posts nothing.
+    /// Set it to false for scripts that read <c>checked</c> themselves.
+    /// </summary>
+    public bool PostsFalseWhenOff { get; init; } = true;
+
+    /// <summary>
+    /// Gets extra attributes for the checkbox (for example <c>data-setting-toggle</c>).
+    /// Values are HTML-encoded.
+    /// </summary>
+    public Dictionary<string, string>? AdditionalAttributes { get; init; }
 }
