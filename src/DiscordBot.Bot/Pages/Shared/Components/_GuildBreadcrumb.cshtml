@@ -3,7 +3,7 @@
 @if (Model.Items?.Any() == true)
 {
     <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
+        <ol class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             @foreach (var item in Model.Items)
             {
                 <li class="flex items-center gap-2">

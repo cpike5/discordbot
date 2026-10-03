@@ -178,9 +178,10 @@ public class IndexModelTests
         await _indexModel.OnGetAsync(CancellationToken.None);
 
         // Assert
-        _indexModel.EventsFlagged.Should().Be(10, "should show flagged events from last 24 hours");
-        _indexModel.AutoActions.Should().Be(3, "should show auto-actions from last 24 hours");
-        _indexModel.FalsePositives.Should().Be(2, "should show false positives from last 24 hours");
+        _indexModel.EventsFlagged.Should().Be(10, "should show every event flagged in the last 24 hours, whatever its status");
+        _indexModel.ActionedEvents.Should().Be(3, "should count events with a recorded outcome");
+        _indexModel.DismissedEvents.Should().Be(2, "should count events a moderator dismissed");
+        _indexModel.StatisticsLoaded.Should().BeTrue();
     }
 
     [Fact]
@@ -327,10 +328,10 @@ public class IndexModelTests
         _mockConfigService.Verify(
             s => s.UpdateConfigAsync(
                 guildId,
-                It.Is<GuildModerationConfigDto>(c => c.Mode == ConfigMode.Advanced && c.SimplePreset == null),
+                It.Is<GuildModerationConfigDto>(c => c.Mode == ConfigMode.Advanced && c.SimplePreset == "Moderate"),
                 It.IsAny<CancellationToken>()),
             Times.Once,
-            "config should be updated with new mode and preset");
+            "the mode changes and a preset that was not sent stays as it was");
     }
 
     [Fact]
@@ -413,7 +414,7 @@ public class IndexModelTests
         _indexModel.GuildId = guildId;
 
         var config = CreateModerationConfig(guildId);
-        var request = new SpamDetectionConfigDto
+        var request = new SpamConfigPatchDto
         {
             Enabled = true,
             MaxMessagesPerWindow = 10,
@@ -458,7 +459,7 @@ public class IndexModelTests
         const ulong guildId = 123456789UL;
         _indexModel.GuildId = guildId;
 
-        var request = new SpamDetectionConfigDto();
+        var request = new SpamConfigPatchDto();
 
         _mockConfigService
             .Setup(s => s.GetConfigAsync(guildId, It.IsAny<CancellationToken>()))
@@ -485,12 +486,10 @@ public class IndexModelTests
         _indexModel.GuildId = guildId;
 
         var config = CreateModerationConfig(guildId);
-        var request = new ContentFilterConfigDto
+        var request = new ContentFilterPatchDto
         {
             Enabled = true,
             ProhibitedWords = new List<string> { "spam", "scam" },
-            AllowedLinkDomains = new List<string> { "example.com" },
-            BlockUnlistedLinks = true,
             BlockInviteLinks = true,
             AutoAction = AutoAction.Delete
         };
@@ -535,7 +534,7 @@ public class IndexModelTests
         _indexModel.GuildId = guildId;
 
         var config = CreateModerationConfig(guildId);
-        var request = new RaidProtectionConfigDto
+        var request = new RaidProtectionPatchDto
         {
             Enabled = true,
             MaxJoinsPerWindow = 20,
@@ -605,7 +604,7 @@ public class IndexModelTests
     }
 
     [Fact]
-    public async Task OnPostApplyPresetAsync_WhenServiceThrowsException_Returns500()
+    public async Task OnPostApplyPresetAsync_WithUnknownPreset_Returns400WithoutTouchingConfig()
     {
         // Arrange
         const ulong guildId = 123456789UL;
@@ -613,17 +612,36 @@ public class IndexModelTests
 
         var request = new ApplyPresetDto { PresetName = "Invalid" };
 
+        // Act
+        var result = await _indexModel.OnPostApplyPresetAsync(request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<JsonResult>();
+        ((JsonResult)result).StatusCode.Should().Be(400);
+        _mockConfigService.Verify(
+            s => s.ApplyPresetAsync(It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostApplyPresetAsync_WhenServiceThrowsException_Returns500()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        var request = new ApplyPresetDto { PresetName = "Strict" };
+
         _mockConfigService
-            .Setup(s => s.ApplyPresetAsync(guildId, "Invalid", It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new ArgumentException("Invalid preset name"));
+            .Setup(s => s.ApplyPresetAsync(guildId, "Strict", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database error"));
 
         // Act
         var result = await _indexModel.OnPostApplyPresetAsync(request, CancellationToken.None);
 
         // Assert
         result.Should().BeOfType<JsonResult>();
-        var jsonResult = (JsonResult)result;
-        jsonResult.StatusCode.Should().Be(500);
+        ((JsonResult)result).StatusCode.Should().Be(500);
     }
 
     #endregion
@@ -706,7 +724,7 @@ public class IndexModelTests
 
         _mockModTagService
             .Setup(s => s.CreateTagAsync(guildId, It.IsAny<ModTagCreateDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Tag already exists"));
+            .ThrowsAsync(new InvalidOperationException("Database error"));
 
         // Act
         var result = await _indexModel.OnPostCreateTagAsync(request, CancellationToken.None);
@@ -715,6 +733,76 @@ public class IndexModelTests
         result.Should().BeOfType<JsonResult>();
         var jsonResult = (JsonResult)result;
         jsonResult.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task OnPostCreateTagAsync_WhenNameAlreadyExists_Returns409()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        _mockModTagService
+            .Setup(s => s.CreateTagAsync(guildId, It.IsAny<ModTagCreateDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("A tag with the name 'VIP' already exists."));
+
+        // Act
+        var result = await _indexModel.OnPostCreateTagAsync(new ModTagCreateDto { Name = "VIP" }, CancellationToken.None);
+
+        // Assert
+        var jsonResult = result.Should().BeOfType<JsonResult>().Subject;
+        jsonResult.StatusCode.Should().Be(409);
+        var response = jsonResult.Value as dynamic;
+        ((string)response!.message).Should().Contain("already exists");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task OnPostCreateTagAsync_WithBlankName_Returns400(string name)
+    {
+        // Act
+        var result = await _indexModel.OnPostCreateTagAsync(new ModTagCreateDto { Name = name }, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<JsonResult>().Which.StatusCode.Should().Be(400);
+        _mockModTagService.Verify(
+            s => s.CreateTagAsync(It.IsAny<ulong>(), It.IsAny<ModTagCreateDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostCreateTagAsync_WithUndefinedCategory_Returns400()
+    {
+        // Act: the old page sent 3 for "Neutral", which is not a category
+        var result = await _indexModel.OnPostCreateTagAsync(
+            new ModTagCreateDto { Name = "Odd", Category = (TagCategory)3 }, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<JsonResult>().Which.StatusCode.Should().Be(400);
+    }
+
+    [Fact]
+    public async Task OnPostCreateTagAsync_WithoutColor_StoresACategoryDefault()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+        ModTagCreateDto? sent = null;
+
+        _mockModTagService
+            .Setup(s => s.CreateTagAsync(guildId, It.IsAny<ModTagCreateDto>(), It.IsAny<CancellationToken>()))
+            .Callback<ulong, ModTagCreateDto, CancellationToken>((_, dto, _) => sent = dto)
+            .ReturnsAsync(CreateModTagDto("Trusted", "#27AE60"));
+
+        // Act
+        await _indexModel.OnPostCreateTagAsync(
+            new ModTagCreateDto { Name = "  Trusted  ", Category = TagCategory.Positive }, CancellationToken.None);
+
+        // Assert
+        sent.Should().NotBeNull();
+        sent!.Name.Should().Be("Trusted", "the name is trimmed");
+        sent.Color.Should().MatchRegex("^#[0-9A-Fa-f]{6}$");
     }
 
     #endregion
@@ -807,6 +895,16 @@ public class IndexModelTests
         var templateNames = new[] { "Spam Warning", "Helpful User", "Toxic Behavior" };
 
         _mockModTagService
+            .SetupSequence(s => s.GetGuildTagsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ModTagDto>())
+            .ReturnsAsync(new List<ModTagDto>
+            {
+                CreateModTagDto("Spam Warning", "#FF0000"),
+                CreateModTagDto("Helpful User", "#00FF00"),
+                CreateModTagDto("Toxic Behavior", "#0000FF")
+            });
+
+        _mockModTagService
             .Setup(s => s.ImportTemplateTagsAsync(guildId, templateNames, It.IsAny<CancellationToken>()))
             .ReturnsAsync(3);
 
@@ -835,6 +933,9 @@ public class IndexModelTests
 
         var templateNames = new[] { "Invalid" };
 
+        _mockModTagService
+            .Setup(s => s.GetGuildTagsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ModTagDto>());
         _mockModTagService
             .Setup(s => s.ImportTemplateTagsAsync(guildId, templateNames, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Template not found"));
@@ -918,55 +1019,36 @@ public class IndexModelTests
         };
     }
 
-    private void SetupFlaggedEventService(ulong guildId, int eventsFlagged, int autoActions, int falsePositives)
+    /// <summary>
+    /// The last day's events: <paramref name="eventsFlagged"/> in all, of which some have a recorded
+    /// outcome and some were dismissed; the rest are still pending.
+    /// </summary>
+    private void SetupFlaggedEventService(ulong guildId, int eventsFlagged, int actioned, int dismissed)
     {
         var now = DateTime.UtcNow;
         var events = new List<FlaggedEventDto>();
 
-        // Add pending flagged events (these count toward eventsFlagged)
-        // Note: eventsFlagged includes false positives in the implementation
-        int pendingEvents = eventsFlagged - falsePositives;
-        for (int i = 0; i < pendingEvents; i++)
+        FlaggedEventDto Make(FlaggedEventStatus status, string? actionTaken = null) => new()
         {
-            events.Add(new FlaggedEventDto
-            {
-                Id = Guid.NewGuid(),
-                GuildId = guildId,
-                UserId = 111UL,
-                Username = "User1",
-                RuleType = RuleType.Spam,
-                Severity = Severity.Medium,
-                Description = "Spam detected",
-                Evidence = "{}",
-                Status = FlaggedEventStatus.Pending,
-                CreatedAt = now.AddMinutes(-10),
-                ActionTaken = i < autoActions ? "Message deleted" : null
-            });
-        }
+            Id = Guid.NewGuid(),
+            GuildId = guildId,
+            UserId = 111UL,
+            Username = "User1",
+            RuleType = RuleType.Spam,
+            Severity = Severity.Medium,
+            Description = "Spam detected",
+            Evidence = "{}",
+            Status = status,
+            ActionTaken = actionTaken,
+            CreatedAt = now.AddMinutes(-10)
+        };
 
-        // Add false positives (dismissed events - these also count toward eventsFlagged)
-        for (int i = 0; i < falsePositives; i++)
-        {
-            events.Add(new FlaggedEventDto
-            {
-                Id = Guid.NewGuid(),
-                GuildId = guildId,
-                UserId = 222UL,
-                Username = "User2",
-                RuleType = RuleType.Content,
-                Severity = Severity.Low,
-                Description = "False positive",
-                Evidence = "{}",
-                Status = FlaggedEventStatus.Dismissed,
-                CreatedAt = now.AddMinutes(-5),
-                ReviewedByUserId = 333UL,
-                ReviewedByUsername = "Moderator",
-                ReviewedAt = now.AddMinutes(-4)
-            });
-        }
+        for (var i = 0; i < eventsFlagged - actioned - dismissed; i++) events.Add(Make(FlaggedEventStatus.Pending));
+        for (var i = 0; i < actioned; i++) events.Add(Make(FlaggedEventStatus.Actioned, "Warned user"));
+        for (var i = 0; i < dismissed; i++) events.Add(Make(FlaggedEventStatus.Dismissed));
 
         _mockFlaggedEventService
-            .Setup(s => s.GetPendingEventsAsync(guildId, 1, 1000, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetFilteredEventsAsync(guildId, It.IsAny<FlaggedEventQueryDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((events, events.Count));
     }
 

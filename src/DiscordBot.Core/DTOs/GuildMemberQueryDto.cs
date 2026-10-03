@@ -36,6 +36,11 @@ public class GuildMemberQueryDto
     public DateTime? LastActiveAtEnd { get; set; }
 
     /// <summary>
+    /// When true, only members with no recorded activity (never sent a message the bot saw).
+    /// </summary>
+    public bool NeverActive { get; set; }
+
+    /// <summary>
     /// Filter by active status. Null for all, true for active only, false for inactive only.
     /// </summary>
     public bool? IsActive { get; set; } = true;

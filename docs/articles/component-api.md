@@ -1756,6 +1756,27 @@ try {
 
 ---
 
+## Bulk Selection
+
+`wwwroot/js/bulk-selection.js` keeps one selection for a list that renders the same rows twice (a table from `md` up and cards below it). Both layouts stay in the DOM, so counting checked boxes counts every row twice; the module keys the selection by the row's id and mirrors it onto every checkbox with that id.
+
+```html
+<input type="checkbox" data-select-item="<id>" aria-label="Select …">   <!-- one per row per layout -->
+<input type="checkbox" data-select-all aria-label="Select all …">       <!-- any number; indeterminate when partial -->
+<div data-bulk-toolbar hidden class="hidden …"> <span data-selected-count></span> <button data-bulk-clear>…</button> </div>
+<p class="sr-only" role="status" data-selection-status></p>             <!-- polite announcement -->
+```
+
+```javascript
+const selection = BulkSelection.init({ noun: ['member', 'members'], onChange(ids) { … } });
+selection.ids();      // distinct ids, as strings (snowflakes and GUIDs stay exact)
+selection.clear();
+```
+
+The count text uses `Format.plural`. Toggle the toolbar with both the `hidden` attribute and the `hidden` class (the module does), because a utility such as `flex` outranks the attribute. `createSelection` has no DOM dependency and is covered by `wwwroot/js/__tests__/bulk-selection.test.js`. Used by Members and FlaggedEvents.
+
+---
+
 ## Unsaved Changes
 
 `wwwroot/js/unsaved-changes.js` (both layouts) warns before a page is left with edits not saved. Opt in with one attribute:
@@ -3562,6 +3583,9 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.6 (2026-10-03)
+- Added Bulk Selection (`bulk-selection.js`)
 
 ### Version 1.5 (2026-10-02)
 - Alert is for persistent page state; `role="status"`; dismiss works without a callback; `DismissCallback` is a function name, never evaluated code

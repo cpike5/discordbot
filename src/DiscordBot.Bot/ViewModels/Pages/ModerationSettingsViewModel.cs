@@ -78,12 +78,12 @@ public class ModerationSettingsViewModel
 public class OverviewUpdateDto
 {
     /// <summary>
-    /// Gets or sets the configuration mode.
+    /// Gets or sets the configuration mode. Null leaves the saved mode alone.
     /// </summary>
-    public ConfigMode Mode { get; set; }
+    public ConfigMode? Mode { get; set; }
 
     /// <summary>
-    /// Gets or sets the simple mode preset name (optional, only used when Mode is Simple).
+    /// Gets or sets the simple mode preset name. Null leaves the saved preset alone.
     /// </summary>
     public string? SimplePreset { get; set; }
 }

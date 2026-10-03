@@ -4668,3 +4668,14 @@
 @media (prefers-reduced-motion: reduce) {
   .row-actions { transition: none; }
 }
+
+/* Phase 7 — moderation screens */
+.tab-dirty-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.375rem;
+  border-radius: 9999px;
+  background-color: var(--color-warning-fill);
+  flex-shrink: 0;
+}

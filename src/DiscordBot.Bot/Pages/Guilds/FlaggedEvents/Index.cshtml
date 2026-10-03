@@ -1,123 +1,172 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Guilds.FlaggedEvents.IndexModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Flagged Events - {Model.GuildName}";
     Layout = "_GuildLayout";
+
+    var clearFiltersUrl = Url.Page("/Guilds/FlaggedEvents/Index", new { guildId = Model.GuildId });
+    var keepPlace = Model.ListRouteValues();
+
+    // Links that carry the current filters and page, plus one event, to a POST handler
+    string RowAction(string handler, Guid id)
+    {
+        var values = new Microsoft.AspNetCore.Routing.RouteValueDictionary(keepPlace) { ["id"] = id };
+        return Url.Page("/Guilds/FlaggedEvents/Index", handler, values) ?? string.Empty;
+    }
+    var bulkAction = Url.Page("/Guilds/FlaggedEvents/Index", "Bulk", keepPlace);
+    var pageLinks = Model.ListRouteValues();
+    pageLinks.Remove("pageNumber");
+    pageLinks.Remove("pageSize");
+    var paginationModel = new PaginationViewModel
+    {
+        CurrentPage = Model.CurrentPage,
+        TotalPages = Model.TotalPages,
+        TotalItems = Model.TotalCount,
+        PageSize = Model.CurrentPageSize,
+        BaseUrl = Url.Page("/Guilds/FlaggedEvents/Index", pageLinks) ?? string.Empty,
+        Style = PaginationStyle.Full,
+        ShowItemCount = true,
+        ShowPageSizeSelector = true,
+        PageParameterName = "pageNumber",
+        AriaLabel = "Flagged events pagination"
+    };
+
+    var filteredEmpty = new EmptyStateViewModel
+    {
+        Type = EmptyStateType.NoResults,
+        Title = "No flagged events match your filters",
+        Description = "Try different filters, or clear them to see every event.",
+        PrimaryActionText = "Clear filters",
+        PrimaryActionUrl = clearFiltersUrl,
+        PrimaryActionIconPath = ""
+    };
+    var firstTimeEmpty = new EmptyStateViewModel
+    {
+        Type = EmptyStateType.NoData,
+        Title = "No flagged events yet",
+        Description = "Auto-moderation has not flagged anything on this server. Events appear here when a spam, content or raid rule fires."
+    };
 }
 
-    <!-- Filter Bar -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
-        <form method="get" id="filterForm">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <!-- Rule Type Filter -->
-                <div>
-                    <label for="filterRuleType" class="block text-sm font-medium text-text-secondary mb-1">Rule Type</label>
-                    <select id="filterRuleType" name="FilterRuleType" asp-for="FilterRuleType" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue">
-                        <option value="">All Types</option>
-                        <option value="@((int)RuleType.Spam)">Spam</option>
-                        <option value="@((int)RuleType.Content)">Content</option>
-                        <option value="@((int)RuleType.Raid)">Raid</option>
-                    </select>
-                </div>
+@section Scripts {
+    <script src="~/js/bulk-selection.js" asp-append-version="true"></script>
+    <script src="~/js/flagged-events.js" asp-append-version="true"></script>
+}
 
-                <!-- Severity Filter -->
-                <div>
-                    <label for="filterSeverity" class="block text-sm font-medium text-text-secondary mb-1">Severity</label>
-                    <select id="filterSeverity" name="FilterSeverity" asp-for="FilterSeverity" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue">
-                        <option value="">All Levels</option>
-                        <option value="@((int)Severity.Low)">Low</option>
-                        <option value="@((int)Severity.Medium)">Medium</option>
-                        <option value="@((int)Severity.High)">High</option>
-                        <option value="@((int)Severity.Critical)">Critical</option>
-                    </select>
-                </div>
-
-                <!-- Status Filter -->
-                <div>
-                    <label for="filterStatus" class="block text-sm font-medium text-text-secondary mb-1">Status</label>
-                    <select id="filterStatus" name="FilterStatus" asp-for="FilterStatus" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue">
-                        <option value="">All Statuses</option>
-                        <option value="@((int)FlaggedEventStatus.Pending)">Pending</option>
-                        <option value="@((int)FlaggedEventStatus.Dismissed)">Dismissed</option>
-                        <option value="@((int)FlaggedEventStatus.Acknowledged)">Acknowledged</option>
-                        <option value="@((int)FlaggedEventStatus.Actioned)">Actioned</option>
-                    </select>
-                </div>
-
-                <!-- Date From Filter -->
-                <div>
-                    <label for="filterDateFrom" class="block text-sm font-medium text-text-secondary mb-1">From Date</label>
-                    <input type="date" id="filterDateFrom" name="FilterDateFrom" asp-for="FilterDateFrom" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" />
-                </div>
-
-                <!-- Date To Filter -->
-                <div>
-                    <label for="filterDateTo" class="block text-sm font-medium text-text-secondary mb-1">To Date</label>
-                    <input type="date" id="filterDateTo" name="FilterDateTo" asp-for="FilterDateTo" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" />
-                </div>
+<!-- Filters -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+    <form method="get" id="filterForm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+                <label for="filterRuleType" class="form-label block mb-1">Rule type</label>
+                <select id="filterRuleType" name="FilterRuleType" class="form-select">
+                    <option value="">All types</option>
+                    <option value="@((int)RuleType.Spam)" selected="@(Model.FilterRuleType == RuleType.Spam)">Spam</option>
+                    <option value="@((int)RuleType.Content)" selected="@(Model.FilterRuleType == RuleType.Content)">Content</option>
+                    <option value="@((int)RuleType.Raid)" selected="@(Model.FilterRuleType == RuleType.Raid)">Raid</option>
+                </select>
             </div>
 
-            <div class="flex items-center justify-end gap-3 mt-4">
-                <a href="@Url.Page("/Guilds/FlaggedEvents/Index", new { guildId = Model.GuildId })" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
-                    Clear Filters
-                </a>
-                <button type="submit" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
-                    Apply Filters
+            <div>
+                <label for="filterSeverity" class="form-label block mb-1">Severity</label>
+                <select id="filterSeverity" name="FilterSeverity" class="form-select">
+                    <option value="">All levels</option>
+                    <option value="@((int)Severity.Low)" selected="@(Model.FilterSeverity == Severity.Low)">Low</option>
+                    <option value="@((int)Severity.Medium)" selected="@(Model.FilterSeverity == Severity.Medium)">Medium</option>
+                    <option value="@((int)Severity.High)" selected="@(Model.FilterSeverity == Severity.High)">High</option>
+                    <option value="@((int)Severity.Critical)" selected="@(Model.FilterSeverity == Severity.Critical)">Critical</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="filterStatus" class="form-label block mb-1">Status</label>
+                <select id="filterStatus" name="FilterStatus" class="form-select">
+                    <option value="">All statuses</option>
+                    <option value="@((int)FlaggedEventStatus.Pending)" selected="@(Model.FilterStatus == FlaggedEventStatus.Pending)">Pending</option>
+                    <option value="@((int)FlaggedEventStatus.Acknowledged)" selected="@(Model.FilterStatus == FlaggedEventStatus.Acknowledged)">Acknowledged</option>
+                    <option value="@((int)FlaggedEventStatus.Dismissed)" selected="@(Model.FilterStatus == FlaggedEventStatus.Dismissed)">Dismissed</option>
+                    <option value="@((int)FlaggedEventStatus.Actioned)" selected="@(Model.FilterStatus == FlaggedEventStatus.Actioned)">Actioned</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="filterDateFrom" class="form-label block mb-1">From date</label>
+                <input type="date" id="filterDateFrom" name="FilterDateFrom" value="@Model.FilterDateFrom?.ToString("yyyy-MM-dd")" class="form-input" />
+            </div>
+
+            <div>
+                <label for="filterDateTo" class="form-label block mb-1">To date</label>
+                <input type="date" id="filterDateTo" name="FilterDateTo" value="@Model.FilterDateTo?.ToString("yyyy-MM-dd")" class="form-input" />
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-end gap-3 mt-4">
+            <a href="@clearFiltersUrl" class="btn btn-secondary">Clear filters</a>
+            <button type="submit" class="btn btn-primary">Apply filters</button>
+        </div>
+    </form>
+</div>
+
+<!-- Row actions post through this one form (formaction on each button); a confirm comes first -->
+<form id="eventActionForm" method="post" data-submit-guard data-event-action-form></form>
+
+<p class="sr-only" role="status" data-selection-status></p>
+
+@if (!Model.Events.Any())
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+        <partial name="Shared/Components/_EmptyState" model="@(Model.HasActiveFilters ? filteredEmpty : firstTimeEmpty)" />
+    </div>
+}
+else
+{
+    <!-- Bulk toolbar (hidden until something is selected) -->
+    <form method="post" action="@bulkAction" asp-antiforgery="true" id="bulkForm" data-submit-guard data-event-action-form>
+        <div data-bulk-toolbar hidden class="hidden bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-4 sm:px-5 py-3 mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-accent-blue flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-sm font-medium text-text-primary"><span data-selected-count>0 events</span> selected</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bulk-clear>Clear selection</button>
+                <button type="submit" name="bulkAction" value="dismiss" class="btn btn-secondary btn-sm"
+                        data-loading-text="Dismissing…"
+                        data-confirm-title="Dismiss events"
+                        data-confirm-message="Dismiss {count}? Dismissed events are closed as not needing action. Events that are already dismissed or actioned are left as they are."
+                        data-confirm-text="Dismiss">
+                    Dismiss selected
+                </button>
+                <button type="submit" name="bulkAction" value="acknowledge" class="btn btn-accent btn-sm"
+                        data-loading-text="Acknowledging…"
+                        data-confirm-title="Acknowledge events"
+                        data-confirm-message="Acknowledge {count}? They are marked as seen and stay open for review."
+                        data-confirm-text="Acknowledge">
+                    Acknowledge selected
                 </button>
             </div>
-        </form>
-    </div>
+        </div>
+        <div data-bulk-ids></div>
+    </form>
 
-    <!-- Bulk Actions Toolbar (hidden unless items selected) -->
-    <div id="bulkActionsToolbar" class="hidden bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span class="text-sm font-medium text-text-primary">
-                <span id="selectedCount">0</span> event(s) selected
-            </span>
-        </div>
-        <div class="flex items-center gap-2">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="clearSelection()">
-                Clear Selection
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="bulkDismiss()">
-                Dismiss Selected
-            </button>
-            <button type="button" class="btn btn-accent btn-sm" onclick="bulkAcknowledge()">
-                Acknowledge Selected
-            </button>
-        </div>
-    </div>
-
-    @if (!Model.Events.Any())
-    {
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
-            <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h3 class="text-sm font-medium text-text-primary mb-1">No flagged events found</h3>
-            <p class="text-sm text-text-tertiary">@(Model.FilterRuleType.HasValue || Model.FilterSeverity.HasValue || Model.FilterStatus.HasValue ? "Try adjusting your filters." : "No auto-moderation events have been detected yet.")</p>
-        </div>
-    }
-    else
-    {
-        <!-- Desktop Table -->
-        <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
-            <table class="min-w-full divide-y divide-border-primary">
+    <!-- Desktop table (md and up) -->
+    <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-border-primary" aria-label="Flagged events">
                 <thead class="bg-bg-tertiary">
                     <tr>
                         <th scope="col" class="w-12 px-4 py-3">
-                            <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="w-4 h-4 rounded border-border-primary text-accent-blue focus:ring-accent-blue" aria-label="Select all events" />
+                            <input type="checkbox" data-select-all class="w-4 h-4 rounded border-border-primary" aria-label="Select all events on this page" />
                         </th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Severity</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Rule</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Channel</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Timestamp</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Time</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
                         <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
                     </tr>
@@ -125,15 +174,15 @@
                 <tbody class="divide-y divide-border-primary">
                     @foreach (var evt in Model.Events)
                     {
-                        <tr class="hover:bg-bg-hover transition-colors">
+                        <tr class="table-row hover:bg-bg-hover transition-colors">
                             <td class="px-4 py-4 whitespace-nowrap">
-                                <input type="checkbox" class="event-checkbox w-4 h-4 rounded border-border-primary text-accent-blue focus:ring-accent-blue" data-event-id="@evt.Id" onclick="updateBulkToolbar()" aria-label="Select event from @evt.Username" />
+                                <input type="checkbox" data-select-item="@evt.Id" class="w-4 h-4 rounded border-border-primary" aria-label="Select event from @evt.Username" />
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@Model.GuildId">@evt.Username</div>
+                            <td class="px-4 py-4">
+                                <div class="text-sm font-medium text-text-primary preview-trigger break-all" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@Model.GuildId">@evt.Username</div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="flex items-center gap-2">
@@ -141,27 +190,46 @@
                                     <span class="text-sm text-text-primary">@evt.RuleType</span>
                                 </div>
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                <div class="text-sm text-text-secondary">@(evt.ChannelId > 0 ? $"#{evt.ChannelName}" : "N/A")</div>
+                            <td class="px-4 py-4">
+                                <div class="text-sm text-text-secondary break-all">@(evt.ChannelId > 0 ? $"#{evt.ChannelName}" : "Not channel-specific")</div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
-                                <div class="text-sm text-text-secondary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="datetime"></span></div>
+                                <div class="text-sm text-text-secondary">@DisplayFormat.Time(evt.CreatedAt, "datetime-short")</div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex items-center justify-end gap-2">
-                                    @if (evt.Status == FlaggedEventStatus.Pending)
+                            <td class="px-4 py-4 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1 row-actions">
+                                    @if (FlaggedEventReviewRules.CanApply(FlaggedEventReviewAction.Acknowledge, evt.Status))
                                     {
-                                        <button type="button" onclick="dismissEvent('@evt.Id')" class="text-text-secondary hover:text-text-primary transition-colors" title="Dismiss">
-                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <button type="submit" form="eventActionForm" formaction="@RowAction("Acknowledge", evt.Id)"
+                                                class="btn btn-ghost btn-icon text-accent-blue"
+                                                title="Acknowledge" aria-label="Acknowledge event from @evt.Username"
+                                                data-confirm-title="Acknowledge event"
+                                                data-confirm-message="Mark this event as seen? It stays open for review."
+                                                data-confirm-text="Acknowledge">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </button>
+                                    }
+                                    @if (FlaggedEventReviewRules.CanApply(FlaggedEventReviewAction.Dismiss, evt.Status))
+                                    {
+                                        <button type="submit" form="eventActionForm" formaction="@RowAction("Dismiss", evt.Id)"
+                                                class="btn btn-ghost btn-icon"
+                                                title="Dismiss" aria-label="Dismiss event from @evt.Username"
+                                                data-confirm-title="Dismiss event"
+                                                data-confirm-message="Dismiss this event? It is closed as not needing action."
+                                                data-confirm-text="Dismiss">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                             </svg>
                                         </button>
                                     }
-                                    <a asp-page="/Guilds/FlaggedEvents/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@evt.Id" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <a asp-page="/Guilds/FlaggedEvents/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@evt.Id"
+                                       class="btn btn-ghost btn-icon text-accent-blue" title="View details" aria-label="View details of event from @evt.Username">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
@@ -173,221 +241,80 @@
                 </tbody>
             </table>
         </div>
+    </div>
 
-        <!-- Mobile Cards -->
-        <div class="md:hidden space-y-4 mb-6">
-            @foreach (var evt in Model.Events)
-            {
-                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" class="event-checkbox w-4 h-4 rounded border-border-primary text-accent-blue focus:ring-accent-blue" data-event-id="@evt.Id" onclick="updateBulkToolbar()" aria-label="Select event from @evt.Username" />
-                            <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
-                        </div>
-                        <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm font-semibold text-text-secondary">User:</span>
-                            <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@Model.GuildId">@evt.Username</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <partial name="Shared/Components/_RuleTypeIcon" model="evt.RuleType" />
-                            <span class="text-sm text-text-primary">@evt.RuleType</span>
-                        </div>
-                        @if (evt.ChannelId > 0)
-                        {
-                            <div class="text-sm text-text-secondary">#{@evt.ChannelName}</div>
-                        }
-                        <div class="text-xs text-text-tertiary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="datetime"></span></div>
-                    </div>
-                    <div class="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-border-primary">
-                        @if (evt.Status == FlaggedEventStatus.Pending)
-                        {
-                            <button type="button" onclick="dismissEvent('@evt.Id')" class="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors">
-                                Dismiss
-                            </button>
-                        }
-                        <a asp-page="/Guilds/FlaggedEvents/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@evt.Id" class="px-3 py-1.5 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
-                            View Details
-                        </a>
-                    </div>
-                </div>
-            }
-        </div>
-
-        <!-- Pagination -->
-        @if (Model.TotalPages > 1)
+    <!-- Card layout (below md) -->
+    <div class="md:hidden space-y-4 mb-6">
+        <label class="flex items-center gap-3 px-1 text-sm text-text-secondary">
+            <input type="checkbox" data-select-all class="w-5 h-5 rounded border-border-primary" />
+            Select all on this page
+        </label>
+        @foreach (var evt in Model.Events)
         {
-            <div class="flex items-center justify-between">
-                <div class="text-sm text-text-secondary">
-                    Showing <span class="font-medium">@((Model.CurrentPage - 1) * Model.CurrentPageSize + 1)</span> to <span class="font-medium">@Math.Min(Model.CurrentPage * Model.CurrentPageSize, Model.TotalCount)</span> of <span class="font-medium">@Model.TotalCount</span> events
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4" data-row>
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <input type="checkbox" data-select-item="@evt.Id" class="w-5 h-5 rounded border-border-primary flex-shrink-0" aria-label="Select event from @evt.Username" />
+                        <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
+                    </div>
+                    <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
                 </div>
-                <div class="flex items-center gap-2">
-                    @if (Model.CurrentPage > 1)
+                <dl class="space-y-2 text-sm">
+                    <div class="flex gap-2">
+                        <dt class="text-text-secondary flex-shrink-0">User</dt>
+                        <dd class="text-text-primary preview-trigger break-all" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@Model.GuildId">@evt.Username</dd>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <dt class="text-text-secondary flex-shrink-0">Rule</dt>
+                        <dd class="flex items-center gap-2 text-text-primary">
+                            <partial name="Shared/Components/_RuleTypeIcon" model="evt.RuleType" />
+                            @evt.RuleType
+                        </dd>
+                    </div>
+                    @if (evt.ChannelId > 0)
                     {
-                        <a asp-page="/Guilds/FlaggedEvents/Index"
-                           asp-route-guildId="@Model.GuildId"
-                           asp-route-page="@(Model.CurrentPage - 1)"
-                           asp-route-FilterRuleType="@Model.FilterRuleType"
-                           asp-route-FilterSeverity="@Model.FilterSeverity"
-                           asp-route-FilterStatus="@Model.FilterStatus"
-                           asp-route-FilterDateFrom="@Model.FilterDateFrom"
-                           asp-route-FilterDateTo="@Model.FilterDateTo"
-                           class="px-3 py-2 border border-border-primary rounded-md text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors">
-                            Previous
-                        </a>
+                        <div class="flex gap-2">
+                            <dt class="text-text-secondary flex-shrink-0">Channel</dt>
+                            <dd class="text-text-primary break-all">#@evt.ChannelName</dd>
+                        </div>
                     }
-
-                    <span class="px-3 py-2 text-sm text-text-secondary">
-                        Page @Model.CurrentPage of @Model.TotalPages
-                    </span>
-
-                    @if (Model.CurrentPage < Model.TotalPages)
+                    <div class="flex gap-2">
+                        <dt class="text-text-secondary flex-shrink-0">Time</dt>
+                        <dd class="text-text-primary">@DisplayFormat.Time(evt.CreatedAt, "datetime-short")</dd>
+                    </div>
+                </dl>
+                <div class="flex flex-wrap items-center justify-end gap-2 mt-4 pt-4 border-t border-border-primary">
+                    @if (FlaggedEventReviewRules.CanApply(FlaggedEventReviewAction.Dismiss, evt.Status))
                     {
-                        <a asp-page="/Guilds/FlaggedEvents/Index"
-                           asp-route-guildId="@Model.GuildId"
-                           asp-route-page="@(Model.CurrentPage + 1)"
-                           asp-route-FilterRuleType="@Model.FilterRuleType"
-                           asp-route-FilterSeverity="@Model.FilterSeverity"
-                           asp-route-FilterStatus="@Model.FilterStatus"
-                           asp-route-FilterDateFrom="@Model.FilterDateFrom"
-                           asp-route-FilterDateTo="@Model.FilterDateTo"
-                           class="px-3 py-2 border border-border-primary rounded-md text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors">
-                            Next
-                        </a>
+                        <button type="submit" form="eventActionForm" formaction="@RowAction("Dismiss", evt.Id)"
+                                class="btn btn-secondary btn-sm"
+                                aria-label="Dismiss event from @evt.Username"
+                                data-confirm-title="Dismiss event"
+                                data-confirm-message="Dismiss this event? It is closed as not needing action."
+                                data-confirm-text="Dismiss">
+                            Dismiss
+                        </button>
                     }
+                    @if (FlaggedEventReviewRules.CanApply(FlaggedEventReviewAction.Acknowledge, evt.Status))
+                    {
+                        <button type="submit" form="eventActionForm" formaction="@RowAction("Acknowledge", evt.Id)"
+                                class="btn btn-secondary btn-sm"
+                                aria-label="Acknowledge event from @evt.Username"
+                                data-confirm-title="Acknowledge event"
+                                data-confirm-message="Mark this event as seen? It stays open for review."
+                                data-confirm-text="Acknowledge">
+                            Acknowledge
+                        </button>
+                    }
+                    <a asp-page="/Guilds/FlaggedEvents/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@evt.Id"
+                       class="btn btn-accent btn-sm" aria-label="View details of event from @evt.Username">
+                        View details
+                    </a>
                 </div>
             </div>
         }
-    }
-</div>
+    </div>
 
-@section Scripts {
-    <script>
-        // Store guild ID for API calls (as string to preserve precision)
-        const guildId = '@Model.GuildId';
-
-        function toggleSelectAll(checkbox) {
-            const checkboxes = document.querySelectorAll('.event-checkbox');
-            checkboxes.forEach(cb => cb.checked = checkbox.checked);
-            updateBulkToolbar();
-        }
-
-        function updateBulkToolbar() {
-            const checkboxes = document.querySelectorAll('.event-checkbox:checked');
-            const toolbar = document.getElementById('bulkActionsToolbar');
-            const count = document.getElementById('selectedCount');
-
-            count.textContent = checkboxes.length;
-
-            if (checkboxes.length > 0) {
-                toolbar.classList.remove('hidden');
-            } else {
-                toolbar.classList.add('hidden');
-            }
-        }
-
-        function clearSelection() {
-            document.querySelectorAll('.event-checkbox').forEach(cb => cb.checked = false);
-            document.getElementById('selectAll').checked = false;
-            updateBulkToolbar();
-        }
-
-        async function dismissEvent(eventId) {
-            const confirmed = await quickActions.confirm({
-                title: 'Dismiss Flagged Event',
-                message: 'Are you sure you want to dismiss this flagged event?',
-                variant: 'warning',
-                confirmText: 'Dismiss'
-            });
-            if (!confirmed) return;
-
-            try {
-                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/dismiss`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ reviewerId: '@User.FindFirst("DiscordId")?.Value' })
-                });
-
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    const error = await response.json();
-                    quickActions.showToast('Error dismissing event: ' + error.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error dismissing event:', error);
-                quickActions.showToast('An error occurred while dismissing the event.', 'error');
-            }
-        }
-
-        async function bulkDismiss() {
-            const checkboxes = document.querySelectorAll('.event-checkbox:checked');
-            if (checkboxes.length === 0) return;
-
-            const confirmed = await quickActions.confirm({
-                title: 'Bulk Dismiss Events',
-                message: `Are you sure you want to dismiss ${checkboxes.length} flagged event(s)?`,
-                variant: 'warning',
-                confirmText: 'Dismiss'
-            });
-            if (!confirmed) return;
-
-            const eventIds = Array.from(checkboxes).map(cb => cb.dataset.eventId);
-
-            try {
-                const promises = eventIds.map(eventId =>
-                    fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/dismiss`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ reviewerId: '@User.FindFirst("DiscordId")?.Value' })
-                    })
-                );
-
-                await Promise.all(promises);
-                location.reload();
-            } catch (error) {
-                console.error('Error dismissing events:', error);
-                quickActions.showToast('An error occurred while dismissing events.', 'error');
-            }
-        }
-
-        async function bulkAcknowledge() {
-            const checkboxes = document.querySelectorAll('.event-checkbox:checked');
-            if (checkboxes.length === 0) return;
-
-            const confirmed = await quickActions.confirm({
-                title: 'Bulk Acknowledge Events',
-                message: `Are you sure you want to acknowledge ${checkboxes.length} flagged event(s)?`,
-                variant: 'warning',
-                confirmText: 'Acknowledge'
-            });
-            if (!confirmed) return;
-
-            const eventIds = Array.from(checkboxes).map(cb => cb.dataset.eventId);
-
-            try {
-                const promises = eventIds.map(eventId =>
-                    fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/acknowledge`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ reviewerId: '@User.FindFirst("DiscordId")?.Value' })
-                    })
-                );
-
-                await Promise.all(promises);
-                location.reload();
-            } catch (error) {
-                console.error('Error acknowledging events:', error);
-                quickActions.showToast('An error occurred while acknowledging events.', 'error');
-            }
-        }
-    </script>
+    <!-- Pagination (carries the "Showing X-Y of Z" count) -->
+    <partial name="Shared/Components/_Pagination" model="paginationModel" />
 }

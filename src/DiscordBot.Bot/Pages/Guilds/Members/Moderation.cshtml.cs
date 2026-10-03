@@ -82,9 +82,13 @@ public class ModerationModel : GuildPageModelBase
             return NotFound();
         }
 
-        // Get Discord user for account creation date
+        // Account creation date: the stored value, else the Discord client's, else the date every
+        // Discord ID carries in its first bits. Never invented.
         var discordGuild = _discordClient.GetGuild(GuildId);
         var discordUser = discordGuild?.GetUser(UserId);
+        var accountCreatedAt = member.AccountCreatedAt
+            ?? discordUser?.CreatedAt.UtcDateTime
+            ?? Discord.SnowflakeUtils.FromSnowflake(UserId).UtcDateTime;
 
         // Load moderation data sequentially — DbContext is not thread-safe
         var casesResult = await _moderationService.GetUserCasesAsync(GuildId, UserId);
@@ -112,7 +116,7 @@ public class ModerationModel : GuildPageModelBase
             DisplayName = member.DisplayName,
             Username = member.Username,
             AvatarUrl = avatarUrl,
-            AccountCreatedAt = discordUser?.CreatedAt.UtcDateTime ?? DateTime.UtcNow.AddYears(-1), // Fallback if Discord user not available
+            AccountCreatedAt = accountCreatedAt,
             JoinedGuildAt = member.JoinedAt,
             Roles = member.Roles.Select(r => r.Name).ToList(),
             Cases = casesResult.Items.ToList(),
