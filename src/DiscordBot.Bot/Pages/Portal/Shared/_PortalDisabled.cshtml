@@ -1,0 +1,18 @@
+@model DiscordBot.Bot.ViewModels.Portal.PortalUnauthorizedViewModel
+
+@* Shown in place of a portal page when the guild has switched its member portal off (EnableMemberPortal). *@
+<main class="portal-unauthorized" id="main-content">
+    <div class="unauthorized-content" role="status">
+        <div class="unauthorized-icon portal-disabled-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+        </div>
+        <h1>The member portal is off</h1>
+        <p>
+            <strong>@Model.GuildName</strong> has not opened its member portal. Ask a server admin to turn it on
+            under Audio Settings, then come back.
+        </p>
+        <a href="/" class="btn-secondary">Return Home</a>
+    </div>
+</main>

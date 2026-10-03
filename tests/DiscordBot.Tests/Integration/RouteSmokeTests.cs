@@ -26,14 +26,8 @@ public class RouteSmokeTests : IClassFixture<RouteSmokeTests.AppFixture>
     private static readonly Dictionary<string, string> KnownFailures = new(StringComparer.OrdinalIgnoreCase)
     {
         [$"/Guilds/AssistantMetrics/{AppFixture.GuildId}"] =
-            "B-29 (Phase 8): 500 without OpenRouter:ApiKey because IAssistantService is not registered",
-        [$"/Portal/Soundboard/{AppFixture.GuildId}"] = OfflinePortal,
-        [$"/Portal/TTS/{AppFixture.GuildId}"] = OfflinePortal,
-        [$"/Portal/VOX/{AppFixture.GuildId}"] = OfflinePortal
+            "B-29 (Phase 8): 500 without OpenRouter:ApiKey because IAssistantService is not registered"
     };
-
-    private const string OfflinePortal =
-        "D15 (Phase 9): portal pages 404 when the guild is not in the Discord client, which it never is offline";
 
     private readonly AppFixture _app;
 

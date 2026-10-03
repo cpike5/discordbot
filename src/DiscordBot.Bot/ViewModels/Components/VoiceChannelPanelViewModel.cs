@@ -69,6 +69,19 @@ public record VoiceChannelPanelViewModel
     /// Total number of items in the queue.
     /// </summary>
     public int QueueCount => Queue.Count;
+
+    /// <summary>
+    /// The member portal's voice endpoints for this guild, e.g. <c>/api/portal/soundboard/{guildId}</c>.
+    /// When set, the panel joins, leaves, stops and reads status through them: portal members have
+    /// no Identity role, so the Viewer-gated <c>/api/guilds/{id}/audio</c> endpoints would answer 403.
+    /// Null (the default) keeps the admin endpoints, which the guild management pages use.
+    /// </summary>
+    public string? ApiBase { get; init; }
+
+    /// <summary>
+    /// True when the panel runs on a member portal page (it talks to the portal endpoints).
+    /// </summary>
+    public bool IsPortal => !string.IsNullOrEmpty(ApiBase);
 }
 
 /// <summary>

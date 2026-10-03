@@ -17,6 +17,12 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Controllers:** `SoundsController`, `AudioController`, `PortalSoundboardController`
 - **Pages:** `Guilds/Soundboard/Index.cshtml`, `Portal/Soundboard/Index.cshtml`
 - **Config:** `SoundboardOptions`, `AudioCacheOptions`
+- **Member portal access:** portal pages, `PortalGuildMemberAuthorizationHandler` and the portal playback
+  controllers go through `IPortalGuildDirectory` (not `DiscordSocketClient`): `DiscordPortalGuildDirectory` in
+  production, `DevelopmentPortalGuildDirectory` only when the host is Development **and** `Discord:OfflineMode`
+  (`DevelopmentPortal.IsEnabled`; `DevelopmentPortal.SeedAsync` also links the default admin and creates the
+  role-less `portal-member@example.com`). The guild's `EnableMemberPortal` gates pages and `/api/portal/*`
+  independently of `AudioEnabled` and before the admin bypass; pages render `_PortalDisabled` instead of 404.
 - **Pricing hook:** `SoundboardOrchestrationService` takes an optional `IChargeService?` (null when
   `Currency:Enabled` is false, which is the rollback path — every sound plays free).
   `PlaySoundAsync` holds the price of `soundboard:{soundId}` —
@@ -73,4 +79,10 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
   still paid for. Anything added between the hold and `PlaybackService.PlayAsync` must leave via a
   `return` or a throw so the `finally` releases the hold — never swallow a failure and carry on.
 - **Portal pages** use separate controllers (PortalSoundboardController, PortalTtsController, PortalVoxController)
+- **Portal members have no Identity role:** `/api/guilds/{id}/audio/*` and the `DashboardHub` (`RequireViewer`) refuse them,
+  and the Viewer role is never granted to members (D10). The voice panel takes `VoiceChannelPanelViewModel.ApiBase`
+  (`/api/portal/soundboard/{guildId}`) and reads `GET .../status` for the truth about voice state; portal pages leave the hub
+  scripts out unless `CanUseDashboardHub`. Real fix for live events, not done: a hub policy admitting guild members plus a
+  membership check inside `JoinGuildAudioGroup`
+- **Portal error text:** controllers answer with sentences a member can act on; never put `ex.Message` in `Detail` (C-7)
 - **Rate limiting:** VOX commands: 5 per 10 seconds

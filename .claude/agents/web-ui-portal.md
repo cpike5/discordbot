@@ -36,6 +36,14 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 
 ### Portal Pages (Member-Facing, OAuth required)
 - `Portal/Soundboard/Index.cshtml`, `Portal/TTS/Index.cshtml`, `Portal/VOX/Index.cshtml`
+- **Mobile first (UX polish Phase 9):** under 1024px `.sidebar` is `display: contents` so the voice panel
+  (a sticky bar, `_VoiceChannelPanel` with `ApiBase` set) sits above the content and the upload and clip-count
+  panels follow it; one-row header under 640px; 44px targets, `--safe-*` insets, `dvh`. A guild with
+  `EnableMemberPortal` off gets `Portal/Shared/_PortalDisabled.cshtml`. Members have no Identity role, so
+  portal pages omit the SignalR hub scripts (`PortalPageModelBase.CanUseDashboardHub`) and the panel polls
+  `GET /api/portal/soundboard/{guildId}/status`. `_PortalLayout` carries `quick-actions.js`: use
+  `quickActions.confirm` for deletes, never native `confirm`/`prompt`. Offline, the dev-only member
+  (`portal-member@example.com`, see audio-voice.md) is the account to verify with.
 - **Inline scripts externalized (2026-09):** these pages no longer carry large inline `<script>`
   blocks — logic moved to dedicated files in `wwwroot/js/`: `portal-vox.js` (VOX composer, clip
   browser, A-Z rail, history/favorites — was ~1,190 lines of inline script across two `<script>`

@@ -108,6 +108,36 @@
      data-callback="@Model.OnPresetApply">
 </div>
 
+@* Asks for the name of a custom preset. quick-actions.js owns open/close, focus and Escape. *@
+<div id="@(Model.ContainerId)-name-dialog"
+     class="hidden fixed inset-0 z-[var(--z-modal)]"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="@(Model.ContainerId)-name-title">
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <form class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full qa-modal-panel pointer-events-auto" novalidate>
+            <div class="p-6">
+                <h3 id="@(Model.ContainerId)-name-title" class="text-lg font-semibold text-text-primary">Save as a preset</h3>
+                <p class="mt-1 text-sm text-text-secondary">Keeps the voice, style, speed and pitch you have set now.</p>
+                <label for="@(Model.ContainerId)-name-input" class="form-label mt-4">Preset name</label>
+                <input id="@(Model.ContainerId)-name-input"
+                       type="text"
+                       class="form-input"
+                       maxlength="50"
+                       autocomplete="off"
+                       dir="auto"
+                       aria-describedby="@(Model.ContainerId)-name-error" />
+                <p id="@(Model.ContainerId)-name-error" class="mt-1 text-sm text-error hidden" role="alert"></p>
+            </div>
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                <button type="button" class="btn btn-secondary" data-modal-dismiss>Cancel</button>
+                <button type="submit" class="btn btn-primary">Save preset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
     /* Preset Bar Container */
     .presets-bar {
@@ -247,33 +277,72 @@
         border-radius: 0.1875rem;
     }
 
-    /* Delete button on hover */
-    .preset-button--custom .preset-button__delete {
+    /* A custom preset is a wrapper holding the apply button and a sibling delete button
+       (a button inside a button is not valid, and the old one was hover-only). */
+    .preset-custom {
+        position: relative;
+        display: flex;
+    }
+
+    .preset-custom > .preset-button {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    .preset-custom .preset-button__delete {
         position: absolute;
-        top: 0.25rem;
-        right: 0.25rem;
-        width: 1.25rem;
-        height: 1.25rem;
-        display: none;
+        top: 0.125rem;
+        right: 0.125rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        display: flex;
         align-items: center;
         justify-content: center;
         background: var(--color-bg-tertiary);
         border: 1px solid var(--color-border-primary);
         border-radius: 50%;
-        color: var(--color-text-muted);
+        color: var(--color-text-secondary);
         cursor: pointer;
         padding: 0;
         z-index: 1;
+        /* Shown on hover and focus, and always where there is no hover (phones) */
+        opacity: 0;
+        transition: opacity var(--transition-fast);
     }
 
-    .preset-button--custom .preset-button__delete:hover {
-        background: var(--color-error);
-        border-color: var(--color-error);
+    .preset-custom:hover .preset-button__delete,
+    .preset-custom:focus-within .preset-button__delete,
+    .preset-custom .preset-button__delete:focus-visible {
+        opacity: 1;
+    }
+
+    @@media (hover: none) {
+        .preset-custom .preset-button__delete {
+            opacity: 1;
+        }
+    }
+
+    @@media (pointer: coarse) {
+        /* A 44px tap target inside the card's corner (the strip scrolls, so anything outside it is clipped) */
+        .preset-custom .preset-button__delete {
+            width: 2.75rem;
+            height: 2.75rem;
+            top: 0;
+            right: 0;
+            background: transparent;
+            border-color: transparent;
+        }
+    }
+
+    .preset-custom .preset-button__delete:hover {
+        background: var(--color-error-fill);
+        border-color: var(--color-error-fill);
         color: white;
     }
 
-    .preset-button--custom:hover .preset-button__delete {
-        display: flex;
+    .preset-custom .preset-button__delete:focus-visible {
+        outline: 2px solid var(--color-border-focus);
+        outline-offset: 2px;
     }
 
     /* Mobile: Horizontal Scroll Carousel */
@@ -292,6 +361,15 @@
             min-height: 44px;
             flex-shrink: 0;
             scroll-snap-align: start;
+        }
+
+        .preset-custom {
+            flex-shrink: 0;
+            scroll-snap-align: start;
+        }
+
+        .preset-custom > .preset-button {
+            min-width: 6rem;
         }
 
         /* Hide scrollbar but keep functionality */
@@ -435,22 +513,18 @@
          * Saves the current TTS settings as a custom preset.
          * @@param {string} containerId - The container ID of the preset bar
          */
-        window.presetBar_saveCustomPreset = function(containerId) {
-            const name = prompt('Enter a name for this preset (max 50 characters):');
-            if (!name || !name.trim()) return;
-
-            const trimmedName = name.trim().substring(0, 50);
-
-            // Gather current settings from the form
+        window.presetBar_saveCustomPreset = async function(containerId) {
+            // The voice is checked before the dialog, so nobody types a name for nothing
             const voice = window.VoiceSelector && window.VoiceSelector.getValue
                 ? window.VoiceSelector.getValue('portalVoiceSelector')
                 : null;
             if (!voice) {
-                if (window.PortalTTS && window.PortalTTS.showToast) {
-                    window.PortalTTS.showToast('warning', 'Please select a voice first');
-                }
+                toast.warning('Choose a voice first, then save it as a preset.');
                 return;
             }
+
+            const trimmedName = await askPresetName(containerId);
+            if (!trimmedName) return;
 
             const speedSlider = document.getElementById('speedSlider');
             const pitchSlider = document.getElementById('pitchSlider');
@@ -461,55 +535,75 @@
             const styleSelect = document.getElementById('portalStyleSelector-select');
             const style = styleSelect?.value || null;
 
-            fetch('/api/portal/tts/' + window.guildId + '/presets/custom', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            try {
+                const preset = await ApiClient.post('/api/portal/tts/' + window.guildId + '/presets/custom', {
                     name: trimmedName,
                     voiceName: voice,
                     style: style,
                     speed: speed,
                     pitch: pitch
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw new Error(err.message || 'Failed to save preset'); });
-                }
-                return response.json();
-            })
-            .then(preset => {
+                }, { errorMessage: 'Could not save the preset. Try again.' });
                 presetBar_addCustomPresetButton(containerId, preset);
-                if (window.PortalTTS && window.PortalTTS.showToast) {
-                    window.PortalTTS.showToast('success', 'Saved preset "' + preset.name + '"');
-                }
-            })
-            .catch(error => {
-                if (window.PortalTTS && window.PortalTTS.showToast) {
-                    window.PortalTTS.showToast('error', error.message);
-                }
-            });
+                toast.success('Saved preset "' + preset.name + '"');
+            } catch (error) {
+                if (!error.sessionExpired) toast.error(error.message);
+            }
         };
+
+        /**
+         * Asks for a preset name in the shared dialog. Resolves with the trimmed name, or null if cancelled.
+         */
+        function askPresetName(containerId) {
+            const dialog = document.getElementById(containerId + '-name-dialog');
+            const input = document.getElementById(containerId + '-name-input');
+            const error = document.getElementById(containerId + '-name-error');
+            const form = dialog ? dialog.querySelector('form') : null;
+            if (!dialog || !input || !form) return Promise.resolve(null);
+
+            input.value = '';
+            error.classList.add('hidden');
+            input.classList.remove('error');
+
+            return new Promise(function(resolve) {
+                let settled = false;
+                const finish = function(value) {
+                    if (settled) return;
+                    settled = true;
+                    form.removeEventListener('submit', onSubmit);
+                    resolve(value);
+                };
+                const onSubmit = function(e) {
+                    e.preventDefault();
+                    const name = input.value.trim().substring(0, 50);
+                    if (!name) {
+                        error.textContent = 'Enter a name for the preset.';
+                        error.classList.remove('hidden');
+                        input.classList.add('error');
+                        input.focus();
+                        return;
+                    }
+                    finish(name);
+                    quickActions.closeDialog(dialog);
+                };
+                form.addEventListener('submit', onSubmit);
+                quickActions.openDialog(dialog, { initialFocus: input, onClose: function() { finish(null); } });
+            });
+        }
 
         /**
          * Loads custom presets from the API and renders them.
          * @@param {string} containerId - The container ID of the preset bar
          */
         window.presetBar_loadCustomPresets = function(containerId) {
-            fetch('/api/portal/tts/' + window.guildId + '/presets/custom')
-                .then(response => {
-                    if (!response.ok) return [];
-                    return response.json();
-                })
-                .then(presets => {
-                    if (!Array.isArray(presets)) return;
-                    presets.forEach(preset => {
+            ApiClient.getRaw('/api/portal/tts/' + window.guildId + '/presets/custom')
+                .then(function(result) {
+                    // Custom presets are a convenience: the built-in ones work without them
+                    if (!result.ok || !Array.isArray(result.data)) return;
+                    result.data.forEach(function(preset) {
                         presetBar_addCustomPresetButton(containerId, preset);
                     });
                 })
-                .catch(() => {
-                    // Silently fail - custom presets are non-critical
-                });
+                .catch(function() { /* same: not worth interrupting the page */ });
         };
 
         /**
@@ -520,6 +614,9 @@
         function presetBar_addCustomPresetButton(containerId, preset) {
             const customContainer = document.getElementById(containerId + '-custom');
             if (!customContainer) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'preset-custom';
 
             const button = document.createElement('button');
             button.type = 'button';
@@ -561,16 +658,16 @@
             label.textContent = preset.name;
             button.appendChild(label);
 
-            // Delete button
+            // Delete button: a sibling of the apply button, so it can be reached by touch and keyboard
             const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
             deleteBtn.className = 'preset-button__delete';
-            deleteBtn.setAttribute('aria-label', 'Delete preset');
-            deleteBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+            deleteBtn.setAttribute('aria-label', 'Delete preset ' + preset.name);
+            deleteBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px;" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
             deleteBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                presetBar_deleteCustomPreset(containerId, preset.id, button);
+                presetBar_deleteCustomPreset(containerId, preset.id, wrapper, preset.name);
             });
-            button.appendChild(deleteBtn);
 
             // Click handler to apply preset
             button.addEventListener('click', function() {
@@ -615,7 +712,9 @@
                 }
             });
 
-            customContainer.appendChild(button);
+            wrapper.appendChild(button);
+            wrapper.appendChild(deleteBtn);
+            customContainer.appendChild(wrapper);
         }
 
         /**
@@ -624,26 +723,25 @@
          * @@param {number} presetId - The preset database ID
          * @@param {HTMLElement} buttonElement - The button to remove from DOM
          */
-        window.presetBar_deleteCustomPreset = function(containerId, presetId, buttonElement) {
-            if (!confirm('Delete this custom preset?')) return;
+        window.presetBar_deleteCustomPreset = async function(containerId, presetId, buttonElement, presetName) {
+            const confirmed = await quickActions.confirm({
+                title: 'Delete this preset?',
+                message: (presetName ? '"' + presetName + '"' : 'This preset') + ' will be removed from your saved presets.',
+                confirmText: 'Delete preset',
+                variant: 'danger'
+            });
+            if (!confirmed) return;
 
-            fetch('/api/portal/tts/' + window.guildId + '/presets/custom/' + presetId, { method: 'DELETE' })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => { throw new Error(err.message || 'Failed to delete preset'); });
-                    }
-                    if (buttonElement && buttonElement.parentNode) {
-                        buttonElement.remove();
-                    }
-                    if (window.PortalTTS && window.PortalTTS.showToast) {
-                        window.PortalTTS.showToast('success', 'Preset deleted');
-                    }
-                })
-                .catch(error => {
-                    if (window.PortalTTS && window.PortalTTS.showToast) {
-                        window.PortalTTS.showToast('error', error.message);
-                    }
-                });
+            try {
+                await ApiClient.del('/api/portal/tts/' + window.guildId + '/presets/custom/' + presetId,
+                    { errorMessage: 'Could not delete the preset. Try again.' });
+                if (buttonElement && buttonElement.parentNode) {
+                    buttonElement.remove();
+                }
+                toast.success('Preset deleted');
+            } catch (error) {
+                if (!error.sessionExpired) toast.error(error.message);
+            }
         };
     })();
 </script>

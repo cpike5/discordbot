@@ -75,8 +75,8 @@ public class TtsSendPipeline : ITtsSendPipeline
             _logger.LogWarning("TTS not enabled for guild {GuildId}", guildId);
             return new BadRequestObjectResult(new ApiErrorDto
             {
-                Message = "TTS is not enabled for this guild",
-                Detail = "Contact a server administrator to enable TTS in guild settings.",
+                Message = "TTS is not enabled for this server",
+                Detail = "Contact a server administrator to enable TTS in server settings.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = httpContext.GetCorrelationId(),
                 ErrorCode = "tts_not_enabled"
@@ -178,8 +178,8 @@ public class TtsSendPipeline : ITtsSendPipeline
             _logger.LogWarning("TTS not enabled for guild {GuildId}", guildId);
             return new BadRequestObjectResult(new ApiErrorDto
             {
-                Message = "TTS is not enabled for this guild",
-                Detail = "Contact a server administrator to enable TTS in guild settings.",
+                Message = "TTS is not enabled for this server",
+                Detail = "Contact a server administrator to enable TTS in server settings.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = httpContext.GetCorrelationId(),
                 ErrorCode = "tts_not_enabled"
@@ -311,7 +311,8 @@ public class TtsSendPipeline : ITtsSendPipeline
             return new BadRequestObjectResult(new ApiErrorDto
             {
                 Message = "Invalid TTS request",
-                Detail = ex.Message,
+                // The exception text is for the log; the person gets what to do about it
+                Detail = "That message or those voice settings could not be used. Check them and try again.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = httpContext.GetCorrelationId(),
                 ErrorCode = "invalid_request"

@@ -125,6 +125,21 @@ public sealed class OfflineAppHost : IAsyncDisposable
     }
 
     /// <summary>
+    /// A client signed in as the development portal's seeded member (Identity user with no role,
+    /// linked to a fake Discord ID that counts as a member of every guild). The caller disposes it.
+    /// </summary>
+    public async Task<HttpClient> CreatePortalMemberClientAsync()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = true,
+            HandleCookies = true
+        });
+        await SignInAsync(client, DiscordBot.Bot.Services.Portal.DevelopmentPortal.MemberEmail, AdminPassword);
+        return client;
+    }
+
+    /// <summary>
     /// A client that is not signed in and does not follow redirects, so a test can see where
     /// the app sends it. The caller disposes the client.
     /// </summary>

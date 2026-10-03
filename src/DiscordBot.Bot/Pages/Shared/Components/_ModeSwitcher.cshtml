@@ -72,7 +72,9 @@
         const container = document.getElementById(containerId);
 
         // Restore mode from localStorage on page load
-        const savedMode = localStorage.getItem('tts_mode_preference');
+        // Storage can be blocked (private windows, site data off); the mode just is not remembered then
+        let savedMode = null;
+        try { savedMode = localStorage.getItem('tts_mode_preference'); } catch (e) { /* use the default mode */ }
         if (savedMode && savedMode !== container.dataset.currentMode) {
             // Update UI to match saved preference
             modeSwitcher_selectMode(containerId, savedMode, false);
@@ -144,7 +146,7 @@
 
         // Persist to localStorage
         if (persist) {
-            localStorage.setItem('tts_mode_preference', mode);
+            try { localStorage.setItem('tts_mode_preference', mode); } catch (e) { /* not remembered */ }
         }
 
         // Trigger callback if specified

@@ -2905,6 +2905,20 @@ Voice channel control panel with connection status, channel selection, now playi
 | `AvailableChannels` | `IReadOnlyList<VoiceChannelInfo>` | `[]` | Available voice channels |
 | `NowPlaying` | `NowPlayingInfo?` | `null` | Currently playing audio info |
 | `Queue` | `IReadOnlyList<QueueItemInfo>` | `[]` | Queued audio items |
+| `ApiBase` | `string?` | `null` | Member portal voice endpoints for this guild (`/api/portal/soundboard/{guildId}`). Set on portal pages: join, leave, stop and status use them, the queue section is left out, and the panel polls `GET {ApiBase}/status` instead of relying on SignalR. `null` keeps the Viewer-gated `/api/guilds/{id}/audio` endpoints the admin pages use |
+| `IsPortal` | `bool` | (derived) | `ApiBase` is set |
+
+### Client script (`wwwroot/js/voice-channel-panel.js`)
+
+The panel keeps what the server last said (connected, channel, head count, playing, busy) and renders everything
+from that. "Connected" is the bot being in a voice channel; the state of the page's own SignalR connection only
+decides whether a "Live updates are paused" note shows. After a successful join or leave the panel applies the
+answer at once instead of waiting for an event, and on portal pages it re-reads `/status`.
+
+- Below 1024px the panel shows a **voice bar** (channel name, state chip, Stop while something plays) that opens the controls; on portal pages the bar is sticky.
+- `window.VoiceChannelPanel`: `refresh()` (portal: read status now), `notePlaying(name, source)`, `reveal()` (open the controls and focus the picker: what a page does when someone tries to play without a voice channel), `toggle(force)`, `getState()`.
+- Events on `document`: `voicepanel:change` (`detail: { isConnected, channelId, isPlaying, busy }`) after every state change, and `voicepanel:playbackended`. `#voice-channel-panel` also carries `data-connected`, `data-channel-id`, `data-playing` and `data-busy`.
+- `resolveVoiceEndpoint` and `voiceJoinBody` are exported for tests (`__tests__/voice-channel-panel.test.js`). A channel ID is sent as JSON text so its digits survive.
 
 ### Supporting Types
 

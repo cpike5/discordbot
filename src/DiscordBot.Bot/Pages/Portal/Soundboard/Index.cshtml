@@ -2,7 +2,7 @@
 @model DiscordBot.Bot.Pages.Portal.Soundboard.IndexModel
 @using DiscordBot.Bot.ViewModels.Portal
 @{
-    ViewData["Title"] = Model.IsAuthenticated ? "Soundboard" : "Verify Your Membership";
+    ViewData["Title"] = Model.IsPortalDisabled ? "Portal Unavailable" : Model.IsAuthenticated ? "Soundboard" : "Verify Your Membership";
 }
 
 <style>
@@ -385,6 +385,37 @@
         margin: 0.25rem 0;
     }
 
+    .upload-limit-reason {
+        margin-top: 0.75rem;
+        padding: 0.625rem 0.75rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--color-warning-border);
+        background-color: var(--color-warning-bg);
+        color: var(--color-text-primary);
+        font-size: 0.8125rem;
+        line-height: 1.4;
+    }
+
+    .upload-limit-reason.hidden {
+        display: none;
+    }
+
+    .dropzone.disabled,
+    .upload-btn-mobile:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* A play request is in flight: the card says so and ignores more taps */
+    .sound-card.pending {
+        opacity: 0.7;
+        cursor: progress;
+    }
+
+    .sound-card.pending .play-icon-wrapper {
+        animation: glow-pulse 1s ease-in-out infinite;
+    }
+
     /* Sound Grid Panel - Flexible on RIGHT with internal scrolling */
     .sound-panel {
         flex: 1;
@@ -691,11 +722,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        opacity: 0;
+        /* Revealed by .row-actions (site.css): on hover or focus, and always on touch devices */
     }
 
-    .sound-card:hover .delete-btn {
-        opacity: 1;
+    .delete-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 
     .delete-btn:hover {
@@ -939,6 +971,26 @@
         }
     }
 
+    /* Touch: every control on a card, and the toolbar above the grid, is a 44px target */
+    @@media (pointer: coarse) {
+        .favorite-btn,
+        .preview-btn,
+        .delete-btn {
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0.5rem;
+        }
+
+        .sort-select,
+        .fullscreen-toggle-btn {
+            min-height: 44px;
+        }
+
+        .fullscreen-toggle-btn {
+            min-width: 44px;
+        }
+    }
+
     /* Page-specific responsive */
     @@media (max-width: 1023px) {
         .sound-panel {
@@ -963,9 +1015,37 @@
         }
     }
 
+    /* At 320 two columns leave a card ~125px wide: the preview, play and favourite controls (44px each)
+       no longer fit side by side, so the cards take the full width */
+    @@media (max-width: 359px) {
+        .sound-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     @@media (max-width: 640px) {
         .button-row {
             grid-template-columns: 1fr;
+        }
+
+        /* Search gets the full width; sort and full screen share the row under it */
+        .search-container {
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .search-input-wrapper {
+            flex: 1 1 100%;
+        }
+
+        .sort-select {
+            flex: 1 1 auto;
+            min-height: 44px;
+        }
+
+        .fullscreen-toggle-btn {
+            min-width: 44px;
+            min-height: 44px;
         }
 
         .sound-grid {
@@ -1029,7 +1109,11 @@
     }
 </style>
 
-@if (!Model.IsAuthenticated)
+@if (Model.IsPortalDisabled)
+{
+    @await Html.PartialAsync("../Shared/_PortalDisabled", new PortalUnauthorizedViewModel { GuildName = Model.GuildName })
+}
+else if (!Model.IsAuthenticated)
 {
     @await Html.PartialAsync("../Shared/_PortalLanding", new PortalLandingViewModel
     {
@@ -1058,7 +1142,11 @@ else
     <!-- Audio Globally Disabled Warning -->
     @if (Model.IsAudioGloballyDisabled)
     {
-        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning")
+        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning", (string?)null)
+    }
+    else if (Model.IsAudioDisabledForGuild)
+    {
+        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning", "Audio is switched off for this server, so nothing can be played right now. A server admin can turn it on in Audio Settings.")
     }
 
 <!-- Main Content -->
@@ -1147,12 +1235,15 @@ else
                     <span id="uploadMessageText" class="upload-message-text"></span>
                 </div>
 
+                <!-- Why uploading is off, when it is -->
+                <p id="uploadLimitReason" class="upload-limit-reason hidden" role="status"></p>
+
                 <!-- Upload Limits -->
                 <div class="upload-limits">
                     <p><strong>Formats:</strong> @Model.SupportedFormats</p>
                     <p><strong>Max size:</strong> @Model.MaxFileSizeMB MB</p>
                     <p><strong>Max duration:</strong> @Model.MaxDurationSeconds seconds</p>
-                    <p><strong>Sounds:</strong> @Model.CurrentSoundCount / @Model.MaxSounds</p>
+                    <p><strong>Sounds:</strong> <span id="soundCountText">@Model.CurrentSoundCount / @Model.MaxSounds</span></p>
                 </div>
             </div>
 
@@ -1212,6 +1303,7 @@ else
                     </svg>
                     <p class="empty-state-title">No sounds found</p>
                     <p class="empty-state-text">Try a different search term</p>
+                    <button type="button" id="emptyStateClear" class="btn-secondary hidden">Clear search</button>
                 </div>
 
             </div>
@@ -1236,9 +1328,12 @@ else
 
 
 @section Scripts {
-    <!-- SignalR for real-time updates -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-    <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    @* The hub refuses people without a dashboard role, so portal members get the portal's status endpoint instead *@
+    @if (Model.CanUseDashboardHub)
+    {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+        <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    }
     <script src="~/js/voice-channel-panel.js" asp-append-version="true"></script>
 @if (Model.IsAuthenticated)
 {

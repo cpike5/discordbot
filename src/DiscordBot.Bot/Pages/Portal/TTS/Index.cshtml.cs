@@ -1,13 +1,14 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Pages.Portal.TTS;
 
@@ -24,25 +25,30 @@ public class IndexModel : PortalPageModelBase
     private readonly ISettingsService _settingsService;
     private readonly ITtsSettingsService _ttsSettingsService;
     private readonly IPlaybackService _playbackService;
+    private readonly int _maxMessageLength;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
+        IGuildAudioSettingsRepository audioSettingsRepository,
         IAudioService audioService,
         ITtsService ttsService,
         ISettingsService settingsService,
         ITtsSettingsService ttsSettingsService,
         IPlaybackService playbackService,
         UserManager<ApplicationUser> userManager,
+        IOptions<AzureSpeechOptions> azureSpeechOptions,
         ILogger<IndexModel> logger)
-        : base(guildService, discordClient, userManager, logger)
+        : base(guildService, guildDirectory, audioSettingsRepository, userManager, logger)
     {
         _audioService = audioService;
         _ttsService = ttsService;
         _settingsService = settingsService;
         _ttsSettingsService = ttsSettingsService;
         _playbackService = playbackService;
+        _maxMessageLength = azureSpeechOptions.Value.MaxTextLength;
+        MaxMessageLength = _maxMessageLength;
         _logger = logger;
     }
 
@@ -57,9 +63,9 @@ public class IndexModel : PortalPageModelBase
     public List<TtsVoiceInfo> AvailableVoices { get; set; } = new();
 
     /// <summary>
-    /// Gets the maximum message length allowed for TTS.
+    /// Gets the maximum message length allowed for TTS, from <c>AzureSpeech:MaxTextLength</c>.
     /// </summary>
-    public int MaxMessageLength { get; set; } = 200;
+    public int MaxMessageLength { get; set; }
 
     /// <summary>
     /// Gets whether audio features are globally disabled at the bot level.
@@ -119,7 +125,7 @@ public class IndexModel : PortalPageModelBase
             IsAudioGloballyDisabled = !isGloballyEnabled;
 
             // Perform common portal authorization check
-            var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "TTS", cancellationToken);
+            var (authResult, _) = await CheckPortalAuthorizationAsync(guildId, "TTS", cancellationToken);
 
             // Handle auth failures
             var actionResult = GetAuthResultAction(authResult);
@@ -139,44 +145,11 @@ public class IndexModel : PortalPageModelBase
 
             // User is authorized - load full TTS interface
 
-            // Build voice channel panel data
-            var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
-            var isConnected = _audioService.IsConnected(guildId);
-            string? connectedChannelName = null;
-            int? channelMemberCount = null;
-
-            if (isConnected && connectedChannelId.HasValue)
-            {
-                var connectedChannel = context!.SocketGuild.GetVoiceChannel(connectedChannelId.Value);
-                if (connectedChannel != null)
-                {
-                    connectedChannelName = connectedChannel.Name;
-                    channelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
-                }
-            }
-
-            VoicePanel = new VoiceChannelPanelViewModel
-            {
-                GuildId = guildId,
-                IsCompact = true,
-                ShowNowPlaying = true,
-                ShowProgress = false,
-                IsConnected = isConnected,
-                ConnectedChannelId = connectedChannelId,
-                ConnectedChannelName = connectedChannelName,
-                ChannelMemberCount = channelMemberCount,
-                AvailableChannels = BuildVoiceChannelList(context!.SocketGuild)
-                    .Select(c => new DiscordBot.Bot.ViewModels.Components.VoiceChannelInfo
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        MemberCount = c.MemberCount
-                    }).ToList(),
-                NowPlaying = _playbackService.IsPlaying(guildId)
-                    ? new NowPlayingInfo { Name = "TTS Message" }
-                    : null,
-                Queue = []
-            };
+            // Build voice channel panel data from the bot's real voice state
+            VoicePanel = BuildVoicePanel(
+                guildId,
+                _audioService,
+                _playbackService.IsPlaying(guildId) ? "TTS Message" : null);
 
             // Get TTS settings and build SSML component view models
             var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);

@@ -78,8 +78,8 @@ public class PortalSoundboardSoundsController : PortalSoundboardControllerBase
             _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
             return BadRequest(new ApiErrorDto
             {
-                Message = "Audio is not enabled for this guild",
-                Detail = "Enable audio in the guild settings before using soundboard features.",
+                Message = "Audio is not enabled for this server",
+                Detail = "Enable audio in the server settings before using soundboard features.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "audio_not_enabled"
@@ -160,8 +160,8 @@ public class PortalSoundboardSoundsController : PortalSoundboardControllerBase
             _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
             return BadRequest(new ApiErrorDto
             {
-                Message = "Audio is not enabled for this guild",
-                Detail = "Enable audio in the guild settings.",
+                Message = "Audio is not enabled for this server",
+                Detail = "Enable audio in the server settings.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "audio_not_enabled"
@@ -175,7 +175,7 @@ public class PortalSoundboardSoundsController : PortalSoundboardControllerBase
             return NotFound(new ApiErrorDto
             {
                 Message = "Sound not found",
-                Detail = "The requested sound was not found in this guild.",
+                Detail = "That sound was not found on this server.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "sound_not_found"
@@ -331,7 +331,7 @@ public class PortalSoundboardSoundsController : PortalSoundboardControllerBase
             return NotFound(new ApiErrorDto
             {
                 Message = "Sound not found",
-                Detail = "The requested sound was not found in this guild.",
+                Detail = "That sound was not found on this server.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "sound_not_found"

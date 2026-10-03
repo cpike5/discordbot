@@ -101,9 +101,11 @@ For detailed component documentation, see [Component API Usage Guide](../article
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/portal/soundboard` | `Pages/Portal/Soundboard/Index.cshtml` | Public soundboard player |
-| `/portal/tts` | `Pages/Portal/TTS/Index.cshtml` | Public TTS interface |
-| `/portal/vox` | `Pages/Portal/VOX/Index.cshtml` | Public VOX clip player |
+| `/Portal/Soundboard/{guildId}` | `Pages/Portal/Soundboard/Index.cshtml` | Member soundboard: search, sort, favourites, preview, upload, delete own sounds, play (with pending and queued feedback) |
+| `/Portal/TTS/{guildId}` | `Pages/Portal/TTS/Index.cshtml` | Member TTS: message (limit from `AzureSpeech:MaxTextLength`), presets with a name dialog, preview, history |
+| `/Portal/VOX/{guildId}` | `Pages/Portal/VOX/Index.cshtml` | Member VOX composer and clip browser, keyboard-reachable history |
+
+The three share `Pages/Portal/_PortalLayout.cshtml` and mobile-first behaviour (plan decision D13): a one-row header on phones, the voice panel as a sticky bar above the content (`display: contents` on `.sidebar` under 1024px lets the sidebar's panels reorder), 44px touch targets, safe-area insets. When the guild's `EnableMemberPortal` is off each renders `Portal/Shared/_PortalDisabled.cshtml` ("The member portal is off") instead. With `AudioEnabled` off the page opens with `_PortalAudioDisabledWarning`.
 
 ### Error Pages
 
