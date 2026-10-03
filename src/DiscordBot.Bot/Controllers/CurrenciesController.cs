@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
@@ -25,6 +26,8 @@ public class CurrenciesController : CurrencyControllerBase
     private readonly ICurrencyAccessService? _accessService;
     private readonly IAuditLogService _auditLog;
     private readonly ILogger<CurrenciesController> _logger;
+    private readonly IDiscordUserResolver? _userResolver;
+    private readonly DiscordSocketClient? _discordClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CurrenciesController"/> class.
@@ -36,16 +39,22 @@ public class CurrenciesController : CurrencyControllerBase
     /// registered. Every route answers 404 in that case.
     /// </param>
     /// <param name="accessService">The currency access service, null under the same condition.</param>
+    /// <param name="userResolver">Resolves user IDs to names for the mint authority list; optional.</param>
+    /// <param name="discordClient">Resolves role IDs to names for the mint authority list; optional.</param>
     public CurrenciesController(
         IAuditLogService auditLog,
         ILogger<CurrenciesController> logger,
         ICurrencyService? currencyService = null,
-        ICurrencyAccessService? accessService = null)
+        ICurrencyAccessService? accessService = null,
+        IDiscordUserResolver? userResolver = null,
+        DiscordSocketClient? discordClient = null)
     {
         _auditLog = auditLog;
         _logger = logger;
         _currencyService = currencyService;
         _accessService = accessService;
+        _userResolver = userResolver;
+        _discordClient = discordClient;
     }
 
     /// <summary>
@@ -267,7 +276,7 @@ public class CurrenciesController : CurrencyControllerBase
             return FeatureDisabled();
         }
 
-        var (_, failure) = await ResolveCurrencyAsync(
+        var (currency, failure) = await ResolveCurrencyAsync(
             _currencyService, _accessService, User, id, CurrencyAccessLevel.Administer, cancellationToken);
 
         if (failure != null)
@@ -276,7 +285,51 @@ public class CurrenciesController : CurrencyControllerBase
         }
 
         var authorities = await _currencyService.GetMintAuthoritiesAsync(id, cancellationToken);
-        return Ok(authorities);
+        return Ok(await WithPrincipalNamesAsync(authorities, currency?.GuildId));
+    }
+
+    /// <summary>
+    /// Adds a display name to each grant: the username for a user, the role's name for a role,
+    /// "System" for the system principal. A name that cannot be found stays null and the page
+    /// falls back to the ID, so a missing Discord connection never hides a grant.
+    /// </summary>
+    internal async Task<IReadOnlyList<MintAuthorityDto>> WithPrincipalNamesAsync(
+        IReadOnlyList<MintAuthorityDto> authorities,
+        ulong? guildId)
+    {
+        IReadOnlyDictionary<ulong, (string Username, string? AvatarUrl)>? users = null;
+        var userIds = authorities
+            .Where(a => a.PrincipalType == MintPrincipalType.User && a.PrincipalId.HasValue)
+            .Select(a => a.PrincipalId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (_userResolver != null && userIds.Count > 0)
+        {
+            try
+            {
+                users = await _userResolver.ResolveUsersAsync(userIds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not resolve mint authority user names");
+            }
+        }
+
+        var guild = guildId.HasValue ? _discordClient?.GetGuild(guildId.Value) : null;
+
+        return authorities.Select(a => a with
+        {
+            PrincipalName = a.PrincipalType switch
+            {
+                MintPrincipalType.System => "System",
+                MintPrincipalType.Role when a.PrincipalId.HasValue => guild?.GetRole(a.PrincipalId.Value)?.Name,
+                MintPrincipalType.User when a.PrincipalId.HasValue &&
+                                            users != null && users.TryGetValue(a.PrincipalId.Value, out var resolved) &&
+                                            !resolved.Username.StartsWith("Unknown#", StringComparison.Ordinal) => resolved.Username,
+                _ => null
+            }
+        }).ToList();
     }
 
     /// <summary>

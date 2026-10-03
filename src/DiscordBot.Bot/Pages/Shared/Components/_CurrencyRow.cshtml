@@ -1,0 +1,32 @@
+@model DiscordBot.Bot.ViewModels.Pages.CurrencyPortalItemViewModel
+@using DiscordBot.Bot.Helpers
+@*
+    One bot-wide currency as a table row. Rendered once for each currency and once blank inside the
+    page's <template id="currency-item-template">; currency-manage.js clones the template to add a
+    row after a create and patches data-field elements after an edit or a deactivate, so the page
+    never reloads.
+*@
+@{
+    var currency = Model.Currency;
+}
+<tr class="border-b border-border-primary last:border-0 @(currency.IsActive ? "" : "opacity-70")"
+    data-currency-row="@currency.Id"
+    data-currency-id="@currency.Id">
+    <td class="px-4 py-3">
+        <span class="text-text-primary"><span class="mr-2" aria-hidden="true" data-field="symbol">@currency.Symbol</span><span data-field="name" class="break-words">@currency.Name</span></span>
+        <span class="badge badge-gray ml-2 @(currency.IsActive ? "hidden" : "")" data-field="deactivated">Deactivated</span>
+    </td>
+    <td class="px-4 py-3 text-text-secondary" data-field="holders">@DisplayFormat.Number(Model.HolderCount)</td>
+    <td class="px-4 py-3 text-text-secondary" data-field="circulation" data-circulation="@Model.Circulation">@DisplayFormat.Number(Model.Circulation) @currency.Symbol</td>
+    <td class="px-4 py-3 text-text-secondary" data-field="rules">@(currency.IsTransferable ? "Transferable" : "Not transferable")@(currency.AllowNegative ? $" • debt to {currency.DebtFloor}" : "")</td>
+    <td class="px-4 py-3 text-right whitespace-nowrap">
+        <button type="button" data-admin-currency-select="@currency.Id" data-currency-symbol="@currency.Symbol" data-currency-name="@currency.Name" data-field="wallets-button"
+                class="btn btn-primary btn-sm">Wallets</button>
+        <button type="button" data-currency-action="authorities" data-currency-id="@currency.Id" data-currency-name="@currency.Name" data-field="authorities-button"
+                class="btn btn-secondary btn-sm ml-1">Mint authorities</button>
+        <button type="button" data-currency-action="edit" data-currency-id="@currency.Id" data-active-only
+                class="btn btn-secondary btn-sm ml-1 @(currency.IsActive ? "" : "hidden")">Edit</button>
+        <button type="button" data-currency-action="deactivate" data-currency-id="@currency.Id" data-currency-name="@currency.Name" data-field="deactivate-button" data-active-only
+                class="btn btn-danger btn-sm ml-1 @(currency.IsActive ? "" : "hidden")">Deactivate</button>
+    </td>
+</tr>

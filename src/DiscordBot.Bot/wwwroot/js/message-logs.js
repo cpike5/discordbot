@@ -56,7 +56,7 @@
                 updateChannelInputState();
 
                 // Clear channel when guild changes
-                const channelInstance = window.AutocompleteManager?.get(CHANNEL_SEARCH_INPUT_ID);
+                const channelInstance = (typeof AutocompleteManager !== 'undefined' ? AutocompleteManager : null)?.get(CHANNEL_SEARCH_INPUT_ID);
                 if (channelInstance) {
                     channelInstance.clear();
                 }
@@ -70,7 +70,7 @@
                 updateChannelInputState();
 
                 // Clear channel when guild is cleared
-                const channelInstance = window.AutocompleteManager?.get(CHANNEL_SEARCH_INPUT_ID);
+                const channelInstance = (typeof AutocompleteManager !== 'undefined' ? AutocompleteManager : null)?.get(CHANNEL_SEARCH_INPUT_ID);
                 if (channelInstance) {
                     channelInstance.clear();
                 }

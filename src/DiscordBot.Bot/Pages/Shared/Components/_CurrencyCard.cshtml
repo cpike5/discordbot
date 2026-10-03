@@ -1,0 +1,54 @@
+@model DiscordBot.Bot.ViewModels.Pages.CurrencyPortalItemViewModel
+@using DiscordBot.Bot.Helpers
+@*
+    One guild currency as a card. The same markup is rendered once more, blank, inside the page's
+    <template id="currency-item-template">: currency-manage.js clones that to add a card after a
+    create, and patches the data-field elements of an existing card after an edit or a
+    deactivate, so the page never reloads. Anything a script changes carries data-field.
+*@
+@{
+    var currency = Model.Currency;
+    var guildId = currency.GuildId;
+}
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-5 @(currency.IsActive ? "" : "opacity-70")"
+     data-currency-card="@currency.Id"
+     data-currency-id="@currency.Id">
+    <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-2xl leading-none" aria-hidden="true" data-field="symbol">@currency.Symbol</span>
+                <h3 class="text-base font-semibold text-text-primary break-words min-w-0" data-field="name">@currency.Name</h3>
+                <span class="badge badge-gray @(currency.IsActive ? "hidden" : "")" data-field="deactivated">Deactivated</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap mt-2">
+                <span class="badge @(currency.IsTransferable ? "badge-blue" : "badge-gray")" data-field="transferable">@(currency.IsTransferable ? "Transferable" : "Not transferable")</span>
+                <span class="badge badge-error @(currency.AllowNegative ? "" : "hidden")" data-field="debt">Debt to @currency.DebtFloor</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3 mb-4">
+        <div>
+            <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Holders</p>
+            <p class="text-sm text-text-primary" data-field="holders">@DisplayFormat.Number(Model.HolderCount)</p>
+        </div>
+        <div>
+            <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">In circulation</p>
+            <p class="text-sm text-text-primary break-words" data-field="circulation" data-circulation="@Model.Circulation">@DisplayFormat.Number(Model.Circulation) @currency.Symbol</p>
+        </div>
+        <div>
+            <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">In debt</p>
+            <p class="text-sm @(Model.DebtorCount > 0 ? "text-error" : "text-text-primary")" data-field="debtors">@DisplayFormat.Number(Model.DebtorCount)</p>
+        </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-border-primary">
+        <a asp-page="/Guilds/Currency/Details" asp-route-guildId="@guildId" asp-route-currencyId="@currency.Id" data-field="wallets-link" class="btn btn-primary btn-sm">Wallets &amp; ledger</a>
+        <button type="button" data-currency-action="authorities" data-currency-id="@currency.Id" data-currency-name="@currency.Name" data-field="authorities-button"
+                class="btn btn-secondary btn-sm">Mint authorities</button>
+        <button type="button" data-currency-action="edit" data-currency-id="@currency.Id" data-active-only
+                class="btn btn-secondary btn-sm @(currency.IsActive ? "" : "hidden")">Edit rules</button>
+        <button type="button" data-currency-action="deactivate" data-currency-id="@currency.Id" data-currency-name="@currency.Name" data-field="deactivate-button" data-active-only
+                class="btn btn-danger btn-sm @(currency.IsActive ? "" : "hidden")">Deactivate</button>
+    </div>
+</div>

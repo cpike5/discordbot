@@ -234,6 +234,49 @@ public class CurrenciesControllerTests
     }
 
     [Fact]
+    public async Task GetMintAuthorities_AddsDisplayNames_ForUsersAndTheSystemPrincipal()
+    {
+        var currency = GuildCurrency();
+        var resolver = new Mock<IDiscordUserResolver>();
+        resolver
+            .Setup(r => r.ResolveUsersAsync(It.IsAny<IEnumerable<ulong>>()))
+            .ReturnsAsync(new Dictionary<ulong, (string Username, string? AvatarUrl)>
+            {
+                [111UL] = ("alice", null),
+                [222UL] = ("Unknown#222", null)
+            });
+
+        var controller = new CurrenciesController(
+            _auditLog.Object,
+            Mock.Of<ILogger<CurrenciesController>>(),
+            _currencyService.Object,
+            Access(CurrencyAccessLevel.Administer).Object,
+            resolver.Object)
+            .WithUser(AdminUser());
+
+        _currencyService
+            .Setup(s => s.GetAsync(currency.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(currency);
+        _currencyService
+            .Setup(s => s.GetMintAuthoritiesAsync(currency.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MintAuthorityDto>
+            {
+                new() { Id = Guid.NewGuid(), CurrencyId = currency.Id, PrincipalType = MintPrincipalType.User, PrincipalId = 111UL },
+                new() { Id = Guid.NewGuid(), CurrencyId = currency.Id, PrincipalType = MintPrincipalType.User, PrincipalId = 222UL },
+                new() { Id = Guid.NewGuid(), CurrencyId = currency.Id, PrincipalType = MintPrincipalType.Role, PrincipalId = 333UL },
+                new() { Id = Guid.NewGuid(), CurrencyId = currency.Id, PrincipalType = MintPrincipalType.System }
+            });
+
+        var result = await controller.GetMintAuthorities(currency.Id);
+
+        var named = ((result.Result as OkObjectResult)!.Value as IReadOnlyList<MintAuthorityDto>)!;
+        named[0].PrincipalName.Should().Be("alice");
+        named[1].PrincipalName.Should().BeNull("an unresolved user keeps only the ID, never a fake name");
+        named[2].PrincipalName.Should().BeNull("a role needs a connected guild to be named");
+        named[3].PrincipalName.Should().Be("System");
+    }
+
+    [Fact]
     public async Task Reconcile_ReturnsTheWalletsThatDisagreeWithTheirLedger()
     {
         var currency = GuildCurrency();

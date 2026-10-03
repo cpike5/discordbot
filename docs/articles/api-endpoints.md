@@ -7604,3 +7604,17 @@ curl -X POST "https://localhost:5001/api/portal/vox/123456789012345678/stop" \
 ---
 
 *Last Updated: February 3, 2026*
+
+## Notifications (changes in UX polish Phase 12)
+
+### POST /api/notifications/delete-all
+
+Deletes the current user's notifications. With no query parameters it deletes all of them. With any of
+`type`, `isRead`, `severity`, `startDate`, `endDate` (the whole of that day is included), `searchTerm` or
+`guildId` it deletes only the notifications the notification list shows for the same filters, so
+"Delete all" on a filtered list removes nothing the user did not see. Returns the number deleted.
+
+### GET /api/currencies/{id}/mint-authorities
+
+Each grant now carries `principalName` (a username, a role name, or `"System"`); it is `null` when the
+name cannot be found and the ID is all there is.

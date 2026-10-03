@@ -1,5 +1,6 @@
 @page "/Guilds/{guildId:long}/Currency/Prices"
 @model DiscordBot.Bot.Pages.Guilds.Currency.PricesModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = $"Prices - {Model.ViewModel.GuildName}";
@@ -61,17 +62,15 @@ else if (Model.IsCurrencyRuntimeDisabled)
     <div>
         <h2 class="text-lg font-semibold text-text-primary">Soundboard Prices</h2>
         <p class="text-sm text-text-secondary">
-            @Model.ViewModel.PricedCount of @Model.ViewModel.Sounds.Count sound(s) cost something. A sound without a price plays free,
+            @Model.ViewModel.PricedCount of @DisplayFormat.Plural(Model.ViewModel.Sounds.Count, "sound") cost something. A sound without a price plays free,
             and a member whose balance is below zero cannot play a priced one at all.
         </p>
     </div>
     <div class="flex items-center gap-2">
         <label class="sr-only" for="price-search">Search sounds</label>
-        <input type="search" id="price-search" placeholder="Search sounds…"
-               class="px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
+        <input type="search" id="price-search" placeholder="Search sounds…" autocomplete="off" class="form-input" />
         <label class="sr-only" for="price-filter">Filter</label>
-        <select id="price-filter"
-                class="px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue">
+        <select id="price-filter" class="form-select">
             <option value="all">All sounds</option>
             <option value="priced">Priced only</option>
             <option value="free">Free only</option>
@@ -125,7 +124,7 @@ else
                         <td class="px-4 py-3" data-price-cell>
                             @if (row.IsPriced)
                             {
-                                <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-accent-orange/10 text-accent-orange border border-accent-orange/40">
+                                <span class="badge badge-orange">
                                     @row.Price!.Amount.ToString("N0") @row.Price.CurrencySymbol
                                 </span>
                             }
@@ -137,7 +136,7 @@ else
                         <td class="px-4 py-3 text-text-secondary" data-exempt-cell>
                             @if (row.IsPriced && row.Price!.ExemptRoleIds.Count > 0)
                             {
-                                @($"{row.Price.ExemptRoleIds.Count} role(s)")
+                                @DisplayFormat.Plural(row.Price.ExemptRoleIds.Count, "role")
                             }
                             else
                             {
@@ -146,14 +145,14 @@ else
                         </td>
                         <td class="px-4 py-3 text-right whitespace-nowrap">
                             <button type="button" data-price-action="edit" data-feature-key="@row.FeatureKey"
-                                    class="px-3 py-1.5 text-xs font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
+                                    class="btn btn-secondary btn-sm"
                                     @(Model.ViewModel.Currencies.Count == 0 ? "disabled" : "")>
                                 @(row.IsPriced ? "Edit price" : "Set price")
                             </button>
                             @if (row.IsPriced)
                             {
                                 <button type="button" data-price-action="remove" data-feature-key="@row.FeatureKey"
-                                        class="px-3 py-1.5 text-xs font-medium text-error border border-error/40 rounded-md hover:bg-error/10 transition-colors ml-1">
+                                        class="btn btn-danger btn-sm ml-1">
                                     Make free
                                 </button>
                             }
@@ -194,72 +193,67 @@ else
     </div>
 }
 
-<!-- Price editor modal -->
-<div id="price-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="price-modal-title">
-    <div class="bg-bg-secondary border border-border-primary rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
-            <h3 id="price-modal-title" class="text-base font-semibold text-text-primary">Set price</h3>
-            <button type="button" data-price-action="close" class="text-text-tertiary hover:text-text-primary" aria-label="Close">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-        <form id="price-form" class="px-5 py-4 space-y-4" novalidate>
-            <p id="price-modal-subject" class="text-sm text-text-secondary"></p>
-            <div id="price-form-error" class="hidden text-sm text-error bg-error/10 border border-error/40 rounded-md px-3 py-2"></div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label for="price-currency" class="block text-sm font-medium text-text-secondary mb-1">Currency</label>
-                    <select id="price-currency"
-                            class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue">
-                        @foreach (var currency in Model.ViewModel.Currencies)
-                        {
-                            <option value="@currency.Id">@currency.Symbol @currency.Name</option>
-                        }
-                    </select>
-                </div>
-                <div>
-                    <label for="price-amount" class="block text-sm font-medium text-text-secondary mb-1">Price</label>
-                    <input type="number" id="price-amount" min="1" step="1"
-                           class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
-                </div>
+<!-- Price editor: a quickActions dialog (focus, Escape, scroll lock and stacking come from there) -->
+<div id="price-modal" class="hidden fixed inset-0 z-[var(--z-modal)]" role="dialog" aria-modal="true" aria-labelledby="price-modal-title">
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto qa-modal-panel pointer-events-auto" role="document">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+                <h2 id="price-modal-title" class="text-base font-semibold text-text-primary">Set price</h2>
+                <button type="button" data-modal-dismiss class="btn btn-ghost btn-icon" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
+            <form id="price-form" class="px-5 py-4 space-y-4" novalidate>
+                <p id="price-modal-subject" class="text-sm text-text-secondary break-words"></p>
+                <div id="price-form-error" class="hidden text-sm text-error bg-error/10 border border-error/40 rounded-md px-3 py-2" role="alert"></div>
 
-            <div>
-                <span class="block text-sm font-medium text-text-secondary mb-1">Exempt roles</span>
-                <p class="text-xs text-text-tertiary mb-2">Members holding any of these roles play this sound for nothing.</p>
-                @if (Model.ViewModel.Roles.Count == 0)
-                {
-                    <p class="text-sm text-text-tertiary">No roles are available for this server.</p>
-                }
-                else
-                {
-                    <div class="max-h-40 overflow-y-auto border border-border-primary rounded-md divide-y divide-border-primary">
-                        @foreach (var role in Model.ViewModel.Roles)
-                        {
-                            <label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-hover transition-colors">
-                                <input type="checkbox" data-exempt-role value="@role.Id"
-                                       class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" />
-                                <span class="text-sm text-text-primary">@role.Name</span>
-                            </label>
-                        }
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="price-currency" class="block text-sm font-medium text-text-secondary mb-1">Currency</label>
+                        <select id="price-currency" class="form-select w-full">
+                            @foreach (var currency in Model.ViewModel.Currencies)
+                            {
+                                <option value="@currency.Id">@currency.Symbol @currency.Name</option>
+                            }
+                        </select>
                     </div>
-                }
-            </div>
+                    <div>
+                        <label for="price-amount" class="block text-sm font-medium text-text-secondary mb-1">Price</label>
+                        <input type="number" id="price-amount" min="1" step="1" inputmode="numeric" data-modal-initial-focus class="form-input w-full" />
+                    </div>
+                </div>
 
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" data-price-action="close"
-                        class="px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
-                    Cancel
-                </button>
-                <button type="submit" id="price-save"
-                        class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
-                    Save price
-                </button>
-            </div>
-        </form>
+                <fieldset>
+                    <legend class="block text-sm font-medium text-text-secondary mb-1">Exempt roles</legend>
+                    <p class="text-xs text-text-tertiary mb-2">Members holding any of these roles play this sound for nothing.</p>
+                    @if (Model.ViewModel.Roles.Count == 0)
+                    {
+                        <p class="text-sm text-text-tertiary">No roles are available for this server.</p>
+                    }
+                    else
+                    {
+                        <div class="max-h-40 overflow-y-auto border border-border-primary rounded-md divide-y divide-border-primary">
+                            @foreach (var role in Model.ViewModel.Roles)
+                            {
+                                <label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-hover transition-colors">
+                                    <input type="checkbox" data-exempt-role value="@role.Id"
+                                           class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" />
+                                    <span class="text-sm text-text-primary">@role.Name</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                </fieldset>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" data-modal-dismiss class="btn btn-secondary">Cancel</button>
+                    <button type="submit" id="price-save" class="btn btn-primary">Save price</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

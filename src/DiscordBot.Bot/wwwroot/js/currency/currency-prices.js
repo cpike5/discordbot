@@ -23,12 +23,6 @@
         return document.getElementById(id);
     }
 
-    function toast(message, type) {
-        if (window.quickActions && typeof window.quickActions.showToast === 'function') {
-            window.quickActions.showToast(message, type);
-        }
-    }
-
     function row(featureKey) {
         return document.querySelector(`[data-price-row="${CSS.escape(featureKey)}"]`);
     }
@@ -59,6 +53,39 @@
 
             tr.classList.toggle('hidden', !(matchesTerm && matchesMode));
         });
+
+        showNoMatch();
+    }
+
+    /** A filtered-empty state under the table when the search and filter hide every sound. */
+    function showNoMatch() {
+        const rows = document.querySelectorAll('[data-price-row]');
+        const visible = Array.from(rows).some((tr) => !tr.classList.contains('hidden'));
+        let holder = el('price-no-match');
+
+        if (visible || rows.length === 0) {
+            if (holder) holder.classList.add('hidden');
+            return;
+        }
+
+        if (!holder) {
+            holder = document.createElement('div');
+            holder.id = 'price-no-match';
+            holder.className = 'bg-bg-secondary border border-border-primary rounded-lg mb-8';
+            const table = el('price-rows').closest('.overflow-x-auto');
+            table.insertAdjacentElement('afterend', holder);
+        }
+
+        holder.classList.remove('hidden');
+        EmptyState.filtered(holder, {
+            noun: 'sounds',
+            size: 'compact',
+            onClear: () => {
+                el('price-search').value = '';
+                el('price-filter').value = 'all';
+                applyFilter();
+            }
+        });
     }
 
     // ---- editor ------------------------------------------------------------
@@ -86,13 +113,21 @@
         });
 
         formError('');
-        el('price-modal').classList.remove('hidden');
-        el('price-amount').focus();
+        quickActions.openDialog(el('price-modal'), {
+            initialFocus: '#price-amount',
+            onClose: () => { state.featureKey = null; }
+        });
     }
 
     function closeEditor() {
-        el('price-modal').classList.add('hidden');
-        state.featureKey = null;
+        quickActions.closeDialog(el('price-modal'));
+    }
+
+    function dash() {
+        const mark = document.createElement('span');
+        mark.className = 'text-text-tertiary';
+        mark.textContent = '—';
+        return mark;
     }
 
     /**
@@ -117,11 +152,16 @@
             tr.setAttribute('data-amount', price.amount);
             tr.setAttribute('data-exempt-roles', exempt.join(','));
 
-            priceCell.innerHTML =
-                `<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-accent-orange/10 text-accent-orange border border-accent-orange/40">${Number(price.amount).toLocaleString()} ${symbol}</span>`;
-            exemptCell.innerHTML = exempt.length
-                ? `${exempt.length} role(s)`
-                : '<span class="text-text-tertiary">—</span>';
+            const pill = document.createElement('span');
+            pill.className = 'badge badge-orange';
+            pill.textContent = Format.number(Number(price.amount)) + ' ' + symbol;
+            priceCell.replaceChildren(pill);
+
+            if (exempt.length) {
+                exemptCell.textContent = Format.plural(exempt.length, 'role');
+            } else {
+                exemptCell.replaceChildren(dash());
+            }
 
             if (editButton) editButton.textContent = 'Edit price';
 
@@ -130,7 +170,7 @@
                 remove.type = 'button';
                 remove.setAttribute('data-price-action', 'remove');
                 remove.setAttribute('data-feature-key', featureKey);
-                remove.className = 'px-3 py-1.5 text-xs font-medium text-error border border-error/40 rounded-md hover:bg-error/10 transition-colors ml-1';
+                remove.className = 'btn btn-danger btn-sm ml-1';
                 remove.textContent = 'Make free';
                 actionCell.appendChild(remove);
             }
@@ -140,8 +180,11 @@
             tr.setAttribute('data-amount', '');
             tr.setAttribute('data-exempt-roles', '');
 
-            priceCell.innerHTML = '<span class="text-text-tertiary">Free</span>';
-            exemptCell.innerHTML = '<span class="text-text-tertiary">—</span>';
+            const free = document.createElement('span');
+            free.className = 'text-text-tertiary';
+            free.textContent = 'Free';
+            priceCell.replaceChildren(free);
+            exemptCell.replaceChildren(dash());
 
             if (editButton) editButton.textContent = 'Set price';
 
@@ -173,21 +216,23 @@
             .map(checkbox => checkbox.value);
 
         const saveButton = el('price-save');
-        saveButton.disabled = true;
+        if (typeof LoadingManager !== 'undefined') LoadingManager.setButtonLoading(saveButton, true);
+        else saveButton.disabled = true;
 
         try {
             const price = await window.ApiClient.put(
                 `/api/guilds/${config.guildId}/prices/${encodeURIComponent(state.featureKey)}`,
                 { currencyId: currencyId, amount: amount, exemptRoleIds: exemptRoleIds, isActive: true },
-                { errorMessage: 'Failed to save the price' });
+                { errorMessage: 'The price could not be saved.' });
 
             repaint(state.featureKey, price);
             closeEditor();
-            toast('Price saved.', 'success');
+            toast.success('Price saved.');
         } catch (error) {
-            formError(error.message || 'Failed to save the price.');
+            formError(error.message || 'The price could not be saved.');
         } finally {
-            saveButton.disabled = false;
+            if (typeof LoadingManager !== 'undefined') LoadingManager.setButtonLoading(saveButton, false);
+            else saveButton.disabled = false;
         }
     }
 
@@ -195,26 +240,24 @@
         const tr = row(featureKey);
         const name = tr ? tr.getAttribute('data-sound-name') : 'this sound';
 
-        const confirmed = window.quickActions && typeof window.quickActions.confirm === 'function'
-            ? await window.quickActions.confirm({
-                title: 'Make it free',
-                message: `Stop charging for ${name}? The exempt roles are kept in case you price it again.`,
-                variant: 'warning',
-                confirmText: 'Make free'
-            })
-            : window.confirm(`Stop charging for ${name}?`);
+        const confirmed = await quickActions.confirm({
+            title: 'Make it free',
+            message: 'Stop charging for ' + name + '? The exempt roles are kept in case you price it again.',
+            variant: 'warning',
+            confirmText: 'Make free'
+        });
 
         if (!confirmed) return;
 
         try {
             await window.ApiClient.del(
                 `/api/guilds/${config.guildId}/prices/${encodeURIComponent(featureKey)}`,
-                { errorMessage: 'Failed to remove the price' });
+                { errorMessage: 'The price could not be removed.' });
 
             repaint(featureKey, null);
-            toast('That sound is free again.', 'success');
+            toast.success(name + ' is free again.');
         } catch (error) {
-            window.ApiClient.showErrorToast(error.message || 'Failed to remove the price.');
+            window.ApiClient.showErrorToast(error);
         }
     }
 
@@ -237,10 +280,6 @@
         el('price-form').addEventListener('submit', save);
         el('price-search').addEventListener('input', applyFilter);
         el('price-filter').addEventListener('change', applyFilter);
-
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') closeEditor();
-        });
     }
 
     if (document.readyState === 'loading') {

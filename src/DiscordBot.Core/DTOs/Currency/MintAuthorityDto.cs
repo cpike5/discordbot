@@ -21,6 +21,12 @@ public record MintAuthorityDto
     [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? PrincipalId { get; init; }
 
+    /// <summary>
+    /// Who or what the grant names, for display: a username, a role name, or "System". Filled in by
+    /// the API when it lists grants; null when the name cannot be found (the ID is still there).
+    /// </summary>
+    public string? PrincipalName { get; init; }
+
     /// <summary>Discord user snowflake ID of whoever granted this.</summary>
     [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GrantedById { get; init; }
