@@ -1216,6 +1216,54 @@ ChartTheme.onChange((chart, colors) => {
 
 `colors()` returns `text`, `textMuted`, `textSubtle`, `grid`, `border`, `surface`, `canvas`, `track`, the inks `primary` (ember), `secondary` (blue), `purple`, `success`, `warning`, `error`, `info`, a `series` array, `fills` for solid bars, and `alpha(token, a)`. A script that creates charts after loading Chart.js itself should call `ChartTheme.ensureRegistered()` first (`Performance.ChartUtils` does).
 
+**Do not set `Chart.defaults.color` or `borderColor` in a page script.** They run after `chart-theme.js` and put the dark theme's greys back.
+
+**Bar charts need a colour per bar.** `chart-theme.js` redraws with `update('none')`, which leaves Chart.js's *shared* option object as it was; a bar dataset with one string `backgroundColor` shares options and keeps the old theme's colour. Give bars an array (`AnalyticsCharts.each(color, n)`), or a function.
+
+### Analytics charts: `AnalyticsCharts`
+
+`wwwroot/js/analytics-charts.js` is what the analytics pages share; the page modules (`server-analytics.js`, `moderation-analytics.js`, `engagement-analytics.js`, `rat-watch-analytics.js`) are small and only build configs.
+
+```javascript
+AnalyticsCharts.create('myChart', c => ({ type: 'bar', data: {...} /* colours from c */ }),
+                       (chart, c) => { /* rewrite series colours for the new theme */ });
+AnalyticsCharts.heatmap(container, cells, { countKey, unit, unitPlural, accent: 'blue' | 'orange', note });
+AnalyticsCharts.readData('jsonIslandId');   // { ... } or null
+AnalyticsCharts.dayLabel('2026-10-01');     // 'Oct 1' in the viewer's locale; calendar days are labelled in UTC, never shifted
+```
+
+`create` registers one `ChartTheme.onChange` listener for every chart; the recolour callback is stored on the chart. If Chart.js did not load, `create` replaces the canvas with a plain "Chart unavailable" state.
+
+### Chart text alternative: `_ChartDataTable`
+
+Every canvas has `role="img"`, an `aria-label` that says what it shows and `aria-describedby` pointing at a real table of the same figures, rendered on the server beside it:
+
+```razor
+<canvas id="activityChart" role="img" aria-label="Line chart of messages per day" aria-describedby="activityData"></canvas>
+<partial name="Shared/Components/_ChartDataTable" model="new ChartDataTableViewModel { Id = ..., Caption = ..., Columns = ..., Rows = ... }" />
+<partial name="Shared/Components/_ChartDataTable" model="ChartDataTableViewModel.ForHeatmap(id, caption, cells)" />  @* day x hour *@
+```
+
+The table sits in an `sr-only` wrapper (a `<table>` ignores `sr-only`'s 1px width and would widen the page, so the wrapper is what is hidden). Cell text is plain text; Razor encodes it. A data region with no data uses `_EmptyState`; a load failure uses `_EmptyState` with `Type = Error` and a "Try again" link, never zeros.
+
+If screen-reader-only text sits inside an `overflow-x-auto` table wrapper, add `relative` to the wrapper: `sr-only` is absolutely positioned and only a positioned scroller clips it.
+
+---
+
+## DateRangeFilter partial: `_DateRangeFilter`
+
+One date filter for the analytics pages, Rat Watch Incidents and the admin Rat Watch analytics. Put it inside the page's `<form method="get">`, inside a `<filter-panel>`:
+
+```razor
+<partial name="Shared/Components/_DateRangeFilter" model="new DateRangeFilterViewModel { StartDate = Model.StartDate, EndDate = Model.EndDate, ClearUrl = Url.Page(...), HasActiveFilters = hasDateFilter }" />
+```
+
+`Presets` is `DateRangePreset.Standard` (today, 7, 30 days) or `.Long` (7, 30, 90 days); `ShowActions = false` leaves the Apply and Clear buttons to the page when it has more fields. The buttons carry `data-date-preset`; `shared/filter-panel.js` (with `date-range-filter.js`) fills the inputs from `DateRangeFilter.presetRange` (the viewer's local calendar), marks the matching button `aria-pressed` on load and when the dates change, and submits the form. The server never works out "today". `toggleFilterPanel()` in the same file is what the `<filter-panel>` tag helper's button calls; the content grows to its own height and is `inert` while collapsed.
+
+## `_RatWatchStatusBadge`
+
+A Rat Watch status as a dot and words ("Cleared early"). The words come from `RatWatchStatusDisplay.DisplayName()` (`Helpers/`), the one place a `RatWatchStatus` becomes text, so filters, tables, the incident dialog and the CSV agree and no enum name reaches a user.
+
 ---
 
 ## Formatting: `Format` and `DisplayFormat`

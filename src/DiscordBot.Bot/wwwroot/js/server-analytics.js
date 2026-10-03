@@ -1,416 +1,137 @@
-// server-analytics.js
-// Server analytics dashboard with Chart.js visualizations for guild activity metrics
-
+/**
+ * Server analytics page (Pages/Guilds/Analytics/Index.cshtml): activity line chart, top channels
+ * bar chart and the activity heatmap. Data comes from the JSON island #serverAnalyticsChartData.
+ * Series colours come from ChartTheme and follow the theme (see analytics-charts.js).
+ */
 (function () {
     'use strict';
 
-    /**
-     * Gets a CSS custom property value from the :root element
-     * @param {string} name - The property name (without --color- prefix)
-     * @returns {string} The computed color value
-     */
-    function getDesignToken(name) {
-        return getComputedStyle(document.documentElement)
-            .getPropertyValue(`--color-${name}`).trim();
-    }
+    const A = window.AnalyticsCharts;
+    if (!A) return;
 
-    /**
-     * Initialize design system colors from CSS custom properties
-     */
-    function initColors() {
+    function buildActivity(series, c) {
         return {
-            accentOrange: getDesignToken('accent-orange') || '#e6602b',
-            accentBlue: getDesignToken('accent-blue') || '#3d9ad6',
-            success: getDesignToken('success') || '#2fbf7f',
-            warning: getDesignToken('warning') || '#f0a323',
-            info: getDesignToken('info') || '#2fb3cc',
-            error: getDesignToken('error') || '#ef4f4f',
-            bgPrimary: getDesignToken('bg-primary') || '#0f1114',
-            bgSecondary: getDesignToken('bg-secondary') || '#16191d',
-            bgTertiary: getDesignToken('bg-tertiary') || '#1c2025',
-            textPrimary: getDesignToken('text-primary') || '#e7e4df',
-            textSecondary: getDesignToken('text-secondary') || '#a09c96',
-            textTertiary: getDesignToken('text-tertiary') || '#6d6a66',
-            borderPrimary: getDesignToken('border-primary') || '#2a2f36',
-        };
-    }
-
-    let colors = initColors();
-
-    const CHART_COLORS = [
-        colors.accentOrange,
-        colors.accentBlue,
-        colors.success,
-        colors.warning,
-        colors.info,
-        colors.error,
-        '#8b5cf6',
-        '#ec4899',
-        '#14b8a6',
-        '#6366f1',
-    ];
-
-    const BG_COLORS = {
-        primary: colors.bgPrimary,
-        secondary: colors.bgSecondary,
-        tertiary: colors.bgTertiary,
-    };
-
-    const TEXT_COLORS = {
-        primary: colors.textPrimary,
-        secondary: colors.textSecondary,
-        tertiary: colors.textTertiary,
-    };
-
-    const BORDER_COLOR = colors.borderPrimary;
-
-    // Chart instance references
-    let activityTimeSeriesChart = null;
-    let topChannelsChart = null;
-
-    const commonOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                backgroundColor: BG_COLORS.tertiary,
-                titleColor: TEXT_COLORS.primary,
-                bodyColor: TEXT_COLORS.secondary,
-                borderColor: BORDER_COLOR,
-                borderWidth: 1,
-                padding: 12,
-                cornerRadius: 6,
-            },
-        },
-    };
-
-    const gridConfig = {
-        color: 'rgba(63, 68, 71, 0.5)',
-        drawBorder: false,
-    };
-
-    const ticksConfig = {
-        color: TEXT_COLORS.tertiary,
-        font: {
-            size: 12,
-        },
-    };
-
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${monthNames[date.getMonth()]} ${date.getDate()}`;
-    }
-
-    /**
-     * Initializes the Activity Time Series chart.
-     * @param {Array} timeSeriesData - Array of {date, messages, activeMembers, activeChannels} objects
-     */
-    function initActivityTimeSeriesChart(timeSeriesData) {
-        const canvas = document.getElementById('activityTimeSeriesChart');
-        if (!canvas || !timeSeriesData || timeSeriesData.length === 0) {
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        const labels = timeSeriesData.map(item => formatDate(item.date));
-        const messagesData = timeSeriesData.map(item => item.messages);
-        const activeMembersData = timeSeriesData.map(item => item.activeMembers);
-
-        const messagesGradient = ctx.createLinearGradient(0, 0, 0, 300);
-        messagesGradient.addColorStop(0, 'rgba(61, 154, 214, 0.3)');
-        messagesGradient.addColorStop(1, 'rgba(61, 154, 214, 0.0)');
-
-        activityTimeSeriesChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: series.map(d => A.dayLabel(d.date)),
                 datasets: [
                     {
                         label: 'Messages',
-                        data: messagesData,
-                        borderColor: CHART_COLORS[1],
-                        backgroundColor: messagesGradient,
-                        borderWidth: 2,
+                        data: series.map(d => d.messageCount),
+                        borderColor: c.secondary,
+                        backgroundColor: c.alpha('accent-blue', 0.12),
                         fill: true,
-                        tension: 0.3,
-                        pointRadius: 4,
-                        pointBackgroundColor: CHART_COLORS[1],
-                        pointBorderColor: BG_COLORS.primary,
-                        pointBorderWidth: 2,
-                        pointHoverRadius: 6,
+                        tension: 0.4,
                         yAxisID: 'y',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
                     },
                     {
                         label: 'Active Members',
-                        data: activeMembersData,
-                        borderColor: CHART_COLORS[2],
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        pointBackgroundColor: CHART_COLORS[2],
-                        pointBorderColor: BG_COLORS.primary,
-                        pointBorderWidth: 2,
-                        pointHoverRadius: 5,
+                        data: series.map(d => d.activeMembers),
+                        borderColor: c.success,
+                        backgroundColor: c.alpha('success', 0.12),
+                        borderDash: [6, 4],
+                        pointStyle: 'rectRot',
+                        fill: true,
+                        tension: 0.4,
                         yAxisID: 'y1',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
                     }
                 ]
             },
             options: {
-                ...commonOptions,
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    ...commonOptions.plugins,
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            color: TEXT_COLORS.primary,
-                            padding: 16,
-                            font: { size: 12 },
-                            usePointStyle: true,
-                        }
-                    },
-                    tooltip: {
-                        ...commonOptions.plugins.tooltip,
-                        callbacks: {
-                            title: function (context) {
-                                return timeSeriesData[context[0].dataIndex].date;
-                            },
-                            label: function (context) {
-                                return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
-                            }
-                        }
-                    }
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20, usePointStyle: true } },
+                    tooltip: { padding: 12 }
                 },
                 scales: {
-                    x: {
-                        grid: gridConfig,
-                        ticks: ticksConfig,
-                    },
                     y: {
                         type: 'linear',
-                        display: true,
                         position: 'left',
                         beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: {
-                            ...ticksConfig,
-                            callback: function (value) {
-                                if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
-                                return value;
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Messages',
-                            color: TEXT_COLORS.secondary,
-                        }
+                        title: { display: true, text: 'Messages' }
                     },
                     y1: {
                         type: 'linear',
-                        display: true,
                         position: 'right',
                         beginAtZero: true,
-                        grid: {
-                            drawOnChartArea: false,
-                        },
-                        ticks: ticksConfig,
-                        title: {
-                            display: true,
-                            text: 'Active Members',
-                            color: TEXT_COLORS.secondary,
-                        }
-                    }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
+                        title: { display: true, text: 'Active Members' },
+                        grid: { drawOnChartArea: false }
+                    },
+                    x: { grid: { display: false } }
                 }
             }
-        });
-
-        console.log('Activity time series chart initialized');
+        };
     }
 
-    /**
-     * Initializes the Top Channels horizontal bar chart.
-     * @param {Array} channelsData - Array of {channelName, messageCount} objects
-     */
-    function initTopChannelsChart(channelsData) {
-        const canvas = document.getElementById('topChannelsChart');
-        if (!canvas || !channelsData || channelsData.length === 0) {
-            return;
-        }
+    function recolorActivity(chart, c) {
+        const [messages, members] = chart.data.datasets;
+        messages.borderColor = c.secondary;
+        messages.backgroundColor = c.alpha('accent-blue', 0.12);
+        members.borderColor = c.success;
+        members.backgroundColor = c.alpha('success', 0.12);
+    }
 
-        const ctx = canvas.getContext('2d');
-        const labels = channelsData.map(item => '#' + item.channelName);
-        const data = channelsData.map(item => item.messageCount);
-
-        const colors = labels.map((_, index) => CHART_COLORS[index % CHART_COLORS.length]);
-
-        topChannelsChart = new Chart(ctx, {
+    function buildChannels(channels, c) {
+        return {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: channels.map(ch => ch.channelName),
                 datasets: [{
                     label: 'Messages',
-                    data: data,
-                    backgroundColor: colors,
-                    borderColor: colors,
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barThickness: 24,
+                    data: channels.map(ch => ch.messageCount),
+                    backgroundColor: A.each(c.fills.secondary, channels.length),
+                    borderRadius: 4
                 }]
             },
             options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 indexAxis: 'y',
-                ...commonOptions,
                 plugins: {
-                    ...commonOptions.plugins,
+                    legend: { display: false },
                     tooltip: {
-                        ...commonOptions.plugins.tooltip,
+                        padding: 12,
                         callbacks: {
-                            label: function (context) {
-                                return `Messages: ${formatNumber(context.parsed.x)}`;
-                            }
+                            label: ctx => A.number(ctx.parsed.x) + (ctx.parsed.x === 1 ? ' message' : ' messages')
                         }
                     }
                 },
                 scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: {
-                            ...ticksConfig,
-                            callback: function (value) {
-                                if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
-                                return value;
-                            }
-                        },
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: {
-                            color: TEXT_COLORS.primary,
-                            font: { size: 12 },
-                            padding: 8,
-                        }
-                    }
-                },
-                animation: {
-                    duration: 500,
-                    easing: 'easeOutQuart',
+                    x: { beginAtZero: true, ticks: { callback: value => A.number(value) } },
+                    y: { grid: { display: false } }
                 }
             }
-        });
-
-        console.log('Top channels chart initialized');
+        };
     }
 
-    /**
-     * Renders the activity heatmap.
-     * @param {Array} heatmapData - Array of {dayOfWeek, hour, messageCount} objects
-     */
-    function renderActivityHeatmap(heatmapData) {
-        const container = document.getElementById('activityHeatmap');
-        if (!container || !heatmapData || heatmapData.length === 0) {
-            return;
-        }
-
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const hours = Array.from({ length: 24 }, (_, i) => i);
-
-        const dataMap = new Map();
-        let maxCount = 0;
-        heatmapData.forEach(item => {
-            const key = `${item.dayOfWeek}-${item.hour}`;
-            dataMap.set(key, item.messageCount);
-            maxCount = Math.max(maxCount, item.messageCount);
-        });
-
-        let html = '<div class="text-xs text-text-tertiary mb-3">Message activity by day and hour (UTC)</div>';
-        html += '<div style="display: grid; grid-template-columns: 40px repeat(24, 16px); gap: 2px; font-size: 11px;">';
-
-        html += '<div></div>';
-        hours.forEach(hour => {
-            html += `<div style="text-align: center; color: var(--text-tertiary);">${hour % 6 === 0 ? hour : ''}</div>`;
-        });
-
-        days.forEach((day, dayIndex) => {
-            html += `<div style="color: var(--text-secondary); font-weight: 500; line-height: 16px;">${day}</div>`;
-            hours.forEach(hour => {
-                const key = `${dayIndex}-${hour}`;
-                const count = dataMap.get(key) || 0;
-                const intensity = maxCount > 0 ? count / maxCount : 0;
-                const bgColor = getHeatmapColor(intensity);
-                const title = `${day} ${hour}:00 - ${formatNumber(count)} messages`;
-                html += `<div style="width: 16px; height: 16px; border-radius: 2px; background-color: ${bgColor}; cursor: pointer;" title="${title}"></div>`;
-            });
-        });
-
-        html += '</div>';
-
-        html += '<div class="flex items-center gap-2 mt-4 text-xs text-text-tertiary">';
-        html += '<span>Less</span>';
-        for (let i = 0; i <= 4; i++) {
-            const intensity = i / 4;
-            const bgColor = getHeatmapColor(intensity);
-            html += `<div class="w-4 h-4 rounded-sm" style="background-color: ${bgColor};"></div>`;
-        }
-        html += '<span>More</span>';
-        html += '</div>';
-
-        container.innerHTML = html;
-        console.log('Activity heatmap rendered');
+    function recolorChannels(chart, c) {
+        chart.data.datasets[0].backgroundColor = A.each(c.fills.secondary, chart.data.labels.length);
     }
 
-    function getHeatmapColor(intensity) {
-        if (intensity === 0) return '#1c2025';
-        if (intensity < 0.25) return 'rgba(61, 154, 214, 0.2)';
-        if (intensity < 0.5) return 'rgba(61, 154, 214, 0.4)';
-        if (intensity < 0.75) return 'rgba(61, 154, 214, 0.6)';
-        return 'rgba(61, 154, 214, 0.8)';
-    }
-
-    /**
-     * Initialize all server analytics charts.
-     */
     function init() {
-        const dataElement = document.getElementById('serverAnalyticsChartData');
-        if (!dataElement) {
-            console.log('Server analytics chart data not found on this page');
-            return;
+        const data = A.readData('serverAnalyticsChartData');
+        if (!data) return;
+
+        if (data.activityTimeSeries && data.activityTimeSeries.length > 0) {
+            A.create('activityOverTimeChart', c => buildActivity(data.activityTimeSeries, c), recolorActivity);
         }
-
-        try {
-            const chartData = JSON.parse(dataElement.textContent);
-
-            if (chartData.timeSeries && chartData.timeSeries.length > 0) {
-                initActivityTimeSeriesChart(chartData.timeSeries);
-            }
-
-            if (chartData.heatmap && chartData.heatmap.length > 0) {
-                renderActivityHeatmap(chartData.heatmap);
-            }
-
-            if (chartData.topChannels && chartData.topChannels.length > 0) {
-                initTopChannelsChart(chartData.topChannels);
-            }
-
-            console.log('Server analytics charts initialized');
-
-        } catch (error) {
-            console.error('Failed to initialize server analytics charts:', error);
+        if (data.topChannels && data.topChannels.length > 0) {
+            A.create('topChannelsChart', c => buildChannels(data.topChannels, c), recolorChannels);
+        }
+        if (data.heatmap && data.heatmap.length > 0) {
+            A.heatmap(document.getElementById('activityHeatmap'), data.heatmap, {
+                countKey: 'messageCount',
+                unit: 'message',
+                unitPlural: 'messages',
+                accent: 'blue',
+                note: 'Message activity by day and hour (UTC)'
+            });
         }
     }
 
@@ -419,5 +140,4 @@
     } else {
         init();
     }
-
 })();

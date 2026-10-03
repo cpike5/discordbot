@@ -1,324 +1,116 @@
-// rat-watch-analytics.js
-// Rat Watch analytics dashboard with Chart.js visualizations and activity heatmap
-
+/**
+ * Rat Watch analytics (Pages/Guilds/RatWatch/Analytics.cshtml and Pages/Admin/RatWatchAnalytics.cshtml):
+ * watches over time, outcome doughnut, top watched users and the activity heatmap. Data comes from
+ * the JSON island #ratWatchChartData; a chart whose canvas is not on the page is skipped.
+ * Series colours come from ChartTheme and follow the theme (see analytics-charts.js).
+ */
 (function () {
     'use strict';
 
-    /**
-     * Gets a CSS custom property value from the :root element
-     * @param {string} name - The property name (without --color- prefix)
-     * @returns {string} The computed color value
-     */
-    function getDesignToken(name) {
-        return getComputedStyle(document.documentElement)
-            .getPropertyValue(`--color-${name}`).trim();
+    const A = window.AnalyticsCharts;
+    if (!A) return;
+
+    // Guilty, cleared early, active, other.
+    function outcomeColors(c) {
+        return [c.error, c.success, c.secondary, c.warning];
     }
 
-    /**
-     * Initialize design system colors from CSS custom properties
-     * This ensures chart colors stay in sync with the design system
-     */
-    function initColors() {
-        return {
-            accentOrange: getDesignToken('accent-orange') || '#e6602b',
-            accentBlue: getDesignToken('accent-blue') || '#3d9ad6',
-            success: getDesignToken('success') || '#2fbf7f',
-            warning: getDesignToken('warning') || '#f0a323',
-            info: getDesignToken('info') || '#2fb3cc',
-            error: getDesignToken('error') || '#ef4f4f',
-            bgPrimary: getDesignToken('bg-primary') || '#0f1114',
-            bgSecondary: getDesignToken('bg-secondary') || '#16191d',
-            bgTertiary: getDesignToken('bg-tertiary') || '#1c2025',
-            textPrimary: getDesignToken('text-primary') || '#e7e4df',
-            textSecondary: getDesignToken('text-secondary') || '#a09c96',
-            textTertiary: getDesignToken('text-tertiary') || '#6d6a66',
-            borderPrimary: getDesignToken('border-primary') || '#2a2f36',
-        };
-    }
-
-    // Initialize colors from design tokens (with fallbacks for SSR/testing)
-    let colors = initColors();
-
-    // Chart colors array (derived from design tokens)
-    const CHART_COLORS = [
-        colors.accentOrange,  // accent-orange
-        colors.accentBlue,    // accent-blue
-        colors.success,       // success
-        colors.warning,       // warning
-        colors.info,          // info
-        colors.error,         // error
-        '#8b5cf6',            // purple (extended palette)
-        '#ec4899',            // pink (extended palette)
-        '#14b8a6',            // teal (extended palette)
-        '#6366f1',            // indigo (extended palette)
-    ];
-
-    const BG_COLORS = {
-        primary: colors.bgPrimary,
-        secondary: colors.bgSecondary,
-        tertiary: colors.bgTertiary,
-    };
-
-    const TEXT_COLORS = {
-        primary: colors.textPrimary,
-        secondary: colors.textSecondary,
-        tertiary: colors.textTertiary,
-    };
-
-    const BORDER_COLOR = colors.borderPrimary;
-
-    // Chart instance references
-    let watchesOverTimeChart = null;
-    let outcomeDistributionChart = null;
-    let topUsersChart = null;
-
-    /**
-     * Common Chart.js options for all charts.
-     */
-    const commonOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                backgroundColor: BG_COLORS.tertiary,
-                titleColor: TEXT_COLORS.primary,
-                bodyColor: TEXT_COLORS.secondary,
-                borderColor: BORDER_COLOR,
-                borderWidth: 1,
-                padding: 12,
-                cornerRadius: 6,
-            },
-        },
-    };
-
-    /**
-     * Common grid styling for chart axes.
-     */
-    const gridConfig = {
-        color: 'rgba(63, 68, 71, 0.5)',
-        drawBorder: false,
-    };
-
-    const ticksConfig = {
-        color: TEXT_COLORS.tertiary,
-        font: {
-            size: 12,
-        },
-    };
-
-    /**
-     * Formats a number with thousands separator.
-     * @param {number} num - The number to format
-     * @returns {string} Formatted number (e.g., "1,234")
-     */
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    /**
-     * Formats a date string to short format (e.g., "Jan 15").
-     * @param {string} dateStr - ISO date string
-     * @returns {string} Formatted date
-     */
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${monthNames[date.getMonth()]} ${date.getDate()}`;
-    }
-
-    /**
-     * Plugin to display center text in doughnut chart.
-     */
-    const centerTextPlugin = {
+    /** Draws the guilty share in the middle of the doughnut, in the active theme's text colour. */
+    const centerText = {
         id: 'centerText',
-        afterDatasetsDraw: function (chart) {
-            if (!chart.config.options.plugins.centerText) {
-                return;
-            }
-
-            const { ctx, chartArea: { width, height } } = chart;
-            const centerX = width / 2;
-            const centerY = height / 2;
-            const text = chart.config.options.plugins.centerText.text;
-
+        afterDatasetsDraw(chart) {
+            const opts = chart.config.options.plugins.centerText;
+            if (!opts) return;
+            const { ctx, chartArea } = chart;
             ctx.save();
-            ctx.font = 'bold 32px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
-            ctx.fillStyle = TEXT_COLORS.primary;
+            ctx.font = 'bold 28px ' + (getComputedStyle(document.documentElement).getPropertyValue('--font-body').trim() || 'sans-serif');
+            ctx.fillStyle = window.ChartTheme.colors().text;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(text, centerX, centerY);
+            ctx.fillText(opts.text, (chartArea.left + chartArea.right) / 2, (chartArea.top + chartArea.bottom) / 2);
             ctx.restore();
         }
     };
 
-    /**
-     * Initializes the Watches Over Time line chart.
-     * @param {Array} timeSeriesData - Array of {date, totalCount, guiltyCount, clearedCount} objects
-     */
-    function initWatchesOverTimeChart(timeSeriesData) {
-        const canvas = document.getElementById('watchesOverTimeChart');
-        if (!canvas || !timeSeriesData || timeSeriesData.length === 0) {
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        const labels = timeSeriesData.map(item => formatDate(item.date));
-        const totalData = timeSeriesData.map(item => item.totalCount);
-        const guiltyData = timeSeriesData.map(item => item.guiltyCount);
-        const clearedData = timeSeriesData.map(item => item.clearedCount);
-
-        // Create gradients
-        const totalGradient = ctx.createLinearGradient(0, 0, 0, 300);
-        totalGradient.addColorStop(0, 'rgba(230, 96, 43, 0.3)');
-        totalGradient.addColorStop(1, 'rgba(230, 96, 43, 0.0)');
-
-        watchesOverTimeChart = new Chart(ctx, {
+    function buildTimeSeries(series, c) {
+        return {
             type: 'line',
             data: {
-                labels: labels,
+                labels: series.map(d => A.dayLabel(d.date)),
                 datasets: [
                     {
                         label: 'Total Watches',
-                        data: totalData,
-                        borderColor: CHART_COLORS[0],
-                        backgroundColor: totalGradient,
+                        data: series.map(d => d.totalCount),
+                        borderColor: c.primary,
+                        backgroundColor: c.alpha('accent-orange', 0.15),
                         borderWidth: 2,
                         fill: true,
                         tension: 0.3,
                         pointRadius: 4,
-                        pointBackgroundColor: CHART_COLORS[0],
-                        pointBorderColor: BG_COLORS.primary,
-                        pointBorderWidth: 2,
-                        pointHoverRadius: 6,
+                        pointHoverRadius: 6
                     },
                     {
                         label: 'Guilty',
-                        data: guiltyData,
-                        borderColor: CHART_COLORS[5],
+                        data: series.map(d => d.guiltyCount),
+                        borderColor: c.error,
                         backgroundColor: 'transparent',
                         borderWidth: 2,
-                        fill: false,
                         tension: 0.3,
                         pointRadius: 3,
-                        pointBackgroundColor: CHART_COLORS[5],
-                        pointBorderColor: BG_COLORS.primary,
-                        pointBorderWidth: 2,
                         pointHoverRadius: 5,
-                        borderDash: [5, 5],
+                        borderDash: [6, 4]
                     },
                     {
                         label: 'Cleared Early',
-                        data: clearedData,
-                        borderColor: CHART_COLORS[2],
+                        data: series.map(d => d.clearedCount),
+                        borderColor: c.success,
                         backgroundColor: 'transparent',
                         borderWidth: 2,
-                        fill: false,
                         tension: 0.3,
                         pointRadius: 3,
-                        pointBackgroundColor: CHART_COLORS[2],
-                        pointBorderColor: BG_COLORS.primary,
-                        pointBorderWidth: 2,
                         pointHoverRadius: 5,
-                        borderDash: [2, 2],
+                        borderDash: [2, 3]
                     }
                 ]
             },
             options: {
-                ...commonOptions,
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
                 plugins: {
-                    ...commonOptions.plugins,
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            color: TEXT_COLORS.primary,
-                            padding: 16,
-                            font: {
-                                size: 12,
-                            },
-                            usePointStyle: true,
-                        }
-                    },
+                    legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } },
                     tooltip: {
-                        ...commonOptions.plugins.tooltip,
+                        padding: 12,
                         callbacks: {
-                            title: function (context) {
-                                return timeSeriesData[context[0].dataIndex].date;
-                            },
-                            label: function (context) {
-                                return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
-                            }
+                            label: ctx => ctx.dataset.label + ': ' + A.number(ctx.parsed.y)
                         }
                     }
                 },
                 scales: {
-                    x: {
-                        grid: gridConfig,
-                        ticks: ticksConfig,
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: {
-                            ...ticksConfig,
-                            callback: function (value) {
-                                if (value >= 1000) {
-                                    return (value / 1000).toFixed(1) + 'k';
-                                }
-                                return value;
-                            }
-                        },
-                    }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0, callback: value => A.compact(value) } }
                 }
             }
-        });
-
-        console.log('Watches over time chart initialized');
+        };
     }
 
-    /**
-     * Initializes the Outcome Distribution doughnut chart.
-     * @param {Object} outcomeData - Object with {guiltyCount, clearedEarlyCount, activeCount, otherCount}
-     */
-    function initOutcomeDistributionChart(outcomeData) {
-        const canvas = document.getElementById('outcomeDistributionChart');
-        if (!canvas || !outcomeData) {
-            return;
-        }
+    function recolorTimeSeries(chart, c) {
+        const [total, guilty, cleared] = chart.data.datasets;
+        total.borderColor = c.primary;
+        total.backgroundColor = c.alpha('accent-orange', 0.15);
+        guilty.borderColor = c.error;
+        cleared.borderColor = c.success;
+    }
 
-        const ctx = canvas.getContext('2d');
-        const total = outcomeData.guiltyCount + outcomeData.clearedEarlyCount +
-                     outcomeData.activeCount + outcomeData.otherCount;
-        const guiltyPercentage = total > 0 ? ((outcomeData.guiltyCount / total) * 100).toFixed(1) : '0.0';
-
-        outcomeDistributionChart = new Chart(ctx, {
+    function buildOutcome(o, c) {
+        const counts = [o.guiltyCount, o.clearedEarlyCount, o.activeCount, o.otherCount];
+        const total = counts.reduce((a, b) => a + b, 0);
+        const guiltyShare = total > 0 ? ((o.guiltyCount / total) * 100).toFixed(1) : '0.0';
+        return {
             type: 'doughnut',
             data: {
                 labels: ['Guilty', 'Cleared Early', 'Active', 'Other'],
-                datasets: [{
-                    data: [
-                        outcomeData.guiltyCount,
-                        outcomeData.clearedEarlyCount,
-                        outcomeData.activeCount,
-                        outcomeData.otherCount
-                    ],
-                    backgroundColor: [
-                        CHART_COLORS[5], // error red for guilty
-                        CHART_COLORS[2], // success green for cleared
-                        CHART_COLORS[1], // blue for active
-                        CHART_COLORS[3]  // warning orange for other
-                    ],
-                    borderColor: BG_COLORS.primary,
-                    borderWidth: 3,
-                }]
+                datasets: [{ data: counts, backgroundColor: outcomeColors(c), borderColor: c.canvas, borderWidth: 3 }]
             },
             options: {
                 responsive: true,
@@ -326,242 +118,115 @@
                 cutout: '70%',
                 plugins: {
                     legend: {
-                        display: true,
                         position: 'bottom',
                         labels: {
-                            color: TEXT_COLORS.primary,
                             padding: 16,
-                            font: {
-                                size: 13,
-                            },
                             usePointStyle: true,
                             pointStyle: 'circle',
-                        }
-                    },
-                    tooltip: {
-                        ...commonOptions.plugins.tooltip,
-                        callbacks: {
-                            label: function (context) {
-                                const label = context.label || '';
-                                const value = context.parsed;
-                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                                return `${label}: ${formatNumber(value)} (${percentage}%)`;
+                            // The count is in the legend text, so the segments never rely on colour alone.
+                            generateLabels(chart) {
+                                const ds = chart.data.datasets[0];
+                                return chart.data.labels.map((label, i) => ({
+                                    text: label + ' (' + A.number(ds.data[i]) + ')',
+                                    fillStyle: ds.backgroundColor[i],
+                                    strokeStyle: ds.backgroundColor[i],
+                                    fontColor: chart.options.plugins.legend.labels.color,
+                                    pointStyle: 'circle',
+                                    index: i
+                                }));
                             }
                         }
                     },
-                    centerText: {
-                        text: `${guiltyPercentage}%`
-                    }
+                    tooltip: {
+                        padding: 12,
+                        callbacks: {
+                            label(ctx) {
+                                const share = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0.0';
+                                return ctx.label + ': ' + A.number(ctx.parsed) + ' (' + share + '%)';
+                            }
+                        }
+                    },
+                    centerText: { text: guiltyShare + '%' }
                 }
             },
-            plugins: [centerTextPlugin]
-        });
-
-        console.log('Outcome distribution chart initialized');
+            plugins: [centerText]
+        };
     }
 
-    /**
-     * Initializes the Top Watched Users horizontal bar chart.
-     * @param {Array} topUsersData - Array of {userId, watchesAgainst, guiltyCount} objects
-     */
-    function initTopUsersChart(topUsersData) {
-        const canvas = document.getElementById('topUsersChart');
-        if (!canvas || !topUsersData || topUsersData.length === 0) {
-            return;
-        }
+    function recolorOutcome(chart, c) {
+        const dataset = chart.data.datasets[0];
+        dataset.backgroundColor = outcomeColors(c);
+        dataset.borderColor = c.canvas;
+    }
 
-        const ctx = canvas.getContext('2d');
-        const labels = topUsersData.map(item => item.username || `User ${item.userId.toString().substring(0, 8)}`);
-        const data = topUsersData.map(item => item.watchesAgainst);
-        const guiltyData = topUsersData.map(item => item.guiltyCount);
-
-        // Assign colors cycling through CHART_COLORS
-        const colors = labels.map((_, index) => CHART_COLORS[index % CHART_COLORS.length]);
-
-        topUsersChart = new Chart(ctx, {
+    function buildTopUsers(users, c) {
+        return {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: users.map(u => u.username || 'Unknown user'),
                 datasets: [{
                     label: 'Total Watches',
-                    data: data,
-                    backgroundColor: colors,
-                    borderColor: colors,
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barThickness: 24,
+                    data: users.map(u => u.watchesAgainst),
+                    backgroundColor: A.each(c.fills.primary, users.length),
+                    borderRadius: 4
                 }]
             },
             options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 indexAxis: 'y',
-                ...commonOptions,
                 plugins: {
-                    ...commonOptions.plugins,
+                    legend: { display: false },
                     tooltip: {
-                        ...commonOptions.plugins.tooltip,
-                        displayColors: true,
+                        padding: 12,
                         callbacks: {
-                            label: function (context) {
-                                const value = context.parsed.x;
-                                const guilty = guiltyData[context.dataIndex];
-                                return `Watches: ${formatNumber(value)} (${guilty} guilty)`;
+                            label(ctx) {
+                                const guilty = users[ctx.dataIndex].guiltyCount;
+                                return A.number(ctx.parsed.x) + (ctx.parsed.x === 1 ? ' watch' : ' watches') +
+                                    ' (' + A.number(guilty) + ' guilty)';
                             }
                         }
                     }
                 },
                 scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: {
-                            ...ticksConfig,
-                            callback: function (value) {
-                                return Math.floor(value);
-                            }
-                        },
-                    },
-                    y: {
-                        grid: {
-                            display: false,
-                        },
-                        ticks: {
-                            color: TEXT_COLORS.primary,
-                            font: {
-                                size: 12,
-                                family: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                            },
-                            padding: 8,
-                        }
-                    }
-                },
-                animation: {
-                    duration: 500,
-                    easing: 'easeOutQuart',
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: { grid: { display: false } }
                 }
             }
-        });
-
-        console.log('Top users chart initialized');
+        };
     }
 
-    /**
-     * Renders the activity heatmap.
-     * @param {Array} heatmapData - Array of {dayOfWeek, hour, count} objects
-     */
-    function renderActivityHeatmap(heatmapData) {
-        const container = document.getElementById('activityHeatmap');
-        if (!container || !heatmapData || heatmapData.length === 0) {
-            return;
-        }
-
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const hours = Array.from({ length: 24 }, (_, i) => i);
-
-        // Create a map for quick lookup
-        const dataMap = new Map();
-        let maxCount = 0;
-        heatmapData.forEach(item => {
-            const key = `${item.dayOfWeek}-${item.hour}`;
-            dataMap.set(key, item.count);
-            maxCount = Math.max(maxCount, item.count);
-        });
-
-        // Build heatmap HTML
-        let html = '<div class="text-xs text-text-tertiary mb-3">Activity by day and hour (UTC)</div>';
-        html += '<div style="display: grid; grid-template-columns: 40px repeat(24, 16px); gap: 2px; font-size: 11px;">';
-
-        // Header row (hours)
-        html += '<div></div>'; // Empty corner
-        hours.forEach(hour => {
-            html += `<div style="text-align: center; color: var(--text-tertiary);">${hour % 6 === 0 ? hour : ''}</div>`;
-        });
-
-        // Data rows
-        days.forEach((day, dayIndex) => {
-            html += `<div style="color: var(--text-secondary); font-weight: 500; line-height: 16px;">${day}</div>`;
-            hours.forEach(hour => {
-                const key = `${dayIndex}-${hour}`;
-                const count = dataMap.get(key) || 0;
-                const intensity = maxCount > 0 ? count / maxCount : 0;
-                const bgColor = getHeatmapColor(intensity);
-                const title = `${day} ${hour}:00 - ${count} watches`;
-                html += `<div style="width: 16px; height: 16px; border-radius: 2px; background-color: ${bgColor}; cursor: pointer;" title="${title}"></div>`;
-            });
-        });
-
-        html += '</div>';
-
-        // Add legend
-        html += '<div class="flex items-center gap-2 mt-4 text-xs text-text-tertiary">';
-        html += '<span>Less</span>';
-        for (let i = 0; i <= 4; i++) {
-            const intensity = i / 4;
-            const bgColor = getHeatmapColor(intensity);
-            html += `<div class="w-4 h-4 rounded-sm" style="background-color: ${bgColor};"></div>`;
-        }
-        html += '<span>More</span>';
-        html += '</div>';
-
-        container.innerHTML = html;
-        console.log('Activity heatmap rendered');
+    function recolorTopUsers(chart, c) {
+        chart.data.datasets[0].backgroundColor = A.each(c.fills.primary, chart.data.labels.length);
     }
 
-    /**
-     * Gets a color based on heatmap intensity.
-     * @param {number} intensity - Value between 0 and 1
-     * @returns {string} Hex color
-     */
-    function getHeatmapColor(intensity) {
-        if (intensity === 0) return '#1c2025'; // bg-tertiary
-        if (intensity < 0.25) return 'rgba(230, 96, 43, 0.2)'; // light orange
-        if (intensity < 0.5) return 'rgba(230, 96, 43, 0.4)';
-        if (intensity < 0.75) return 'rgba(230, 96, 43, 0.6)';
-        return 'rgba(230, 96, 43, 0.8)'; // full orange
-    }
-
-    /**
-     * Initialize all Rat Watch analytics charts.
-     */
     function init() {
-        // Load chart data from embedded JSON
-        const dataElement = document.getElementById('ratWatchChartData');
-        if (!dataElement) {
-            console.log('Rat Watch chart data not found on this page');
-            return;
+        const data = A.readData('ratWatchChartData');
+        if (!data) return;
+
+        if (data.timeSeries && data.timeSeries.length > 0) {
+            A.create('watchesOverTimeChart', c => buildTimeSeries(data.timeSeries, c), recolorTimeSeries);
         }
-
-        try {
-            const chartData = JSON.parse(dataElement.textContent);
-
-            // Initialize each chart if data is available
-            if (chartData.timeSeries && chartData.timeSeries.length > 0) {
-                initWatchesOverTimeChart(chartData.timeSeries);
-            }
-
-            if (chartData.outcomeDistribution) {
-                initOutcomeDistributionChart(chartData.outcomeDistribution);
-            }
-
-            if (chartData.heatmap && chartData.heatmap.length > 0) {
-                renderActivityHeatmap(chartData.heatmap);
-            }
-
-            if (chartData.topUsers && chartData.topUsers.length > 0) {
-                initTopUsersChart(chartData.topUsers);
-            }
-
-            console.log('Rat Watch analytics charts initialized');
-
-        } catch (error) {
-            console.error('Failed to initialize Rat Watch analytics charts:', error);
+        if (data.outcomeDistribution) {
+            A.create('outcomeDistributionChart', c => buildOutcome(data.outcomeDistribution, c), recolorOutcome);
+        }
+        if (data.topUsers && data.topUsers.length > 0) {
+            A.create('topUsersChart', c => buildTopUsers(data.topUsers, c), recolorTopUsers);
+        }
+        if (data.heatmap && data.heatmap.length > 0) {
+            A.heatmap(document.getElementById('activityHeatmap'), data.heatmap, {
+                countKey: 'count',
+                unit: 'watch',
+                unitPlural: 'watches',
+                accent: 'orange',
+                note: 'Watches by scheduled day and hour (UTC)'
+            });
         }
     }
 
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-
 })();

@@ -4,129 +4,67 @@
 @{
     ViewData["Title"] = $"Engagement Metrics - {Model.ViewModel.GuildName}";
     Layout = "_GuildLayout";
+
+    var hasDateFilter = Model.Request.Query.ContainsKey("StartDate") || Model.Request.Query.ContainsKey("EndDate");
+    var dateFilter = new DateRangeFilterViewModel
+    {
+        StartDate = Model.StartDate,
+        EndDate = Model.EndDate,
+        ClearUrl = Url.Page("Engagement", new { guildId = Model.ViewModel.GuildId }),
+        HasActiveFilters = hasDateFilter
+    };
+    var loadFailed = !string.IsNullOrEmpty(Model.ErrorMessage);
+
+    // The figures behind each chart, as text (see _ChartDataTable)
+    var trendsTable = new ChartDataTableViewModel
+    {
+        Id = "messageTrendsData",
+        Caption = "Messages, unique authors and average message length per day",
+        Columns = new[] { "Day", "Messages", "Unique authors", "Average message length" },
+        Rows = Model.ViewModel.MessageTrends.Select(t => (IReadOnlyList<string>)new[]
+        {
+            ChartDataTableViewModel.Day(t.Date), ChartDataTableViewModel.Count(t.MessageCount),
+            ChartDataTableViewModel.Count(t.UniqueAuthors), DisplayFormat.Number((double)t.AvgMessageLength, 0)
+        }).ToList()
+    };
+    var channelsTable = new ChartDataTableViewModel
+    {
+        Id = "channelEngagementData",
+        Caption = "Messages, unique authors and engagement rate per channel",
+        Columns = new[] { "Channel", "Messages", "Unique authors", "Engagement rate (%)" },
+        Rows = Model.ViewModel.ChannelEngagement.Select(c => (IReadOnlyList<string>)new[]
+        {
+            c.ChannelName, ChartDataTableViewModel.Count(c.MessageCount),
+            ChartDataTableViewModel.Count(c.UniqueAuthors), DisplayFormat.Number((double)c.EngagementRate, 1)
+        }).ToList()
+    };
 }
 
-<!-- Display any errors -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            @{
-                var errorAlert = new AlertViewModel {
-                    Variant = AlertVariant.Error,
-                    Title = "Error",
-                    Message = Model.ErrorMessage,
-                    ShowIcon = true
-                };
-            }
-            <partial name="Shared/Components/_Alert" model="errorAlert" />
-        </div>
-    }
+<filter-panel title="Filters"
+              is-collapsible="true"
+              active-filter-count="@(hasDateFilter ? 1 : 0)"
+              default-expanded="true">
+    <form method="get" id="filterForm">
+        <partial name="Shared/Components/_DateRangeFilter" model="dateFilter" />
+    </form>
+</filter-panel>
 
-    <!-- Filter Panel -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
-        <button type="button"
-                id="filterToggle"
-                class="w-full flex items-center justify-between px-5 py-4 text-left"
-                aria-expanded="true"
-                aria-controls="filterContent"
-                onclick="toggleFilterPanel()">
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                <span class="text-lg font-semibold text-text-primary">Filters</span>
-                @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
-                {
-                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                        Text = "Active",
-                        Variant = BadgeVariant.Orange,
-                        Size = BadgeSize.Small
-                    })" />
-                }
-            </div>
-            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-        </button>
-
-        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
-            <div class="border-t border-border-primary p-5">
-                <form method="get" id="filterForm">
-                    <!-- Quick Date Presets -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
-                        @{
-                            var today = DateTime.UtcNow.Date;
-                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
-                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
-                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
-
-                            string GetPresetClass(bool isActive) => isActive
-                                ? "px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
-                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
-                        }
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" onclick="setDatePreset('today')" class="@GetPresetClass(isToday)">
-                                Today
-                            </button>
-                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
-                                Last 7 Days
-                            </button>
-                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
-                                Last 30 Days
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Filter Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Start Date -->
-                        <div>
-                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
-                            <input type="date"
-                                   id="StartDate"
-                                   name="StartDate"
-                                   value="@Model.StartDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-
-                        <!-- End Date -->
-                        <div>
-                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
-                            <input type="date"
-                                   id="EndDate"
-                                   name="EndDate"
-                                   value="@Model.EndDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-                    </div>
-
-                    <!-- Filter Actions -->
-                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
-                        <button type="submit" class="btn btn-primary">
-                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            Apply Filters
-                        </button>
-                        @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
-                        {
-                            <a asp-page="Engagement" asp-route-guildId="@Model.ViewModel.GuildId" class="btn btn-secondary">
-                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Clear Filters
-                            </a>
-                        }
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
+@if (loadFailed)
+{
+    <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+        Type = EmptyStateType.Error,
+        Title = "Analytics could not be loaded",
+        Description = Model.ErrorMessage!,
+        Size = EmptyStateSize.Default,
+        HeadingLevel = 2,
+        Announce = true,
+        PrimaryActionText = "Try again",
+        PrimaryActionUrl = Model.Request.Path + Model.Request.QueryString,
+        PrimaryActionIconPath = ""
+    }' />
+}
+else
+{
     <!-- Summary Stats Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
         <!-- Total Messages -->
@@ -218,8 +156,9 @@
             @if (Model.ViewModel.MessageTrends.Any())
             {
                 <div style="position: relative; min-height: 300px; max-height: 400px;">
-                    <canvas id="messageTrendsChart" aria-label="Line chart showing message trends over time" role="img"></canvas>
+                    <canvas id="messageTrendsChart" role="img" aria-label="Line chart of messages and unique authors per day" aria-describedby="messageTrendsData"></canvas>
                 </div>
+                <partial name="Shared/Components/_ChartDataTable" model="trendsTable" />
             }
             else
             {
@@ -253,8 +192,9 @@
             </div>
             <div class="p-5">
                 <div style="position: relative; min-height: 300px; max-height: 400px;">
-                    <canvas id="channelEngagementChart" aria-label="Horizontal bar chart showing channel engagement" role="img"></canvas>
+                    <canvas id="channelEngagementChart" role="img" aria-label="Bar chart of messages and engagement rate per channel" aria-describedby="channelEngagementData"></canvas>
                 </div>
+                <partial name="Shared/Components/_ChartDataTable" model="channelsTable" />
             </div>
         </div>
     }
@@ -270,6 +210,13 @@
         var firstMsgPct = totalNew > 0 ? (decimal)totalFirstMsg / totalNew * 100 : 0;
         var active7dPct = totalNew > 0 ? (decimal)totalActive7d / totalNew * 100 : 0;
         var active30dPct = totalNew > 0 ? (decimal)totalActive30d / totalNew * 100 : 0;
+        var funnelSteps = new[]
+        {
+            (Label: "Joined", Count: (long)totalNew, Percent: totalNew > 0 ? 100m : 0m, BarClass: "bg-accent-blue"),
+            (Label: "Sent a first message", Count: (long)totalFirstMsg, Percent: firstMsgPct, BarClass: "bg-success"),
+            (Label: "Still active after week 1", Count: (long)totalActive7d, Percent: active7dPct, BarClass: "bg-warning"),
+            (Label: "Still active after month 1", Count: (long)totalActive30d, Percent: active30dPct, BarClass: "bg-accent-orange")
+        };
         <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
             <div class="px-5 py-4 border-b border-border-primary">
                 <div class="flex items-center justify-between">
@@ -287,81 +234,29 @@
                 </div>
             </div>
             <div class="p-5">
-                <div class="space-y-3">
-                    <!-- Joined -->
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm font-medium text-text-secondary w-32 text-right">Joined</span>
-                        <div class="flex-1 h-10 bg-accent-blue rounded-md flex items-center px-4" style="width: 100%;">
-                            <span class="text-sm font-semibold text-white">100%</span>
-                        </div>
-                        <span class="text-sm font-semibold text-text-primary w-24">@totalNew members</span>
-                    </div>
-
-                    <!-- First Message -->
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm font-medium text-text-secondary w-32 text-right">First Message</span>
-                        <div class="flex-1 h-10 bg-success rounded-md flex items-center px-4" style="width: @firstMsgPct.ToString("F1")%;">
-                            <span class="text-sm font-semibold text-white">@firstMsgPct.ToString("F1")%</span>
-                        </div>
-                        <span class="text-sm font-semibold text-text-primary w-24">@totalFirstMsg members</span>
-                    </div>
-
-                    <!-- Week 1 Active -->
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm font-medium text-text-secondary w-32 text-right">Week 1 Active</span>
-                        <div class="flex-1 h-10 bg-warning rounded-md flex items-center px-4" style="width: @active7dPct.ToString("F1")%;">
-                            <span class="text-sm font-semibold text-white">@active7dPct.ToString("F1")%</span>
-                        </div>
-                        <span class="text-sm font-semibold text-text-primary w-24">@totalActive7d members</span>
-                    </div>
-
-                    <!-- Month 1 Active -->
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm font-medium text-text-secondary w-32 text-right">Month 1 Active</span>
-                        <div class="flex-1 h-10 bg-accent-orange rounded-md flex items-center px-4" style="width: @active30dPct.ToString("F1")%;">
-                            <span class="text-sm font-semibold text-white">@active30dPct.ToString("F1")%</span>
-                        </div>
-                        <span class="text-sm font-semibold text-text-primary w-24">@totalActive30d members</span>
-                    </div>
-                </div>
+                @* Each step is a label, its count and share as text, over a bar on a track: the bar is only a picture of the share *@
+                <ol class="space-y-4" aria-label="Share of new members who reached each step">
+                    @foreach (var step in funnelSteps)
+                    {
+                        <li>
+                            <div class="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+                                <span class="font-medium text-text-secondary">@step.Label</span>
+                                <span class="font-semibold text-text-primary">
+                                    @DisplayFormat.Plural(step.Count, "member")
+                                    <span class="font-normal text-text-secondary">(@DisplayFormat.Number((double)step.Percent, 1)%)</span>
+                                </span>
+                            </div>
+                            <div class="mt-1.5 h-3 overflow-hidden rounded-full bg-bg-tertiary" aria-hidden="true">
+                                <div class="h-full rounded-full @step.BarClass" style="width: @step.Percent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                            </div>
+                        </li>
+                    }
+                </ol>
             </div>
         </div>
     }
 
-    <!-- Coming Soon Banner -->
-    <div class="bg-bg-secondary border border-border-secondary rounded-lg mb-6 p-5">
-        <div class="flex items-start gap-4">
-            <svg class="w-6 h-6 text-text-tertiary flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-                <p class="text-sm font-semibold text-text-secondary">Voice and Reaction Analytics Coming Soon</p>
-                <p class="text-sm text-text-tertiary mt-1">We are working on bringing you detailed analytics for voice channel usage and message reactions. Stay tuned for updates!</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Placeholder Cards for Coming Soon Features -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-        <!-- Voice Analytics Placeholder -->
-        <div class="bg-bg-secondary border border-dashed border-border-primary rounded-lg p-8 text-center opacity-60">
-            <svg class="w-12 h-12 text-text-tertiary mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-            <p class="text-base font-semibold text-text-secondary mb-1">Voice Channel Analytics</p>
-            <p class="text-sm text-text-tertiary">Track voice activity, average session duration, and peak usage times</p>
-        </div>
-
-        <!-- Reaction Analytics Placeholder -->
-        <div class="bg-bg-secondary border border-dashed border-border-primary rounded-lg p-8 text-center opacity-60">
-            <svg class="w-12 h-12 text-text-tertiary mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="text-base font-semibold text-text-secondary mb-1">Reaction Analytics</p>
-            <p class="text-sm text-text-tertiary">Most used emojis, reaction rates, and sentiment analysis</p>
-        </div>
-    </div>
-</div>
+}
 
 @section Scripts {
     <!-- Chart.js Library -->
@@ -391,242 +286,8 @@
 @Html.Raw(chartDataJson)
     </script>
 
-    <!-- Filter Panel Toggle Script -->
-    <script>
-        function toggleFilterPanel() {
-            const content = document.getElementById('filterContent');
-            const chevron = document.getElementById('filterChevron');
-            const toggle = document.getElementById('filterToggle');
-
-            if (content.style.maxHeight === '0px') {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-            } else {
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-
-        function setDatePreset(preset) {
-            const today = new Date();
-            const startDateInput = document.getElementById('StartDate');
-            const endDateInput = document.getElementById('EndDate');
-
-            let startDate = new Date();
-
-            switch(preset) {
-                case 'today':
-                    startDate = today;
-                    break;
-                case '7days':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30days':
-                    startDate.setDate(today.getDate() - 30);
-                    break;
-            }
-
-            startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = today.toISOString().split('T')[0];
-
-            // Auto-submit the form after setting dates
-            document.getElementById('filterForm').submit();
-        }
-    </script>
-
-    <!-- Chart Initialization Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Chart.js default dark theme settings
-            Chart.defaults.color = '#a09c96';
-            Chart.defaults.borderColor = '#2a2f36';
-
-            // Load chart data from embedded JSON
-            const chartDataElement = document.getElementById('engagementChartData');
-            if (!chartDataElement) {
-                console.error('Chart data element not found');
-                return;
-            }
-
-            let chartData;
-            try {
-                chartData = JSON.parse(chartDataElement.textContent);
-            } catch (e) {
-                console.error('Failed to parse chart data:', e);
-                return;
-            }
-
-            // Message Trends Chart (Line with dual Y-axes)
-            const trendsCanvas = document.getElementById('messageTrendsChart');
-            if (trendsCanvas && chartData.messageTrends && chartData.messageTrends.length > 0) {
-                const trendsCtx = trendsCanvas.getContext('2d');
-                new Chart(trendsCtx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.messageTrends.map(t => {
-                            const date = new Date(t.date);
-                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        }),
-                        datasets: [
-                            {
-                                label: 'Messages',
-                                data: chartData.messageTrends.map(t => t.messageCount),
-                                borderColor: '#3d9ad6',
-                                backgroundColor: 'rgba(61, 154, 214, 0.1)',
-                                fill: true,
-                                tension: 0.4,
-                                yAxisID: 'y'
-                            },
-                            {
-                                label: 'Unique Authors',
-                                data: chartData.messageTrends.map(t => t.uniqueAuthors),
-                                borderColor: '#2fbf7f',
-                                backgroundColor: 'transparent',
-                                borderDash: [5, 5],
-                                tension: 0.4,
-                                yAxisID: 'y1'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false
-                        },
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 20
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: '#1c2025',
-                                titleColor: '#e7e4df',
-                                bodyColor: '#a09c96',
-                                borderColor: '#2a2f36',
-                                borderWidth: 1,
-                                padding: 12
-                            }
-                        },
-                        scales: {
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
-                                beginAtZero: false,
-                                grid: {
-                                    color: '#1c2025'
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Messages',
-                                    color: '#3d9ad6'
-                                }
-                            },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                beginAtZero: false,
-                                grid: {
-                                    drawOnChartArea: false
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Unique Authors',
-                                    color: '#2fbf7f'
-                                }
-                            },
-                            x: {
-                                grid: {
-                                    display: false
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Channel Engagement Chart (Horizontal Bar)
-            const channelCanvas = document.getElementById('channelEngagementChart');
-            if (channelCanvas && chartData.channelEngagement && chartData.channelEngagement.length > 0) {
-                const channelCtx = channelCanvas.getContext('2d');
-                new Chart(channelCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: chartData.channelEngagement.map(c => c.channelName),
-                        datasets: [
-                            {
-                                label: 'Messages',
-                                data: chartData.channelEngagement.map(c => c.messageCount),
-                                backgroundColor: '#3d9ad6',
-                                borderRadius: 4
-                            },
-                            {
-                                label: 'Engagement Rate (%)',
-                                data: chartData.channelEngagement.map(c => c.engagementRate),
-                                backgroundColor: '#e6602b',
-                                borderRadius: 4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 20
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: '#1c2025',
-                                titleColor: '#e7e4df',
-                                bodyColor: '#a09c96',
-                                borderColor: '#2a2f36',
-                                borderWidth: 1,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        if (context.datasetIndex === 0) {
-                                            return context.parsed.x.toLocaleString() + ' messages';
-                                        } else {
-                                            return context.parsed.x.toFixed(1) + '% engagement';
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: '#1c2025'
-                                },
-                                ticks: {
-                                    callback: function(value) {
-                                        return value.toLocaleString();
-                                    }
-                                }
-                            },
-                            y: {
-                                grid: {
-                                    display: false
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        });
-    </script>
+    <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
+    <script src="~/js/analytics-charts.js" asp-append-version="true"></script>
+    <script src="~/js/engagement-analytics.js" asp-append-version="true"></script>
 }

@@ -4,129 +4,79 @@
 @{
     ViewData["Title"] = $"Moderation Analytics - {Model.ViewModel.GuildName}";
     Layout = "_GuildLayout";
+
+    var hasDateFilter = Model.Request.Query.ContainsKey("StartDate") || Model.Request.Query.ContainsKey("EndDate");
+    var dateFilter = new DateRangeFilterViewModel
+    {
+        StartDate = Model.StartDate,
+        EndDate = Model.EndDate,
+        ClearUrl = Url.Page("Moderation", new { guildId = Model.ViewModel.GuildId }),
+        HasActiveFilters = hasDateFilter
+    };
+    var loadFailed = !string.IsNullOrEmpty(Model.ErrorMessage);
+
+    // The figures behind each chart, as text (see _ChartDataTable)
+    var trendsTable = new ChartDataTableViewModel
+    {
+        Id = "moderationTrendsData",
+        Caption = "Moderation actions per day, by type",
+        Columns = new[] { "Day", "Warns", "Mutes", "Kicks", "Bans", "Total" },
+        Rows = Model.ViewModel.Trends.Select(t => (IReadOnlyList<string>)new[]
+        {
+            ChartDataTableViewModel.Day(t.Date), ChartDataTableViewModel.Count(t.WarnCount), ChartDataTableViewModel.Count(t.MuteCount),
+            ChartDataTableViewModel.Count(t.KickCount), ChartDataTableViewModel.Count(t.BanCount), ChartDataTableViewModel.Count(t.TotalCases)
+        }).ToList()
+    };
+    var distributionTable = new ChartDataTableViewModel
+    {
+        Id = "caseDistributionData",
+        Caption = "Cases by action type",
+        Columns = new[] { "Action", "Cases" },
+        Rows = new IReadOnlyList<string>[]
+        {
+            new[] { "Warns", ChartDataTableViewModel.Count(Model.ViewModel.Distribution.WarnCount) },
+            new[] { "Mutes", ChartDataTableViewModel.Count(Model.ViewModel.Distribution.MuteCount) },
+            new[] { "Kicks", ChartDataTableViewModel.Count(Model.ViewModel.Distribution.KickCount) },
+            new[] { "Bans", ChartDataTableViewModel.Count(Model.ViewModel.Distribution.BanCount) }
+        }
+    };
+    var workloadTable = new ChartDataTableViewModel
+    {
+        Id = "moderatorWorkloadData",
+        Caption = "Cases handled per moderator",
+        Columns = new[] { "Moderator", "Cases" },
+        Rows = Model.ViewModel.ModeratorWorkload.Select(m => (IReadOnlyList<string>)new[]
+        {
+            m.ModeratorUsername, ChartDataTableViewModel.Count(m.TotalActions)
+        }).ToList()
+    };
 }
 
-<!-- Display any errors -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            @{
-                var errorAlert = new AlertViewModel {
-                    Variant = AlertVariant.Error,
-                    Title = "Error",
-                    Message = Model.ErrorMessage,
-                    ShowIcon = true
-                };
-            }
-            <partial name="Shared/Components/_Alert" model="errorAlert" />
-        </div>
-    }
+<filter-panel title="Filters"
+              is-collapsible="true"
+              active-filter-count="@(hasDateFilter ? 1 : 0)"
+              default-expanded="true">
+    <form method="get" id="filterForm">
+        <partial name="Shared/Components/_DateRangeFilter" model="dateFilter" />
+    </form>
+</filter-panel>
 
-    <!-- Filter Panel -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
-        <button type="button"
-                id="filterToggle"
-                class="w-full flex items-center justify-between px-5 py-4 text-left"
-                aria-expanded="true"
-                aria-controls="filterContent"
-                onclick="toggleFilterPanel()">
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                <span class="text-lg font-semibold text-text-primary">Filters</span>
-                @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
-                {
-                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                        Text = "Active",
-                        Variant = BadgeVariant.Orange,
-                        Size = BadgeSize.Small
-                    })" />
-                }
-            </div>
-            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-        </button>
-
-        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
-            <div class="border-t border-border-primary p-5">
-                <form method="get" id="filterForm">
-                    <!-- Quick Date Presets -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
-                        @{
-                            var today = DateTime.UtcNow.Date;
-                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
-                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
-                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
-
-                            string GetPresetClass(bool isActive) => isActive
-                                ? "px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
-                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
-                        }
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" onclick="setDatePreset('today')" class="@GetPresetClass(isToday)">
-                                Today
-                            </button>
-                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
-                                Last 7 Days
-                            </button>
-                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
-                                Last 30 Days
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Filter Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Start Date -->
-                        <div>
-                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
-                            <input type="date"
-                                   id="StartDate"
-                                   name="StartDate"
-                                   value="@Model.StartDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-
-                        <!-- End Date -->
-                        <div>
-                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
-                            <input type="date"
-                                   id="EndDate"
-                                   name="EndDate"
-                                   value="@Model.EndDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-                    </div>
-
-                    <!-- Filter Actions -->
-                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
-                        <button type="submit" class="btn btn-primary">
-                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            Apply Filters
-                        </button>
-                        @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
-                        {
-                            <a asp-page="Moderation" asp-route-guildId="@Model.ViewModel.GuildId" class="btn btn-secondary">
-                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Clear Filters
-                            </a>
-                        }
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
+@if (loadFailed)
+{
+    <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+        Type = EmptyStateType.Error,
+        Title = "Analytics could not be loaded",
+        Description = Model.ErrorMessage!,
+        Size = EmptyStateSize.Default,
+        HeadingLevel = 2,
+        Announce = true,
+        PrimaryActionText = "Try again",
+        PrimaryActionUrl = Model.Request.Path + Model.Request.QueryString,
+        PrimaryActionIconPath = ""
+    }' />
+}
+else
+{
     <!-- Summary Stats Row -->
     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         <!-- Total Cases -->
@@ -239,8 +189,9 @@
                 @if (Model.ViewModel.Trends.Any())
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="moderationTrendsChart" aria-label="Stacked area chart showing moderation actions over time" role="img"></canvas>
+                        <canvas id="moderationTrendsChart" role="img" aria-label="Stacked area chart of moderation actions per day, by type" aria-describedby="moderationTrendsData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="trendsTable" />
                 }
                 else
                 {
@@ -274,8 +225,9 @@
                 @if (Model.ViewModel.Distribution.Total > 0)
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="caseDistributionChart" aria-label="Doughnut chart showing case type distribution" role="img"></canvas>
+                        <canvas id="caseDistributionChart" role="img" aria-label="Doughnut chart of cases by action type" aria-describedby="caseDistributionData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="distributionTable" />
                 }
                 else
                 {
@@ -309,8 +261,9 @@
                 @if (Model.ViewModel.ModeratorWorkload.Any())
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="moderatorWorkloadChart" aria-label="Horizontal bar chart showing moderator workload" role="img"></canvas>
+                        <canvas id="moderatorWorkloadChart" role="img" aria-label="Bar chart of cases handled per moderator" aria-describedby="moderatorWorkloadData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="workloadTable" />
                 }
                 else
                 {
@@ -345,7 +298,8 @@
         </div>
         @if (Model.ViewModel.RepeatOffenders.Any())
         {
-            <div class="overflow-x-auto">
+            @* relative: the screen-reader text in the table is absolutely positioned, and only a positioned scroller clips it *@
+            <div class="overflow-x-auto relative">
                 <table class="w-full">
                     <thead class="bg-bg-primary/50">
                         <tr>
@@ -369,11 +323,11 @@
                                     <div class="flex items-center gap-3">
                                         @if (!string.IsNullOrEmpty(offender.AvatarUrl))
                                         {
-                                            <img src="@offender.AvatarUrl" alt="@offender.Username" class="w-10 h-10 rounded-full" />
+                                            <img src="@offender.AvatarUrl" alt="" class="w-10 h-10 rounded-full" />
                                         }
                                         else
                                         {
-                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm">
+                                            <div class="w-10 h-10 rounded-full bg-error flex items-center justify-center text-white font-bold text-sm" aria-hidden="true">
                                                 @(offender.Username.Length >= 2 ? offender.Username.Substring(0, 2).ToUpper() : offender.Username.ToUpper())
                                             </div>
                                         }
@@ -401,9 +355,11 @@
                                     }
                                 </td>
                                 <td class="px-5 py-4">
-                                    <div class="flex items-center gap-1">
-                                        @foreach (var action in offender.EscalationPath)
+                                    @* One letter per step, with the action's name for hover and screen readers; the legend below spells them out *@
+                                    <ol class="flex items-center gap-1" aria-label="Escalation path">
+                                        @for (var step = 0; step < offender.EscalationPath.Count; step++)
                                         {
+                                            var action = offender.EscalationPath[step];
                                             var (letter, colorClass) = action switch
                                             {
                                                 "Warn" => ("W", "bg-warning/20 text-warning"),
@@ -412,26 +368,24 @@
                                                 "Ban" => ("B", "bg-error/20 text-error"),
                                                 _ => ("N", "bg-bg-tertiary text-text-tertiary")
                                             };
-                                            <span class="inline-flex items-center justify-center w-6 h-6 rounded @colorClass text-xs font-semibold">@letter</span>
-                                            @if (action != offender.EscalationPath.Last())
-                                            {
-                                                <svg class="w-3 h-3 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                                </svg>
-                                            }
+                                            var actionName = action is "Warn" or "Mute" or "Kick" or "Ban" ? action : "Note";
+                                            <li class="flex items-center gap-1">
+                                                <span class="inline-flex items-center justify-center w-6 h-6 rounded @colorClass text-xs font-semibold" title="@actionName">
+                                                    <span aria-hidden="true">@letter</span>
+                                                    <span class="sr-only">@actionName</span>
+                                                </span>
+                                                @if (step < offender.EscalationPath.Count - 1)
+                                                {
+                                                    <svg class="w-3 h-3 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                }
+                                            </li>
                                         }
-                                    </div>
+                                    </ol>
                                 </td>
                                 <td class="px-5 py-4 text-text-secondary text-sm">
-                                    @{
-                                        var timeSince = DateTime.UtcNow - offender.LastIncident;
-                                        var timeText = timeSince.TotalDays < 1 ? "Today" :
-                                                      timeSince.TotalDays < 2 ? "Yesterday" :
-                                                      timeSince.TotalDays < 7 ? $"{(int)timeSince.TotalDays} days ago" :
-                                                      timeSince.TotalDays < 30 ? $"{(int)(timeSince.TotalDays / 7)} weeks ago" :
-                                                      offender.LastIncident.ToString("MMM d, yyyy");
-                                    }
-                                    @timeText
+                                    @DisplayFormat.Time(offender.LastIncident, "date")
                                 </td>
                             </tr>
                         }
@@ -475,7 +429,7 @@
             </div>
         }
     </div>
-</div>
+}
 
 @section Scripts {
     <!-- Chart.js Library -->
@@ -516,270 +470,8 @@
 @Html.Raw(chartDataJson)
     </script>
 
-    <!-- Filter Panel Toggle Script -->
-    <script>
-        function toggleFilterPanel() {
-            const content = document.getElementById('filterContent');
-            const chevron = document.getElementById('filterChevron');
-            const toggle = document.getElementById('filterToggle');
-
-            if (content.style.maxHeight === '0px') {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-            } else {
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-
-        function setDatePreset(preset) {
-            const today = new Date();
-            const startDateInput = document.getElementById('StartDate');
-            const endDateInput = document.getElementById('EndDate');
-
-            let startDate = new Date();
-
-            switch(preset) {
-                case 'today':
-                    startDate = today;
-                    break;
-                case '7days':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30days':
-                    startDate.setDate(today.getDate() - 30);
-                    break;
-            }
-
-            startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = today.toISOString().split('T')[0];
-
-            // Auto-submit the form after setting dates
-            document.getElementById('filterForm').submit();
-        }
-    </script>
-
-    <!-- Chart Rendering Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load chart data from embedded JSON
-            const chartDataElement = document.getElementById('moderationChartData');
-            if (!chartDataElement) {
-                console.error('Chart data not found');
-                return;
-            }
-
-            const chartData = JSON.parse(chartDataElement.textContent);
-
-            // Chart.js default dark theme settings
-            Chart.defaults.color = '#a09c96';
-            Chart.defaults.borderColor = '#2a2f36';
-
-            // Moderation Trends Chart (Stacked Area)
-            const trendsCanvas = document.getElementById('moderationTrendsChart');
-            if (trendsCanvas && chartData.trends.length > 0) {
-                const trendsCtx = trendsCanvas.getContext('2d');
-                new Chart(trendsCtx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.trends.map(t => {
-                            const date = new Date(t.date);
-                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        }),
-                        datasets: [
-                            {
-                                label: 'Warns',
-                                data: chartData.trends.map(t => t.warnCount),
-                                borderColor: '#f0a323',
-                                backgroundColor: 'rgba(240, 163, 35, 0.3)',
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Mutes',
-                                data: chartData.trends.map(t => t.muteCount),
-                                borderColor: '#2fb3cc',
-                                backgroundColor: 'rgba(47, 179, 204, 0.3)',
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Kicks',
-                                data: chartData.trends.map(t => t.kickCount),
-                                borderColor: '#e6602b',
-                                backgroundColor: 'rgba(230, 96, 43, 0.3)',
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Bans',
-                                data: chartData.trends.map(t => t.banCount),
-                                borderColor: '#ef4f4f',
-                                backgroundColor: 'rgba(239, 79, 79, 0.3)',
-                                fill: true,
-                                tension: 0.4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 20
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: '#1c2025',
-                                titleColor: '#e7e4df',
-                                bodyColor: '#a09c96',
-                                borderColor: '#2a2f36',
-                                borderWidth: 1,
-                                padding: 12
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                stacked: true,
-                                grid: {
-                                    color: '#1c2025'
-                                }
-                            },
-                            x: {
-                                grid: {
-                                    display: false
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Case Distribution Chart (Doughnut)
-            const distCanvas = document.getElementById('caseDistributionChart');
-            if (distCanvas && chartData.distribution) {
-                const distCtx = distCanvas.getContext('2d');
-                new Chart(distCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Warns', 'Mutes', 'Kicks', 'Bans'],
-                        datasets: [{
-                            data: [
-                                chartData.distribution.warnCount,
-                                chartData.distribution.muteCount,
-                                chartData.distribution.kickCount,
-                                chartData.distribution.banCount
-                            ],
-                            backgroundColor: [
-                                '#f0a323',
-                                '#2fb3cc',
-                                '#e6602b',
-                                '#ef4f4f'
-                            ],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: {
-                            legend: {
-                                position: 'right',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 15,
-                                    generateLabels: function(chart) {
-                                        const data = chart.data;
-                                        return data.labels.map((label, i) => ({
-                                            text: `${label} (${data.datasets[0].data[i]})`,
-                                            fillStyle: data.datasets[0].backgroundColor[i],
-                                            index: i
-                                        }));
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: '#1c2025',
-                                titleColor: '#e7e4df',
-                                bodyColor: '#a09c96',
-                                borderColor: '#2a2f36',
-                                borderWidth: 1,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                        return `${context.label}: ${context.parsed} (${percentage}%)`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Moderator Workload Chart (Horizontal Bar)
-            const workloadCanvas = document.getElementById('moderatorWorkloadChart');
-            if (workloadCanvas && chartData.moderatorWorkload.length > 0) {
-                const workloadCtx = workloadCanvas.getContext('2d');
-                new Chart(workloadCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: chartData.moderatorWorkload.map(m => m.moderatorUsername),
-                        datasets: [{
-                            label: 'Cases Handled',
-                            data: chartData.moderatorWorkload.map(m => m.totalActions),
-                            backgroundColor: '#3d9ad6',
-                            borderRadius: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                backgroundColor: '#1c2025',
-                                titleColor: '#e7e4df',
-                                bodyColor: '#a09c96',
-                                borderColor: '#2a2f36',
-                                borderWidth: 1,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((context.parsed.x / total) * 100).toFixed(1);
-                                        return `${context.parsed.x} cases (${percentage}%)`;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: '#1c2025'
-                                }
-                            },
-                            y: {
-                                grid: {
-                                    display: false
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        });
-    </script>
+    <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
+    <script src="~/js/analytics-charts.js" asp-append-version="true"></script>
+    <script src="~/js/moderation-analytics.js" asp-append-version="true"></script>
 }

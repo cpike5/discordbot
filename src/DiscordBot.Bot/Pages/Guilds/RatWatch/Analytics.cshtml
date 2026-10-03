@@ -4,131 +4,117 @@
 @{
     ViewData["Title"] = $"Rat Watch Analytics - {Model.ViewModel.GuildName}";
     Layout = "_GuildLayout";
+
+    var hasDateFilter = Model.Request.Query.ContainsKey("StartDate") || Model.Request.Query.ContainsKey("EndDate");
+    var dateFilter = new DateRangeFilterViewModel
+    {
+        StartDate = Model.StartDate,
+        EndDate = Model.EndDate,
+        ClearUrl = Url.Page("Analytics", new { guildId = Model.ViewModel.GuildId }),
+        HasActiveFilters = hasDateFilter
+    };
+    var loadFailed = !string.IsNullOrEmpty(Model.ErrorMessage);
+
+    // The figures behind each chart, as text (see _ChartDataTable)
+    var summary = Model.ViewModel.Summary;
+    var otherWatches = Math.Max(0, summary.TotalWatches - summary.GuiltyCount - summary.ClearedEarlyCount - summary.ActiveWatches);
+    var timeSeriesTable = new ChartDataTableViewModel
+    {
+        Id = "watchesOverTimeData",
+        Caption = "Watches per day: total, guilty and cleared early",
+        Columns = new[] { "Day", "Total", "Guilty", "Cleared early" },
+        Rows = Model.ViewModel.TimeSeries.Select(t => (IReadOnlyList<string>)new[]
+        {
+            ChartDataTableViewModel.Day(t.Date), ChartDataTableViewModel.Count(t.TotalCount),
+            ChartDataTableViewModel.Count(t.GuiltyCount), ChartDataTableViewModel.Count(t.ClearedCount)
+        }).ToList()
+    };
+    var outcomeTable = new ChartDataTableViewModel
+    {
+        Id = "outcomeDistributionData",
+        Caption = "Watches by outcome",
+        Columns = new[] { "Outcome", "Watches" },
+        Rows = new IReadOnlyList<string>[]
+        {
+            new[] { "Guilty", ChartDataTableViewModel.Count(summary.GuiltyCount) },
+            new[] { "Cleared early", ChartDataTableViewModel.Count(summary.ClearedEarlyCount) },
+            new[] { "Active", ChartDataTableViewModel.Count(summary.ActiveWatches) },
+            new[] { "Other", ChartDataTableViewModel.Count(otherWatches) }
+        }
+    };
+    var heatmapTable = ChartDataTableViewModel.ForHeatmap(
+        "activityHeatmapData",
+        "Watches by scheduled day of week and hour of day (UTC)",
+        Model.ViewModel.Heatmap.Select(h => (h.DayOfWeek, h.Hour, (long)h.Count)));
+    var topUsersTable = new ChartDataTableViewModel
+    {
+        Id = "topUsersData",
+        Caption = "Most watched users: watches and guilty verdicts",
+        Columns = new[] { "User", "Watches", "Guilty" },
+        Rows = Model.ViewModel.MostWatched.Take(5).Select(u => (IReadOnlyList<string>)new[]
+        {
+            u.Username, ChartDataTableViewModel.Count(u.WatchesAgainst), ChartDataTableViewModel.Count(u.GuiltyCount)
+        }).ToList()
+    };
 }
 
-<!-- Display any errors -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+@section Styles {
+    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+}
+
+<!-- Rat Watch Navigation Tabs -->
+<partial name="Shared/Components/_TabPanel" model='new TabPanelViewModel {
+    Id = "ratWatchTabs",
+    StyleVariant = TabStyleVariant.Underline,
+    NavigationMode = TabNavigationMode.PageNavigation,
+    Tabs = new List<TabItemViewModel>
     {
-        <div class="mb-6">
-            @{
-                var errorAlert = new AlertViewModel {
-                    Variant = AlertVariant.Error,
-                    Title = "Error",
-                    Message = Model.ErrorMessage,
-                    ShowIcon = true
-                };
-            }
-            <partial name="Shared/Components/_Alert" model="errorAlert" />
-        </div>
-    }
-
-    <!-- Rat Watch Navigation Tabs -->
-    <partial name="Shared/Components/_TabPanel" model='new TabPanelViewModel {
-        Id = "ratWatchTabs",
-        StyleVariant = TabStyleVariant.Underline,
-        NavigationMode = TabNavigationMode.PageNavigation,
-        Tabs = new List<TabItemViewModel>
-        {
-            new() {
-                Id = "settings",
-                Label = "Settings",
-                Href = $"/Guilds/RatWatch/{Model.ViewModel.GuildId}"
-            },
-            new() {
-                Id = "analytics",
-                Label = "Analytics",
-                Href = $"/Guilds/RatWatch/Analytics/{Model.ViewModel.GuildId}"
-            },
-            new() {
-                Id = "incidents",
-                Label = "Incidents",
-                Href = $"/Guilds/RatWatch/Incidents/{Model.ViewModel.GuildId}"
-            }
+        new() {
+            Id = "settings",
+            Label = "Settings",
+            Href = $"/Guilds/RatWatch/{Model.ViewModel.GuildId}"
         },
-        ActiveTabId = "analytics",
-        AriaLabel = "Rat Watch navigation",
-        ContainerClass = "mb-6"
+        new() {
+            Id = "analytics",
+            Label = "Analytics",
+            Href = $"/Guilds/RatWatch/Analytics/{Model.ViewModel.GuildId}"
+        },
+        new() {
+            Id = "incidents",
+            Label = "Incidents",
+            Href = $"/Guilds/RatWatch/Incidents/{Model.ViewModel.GuildId}"
+        }
+    },
+    ActiveTabId = "analytics",
+    AriaLabel = "Rat Watch navigation",
+    ContainerClass = "mb-6"
+}' />
+
+<filter-panel title="Filters"
+              is-collapsible="true"
+              active-filter-count="@(hasDateFilter ? 1 : 0)"
+              default-expanded="true">
+    <form method="get" id="filterForm">
+        <partial name="Shared/Components/_DateRangeFilter" model="dateFilter" />
+    </form>
+</filter-panel>
+
+@if (loadFailed)
+{
+    <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+        Type = EmptyStateType.Error,
+        Title = "Analytics could not be loaded",
+        Description = Model.ErrorMessage!,
+        Size = EmptyStateSize.Default,
+        HeadingLevel = 2,
+        Announce = true,
+        PrimaryActionText = "Try again",
+        PrimaryActionUrl = Model.Request.Path + Model.Request.QueryString,
+        PrimaryActionIconPath = ""
     }' />
-
-    <!-- Filter Panel -->
-    <filter-panel title="Filters"
-                  is-collapsible="true"
-                  active-filter-count="@((Model.StartDate.HasValue || Model.EndDate.HasValue) ? 1 : 0)"
-                  default-expanded="true">
-        <form method="get" id="filterForm">
-                    <!-- Quick Date Presets -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
-                        @{
-                            var today = DateTime.UtcNow.Date;
-                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
-                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
-                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
-
-                            string GetPresetClass(bool isActive) => isActive
-                                ? "px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
-                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
-                        }
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" onclick="setDatePreset('today')" class="@GetPresetClass(isToday)">
-                                Today
-                            </button>
-                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
-                                Last 7 Days
-                            </button>
-                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
-                                Last 30 Days
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Filter Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Start Date -->
-                        <div>
-                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
-                            <input type="date"
-                                   id="StartDate"
-                                   name="StartDate"
-                                   value="@Model.StartDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-
-                        <!-- End Date -->
-                        <div>
-                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
-                            <input type="date"
-                                   id="EndDate"
-                                   name="EndDate"
-                                   value="@Model.EndDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-                    </div>
-
-                    <!-- Filter Actions -->
-                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
-                        <button type="submit" class="btn btn-primary">
-                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            Apply Filters
-                        </button>
-                        @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
-                        {
-                            <a asp-page="Analytics" asp-route-guildId="@Model.ViewModel.GuildId" class="btn btn-secondary">
-                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Clear Filters
-                            </a>
-                        }
-                    </div>
-                </form>
-    </filter-panel>
-
+}
+else
+{
     <!-- Summary Stats Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
         <!-- Total Watches -->
@@ -217,8 +203,9 @@
                 @if (Model.ViewModel.TimeSeries.Any())
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="watchesOverTimeChart" aria-label="Line chart showing Rat Watches over time" role="img"></canvas>
+                        <canvas id="watchesOverTimeChart" role="img" aria-label="Line chart of Rat Watches per day: total, guilty and cleared early" aria-describedby="watchesOverTimeData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="timeSeriesTable" />
                 }
                 else
                 {
@@ -249,8 +236,9 @@
                 @if (Model.ViewModel.Summary.TotalWatches > 0)
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="outcomeDistributionChart" aria-label="Doughnut chart showing outcome distribution" role="img"></canvas>
+                        <canvas id="outcomeDistributionChart" role="img" aria-label="Doughnut chart of Rat Watches by outcome" aria-describedby="outcomeDistributionData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="outcomeTable" />
                 }
                 else
                 {
@@ -283,9 +271,10 @@
             <div class="p-5">
                 @if (Model.ViewModel.Heatmap.Any())
                 {
-                    <div id="activityHeatmap" class="overflow-x-auto">
-                        <!-- Heatmap will be rendered by JavaScript -->
+                    <div id="activityHeatmap">
+                        <!-- Heatmap is drawn by rat-watch-analytics.js; the table below is its text alternative -->
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="heatmapTable" />
                 }
                 else
                 {
@@ -316,8 +305,9 @@
                 @if (Model.ViewModel.MostWatched.Any())
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="topUsersChart" aria-label="Horizontal bar chart showing top watched users" role="img"></canvas>
+                        <canvas id="topUsersChart" role="img" aria-label="Bar chart of the most watched users" aria-describedby="topUsersData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="topUsersTable" />
                 }
                 else
                 {
@@ -401,26 +391,24 @@
 
     <!-- User Leaderboards with Tabs -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
-        <div class="flex items-center gap-1 px-5 py-4 border-b border-border-primary overflow-x-auto">
-            <button onclick="switchTab('mostWatched')"
-                    class="tab-btn px-4 py-2 text-sm font-medium text-text-secondary border-b-2 border-transparent hover:text-text-primary transition-colors active"
-                    data-tab="mostWatched">
-                Most Watched
-            </button>
-            <button onclick="switchTab('topAccusers')"
-                    class="tab-btn px-4 py-2 text-sm font-medium text-text-secondary border-b-2 border-transparent hover:text-text-primary transition-colors"
-                    data-tab="topAccusers">
-                Top Accusers
-            </button>
-            <button onclick="switchTab('biggestRats')"
-                    class="tab-btn px-4 py-2 text-sm font-medium text-text-secondary border-b-2 border-transparent hover:text-text-primary transition-colors"
-                    data-tab="biggestRats">
-                Biggest Rats
-            </button>
-        </div>
+        <partial name="Shared/Components/_TabPanel" model='new TabPanelViewModel {
+            Id = "leaderboardTabs",
+            StyleVariant = TabStyleVariant.Underline,
+            NavigationMode = TabNavigationMode.InPage,
+            PersistenceMode = TabPersistenceMode.None,
+            Tabs = new List<TabItemViewModel>
+            {
+                new() { Id = "mostWatched", Label = "Most Watched" },
+                new() { Id = "topAccusers", Label = "Top Accusers" },
+                new() { Id = "biggestRats", Label = "Biggest Rats" }
+            },
+            ActiveTabId = "mostWatched",
+            AriaLabel = "Leaderboards",
+            ContainerClass = "px-5 pt-2"
+        }' />
 
         <!-- Tab Content: Most Watched -->
-        <div id="tabMostWatched" class="tab-content">
+        <div data-tab-panel-for="leaderboardTabs" data-tab-id="mostWatched" id="leaderboardTabs-panel-mostWatched" role="tabpanel" aria-labelledby="leaderboardTabs-tab-mostWatched">
             @if (Model.ViewModel.MostWatched.Any())
             {
                 <div class="overflow-x-auto">
@@ -477,7 +465,7 @@
         </div>
 
         <!-- Tab Content: Top Accusers -->
-        <div id="tabTopAccusers" class="tab-content hidden">
+        <div data-tab-panel-for="leaderboardTabs" data-tab-id="topAccusers" id="leaderboardTabs-panel-topAccusers" role="tabpanel" aria-labelledby="leaderboardTabs-tab-topAccusers" hidden>
             @if (Model.ViewModel.TopAccusers.Any())
             {
                 <div class="overflow-x-auto">
@@ -539,7 +527,7 @@
         </div>
 
         <!-- Tab Content: Biggest Rats -->
-        <div id="tabBiggestRats" class="tab-content hidden">
+        <div data-tab-panel-for="leaderboardTabs" data-tab-id="biggestRats" id="leaderboardTabs-panel-biggestRats" role="tabpanel" aria-labelledby="leaderboardTabs-tab-biggestRats" hidden>
             @if (Model.ViewModel.BiggestRats.Any())
             {
                 <div class="overflow-x-auto">
@@ -600,6 +588,7 @@
             }
         </div>
     </div>
+}
 
 @section Scripts {
     <!-- Chart.js Library -->
@@ -639,36 +628,9 @@
 @Html.Raw(chartDataJson)
     </script>
 
-    <!-- Shared Filter Panel Script -->
+    <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
     <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
-
-    <!-- Page-specific Scripts -->
-    <script>
-        function switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.dataset.tab === tabName) {
-                    btn.classList.add('active');
-                }
-            });
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-            document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.remove('hidden');
-        }
-    </script>
-
-    <!-- Load Custom Analytics Chart Script -->
+    <script src="~/js/tab-panel.js" asp-append-version="true"></script>
+    <script src="~/js/analytics-charts.js" asp-append-version="true"></script>
     <script src="~/js/rat-watch-analytics.js" asp-append-version="true"></script>
 }
-
-<style>
-    /* Tab active state - using Tailwind CSS custom properties */
-    .tab-btn.active {
-        border-color: var(--color-accent-orange);
-        color: var(--color-text-primary);
-    }
-</style>

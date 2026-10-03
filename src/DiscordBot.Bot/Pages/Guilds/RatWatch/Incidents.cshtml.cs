@@ -1,4 +1,7 @@
-using DiscordBot.Bot.Configuration;
+using System.Globalization;
+using System.Text;
+using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -17,6 +20,15 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 [Authorize(Policy = "GuildAccess")]
 public class IncidentsModel : GuildPageModelBase
 {
+    /// <summary>
+    /// The most rows one CSV export holds. An export reads the filtered incidents a page at a time
+    /// and stops here, so a very large guild cannot fill the server's memory; the file name says
+    /// when it was cut short.
+    /// </summary>
+    internal const int ExportRowCap = 10_000;
+
+    private const int ExportPageSize = 500;
+
     private readonly IRatWatchService _ratWatchService;
     private readonly IGuildService _guildService;
     private readonly ILogger<IncidentsModel> _logger;
@@ -58,8 +70,12 @@ public class IncidentsModel : GuildPageModelBase
     [BindProperty(SupportsGet = true)]
     public string? Keyword { get; set; }
 
+    /// <summary>
+    /// The page of results. Bound as <c>pageNumber</c>: Razor Pages reserves <c>page</c> as the
+    /// route key for the page name, so a link that carried <c>page=2</c> was overwritten on the way out.
+    /// </summary>
     [BindProperty(SupportsGet = true)]
-    public new int Page { get; set; } = 1;
+    public int PageNumber { get; set; } = 1;
 
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = 25;
@@ -82,7 +98,7 @@ public class IncidentsModel : GuildPageModelBase
 
         _logger.LogInformation(
             "User accessing Rat Watch Incidents browser for guild {GuildId}, page {Page}",
-            guildId, Page);
+            guildId, PageNumber);
 
         // Get guild info from service
         var guild = await _guildService.GetGuildByIdAsync(ulongGuildId, cancellationToken);
@@ -92,80 +108,6 @@ public class IncidentsModel : GuildPageModelBase
             return NotFound();
         }
 
-        // Get guild settings for voting duration
-        var settings = await _ratWatchService.GetGuildSettingsAsync(ulongGuildId, cancellationToken);
-
-        // Validate and normalize pagination parameters
-        var normalizedPage = Math.Max(1, Page);
-        var normalizedPageSize = Math.Clamp(PageSize, 10, 100);
-
-        // Apply default date range (Last 30 Days) if no date filters specified
-        var effectiveStartDate = StartDate;
-        var effectiveEndDate = EndDate;
-        if (!StartDate.HasValue && !EndDate.HasValue)
-        {
-            effectiveStartDate = DateTime.Today.AddDays(-30);
-            effectiveEndDate = DateTime.Today;
-        }
-
-        // Adjust EndDate to end-of-day (23:59:59.999) for inclusive date filtering
-        // This ensures incidents scheduled during the day are included when filtering by date
-        DateTime? normalizedEndDate = effectiveEndDate.HasValue
-            ? effectiveEndDate.Value.Date.AddDays(1).AddTicks(-1)
-            : null;
-
-        // Build filter DTO from bound properties
-        var filter = new RatWatchIncidentFilterDto
-        {
-            Statuses = Statuses?.Count > 0 ? Statuses : null,
-            StartDate = effectiveStartDate,
-            EndDate = normalizedEndDate,
-            AccusedUser = AccusedUser,
-            InitiatorUser = InitiatorUser,
-            MinVoteCount = MinVoteCount,
-            Keyword = Keyword,
-            Page = normalizedPage,
-            PageSize = normalizedPageSize,
-            SortBy = SortBy,
-            SortDescending = SortDesc
-        };
-
-        // Get filtered incidents
-        var (incidents, totalCount) = await _ratWatchService.GetFilteredByGuildAsync(
-            ulongGuildId,
-            filter,
-            cancellationToken);
-
-        _logger.LogDebug(
-            "Retrieved {Count} incidents for guild {GuildId} (page {Page} of {TotalPages}, {TotalCount} total)",
-            incidents.Count(), guildId, normalizedPage,
-            (int)Math.Ceiling((double)totalCount / normalizedPageSize), totalCount);
-
-        // Build view model with UI-friendly dates (not the normalized end-of-day)
-        var filterState = new RatWatchIncidentFilterState
-        {
-            Statuses = filter.Statuses?.ToList() ?? new List<RatWatchStatus>(),
-            StartDate = effectiveStartDate,
-            EndDate = effectiveEndDate, // Use original date for UI display, not normalized
-            AccusedUser = filter.AccusedUser,
-            InitiatorUser = filter.InitiatorUser,
-            MinVoteCount = filter.MinVoteCount,
-            Keyword = filter.Keyword,
-            SortBy = filter.SortBy,
-            SortDescending = filter.SortDescending
-        };
-        ViewModel = RatWatchIncidentsViewModel.Create(
-            ulongGuildId,
-            guild.Name,
-            guild.IconUrl,
-            incidents,
-            totalCount,
-            filterState,
-            normalizedPage,
-            normalizedPageSize,
-            settings?.VotingDurationMinutes ?? 5);
-
-        // Populate guild layout ViewModels
         Breadcrumb = new GuildBreadcrumbViewModel
         {
             Items = new List<BreadcrumbItem>
@@ -183,8 +125,183 @@ public class IncidentsModel : GuildPageModelBase
 
         Navigation = BuildNavigation(guild.Id, "ratwatch");
 
+        // Validate and normalize pagination parameters
+        var normalizedPage = Math.Max(1, PageNumber);
+        var normalizedPageSize = Math.Clamp(PageSize, 10, 100);
+        var (filter, effectiveStartDate, effectiveEndDate) = BuildFilter(normalizedPage, normalizedPageSize);
+
+        // The filter state the form shows, with the dates as typed (not the end-of-day the query uses)
+        var filterState = new RatWatchIncidentFilterState
+        {
+            Statuses = filter.Statuses?.ToList() ?? new List<RatWatchStatus>(),
+            StartDate = effectiveStartDate,
+            EndDate = effectiveEndDate,
+            DatesAreDefault = !StartDate.HasValue && !EndDate.HasValue,
+            AccusedUser = filter.AccusedUser,
+            InitiatorUser = filter.InitiatorUser,
+            MinVoteCount = filter.MinVoteCount,
+            Keyword = filter.Keyword,
+            SortBy = filter.SortBy,
+            SortDescending = filter.SortDescending
+        };
+
+        try
+        {
+            // Get guild settings for voting duration
+            var settings = await _ratWatchService.GetGuildSettingsAsync(ulongGuildId, cancellationToken);
+
+            var (incidents, totalCount) = await _ratWatchService.GetFilteredByGuildAsync(
+                ulongGuildId,
+                filter,
+                cancellationToken);
+
+            _logger.LogDebug(
+                "Retrieved {Count} incidents for guild {GuildId} (page {Page} of {TotalPages}, {TotalCount} total)",
+                incidents.Count(), guildId, normalizedPage,
+                (int)Math.Ceiling((double)totalCount / normalizedPageSize), totalCount);
+
+            ViewModel = RatWatchIncidentsViewModel.Create(
+                ulongGuildId,
+                guild.Name,
+                guild.IconUrl,
+                incidents,
+                totalCount,
+                filterState,
+                normalizedPage,
+                normalizedPageSize,
+                settings?.VotingDurationMinutes ?? 5);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Failed to load Rat Watch incidents for guild {GuildId}", guildId);
+            ErrorMessage = "The incidents could not be loaded. Try again in a moment.";
+            ViewModel = new RatWatchIncidentsViewModel
+            {
+                GuildId = ulongGuildId,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                Filters = filterState,
+                ActiveFilterCount = filterState.GetActiveFilterCount(),
+                CurrentPage = normalizedPage,
+                PageSize = normalizedPageSize
+            };
+        }
+
         return Page();
     }
+
+    /// <summary>
+    /// Builds the service filter from the bound query parameters. The page and the CSV export both
+    /// use it, so an export holds exactly the rows the filters on screen select. With no dates given
+    /// the range is the last 30 days, as the page has always shown.
+    /// </summary>
+    internal (RatWatchIncidentFilterDto Filter, DateTime? StartDate, DateTime? EndDate) BuildFilter(int page, int pageSize)
+    {
+        var effectiveStartDate = StartDate;
+        var effectiveEndDate = EndDate;
+        if (!StartDate.HasValue && !EndDate.HasValue)
+        {
+            effectiveStartDate = DateTime.Today.AddDays(-30);
+            effectiveEndDate = DateTime.Today;
+        }
+
+        // The end date is inclusive: run to the last tick of that day
+        DateTime? normalizedEndDate = effectiveEndDate.HasValue
+            ? effectiveEndDate.Value.Date.AddDays(1).AddTicks(-1)
+            : null;
+
+        var filter = new RatWatchIncidentFilterDto
+        {
+            Statuses = Statuses?.Count > 0 ? Statuses : null,
+            StartDate = effectiveStartDate,
+            EndDate = normalizedEndDate,
+            AccusedUser = AccusedUser,
+            InitiatorUser = InitiatorUser,
+            MinVoteCount = MinVoteCount,
+            Keyword = Keyword,
+            Page = page,
+            PageSize = pageSize,
+            SortBy = SortBy,
+            SortDescending = SortDesc
+        };
+
+        return (filter, effectiveStartDate, effectiveEndDate);
+    }
+
+    /// <summary>
+    /// Downloads every incident the current filters select (not just the page on screen) as CSV.
+    /// Times are UTC and say so (UX decision D6); text that starts like a spreadsheet formula is
+    /// neutralised, because names and messages come from guild members.
+    /// </summary>
+    public async Task<IActionResult> OnGetExportCsvAsync(long guildId, CancellationToken cancellationToken = default)
+    {
+        var ulongGuildId = (ulong)guildId;
+        var (filter, _, _) = BuildFilter(page: 1, pageSize: ExportPageSize);
+
+        var csv = new StringBuilder();
+        csv.Append('﻿'); // lets Excel read the file as UTF-8
+        csv.AppendLine("Scheduled (UTC),Accused,Initiator,Status,Votes For,Votes Against,Custom Message");
+
+        var written = 0;
+        var total = 0;
+        try
+        {
+            while (true)
+            {
+                var (items, totalCount) = await _ratWatchService.GetFilteredByGuildAsync(ulongGuildId, filter, cancellationToken);
+                total = totalCount;
+                var rows = items.ToList();
+
+                foreach (var incident in rows)
+                {
+                    if (written >= ExportRowCap)
+                    {
+                        break;
+                    }
+
+                    csv.AppendLine(FormatCsvRow(incident));
+                    written++;
+                }
+
+                if (written >= ExportRowCap || written >= totalCount || rows.Count < filter.PageSize)
+                {
+                    break;
+                }
+
+                filter.Page++;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Failed to export Rat Watch incidents for guild {GuildId}", guildId);
+            TempData.SetErrorToast("The incidents could not be exported. Try again in a moment.");
+            return RedirectToPage("Incidents", new { guildId });
+        }
+
+        _logger.LogInformation("Exported {Count} of {Total} Rat Watch incidents for guild {GuildId}", written, total, guildId);
+
+        var truncated = total > ExportRowCap;
+        var fileName = $"ratwatch-incidents-{guildId}-{DateTime.UtcNow:yyyyMMdd-HHmmss}{(truncated ? $"-first-{ExportRowCap}" : string.Empty)}.csv";
+        return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv; charset=utf-8", fileName);
+    }
+
+    private static string FormatCsvRow(RatWatchDto incident)
+    {
+        var scheduled = DateTime.SpecifyKind(incident.ScheduledAt, DateTimeKind.Utc)
+            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        return string.Join(',',
+            scheduled,
+            CsvCell(incident.AccusedUsername),
+            CsvCell(incident.InitiatorUsername),
+            CsvCell(incident.Status.DisplayName()),
+            incident.GuiltyVotes.ToString(CultureInfo.InvariantCulture),
+            incident.NotGuiltyVotes.ToString(CultureInfo.InvariantCulture),
+            CsvCell(incident.CustomMessage));
+    }
+
+    /// <summary>One quoted CSV cell, with a leading formula character neutralised.</summary>
+    internal static string CsvCell(string? value) =>
+        "\"" + CsvField.NeutralizeFormula(value).Replace("\"", "\"\"") + "\"";
 
     /// <summary>
     /// AJAX handler to get incident details for the modal.
@@ -195,7 +312,7 @@ public class IncidentsModel : GuildPageModelBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>JSON result with incident details, or NotFound if incident doesn't exist.</returns>
     public async Task<IActionResult> OnGetIncidentDetailAsync(
-        [FromQuery] long guildId,
+        long guildId,
         [FromQuery] Guid incidentId,
         CancellationToken cancellationToken = default)
     {
@@ -224,15 +341,15 @@ public class IncidentsModel : GuildPageModelBase
             {
                 id = watch.Id,
                 status = watch.Status.ToString(),
-                statusText = GetStatusText(watch.Status),
+                statusText = watch.Status.DisplayName(),
                 accusedUserId = watch.AccusedUserId.ToString(),
                 accusedUsername = watch.AccusedUsername,
                 initiatorUserId = watch.InitiatorUserId.ToString(),
                 initiatorUsername = watch.InitiatorUsername,
                 customMessage = watch.CustomMessage,
-                scheduledAt = watch.ScheduledAt.ToString("o"),
-                createdAt = watch.CreatedAt.ToString("o"),
-                votingStartedAt = watch.VotingStartedAt?.ToString("o"),
+                scheduledAt = DisplayFormat.Iso(watch.ScheduledAt),
+                createdAt = DisplayFormat.Iso(watch.CreatedAt),
+                votingStartedAt = watch.VotingStartedAt.HasValue ? DisplayFormat.Iso(watch.VotingStartedAt.Value) : null,
                 guiltyVotes = watch.GuiltyVotes,
                 notGuiltyVotes = watch.NotGuiltyVotes,
                 totalVotes = watch.GuiltyVotes + watch.NotGuiltyVotes,
@@ -246,21 +363,4 @@ public class IncidentsModel : GuildPageModelBase
             return new JsonResult(new { error = "Internal server error" }) { StatusCode = 500 };
         }
     }
-
-    /// <summary>
-    /// Gets the display text for a status enum value.
-    /// </summary>
-    /// <param name="status">The status to convert to text.</param>
-    /// <returns>The human-readable status text.</returns>
-    private static string GetStatusText(RatWatchStatus status) => status switch
-    {
-        RatWatchStatus.Pending => "Pending",
-        RatWatchStatus.ClearedEarly => "Cleared Early",
-        RatWatchStatus.Voting => "Voting",
-        RatWatchStatus.Guilty => "Guilty",
-        RatWatchStatus.NotGuilty => "Not Guilty",
-        RatWatchStatus.Expired => "Expired",
-        RatWatchStatus.Cancelled => "Cancelled",
-        _ => status.ToString()
-    };
 }

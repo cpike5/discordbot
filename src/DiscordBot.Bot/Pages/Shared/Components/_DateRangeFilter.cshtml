@@ -1,0 +1,57 @@
+@model DiscordBot.Bot.ViewModels.Components.DateRangeFilterViewModel
+@*
+    The one date-range filter: preset buttons plus start and end dates, for a GET filter form.
+    Put it inside the page's <form method="get">. Buttons carry data-date-preset; the delegated
+    handler in shared/filter-panel.js fills the inputs from DateRangeFilter.presetRange (local
+    dates), marks the matching button aria-pressed and submits the form. Pages that use it load
+    date-range-filter.js and shared/filter-panel.js.
+*@
+@{
+    var presetButton = "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors aria-pressed:bg-accent-blue aria-pressed:text-white aria-pressed:border-accent-blue aria-pressed:hover:bg-accent-blue-hover";
+    var input = "w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors";
+    var labelId = $"{Model.StartName}-presets";
+}
+
+<div class="mb-4" data-date-range-presets>
+    <p id="@labelId" class="block text-sm font-medium text-text-primary mb-2">@Model.PresetLabel</p>
+    <div class="flex flex-wrap gap-2" role="group" aria-labelledby="@labelId">
+        @foreach (var preset in Model.Presets)
+        {
+            <button type="button" data-date-preset="@preset.Key" aria-pressed="false" class="@presetButton">@preset.Label</button>
+        }
+    </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+        <label for="@Model.StartName" class="block text-sm font-medium text-text-primary mb-1">@Model.StartLabel</label>
+        <input type="date" id="@Model.StartName" name="@Model.StartName" data-date-start
+               value="@Model.StartDate?.ToString("yyyy-MM-dd")" class="@input" />
+    </div>
+    <div>
+        <label for="@Model.EndName" class="block text-sm font-medium text-text-primary mb-1">@Model.EndLabel</label>
+        <input type="date" id="@Model.EndName" name="@Model.EndName" data-date-end
+               value="@Model.EndDate?.ToString("yyyy-MM-dd")" class="@input" />
+    </div>
+</div>
+
+@if (Model.ShowActions)
+{
+    <div class="flex flex-wrap items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+        <button type="submit" class="btn btn-primary">
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Apply filters
+        </button>
+        @if (Model.HasActiveFilters && !string.IsNullOrEmpty(Model.ClearUrl))
+        {
+            <a href="@Model.ClearUrl" class="btn btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear filters
+            </a>
+        }
+    </div>
+}

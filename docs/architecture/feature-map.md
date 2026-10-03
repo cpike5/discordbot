@@ -281,7 +281,7 @@ Community-driven accountability system where users flag suspicious messages for 
 |--------|------------|
 | **Discord Commands** | `Rat Watch` (context menu), `/rat-clear`, `/rat-stats`, `/rat-settings`, `/rat-leaderboard` (RatWatchModule, RatWatchComponentModule) |
 | **Services** | `IRatWatchService`, `IRatWatchStatusService`, `IDashboardUpdateService` |
-| **UI Pages** | Portal: Rat Watch analytics and leaderboard; Admin: Rat Watch analytics (`RatWatchAnalytics.cshtml`) |
+| **UI Pages** | Guild: Rat Watch Settings (`Index`), Analytics and Incidents (incident dialog, CSV export of all filtered rows via `?handler=ExportCsv`); Portal: leaderboard; Admin: Rat Watch analytics (`RatWatchAnalytics.cshtml`, shares `rat-watch-analytics.js`) |
 | **Database Entities** | `RatWatch`, `RatRecord`, `RatVote`, `GuildRatWatchSettings` |
 | **Configuration** | Timezone support, voting duration, max advance hours, feature enable/disable |
 | **Key Features** | Modal-based watch creation, "I'm Here!" check-in button, voting system, record keeping, leaderboard, timezone-aware scheduling |

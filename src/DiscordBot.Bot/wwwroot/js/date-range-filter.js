@@ -90,7 +90,7 @@
     }
 
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { PRESETS, presetRange, detectPreset, formatDateForInput };
+        module.exports = { PRESETS, presetRange, detectPreset, applyPreset, formatDateForInput };
     }
     if (typeof document === 'undefined') return;
 

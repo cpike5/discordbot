@@ -144,6 +144,12 @@ public record RatWatchIncidentFilterState
     public DateTime? EndDate { get; init; }
 
     /// <summary>
+    /// Gets whether the dates are the page's default range (the last 30 days) rather than a choice,
+    /// so they do not count as an active filter.
+    /// </summary>
+    public bool DatesAreDefault { get; init; }
+
+    /// <summary>
     /// Gets the accused user filter. Null or empty means no filter on accused user.
     /// </summary>
     public string? AccusedUser { get; init; }
@@ -181,8 +187,8 @@ public record RatWatchIncidentFilterState
     {
         int count = 0;
         if (Statuses.Count > 0 && Statuses.Count < 7) count++; // Not all statuses selected
-        if (StartDate.HasValue) count++;
-        if (EndDate.HasValue) count++;
+        // Start and end are one filter, and the range the page applies when none was asked for is not one
+        if (!DatesAreDefault && (StartDate.HasValue || EndDate.HasValue)) count++;
         if (!string.IsNullOrWhiteSpace(AccusedUser)) count++;
         if (!string.IsNullOrWhiteSpace(InitiatorUser)) count++;
         if (MinVoteCount.HasValue && MinVoteCount > 0) count++;
