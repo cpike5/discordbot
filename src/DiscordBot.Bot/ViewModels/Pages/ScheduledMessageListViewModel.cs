@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 
@@ -213,7 +214,7 @@ public class ScheduledMessageListItem
         get
         {
             var preview = !string.IsNullOrWhiteSpace(Title) ? Title : Content;
-            return preview.Length > 50 ? preview[..50] + "..." : preview;
+            return TextDisplay.Truncate(preview, 50);
         }
     }
 

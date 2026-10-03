@@ -399,7 +399,7 @@ public class AutocompleteControllerTests
         var error = badRequestResult.Value as ApiErrorDto;
         error.Should().NotBeNull();
         error!.Message.Should().Be("Invalid request");
-        error.Detail.Should().Contain("Guild ID is required");
+        error.Detail.Should().Contain("Server ID is required");
         error.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
 
         _mockDiscordClient.Verify(
@@ -432,7 +432,7 @@ public class AutocompleteControllerTests
 
         var error = notFoundResult.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Guild not found");
+        error!.Message.Should().Be("Server not found");
         error.Detail.Should().Contain(guildId.ToString());
         error.Detail.Should().Contain("connected to the bot");
         error.StatusCode.Should().Be(StatusCodes.Status404NotFound);

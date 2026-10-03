@@ -170,6 +170,35 @@
         return number(n, opts) + ' ' + word;
     }
 
+    /**
+     * The text split into user-perceived characters (an emoji or a letter with its accent is one),
+     * so slicing never leaves half of one. Uses Intl.Segmenter, else code points.
+     */
+    function graphemes(text) {
+        const str = text === null || text === undefined ? '' : String(text);
+        if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+            return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(str), (part) => part.segment);
+        }
+        return Array.from(str);
+    }
+
+    /**
+     * The first `count` characters of a name, upper-cased, for an avatar placeholder; blank text
+     * gives `fallback`. The server twin is TextDisplay.Initials. Emoji stay whole.
+     */
+    function initials(text, count, fallback) {
+        const trimmed = String(text === null || text === undefined ? '' : text).trim();
+        const taken = graphemes(trimmed).slice(0, count === undefined ? 2 : count).join('');
+        return taken ? taken.toUpperCase() : (fallback === undefined ? '?' : fallback);
+    }
+
+    /** Text cut to at most `max` characters (ellipsis not counted), never inside an emoji. */
+    function truncate(text, max, ellipsis) {
+        const parts = graphemes(text);
+        if (parts.length <= max) return parts.join('');
+        return parts.slice(0, max).join('') + (ellipsis === undefined ? '...' : ellipsis);
+    }
+
     /** A number with the locale's grouping and decimal marks. */
     function number(value, opts) {
         const n = Number(value);
@@ -421,6 +450,9 @@
         formatAbsolute,
         relativeTime,
         plural,
+        graphemes,
+        initials,
+        truncate,
         number,
         duration,
         currency,

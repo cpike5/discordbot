@@ -221,7 +221,7 @@ public class LlmUsageControllerTests
             guildId: null, mode: null, CancellationToken.None);
 
         var response = (result.Result as OkObjectResult)!.Value as LlmUsageSummaryResponseDto;
-        response!.ByUser[0].DisplayName.Should().Be("Unknown#777");
+        response!.ByUser[0].DisplayName.Should().Be("Unknown user");
     }
 
     #endregion

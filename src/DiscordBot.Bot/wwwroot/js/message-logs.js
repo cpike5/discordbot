@@ -27,7 +27,7 @@
             channelSearchInput.placeholder = 'Search by channel name...';
         } else {
             channelSearchInput.disabled = true;
-            channelSearchInput.placeholder = 'Select a guild first...';
+            channelSearchInput.placeholder = 'Select a server first...';
 
             // Clear channel value when guild is cleared
             const channelHiddenInput = document.getElementById(CHANNEL_HIDDEN_INPUT_ID);

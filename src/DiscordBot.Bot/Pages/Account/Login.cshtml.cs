@@ -124,10 +124,10 @@ public class LoginModel : PageModel
                     "Discord is currently unavailable",
                     "Discord's servers appear to be experiencing issues. Please wait a moment and try again."),
                 "discord_expired" => (
-                    "Login session expired",
-                    "Your login session timed out or was already used. Please try signing in again."),
+                    "Sign-in session expired",
+                    "Your sign-in session timed out or was already used. Please try signing in again."),
                 _ => (
-                    "Discord login failed",
+                    "Discord sign-in failed",
                     "Something went wrong during Discord authentication. Please try again.")
             };
         }
@@ -252,7 +252,7 @@ public class LoginModel : PageModel
         if (!_discordOAuthSettings.IsConfigured)
         {
             _logger.LogWarning("Discord OAuth login attempted but OAuth is not configured");
-            ModelState.AddModelError(string.Empty, "Discord login is not available.");
+            ModelState.AddModelError(string.Empty, "Discord sign-in is not available.");
             ReturnUrl = returnUrl ?? Url.Content("~/");
             return Page();
         }

@@ -1,3 +1,4 @@
+using DiscordBot.Core.Extensions;
 using System.Globalization;
 using System.Text;
 using DiscordBot.Bot.Extensions;

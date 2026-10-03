@@ -88,7 +88,7 @@ public class ExternalLoginModel : PageModel
         if (info == null)
         {
             _logger.LogWarning("External login info was null - user may have cancelled or callback failed");
-            ErrorMessage = "Error loading external login information.";
+            ErrorMessage = "We could not read your Discord sign-in. Please try again.";
             return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
         }
 

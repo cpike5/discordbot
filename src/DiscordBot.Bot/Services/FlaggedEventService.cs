@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -264,12 +265,12 @@ public class FlaggedEventService : IFlaggedEventService
         try
         {
             var user = await _client.Rest.GetUserAsync(userId);
-            return user?.Username ?? $"Unknown#{userId}";
+            return UserDisplay.Name(user?.Username);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to resolve username for user {UserId}", userId);
-            return $"Unknown#{userId}";
+            return UserDisplay.UnknownName;
         }
     }
 
@@ -279,6 +280,6 @@ public class FlaggedEventService : IFlaggedEventService
     private string GetChannelName(ulong guildId, ulong channelId)
     {
         var name = _channelResolver.ResolveChannelName(guildId, channelId);
-        return name == "Unknown Channel" ? $"Unknown#{channelId}" : name;
+        return name == "Unknown Channel" ? "unknown-channel" : name;
     }
 }

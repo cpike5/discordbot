@@ -297,7 +297,7 @@ else
     @if (Model.TotalCount > 0)
     {
         <div class="mt-4 text-sm text-text-secondary">
-            Showing @startItem to @endItem of @Model.TotalCount.ToString("N0") entries
+            Showing @startItem to @endItem of @DisplayFormat.Plural(Model.TotalCount, "entry", "entries")
         </div>
     }
 }

@@ -83,16 +83,6 @@
         }
     }
 
-    function escapeHtml(str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
     function currentFilters() {
         return {
             search: el('aiModelsSearch')?.value?.trim() || '',
@@ -225,9 +215,9 @@
                 slugOptions.sort((a, b) => a.localeCompare(b));
             }
 
-            const optionsHtml = [`<option value="">${escapeHtml(emptyLabel)}</option>`]
+            const optionsHtml = [`<option value="">${SafeHtml.escape(emptyLabel)}</option>`]
                 .concat(slugOptions.map(slug =>
-                    `<option value="${escapeHtml(slug)}">${escapeHtml(slug)}</option>`))
+                    `<option value="${SafeHtml.escape(slug)}">${SafeHtml.escape(slug)}</option>`))
                 .join('');
 
             select.innerHTML = optionsHtml;
@@ -330,7 +320,7 @@
 
         const current = select.value;
         const options = ['<option value="">All vendors</option>']
-            .concat(state.vendors.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`));
+            .concat(state.vendors.map(v => `<option value="${SafeHtml.escape(v)}">${SafeHtml.escape(v)}</option>`));
         select.innerHTML = options.join('');
         if (state.vendors.includes(current)) {
             select.value = current;
@@ -375,11 +365,11 @@
             return `
                 <tr class="table-row hover:bg-bg-hover transition-colors ${staleRow ? 'bg-warning/5' : ''}">
                     <td class="table-cell">
-                        <div class="text-sm font-semibold text-text-primary">${escapeHtml(m.name)}</div>
-                        <div class="text-xs font-mono text-text-tertiary break-all">${escapeHtml(m.slug)}</div>
+                        <div class="text-sm font-semibold text-text-primary">${SafeHtml.escape(m.name)}</div>
+                        <div class="text-xs font-mono text-text-tertiary break-all">${SafeHtml.escape(m.slug)}</div>
                         ${staleRow ? '<span class="badge badge-warning mt-1 inline-block">Enabled but unavailable</span>' : ''}
                     </td>
-                    <td class="table-cell text-sm text-text-secondary">${escapeHtml(m.vendor)}</td>
+                    <td class="table-cell text-sm text-text-secondary">${SafeHtml.escape(m.vendor)}</td>
                     <td class="table-cell text-sm text-text-secondary text-right font-mono">${formatPrice(m.promptPricePerMillion)}</td>
                     <td class="table-cell text-sm text-text-secondary text-right font-mono">${formatPrice(m.completionPricePerMillion)}</td>
                     <td class="table-cell text-sm text-text-secondary text-right font-mono">${formatContext(m.contextLength)}</td>
@@ -387,7 +377,7 @@
                     <td class="table-cell text-center">${toolsBadge}</td>
                     <td class="table-cell text-center">
                         <label class="toggle">
-                            <input type="checkbox" class="toggle-input" role="switch" data-slug="${escapeHtml(m.slug)}" aria-label="${escapeHtml(`Allow ${m.name}`)}" ${m.isEnabled ? 'checked' : ''} />
+                            <input type="checkbox" class="toggle-input" role="switch" data-slug="${SafeHtml.escape(m.slug)}" aria-label="${SafeHtml.escape(`Allow ${m.name}`)}" ${m.isEnabled ? 'checked' : ''} />
                             <span class="toggle-slider" aria-hidden="true"></span>
                         </label>
                     </td>
@@ -514,7 +504,7 @@
         });
     }
 
-    /** Best-effort: marks the select(s) named in a validation error, e.g. "'slug' is not enabled…". */
+    /** Best-effort: marks the select or selects named in a validation error, e.g. "'slug' is not enabled…". */
     function flagOffendingSelect(message) {
         defaultSelects().forEach(select => {
             if (!select.value || !message.includes(select.value)) return;

@@ -206,7 +206,7 @@
                 <h2 class="text-sm font-semibold text-text-primary mb-2">Rate limiting</h2>
                 <p class="text-xs text-text-secondary">
                     Rate limits keep the API cost in check. By default each person can ask @Model.DefaultRateLimit
-                    questions every @Model.RateLimitWindowMinutes minutes. Admins are not limited.
+                    questions every @DisplayFormat.Plural(Model.RateLimitWindowMinutes, "minute"). Admins are not limited.
                 </p>
             </div>
         </div>

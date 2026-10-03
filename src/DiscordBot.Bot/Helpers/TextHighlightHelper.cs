@@ -50,9 +50,7 @@ public static class TextHighlightHelper
         if (string.IsNullOrEmpty(text))
             return string.Empty;
 
-        var truncated = text.Length <= maxLength
-            ? text
-            : text.Substring(0, maxLength) + ellipsis;
+        var truncated = TextDisplay.Truncate(text, maxLength, ellipsis);
 
         return HighlightMatches(truncated, searchTerm);
     }

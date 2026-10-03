@@ -168,8 +168,8 @@ public class DashboardHub : Hub
     {
         if (!ulong.TryParse(guildIdString, out var guildId))
         {
-            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
-            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+            _logger.LogWarning("Invalid server ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid server ID format", nameof(guildIdString));
         }
 
         await ServiceActivityHelper.ExecuteAsync(
@@ -202,8 +202,8 @@ public class DashboardHub : Hub
     {
         if (!ulong.TryParse(guildIdString, out var guildId))
         {
-            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
-            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+            _logger.LogWarning("Invalid server ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid server ID format", nameof(guildIdString));
         }
 
         await ServiceActivityHelper.ExecuteAsync(
@@ -487,8 +487,8 @@ public class DashboardHub : Hub
     {
         if (!ulong.TryParse(guildIdString, out var guildId))
         {
-            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
-            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+            _logger.LogWarning("Invalid server ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid server ID format", nameof(guildIdString));
         }
 
         await ServiceActivityHelper.ExecuteAsync(
@@ -521,8 +521,8 @@ public class DashboardHub : Hub
     {
         if (!ulong.TryParse(guildIdString, out var guildId))
         {
-            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
-            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+            _logger.LogWarning("Invalid server ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid server ID format", nameof(guildIdString));
         }
 
         await ServiceActivityHelper.ExecuteAsync(
@@ -555,8 +555,8 @@ public class DashboardHub : Hub
     {
         if (!ulong.TryParse(guildIdString, out var guildId))
         {
-            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
-            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+            _logger.LogWarning("Invalid server ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid server ID format", nameof(guildIdString));
         }
 
         return _audioStatusService.GetCurrentAudioStatus(guildId, Context.ConnectionId, Context.User?.Identity?.Name);

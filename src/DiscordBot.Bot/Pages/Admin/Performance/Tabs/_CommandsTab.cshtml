@@ -131,7 +131,7 @@ else
                             <th>Duration</th>
                             <th>Executed At</th>
                             <th>User</th>
-                            <th>Guild</th>
+                            <th>Server</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -154,7 +154,7 @@ else
                                     }
                                     else
                                     {
-                                        <span class="preview-trigger text-mono" data-preview-type="user" data-user-id="@cmd.UserId" @(cmd.GuildId.HasValue ? $"data-context-guild-id={cmd.GuildId}" : "")>@cmd.UserId</span>
+                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" @(cmd.GuildId.HasValue ? $"data-context-guild-id={cmd.GuildId}" : "") title="User ID: @cmd.UserId">@UserDisplay.UnknownName</span>
                                     }
                                 </td>
                                 <td class="text-text-secondary">
@@ -162,11 +162,11 @@ else
                                     {
                                         @if (!string.IsNullOrEmpty(cmd.GuildName))
                                         {
-                                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value" title="Guild ID: @cmd.GuildId.Value">@cmd.GuildName</span>
+                                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value" title="Server ID: @cmd.GuildId.Value">@cmd.GuildName</span>
                                         }
                                         else
                                         {
-                                            <span class="preview-trigger text-mono" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value">@cmd.GuildId.Value</span>
+                                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value" title="Server ID: @cmd.GuildId.Value">Unknown server</span>
                                         }
                                     }
                                     else

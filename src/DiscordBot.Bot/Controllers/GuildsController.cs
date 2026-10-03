@@ -67,7 +67,7 @@ public class GuildsController : ControllerBase
 
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
+                Message = "Server not found",
                 Detail = $"No guild with ID {id} exists in the database.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
@@ -118,7 +118,7 @@ public class GuildsController : ControllerBase
 
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
+                Message = "Server not found",
                 Detail = $"No guild with ID {id} exists in the database.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
@@ -151,7 +151,7 @@ public class GuildsController : ControllerBase
 
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
+                Message = "Server not found",
                 Detail = $"No guild with ID {id} is connected to the bot.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
@@ -160,6 +160,6 @@ public class GuildsController : ControllerBase
 
         _logger.LogInformation("Guild {GuildId} synced successfully", id);
 
-        return Ok(new { Message = "Guild synced successfully", GuildId = id });
+        return Ok(new { Message = "Server synced successfully", GuildId = id });
     }
 }

@@ -165,7 +165,7 @@
         } else {
             avatar.classList.add('hidden');
             placeholder.classList.remove('hidden');
-            byId('modalAvatarInitials').textContent = (member.displayName || '?').substring(0, 2).toUpperCase();
+            byId('modalAvatarInitials').textContent = Format.initials(member.displayName, 2);
         }
 
         byId('modalDisplayName').textContent = member.displayName;

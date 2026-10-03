@@ -198,7 +198,7 @@ public class DetailsModelTests
 
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
-        _detailsModel.TempData["ToastSuccess"].Should().Be("Guild synced successfully");
+        _detailsModel.TempData["ToastSuccess"].Should().Be("Server synced successfully");
     }
 
     [Fact]
@@ -215,6 +215,6 @@ public class DetailsModelTests
 
         // Assert
         _detailsModel.TempData["ToastSuccess"].Should().BeNull();
-        _detailsModel.TempData["ToastError"].Should().Be("Guild not found in Discord client");
+        _detailsModel.TempData["ToastError"].Should().Be("Server not found in Discord client");
     }
 }

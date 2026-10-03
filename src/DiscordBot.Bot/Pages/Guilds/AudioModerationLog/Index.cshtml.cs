@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -20,17 +21,21 @@ public class IndexModel : PaginatedGuildPageModel
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<IndexModel> _logger;
+    private readonly IDiscordUserResolver? _userResolver;
+    private readonly Dictionary<ulong, string> _resolvedUserNames = new();
 
     public IndexModel(
         IAudioPlaybackLogRepository audioPlaybackLogRepository,
         IGuildService guildService,
         DiscordSocketClient discordClient,
-        ILogger<IndexModel> logger)
+        ILogger<IndexModel> logger,
+        IDiscordUserResolver? userResolver = null)
     {
         _audioPlaybackLogRepository = audioPlaybackLogRepository;
         _guildService = guildService;
         _discordClient = discordClient;
         _logger = logger;
+        _userResolver = userResolver;
 
         // Override base class defaults for audio log
         SortBy = "PlayedAt";
@@ -121,8 +126,10 @@ public class IndexModel : PaginatedGuildPageModel
     };
 
     /// <summary>
-    /// Resolves a Discord user ID to a display name using the Discord client.
-    /// Falls back to the raw ID if the user cannot be resolved.
+    /// Resolves a Discord user ID to a display name: the guild's cached member, the user resolver
+    /// (Discord, then the username the bot stored), and only then "Unknown user". A raw ID is not
+    /// something an admin can act on, so it never becomes the text (UX plan C-1); the preview popup
+    /// on the name still carries the ID.
     /// </summary>
     public string ResolveUserName(ulong userId)
     {
@@ -147,12 +154,12 @@ public class IndexModel : PaginatedGuildPageModel
             // Ignore resolution failures
         }
 
-        return userId.ToString();
+        return _resolvedUserNames.TryGetValue(userId, out var resolved) ? resolved : UserDisplay.UnknownName;
     }
 
     /// <summary>
     /// Resolves a Discord channel ID to a channel name.
-    /// Falls back to the raw ID if the channel cannot be resolved.
+    /// Falls back to "unknown-channel" if the channel cannot be resolved.
     /// </summary>
     public string ResolveChannelName(ulong channelId)
     {
@@ -168,7 +175,40 @@ public class IndexModel : PaginatedGuildPageModel
             // Ignore resolution failures
         }
 
-        return channelId.ToString();
+        return "unknown-channel";
+    }
+
+    /// <summary>
+    /// Looks up, through the user resolver, the people the Discord client does not have cached, so
+    /// the rows show a name rather than "Unknown user" whenever the bot has ever seen them.
+    /// </summary>
+    private async Task ResolveMissingUserNamesAsync()
+    {
+        if (_userResolver is null) return;
+
+        try
+        {
+            var guild = _discordClient.GetGuild(GuildId);
+            var missing = LogEntries
+                .Select(e => e.UserId)
+                .Where(id => id != 0 && guild?.GetUser(id) is null && _discordClient.GetUser(id) is null)
+                .Distinct()
+                .ToList();
+            if (missing.Count == 0) return;
+
+            var names = await _userResolver.ResolveUsersAsync(missing);
+            foreach (var (id, identity) in names)
+            {
+                if (!UserDisplay.IsUnknown(identity.Username))
+                {
+                    _resolvedUserNames[id] = identity.Username;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve the names of audio log users");
+        }
     }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -235,6 +275,7 @@ public class IndexModel : PaginatedGuildPageModel
             cancellationToken);
 
         LogEntries = items;
+        await ResolveMissingUserNamesAsync();
         TotalCount = totalCount;
         TotalPages = (int)Math.Ceiling((double)totalCount / PageSize);
 

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Services.Search;
@@ -61,8 +62,8 @@ public class RemindersSearchProvider : ISearchProvider
                 Subtitle = $"User ID: {x.Reminder.UserId}",
                 Description = x.Reminder.Status == ReminderStatus.Pending
                     ? $"Triggers {SearchDisplayHelper.GetRelativeTime(x.Reminder.TriggerAt)}"
-                    : $"Status: {x.Reminder.Status}",
-                BadgeText = x.Reminder.Status.ToString(),
+                    : $"Status: {x.Reminder.Status.DisplayName()}",
+                BadgeText = x.Reminder.Status.DisplayName(),
                 BadgeVariant = x.Reminder.Status switch
                 {
                     ReminderStatus.Pending   => "warning",

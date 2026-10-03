@@ -434,12 +434,6 @@
             if (!ssml) return '';
 
             try {
-                // Escape HTML entities first
-                const escapeHtml = (str) => {
-                    const div = document.createElement('div');
-                    div.textContent = str;
-                    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                };
 
                 // Split by XML tags and process
                 const parts = ssml.split(/(<[^>]+>)/g);
@@ -463,7 +457,7 @@
                                     (match, space, attrName, equals, quotedValue) => {
                                         const value = quotedValue.substring(1, quotedValue.length - 1);
                                         const quote = quotedValue[0];
-                                        return `${space}<span class="ssml-attribute">${attrName}</span>${equals}${quote}<span class="ssml-value">${escapeHtml(value)}</span>${quote}`;
+                                        return `${space}<span class="ssml-attribute">${attrName}</span>${equals}${quote}<span class="ssml-value">${SafeHtml.escape(value)}</span>${quote}`;
                                     }
                                 );
                                 highlighted += attrHighlighted;
@@ -474,10 +468,10 @@
                         }
 
                         // Fallback for malformed tags
-                        return `<span class="ssml-tag">${escapeHtml(part)}</span>`;
+                        return `<span class="ssml-tag">${SafeHtml.escape(part)}</span>`;
                     } else {
                         // Text content between tags
-                        return `<span class="ssml-text">${escapeHtml(part)}</span>`;
+                        return `<span class="ssml-text">${SafeHtml.escape(part)}</span>`;
                     }
                 }).join('');
 
@@ -485,9 +479,7 @@
             } catch (error) {
                 console.error('SSML highlighting error:', error);
                 // Fallback to plain escaped text
-                const div = document.createElement('div');
-                div.textContent = ssml;
-                return div.innerHTML;
+                return SafeHtml.escape(ssml);
             }
         };
 

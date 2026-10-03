@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Enums;
@@ -136,7 +137,8 @@ public class LlmUsageModel : PageModel
 
         ByUser = byUser.Select(u =>
         {
-            var (username, avatarUrl) = names.TryGetValue(u.UserId, out var resolved) ? resolved : ($"Unknown#{u.UserId}", null);
+            var (username, avatarUrl) = names.TryGetValue(u.UserId, out var resolved) ? resolved : (UserDisplay.UnknownName, null);
+            username = UserDisplay.Name(username);
             return new LlmUsageByUserDto
             {
                 UserId = u.UserId.ToString(),

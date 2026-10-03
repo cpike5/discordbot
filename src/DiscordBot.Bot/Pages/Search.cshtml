@@ -138,7 +138,7 @@
                             @if (Model.ViewModel.TotalGuildResults > Model.ViewModel.GuildResults.Count)
                             {
                                 <a asp-page="/Guilds/Index" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalGuildResults results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalGuildResults, "result") →
                                 </a>
                             }
                         </div>
@@ -158,7 +158,7 @@
                                         else
                                         {
                                             <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                                @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                                @TextDisplay.Initials(guild.Name)
                                             </div>
                                         }
                                         <div class="flex-1 min-w-0">
@@ -170,7 +170,7 @@
                                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                                                         </svg>
-                                                        @guild.MemberCount.Value.ToString("N0") members
+                                                        @DisplayFormat.Plural(guild.MemberCount.Value, "member")
                                                     </span>
                                                 }
                                                 @{
@@ -218,7 +218,7 @@
                             @if (Model.ViewModel.TotalCommandLogResults > Model.ViewModel.CommandLogResults.Count)
                             {
                                 <a asp-page="/Commands/Index" asp-route-tab="logs" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalCommandLogResults results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalCommandLogResults, "result") →
                                 </a>
                             }
                         </div>
@@ -319,7 +319,7 @@
                             @if (Model.ViewModel.TotalUserResults > Model.ViewModel.UserResults.Count)
                             {
                                 <a asp-page="/Admin/Users/Index" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalUserResults results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalUserResults, "result") →
                                 </a>
                             }
                         </div>
@@ -341,8 +341,8 @@
                                             <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                                                 @{
                                                     var initials = !string.IsNullOrEmpty(user.DisplayName)
-                                                        ? (user.DisplayName.Length >= 2 ? user.DisplayName[..2].ToUpper() : user.DisplayName.ToUpper())
-                                                        : user.Email[0].ToString().ToUpper();
+                                                        ? TextDisplay.Initials(user.DisplayName)
+                                                        : TextDisplay.Initials(user.Email, 1);
                                                 }
                                                 @initials
                                             </div>
@@ -412,7 +412,7 @@
                             @if (Model.ViewModel.TotalCommands > Model.ViewModel.Commands.Count && !string.IsNullOrEmpty(Model.ViewModel.CommandsViewAllUrl))
                             {
                                 <a href="@Model.ViewModel.CommandsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalCommands results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalCommands, "result") →
                                 </a>
                             }
                         </div>
@@ -473,7 +473,7 @@
                             @if (Model.ViewModel.TotalPages > Model.ViewModel.Pages.Count && !string.IsNullOrEmpty(Model.ViewModel.PagesViewAllUrl))
                             {
                                 <a href="@Model.ViewModel.PagesViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalPages results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalPages, "result") →
                                 </a>
                             }
                         </div>
@@ -580,7 +580,7 @@
                             @if (Model.ViewModel.TotalAuditLogs > Model.ViewModel.AuditLogs.Count && !string.IsNullOrEmpty(Model.ViewModel.AuditLogsViewAllUrl))
                             {
                                 <a href="@Model.ViewModel.AuditLogsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalAuditLogs results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalAuditLogs, "result") →
                                 </a>
                             }
                         </div>
@@ -648,7 +648,7 @@
                             @if (Model.ViewModel.TotalMessageLogs > Model.ViewModel.MessageLogs.Count && !string.IsNullOrEmpty(Model.ViewModel.MessageLogsViewAllUrl))
                             {
                                 <a href="@Model.ViewModel.MessageLogsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalMessageLogs results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalMessageLogs, "result") →
                                 </a>
                             }
                         </div>
@@ -714,7 +714,7 @@
                             @if (Model.ViewModel.TotalReminders > Model.ViewModel.Reminders.Count && !string.IsNullOrEmpty(Model.ViewModel.RemindersViewAllUrl))
                             {
                                 <a href="@Model.ViewModel.RemindersViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalReminders results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalReminders, "result") →
                                 </a>
                             }
                         </div>
@@ -780,7 +780,7 @@
                             @if (Model.ViewModel.TotalScheduledMessages > Model.ViewModel.ScheduledMessages.Count && !string.IsNullOrEmpty(Model.ViewModel.ScheduledMessagesViewAllUrl))
                             {
                                 <a href="@Model.ViewModel.ScheduledMessagesViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                                    View all @Model.ViewModel.TotalScheduledMessages results →
+                                    View all @DisplayFormat.Plural(Model.ViewModel.TotalScheduledMessages, "result") →
                                 </a>
                             }
                         </div>

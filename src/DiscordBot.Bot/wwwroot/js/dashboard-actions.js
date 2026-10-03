@@ -42,7 +42,7 @@
         return 'View all';
     }
 
-    /** An icon URL is only used when it is an absolute http(s) address. */
+    /** An icon URL is only used when it is an absolute http or https address. */
     function safeIconUrl(url) {
         return typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null;
     }

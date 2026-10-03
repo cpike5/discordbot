@@ -93,7 +93,7 @@ const DashboardRealtime = (function() {
         addActivityItem({
             icon: '🔧',
             timestamp: data.timestamp,
-            description: `<span class="font-mono text-accent-orange">/${escapeHtml(data.commandName)}</span> ${data.success === false ? 'failed for' : 'executed by'} <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`,
+            description: `<span class="font-mono text-accent-orange">/${SafeHtml.escape(data.commandName)}</span> ${data.success === false ? 'failed for' : 'executed by'} <span class="text-accent-blue font-medium">@${SafeHtml.escape(data.username || 'Unknown')}</span>`,
             guild: data.guildName || 'Direct Message',
             success: data.success
         });
@@ -238,20 +238,20 @@ const DashboardRealtime = (function() {
     function formatGuildEventDescription(data) {
         // Handle Rat Watch events with dynamic content
         if (data.eventType === 'RatWatchCreated') {
-            return `Rat Watch created for <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`;
+            return `Rat Watch created for <span class="text-accent-blue font-medium">@${SafeHtml.escape(data.username || 'Unknown')}</span>`;
         }
         if (data.eventType === 'RatWatchVotingStarted') {
-            return `Voting started for <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`;
+            return `Voting started for <span class="text-accent-blue font-medium">@${SafeHtml.escape(data.username || 'Unknown')}</span>`;
         }
         if (data.eventType === 'RatWatchVotingEnded') {
             const verdictClass = data.details === 'Guilty' ? 'text-error' : 'text-success';
-            return `Verdict: <span class="font-semibold ${verdictClass}">${escapeHtml(data.details || 'Unknown')}</span> for @${escapeHtml(data.username || 'Unknown')}`;
+            return `Verdict: <span class="font-semibold ${verdictClass}">${SafeHtml.escape(data.details || 'Unknown')}</span> for @${SafeHtml.escape(data.username || 'Unknown')}`;
         }
         if (data.eventType === 'RatWatchCheckIn') {
-            return `<span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span> checked in early!`;
+            return `<span class="text-accent-blue font-medium">@${SafeHtml.escape(data.username || 'Unknown')}</span> checked in early!`;
         }
         if (data.eventType === 'RatWatchCancelled') {
-            return `Rat Watch cancelled for @${escapeHtml(data.username || 'Unknown')}`;
+            return `Rat Watch cancelled for @${SafeHtml.escape(data.username || 'Unknown')}`;
         }
 
         const eventDescriptions = {
@@ -263,18 +263,9 @@ const DashboardRealtime = (function() {
             'BotJoined': `The bot was added to a server`,
             'BotLeft': `The bot was removed from a server`
         };
-        return eventDescriptions[data.eventType] || `${escapeHtml(data.eventType)} event`;
+        return eventDescriptions[data.eventType] || `${SafeHtml.escape(data.eventType)} event`;
     }
 
-    function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return String(unsafe)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 })();
 
 // Expose for dashboard-actions.js (a top-level const is not a window property)

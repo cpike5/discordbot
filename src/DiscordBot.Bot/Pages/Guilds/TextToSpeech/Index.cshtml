@@ -375,7 +375,7 @@
                             {
                                 <li class="flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors" data-row data-message-id="@message.Id">
                                     <div class="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">
-                                        @message.Username.Substring(0, Math.Min(2, message.Username.Length)).ToUpper()
+                                        @TextDisplay.Initials(message.Username)
                                     </div>
                                     <div class="flex-1 min-w-0">
                                         <div class="text-sm text-text-primary break-words line-clamp-2" dir="auto">@message.Message</div>

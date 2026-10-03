@@ -173,7 +173,7 @@
             var avatar = doc.createElement('div');
             avatar.className = 'w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0';
             avatar.setAttribute('aria-hidden', 'true');
-            avatar.textContent = String(m.username || '').substring(0, 2).toUpperCase();
+            avatar.textContent = Format.initials(m.username, 2);
             li.appendChild(avatar);
 
             var body = doc.createElement('div');
@@ -563,6 +563,9 @@
         // The mode switcher restores the saved mode before this script is loaded, so ask it
         var switcher = $('modeSwitcher');
         handleModeChange((switcher && switcher.dataset.currentMode) || 'standard');
+
+        // The admin's saved presets (the bar names its own endpoint; the portal's is off-limits here)
+        if (typeof root.presetBar_loadCustomPresets === 'function') root.presetBar_loadCustomPresets('presetBar');
 
         // Voice panel updates (now playing, Stop, queue) arrive over the hub
         if (root.DashboardHub && typeof root.DashboardHub.connect === 'function') {

@@ -1,7 +1,6 @@
 (function() {
     'use strict';
 
-    console.log('[VoiceSelector] Module loading...');
 
     const getValue = function(containerId) {
         const container = document.getElementById(containerId);
@@ -158,10 +157,8 @@
     };
 
     const select = function(containerId, voiceValue, displayName, gender, localeDisplayName) {
-        console.log('[VoiceSelector] select called:', { containerId, voiceValue, displayName, gender, localeDisplayName });
         updateSelection(containerId, voiceValue, displayName, gender, localeDisplayName, false);
         close(containerId);
-        console.log('[VoiceSelector] select completed');
     };
 
     /**
@@ -184,7 +181,6 @@
         var gender = button.dataset.voiceGender;
         var localeDisplayName = button.dataset.voiceLocale;
 
-        console.log('[VoiceSelector] selectFromButton:', { containerId, voiceValue, displayName, gender, localeDisplayName });
 
         if (voiceValue) {
             select(containerId, voiceValue, displayName, gender, localeDisplayName);
@@ -192,7 +188,6 @@
     };
 
     const updateSelection = function(containerId, voiceValue, displayName, gender, localeDisplayName, suppressCallback) {
-        console.log('[VoiceSelector] updateSelection called:', { containerId, voiceValue });
         const container = document.getElementById(containerId);
         if (!container) {
             console.warn('[VoiceSelector] Container not found:', containerId);
@@ -208,7 +203,6 @@
 
         container.dataset.selectedVoice = voiceValue;
         var newText = displayName + ' (' + gender + ') - ' + localeDisplayName;
-        console.log('[VoiceSelector] Updating trigger text to:', newText);
         triggerText.textContent = newText;
 
         container.querySelectorAll('.voice-selector__option').forEach(function(option) {
@@ -319,7 +313,6 @@
 
     function initVoiceSelectors() {
         const options = document.querySelectorAll('.voice-selector__option');
-        console.log('[VoiceSelector] initVoiceSelectors, found', options.length, 'options');
 
         options.forEach(function(option) {
             option.addEventListener('click', function(e) {
@@ -369,5 +362,4 @@
         window['voiceSelector_' + name] = window.VoiceSelector[name];
     });
 
-    console.log('[VoiceSelector] Module loaded');
 })();

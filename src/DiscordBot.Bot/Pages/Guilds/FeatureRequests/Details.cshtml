@@ -16,6 +16,7 @@
 else
 {
     var item = Model.Item;
+    // GUID hex digits (ASCII), safe to slice
     var shortId = item.Id.ToString("N")[..8].ToUpperInvariant();
     var canReview = item.Status is FeatureRequestStatus.Submitted
         or FeatureRequestStatus.GeneratingDocs

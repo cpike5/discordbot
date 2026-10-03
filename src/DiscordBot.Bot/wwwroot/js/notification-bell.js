@@ -446,27 +446,27 @@ const NotificationBell = (function () {
         const isRead = notification.isRead;
 
         // Escape HTML in user-provided content
-        const title = escapeHtml(notification.title || '');
-        const message = escapeHtml(notification.message || '');
-        const typeDisplay = escapeHtml(notification.typeDisplay || '');
-        const timeAgo = escapeHtml(notification.timeAgo || '');
+        const title = SafeHtml.escape(notification.title || '');
+        const message = SafeHtml.escape(notification.message || '');
+        const typeDisplay = SafeHtml.escape(notification.typeDisplay || '');
+        const timeAgo = SafeHtml.escape(notification.timeAgo || '');
 
         // The title is the link when there is one; CSS stretches it over the whole item
         const linkUrl = notification.linkUrl && notification.linkUrl !== '#' ? notification.linkUrl : '';
         const titleHtml = linkUrl
-            ? `<a href="${escapeAttr(linkUrl)}" class="notification-title-link">${title}</a>`
+            ? `<a href="${SafeHtml.escape(linkUrl)}" class="notification-title-link">${title}</a>`
             : title;
 
         // The age as relative time; tabindex="-1" keeps it from becoming a Tab stop per item
         const createdAt = notification.createdAt || '';
         const ageHtml = createdAt
-            ? `<span class="notification-timestamp" data-relative-time="${escapeAttr(createdAt)}" tabindex="-1">${timeAgo}</span>`
+            ? `<span class="notification-timestamp" data-relative-time="${SafeHtml.escape(createdAt)}" tabindex="-1">${timeAgo}</span>`
             : `<span class="notification-timestamp">${timeAgo}</span>`;
 
         return `
             <div class="notification-item"
                  role="listitem"
-                 data-notification-id="${escapeAttr(notification.id)}"
+                 data-notification-id="${SafeHtml.escape(notification.id)}"
                  data-read="${isRead}">
                 <div class="notification-icon ${iconClass}">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -591,33 +591,6 @@ const NotificationBell = (function () {
      */
     function getIconSvg(type) {
         return typeIcons[type] || typeIcons[1]; // Default to alert icon
-    }
-
-    /**
-     * Escapes HTML special characters in text content.
-     * @param {string} str - The string to escape
-     * @returns {string} The escaped string
-     */
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
-    /**
-     * Escapes special characters for use in HTML attributes.
-     * @param {string} str - The string to escape
-     * @returns {string} The escaped string
-     */
-    function escapeAttr(str) {
-        if (!str) return '';
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
     }
 
     // =========================================================================

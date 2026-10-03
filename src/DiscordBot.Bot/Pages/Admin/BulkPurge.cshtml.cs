@@ -25,13 +25,16 @@ public class BulkPurgeModel : PageModel
     private const string ResultTempDataKey = "BulkPurgeResult";
 
     private readonly IBulkPurgeService _bulkPurgeService;
+    private readonly IGuildService _guildService;
     private readonly ILogger<BulkPurgeModel> _logger;
 
     public BulkPurgeModel(
         IBulkPurgeService bulkPurgeService,
+        IGuildService guildService,
         ILogger<BulkPurgeModel> logger)
     {
         _bulkPurgeService = bulkPurgeService;
+        _guildService = guildService;
         _logger = logger;
     }
 
@@ -55,6 +58,9 @@ public class BulkPurgeModel : PageModel
 
     /// <summary>The outcome of the purge the user just ran, shown once after the redirect.</summary>
     public BulkPurgeOutcome? Outcome { get; set; }
+
+    /// <summary>The name of the server the preview is limited to, when the bot knows it (C-1).</summary>
+    public string? GuildFilterName { get; set; }
 
     /// <summary>Page-state error when the preview could not be produced.</summary>
     public string? ErrorMessage { get; set; }
@@ -82,6 +88,11 @@ public class BulkPurgeModel : PageModel
             criteria.EntityType, criteria.GetDateRangeDescription(), criteria.GuildId);
 
         PreviewResult = await _bulkPurgeService.PreviewPurgeAsync(criteria);
+
+        if (criteria.GuildId.HasValue)
+        {
+            GuildFilterName = (await _guildService.GetGuildByIdAsync(criteria.GuildId.Value))?.Name;
+        }
 
         if (!PreviewResult.Success)
         {

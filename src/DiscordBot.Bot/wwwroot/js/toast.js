@@ -162,7 +162,7 @@
       toast.className = `toast toast-${type}`;
 
       const autoDismiss = duration > 0;
-      const escape = this.escapeHtml;
+      const escape = SafeHtml.escape;
 
       const contentHTML = title
         ? `<p class="text-sm font-semibold text-text-primary">${escape(title)}</p>
@@ -306,15 +306,6 @@
       [...this.toasts].forEach(t => this.dismissToast(t));
     },
 
-    /** @private */
-    escapeHtml(text) {
-      if (window.SafeHtml && typeof window.SafeHtml.escape === 'function') {
-        return window.SafeHtml.escape(text);
-      }
-      return String(text == null ? '' : text)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
   };
 
   /** Accepts (type, message) or (message, type), whichever order a caller used. */

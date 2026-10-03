@@ -154,4 +154,15 @@ public record PresetBarViewModel
     /// </para>
     /// </remarks>
     public string? OnPresetApply { get; init; }
+
+    /// <summary>
+    /// Gets the address of this page's custom-presets endpoint (GET lists, POST saves, DELETE
+    /// <c>{url}/{id}</c> removes), or null for the member portal's own
+    /// <c>/api/portal/tts/{guildId}/presets/custom</c>.
+    /// </summary>
+    /// <remarks>
+    /// The portal endpoint requires the guild's member portal to be on, so the admin Text-to-Speech
+    /// page passes <c>/api/guilds/{guildId}/tts/presets/custom</c>, which sits behind the admin policies.
+    /// </remarks>
+    public string? CustomPresetsUrl { get; init; }
 }

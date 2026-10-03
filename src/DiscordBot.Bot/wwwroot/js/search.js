@@ -113,13 +113,6 @@
         }
     }
 
-    // Dropdown functions
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
-    }
-
     function createDropdown() {
         let dropdown = document.getElementById(DROPDOWN_ID);
         if (dropdown) return dropdown;
@@ -178,9 +171,9 @@
                         <svg class="recent-search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span class="recent-search-term">${escapeHtml(term)}</span>
+                        <span class="recent-search-term">${SafeHtml.escape(term)}</span>
                     </a>
-                    <button type="button" class="recent-search-remove" data-term="${escapeHtml(term)}" title="Remove" aria-label="Remove ${escapeHtml(term)} from recent searches">
+                    <button type="button" class="recent-search-remove" data-term="${SafeHtml.escape(term)}" title="Remove" aria-label="Remove ${SafeHtml.escape(term)} from recent searches">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -354,7 +347,7 @@
         let html = '<div class="px-4 pt-4 pb-2 border-b border-border-primary"><div class="flex items-center justify-between mb-3"><h3 class="text-xs font-semibold text-text-secondary uppercase tracking-wider">Recent Searches</h3><button type="button" onclick="clearMobileRecentSearches()" class="text-xs text-text-tertiary hover:text-accent-orange transition-colors">Clear all</button></div><div class="space-y-1">';
 
         searches.forEach(term => {
-            html += '<div class="flex items-center gap-2"><a href="/Search?q=' + encodeURIComponent(term) + '" class="flex-1 flex items-center gap-3 px-3 py-2 text-sm text-text-primary bg-bg-tertiary hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="flex-1 truncate">' + escapeHtml(term) + '</span></a><button type="button" data-mobile-remove-term="' + escapeHtml(term) + '" class="p-2 text-text-tertiary hover:text-error hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
+            html += '<div class="flex items-center gap-2"><a href="/Search?q=' + encodeURIComponent(term) + '" class="flex-1 flex items-center gap-3 px-3 py-2 text-sm text-text-primary bg-bg-tertiary hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="flex-1 truncate">' + SafeHtml.escape(term) + '</span></a><button type="button" data-mobile-remove-term="' + SafeHtml.escape(term) + '" class="p-2 text-text-tertiary hover:text-error hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
         });
 
         html += '</div></div>';
@@ -430,7 +423,7 @@
 
                 const results = document.getElementById('mobile-search-results');
                 if (results) {
-                    results.innerHTML = '<div class="p-4 text-center text-text-secondary"><p class="text-sm">Press Enter to search for "' + escapeHtml(value) + '"</p></div>';
+                    results.innerHTML = '<div class="p-4 text-center text-text-secondary"><p class="text-sm">Press Enter to search for "' + SafeHtml.escape(value) + '"</p></div>';
                     results.classList.remove('hidden');
                 }
             }

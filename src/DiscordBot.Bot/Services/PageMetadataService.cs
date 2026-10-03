@@ -496,7 +496,7 @@ public class PageMetadataService : IPageMetadataService
             {
                 Name = "Login",
                 Route = "/Account/Login",
-                Description = "User authentication and login",
+                Description = "Sign in to the web portal",
                 Section = "Account",
                 IconName = "arrow-right-on-rectangle",
                 Keywords = new[] { "sign in", "login", "authenticate" }

@@ -2,6 +2,7 @@ using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 using FluentAssertions;
 
 namespace DiscordBot.Tests.Bot.Pages.Guilds.RatWatch;

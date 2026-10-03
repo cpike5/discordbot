@@ -67,7 +67,7 @@
                             <option value="">All modes</option>
                             @foreach (var mode in Enum.GetValues<LlmMode>())
                             {
-                                <option value="@mode" selected="@(Model.Mode == mode)">@mode</option>
+                                <option value="@mode" selected="@(Model.Mode == mode)">@mode.DisplayName()</option>
                             }
                         </select>
                     </div>
@@ -279,7 +279,7 @@
                     @foreach (var mode in Model.ByMode)
                     {
                         <tr>
-                            <td class="px-4 py-2 whitespace-nowrap text-sm text-text-primary">@mode.Mode</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm text-text-primary">@mode.ModeLabel</td>
                             <td class="px-4 py-2 whitespace-nowrap text-right text-sm text-text-secondary">@mode.MessageCount.ToString("N0")</td>
                             <td class="px-4 py-2 whitespace-nowrap text-right text-sm font-medium text-text-primary">$@mode.CostUsd.ToString("F4")</td>
                         </tr>

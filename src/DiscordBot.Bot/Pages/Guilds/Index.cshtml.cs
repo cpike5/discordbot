@@ -147,7 +147,7 @@ public class IndexModel : PaginatedPageModel
                     return new JsonResult(new
                     {
                         success = true,
-                        message = "Guild synced successfully",
+                        message = "Server synced successfully",
                         guild = updated == null
                             ? null
                             : new
@@ -169,7 +169,7 @@ public class IndexModel : PaginatedPageModel
 
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
-                    return new JsonResult(new { success = false, message = "Guild not found in Discord client" });
+                    return new JsonResult(new { success = false, message = "Server not found in Discord client" });
                 }
 
                 TempData.SetErrorToast("The bot cannot see that server right now, so it could not be synced.");
@@ -182,7 +182,7 @@ public class IndexModel : PaginatedPageModel
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
-                return new JsonResult(new { success = false, message = "An error occurred while syncing the guild" });
+                return new JsonResult(new { success = false, message = "An error occurred while syncing the server" });
             }
 
             TempData.SetErrorToast("The server could not be synced. Try again in a moment.");
@@ -230,7 +230,7 @@ public class IndexModel : PaginatedPageModel
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
-                return new JsonResult(new { success = false, message = "An error occurred while syncing guilds" });
+                return new JsonResult(new { success = false, message = "An error occurred while syncing servers" });
             }
 
             TempData.SetErrorToast("The servers could not be synced. Try again in a moment.");

@@ -3,7 +3,7 @@
  * Shared Chart.js configuration and helper functions.
  *
  * Public API (additive: existing members keep their signatures)
- *   defaultOptions, colors, formatLabel, getGranularity, mergeOptions, destroyChart(s)
+ *   defaultOptions, colors, formatLabel, getGranularity, mergeOptions, destroyChart and destroyCharts
  *   createLineChart / createBarChart / createGaugeChart / createChart(ctx, config)
  *   setGaugeColors / updateGauge(chart, value, max, thresholds)   live gauge updates
  *   showChartError(chartId, message, onRetry)      plain-language error with an optional Retry

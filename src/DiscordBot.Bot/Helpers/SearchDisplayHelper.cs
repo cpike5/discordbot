@@ -100,6 +100,6 @@ public static class SearchDisplayHelper
         if (text.Length <= maxLength)
             return text;
 
-        return text.Substring(0, maxLength - 3) + "...";
+        return TextDisplay.Take(text, maxLength - 3) + "...";
     }
 }

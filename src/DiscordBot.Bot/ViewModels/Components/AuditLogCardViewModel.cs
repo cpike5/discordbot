@@ -1,3 +1,4 @@
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 
@@ -26,10 +27,10 @@ public record AuditLogCardViewModel
                 Timestamp: log.Timestamp,
                 RelativeTime: FormatRelativeTime(log.Timestamp),
                 Category: log.Category,
-                CategoryName: log.CategoryName,
+                CategoryName: EnumDisplayExtensions.DisplayNameFor<AuditLogCategory>(log.CategoryName),
                 CategoryIcon: GetCategoryIcon(log.Category),
                 Action: log.Action,
-                ActionName: log.ActionName,
+                ActionName: EnumDisplayExtensions.DisplayNameFor<AuditLogAction>(log.ActionName),
                 ActorDisplayName: log.ActorDisplayName ?? "System",
                 TargetType: log.TargetType,
                 TargetId: log.TargetId,
@@ -115,8 +116,8 @@ public record AuditLogCardViewModel
             AuditLogAction.Created => $"{actor} created {target}",
             AuditLogAction.Updated => $"{actor} updated {target}",
             AuditLogAction.Deleted => $"{actor} deleted {target}",
-            AuditLogAction.Login => $"{actor} logged in",
-            AuditLogAction.Logout => $"{actor} logged out",
+            AuditLogAction.Login => $"{actor} signed in",
+            AuditLogAction.Logout => $"{actor} signed out",
             AuditLogAction.PermissionChanged => $"{actor} changed permissions",
             AuditLogAction.SettingChanged => $"{actor} changed settings",
             AuditLogAction.CommandExecuted => $"{actor} executed command",
@@ -127,7 +128,7 @@ public record AuditLogCardViewModel
             AuditLogAction.UserKicked => $"{actor} kicked user",
             AuditLogAction.RoleAssigned => $"{actor} assigned role",
             AuditLogAction.RoleRemoved => $"{actor} removed role",
-            _ => $"{actor} performed {log.ActionName}"
+            _ => $"{actor} performed {EnumDisplayExtensions.DisplayNameFor<AuditLogAction>(log.ActionName).ToLowerInvariant()}"
         };
     }
 }

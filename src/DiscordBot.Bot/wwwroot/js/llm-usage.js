@@ -98,7 +98,7 @@
             const when = Format.formatDate(r.timestamp, 'datetime');
             return `<tr>
                 <td class="px-4 sm:px-6 py-2 whitespace-nowrap text-sm text-text-secondary">${esc(when)}</td>
-                <td class="px-4 sm:px-6 py-2 whitespace-nowrap text-sm text-text-secondary">${esc(r.mode)}</td>
+                <td class="px-4 sm:px-6 py-2 whitespace-nowrap text-sm text-text-secondary">${esc(r.modeLabel || r.mode)}</td>
                 <td class="px-4 sm:px-6 py-2 text-sm text-text-primary font-mono break-all">${esc(r.model)}</td>
                 <td class="px-4 sm:px-6 py-2 whitespace-nowrap text-right text-sm text-text-secondary">${esc(tokens)}</td>
                 <td class="px-4 sm:px-6 py-2 whitespace-nowrap text-right text-sm">

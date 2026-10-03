@@ -224,7 +224,7 @@ else
                         </div>
                         <div class="flex justify-between text-xs text-text-tertiary mt-1">
                             <span class="cache-hits">@cache.Hits.ToString("N0") hits / @cache.Misses.ToString("N0") misses</span>
-                            <span class="cache-size">Size: @cache.Size items</span>
+                            <span class="cache-size">Size: @DisplayFormat.Plural(cache.Size, "item")</span>
                         </div>
                     </div>
                 }

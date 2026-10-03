@@ -163,7 +163,7 @@
                                         else
                                         {
                                             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
-                                                @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                                @TextDisplay.Initials(guild.Name)
                                             </div>
                                         }
                                         <div class="min-w-0">
@@ -219,7 +219,7 @@
                             else
                             {
                                 <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
-                                    @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                    @TextDisplay.Initials(guild.Name)
                                 </div>
                             }
                             <div class="min-w-0">

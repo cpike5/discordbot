@@ -234,3 +234,13 @@ test('the tooltip removes the aria-describedby it added when there was none, and
     assert.equal(el.hasAttribute('aria-describedby'), false);
     assert.equal(el.attrs.title, abs);
 });
+
+test('initials and truncate never split an emoji or an accented letter', () => {
+    assert.equal(Format.initials('ada lovelace'), 'AD');
+    assert.equal(Format.initials('   '), '?');
+    assert.equal(Format.initials(null, 2, 'U'), 'U');
+    assert.equal(Format.initials('\u{1F600}Party'), '\u{1F600}P');
+    assert.equal(Format.initials('école'), 'ÉC');
+    assert.equal(Format.truncate('\u{1F600}\u{1F600}\u{1F600}', 2), '\u{1F600}\u{1F600}...');
+    assert.equal(Format.truncate('short', 10), 'short');
+});

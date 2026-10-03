@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
@@ -24,6 +25,7 @@ public class RatWatchService : IRatWatchService
     private readonly IRatWatchStatusService _ratWatchStatusService;
     private readonly ILogger<RatWatchService> _logger;
     private readonly RatWatchOptions _options;
+    private readonly IDiscordUserResolver? _userResolver;
 
     public RatWatchService(
         IRatWatchRepository watchRepository,
@@ -33,8 +35,10 @@ public class RatWatchService : IRatWatchService
         DiscordSocketClient client,
         IRatWatchStatusService ratWatchStatusService,
         ILogger<RatWatchService> logger,
-        IOptions<RatWatchOptions> options)
+        IOptions<RatWatchOptions> options,
+        IDiscordUserResolver? userResolver = null)
     {
+        _userResolver = userResolver;
         _watchRepository = watchRepository;
         _voteRepository = voteRepository;
         _recordRepository = recordRepository;
@@ -828,7 +832,7 @@ public class RatWatchService : IRatWatchService
 
     /// <summary>
     /// Gets the guild name from Discord or falls back to the database name.
-    /// Returns "Unknown Guild" if neither is available.
+    /// Returns "Unknown server" if neither is available.
     /// </summary>
     private string GetGuildName(ulong guildId, string? databaseName)
     {
@@ -844,7 +848,7 @@ public class RatWatchService : IRatWatchService
         }
 
         _logger.LogDebug("Guild {GuildId} not found in Discord client or database", guildId);
-        return "Unknown Guild";
+        return "Unknown server";
     }
 
     /// <inheritdoc/>
@@ -977,7 +981,7 @@ public class RatWatchService : IRatWatchService
 
     /// <summary>
     /// Gets the username for a Discord user.
-    /// Returns "Unknown User" if the user cannot be found.
+    /// Returns "Unknown user" if the user cannot be found.
     /// </summary>
     private async Task<string> GetUsernameAsync(ulong userId, ulong guildId)
     {
@@ -987,7 +991,7 @@ public class RatWatchService : IRatWatchService
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found when resolving username for user {UserId}", guildId, userId);
-                return "Unknown User";
+                return await ResolveStoredNameAsync(userId);
             }
 
             var user = guild.GetUser(userId);
@@ -1009,12 +1013,31 @@ public class RatWatchService : IRatWatchService
             }
 
             _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return await ResolveStoredNameAsync(userId);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to get username for user {UserId} in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return await ResolveStoredNameAsync(userId);
+        }
+    }
+
+    /// <summary>
+    /// The name the user resolver has for someone the guild cache does not (Discord, else the
+    /// username the bot stored when it last saw them), or "Unknown user".
+    /// </summary>
+    private async Task<string> ResolveStoredNameAsync(ulong userId)
+    {
+        if (_userResolver is null) return UserDisplay.UnknownName;
+
+        try
+        {
+            return UserDisplay.Name((await _userResolver.ResolveUserAsync(userId)).Username);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "User resolver failed for user {UserId}", userId);
+            return UserDisplay.UnknownName;
         }
     }
 }

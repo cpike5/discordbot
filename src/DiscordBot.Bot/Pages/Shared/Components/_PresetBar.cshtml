@@ -38,7 +38,8 @@
      class="presets-bar"
      role="group"
      aria-label="Voice preset selection"
-     data-callback="@Model.OnPresetApply">
+     data-callback="@Model.OnPresetApply"
+     data-custom-presets-url="@Model.CustomPresetsUrl">
 
     @{
         var anyActive = Model.Presets.Any(p => p.IsActive);
@@ -513,6 +514,17 @@
          * Saves the current TTS settings as a custom preset.
          * @@param {string} containerId - The container ID of the preset bar
          */
+        /**
+         * The custom-presets endpoint for a preset bar: the one the page named, else the member
+         * portal's. The admin page names its own because the portal's refuses while the member
+         * portal is off.
+         */
+        function presetBar_customPresetsUrl(containerId) {
+            const bar = document.getElementById(containerId);
+            const own = bar && bar.getAttribute('data-custom-presets-url');
+            return own || '/api/portal/tts/' + window.guildId + '/presets/custom';
+        }
+
         window.presetBar_saveCustomPreset = async function(containerId) {
             // The voice is checked before the dialog, so nobody types a name for nothing
             const voice = window.VoiceSelector && window.VoiceSelector.getValue
@@ -536,7 +548,7 @@
             const style = styleSelect?.value || null;
 
             try {
-                const preset = await ApiClient.post('/api/portal/tts/' + window.guildId + '/presets/custom', {
+                const preset = await ApiClient.post(presetBar_customPresetsUrl(containerId), {
                     name: trimmedName,
                     voiceName: voice,
                     style: style,
@@ -595,7 +607,7 @@
          * @@param {string} containerId - The container ID of the preset bar
          */
         window.presetBar_loadCustomPresets = function(containerId) {
-            ApiClient.getRaw('/api/portal/tts/' + window.guildId + '/presets/custom')
+            ApiClient.getRaw(presetBar_customPresetsUrl(containerId))
                 .then(function(result) {
                     // Custom presets are a convenience: the built-in ones work without them
                     if (!result.ok || !Array.isArray(result.data)) return;
@@ -733,7 +745,7 @@
             if (!confirmed) return;
 
             try {
-                await ApiClient.del('/api/portal/tts/' + window.guildId + '/presets/custom/' + presetId,
+                await ApiClient.del(presetBar_customPresetsUrl(containerId) + '/' + presetId,
                     { errorMessage: 'Could not delete the preset. Try again.' });
                 if (buttonElement && buttonElement.parentNode) {
                     buttonElement.remove();

@@ -61,7 +61,7 @@ public class AuditLogCardViewModelTests
         log.Category.Should().Be(AuditLogCategory.User, "Category should be mapped correctly");
         log.CategoryName.Should().Be("User", "CategoryName should be mapped correctly");
         log.Action.Should().Be(AuditLogAction.Login, "Action should be mapped correctly");
-        log.ActionName.Should().Be("Login", "ActionName should be mapped correctly");
+        log.ActionName.Should().Be("Signed in", "ActionName should be mapped correctly");
         log.ActorDisplayName.Should().Be("TestUser", "ActorDisplayName should be mapped correctly");
         log.TargetType.Should().Be("User", "TargetType should be mapped correctly");
         log.TargetId.Should().Be("123", "TargetId should be mapped correctly");
@@ -416,7 +416,7 @@ public class AuditLogCardViewModelTests
         var result = AuditLogCardViewModel.FromLogs(logs);
 
         // Assert
-        result.Logs[0].Description.Should().Be("TestUser logged in", "login action should have specific description");
+        result.Logs[0].Description.Should().Be("TestUser signed in", "login action should have specific description");
     }
 
     [Fact]
@@ -441,7 +441,7 @@ public class AuditLogCardViewModelTests
         var result = AuditLogCardViewModel.FromLogs(logs);
 
         // Assert
-        result.Logs[0].Description.Should().Be("TestUser logged out", "logout action should have specific description");
+        result.Logs[0].Description.Should().Be("TestUser signed out", "logout action should have specific description");
     }
 
     [Fact]
@@ -664,8 +664,8 @@ public class AuditLogCardViewModelTests
             (AuditLogAction.Created, "Admin created User"),
             (AuditLogAction.Updated, "Admin updated User"),
             (AuditLogAction.Deleted, "Admin deleted User"),
-            (AuditLogAction.Login, "Admin logged in"),
-            (AuditLogAction.Logout, "Admin logged out"),
+            (AuditLogAction.Login, "Admin signed in"),
+            (AuditLogAction.Logout, "Admin signed out"),
             (AuditLogAction.PermissionChanged, "Admin changed permissions"),
             (AuditLogAction.SettingChanged, "Admin changed settings"),
             (AuditLogAction.CommandExecuted, "Admin executed command"),

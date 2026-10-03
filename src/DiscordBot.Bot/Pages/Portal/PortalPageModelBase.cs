@@ -106,7 +106,7 @@ public abstract class PortalPageModelBase : PageModel
     protected enum PortalAuthResult
     {
         /// <summary>
-        /// Guild not found in database or Discord client.
+        /// Server not found in database or Discord client.
         /// </summary>
         GuildNotFound,
 

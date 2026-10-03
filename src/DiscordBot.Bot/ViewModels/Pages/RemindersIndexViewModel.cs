@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 
@@ -131,9 +132,7 @@ public record ReminderItemViewModel
     /// <summary>
     /// Gets a truncated preview of the message.
     /// </summary>
-    public string MessagePreview => Message.Length > 50
-        ? Message[..50] + "..."
-        : Message;
+    public string MessagePreview => TextDisplay.Truncate(Message, 50);
 
     /// <summary>
     /// Gets the trigger time (UTC).

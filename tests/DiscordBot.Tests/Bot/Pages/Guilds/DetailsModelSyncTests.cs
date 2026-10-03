@@ -91,7 +91,7 @@ public class DetailsModelSyncTests
         value.Should().BeEquivalentTo(new
         {
             success = true,
-            message = "Guild synced successfully"
+            message = "Server synced successfully"
         }, "successful sync should return success=true with message");
 
         _mockGuildService.Verify(
@@ -124,7 +124,7 @@ public class DetailsModelSyncTests
         value.Should().BeEquivalentTo(new
         {
             success = false,
-            message = "Guild not found in Discord client"
+            message = "Server not found in Discord client"
         }, "failed sync should return success=false with message");
 
         _mockGuildService.Verify(
@@ -154,7 +154,7 @@ public class DetailsModelSyncTests
         redirectResult.RouteValues.Should().ContainKey("guildId")
             .WhoseValue.Should().Be(guildId, "redirect should include guild ID");
 
-        _detailsModel.TempData["ToastSuccess"].Should().Be("Guild synced successfully",
+        _detailsModel.TempData["ToastSuccess"].Should().Be("Server synced successfully",
             "TempData should contain the success toast");
 
         _mockGuildService.Verify(
@@ -186,7 +186,7 @@ public class DetailsModelSyncTests
 
         _detailsModel.TempData["ToastSuccess"].Should().BeNull(
             "TempData should not contain a success toast for failed sync");
-        _detailsModel.TempData["ToastError"].Should().Be("Guild not found in Discord client",
+        _detailsModel.TempData["ToastError"].Should().Be("Server not found in Discord client",
             "a failed sync should report an error toast");
 
         _mockGuildService.Verify(
@@ -220,7 +220,7 @@ public class DetailsModelSyncTests
         value.Should().BeEquivalentTo(new
         {
             success = false,
-            message = "An error occurred while syncing the guild"
+            message = "An error occurred while syncing the server"
         }, "exception should return success=false with error message");
 
         _mockGuildService.Verify(
@@ -253,7 +253,7 @@ public class DetailsModelSyncTests
 
         _detailsModel.TempData["ToastSuccess"].Should().BeNull(
             "TempData should not contain a success toast when exception occurs");
-        _detailsModel.TempData["ToastError"].Should().Be("An error occurred while syncing the guild",
+        _detailsModel.TempData["ToastError"].Should().Be("An error occurred while syncing the server",
             "an exception should report a plain-language error toast");
 
         _mockGuildService.Verify(

@@ -107,6 +107,7 @@ public static class VoiceServiceExtensions
         // TTS data services (scoped for per-request)
         services.AddScoped<ITtsSettingsService, TtsSettingsService>();
         services.AddScoped<ITtsHistoryService, TtsHistoryService>();
+        services.AddScoped<CustomTtsPresetService>();
 
         // SSML builder (transient for thread-safety)
         services.AddTransient<ISsmlBuilder, SsmlBuilder>();

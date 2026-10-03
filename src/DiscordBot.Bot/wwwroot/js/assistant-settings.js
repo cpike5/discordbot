@@ -1,7 +1,7 @@
 /**
  * Assistant settings page: keeps the "N of M selected" lines in step with the checkboxes.
  * The lines are rendered by the server, so they are right on load; this only updates them as the
- * boxes change. The counts use Format.plural so one channel reads "1 channel", not "1 channel(s)".
+ * boxes change. The counts use Format.plural, so one channel reads "1 channel" and never a hedged plural.
  */
 (function () {
     'use strict';

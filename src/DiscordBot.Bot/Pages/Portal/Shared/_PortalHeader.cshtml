@@ -56,7 +56,7 @@
                     else
                     {
                         <div class="guild-icon-fallback">
-                            @(Model.GuildName.Length > 0 ? Model.GuildName[0].ToString().ToUpper() : "?")
+                            @TextDisplay.Initials(Model.GuildName, 1)
                         </div>
                     }
                 </div>

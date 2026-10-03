@@ -559,20 +559,6 @@
     }
   };
 
-  /**
-   * Escape HTML for text placed in dynamic modal markup (quote-safe)
-   * @param {string} str - The string to escape
-   * @returns {string} Escaped string
-   */
-  function escapeHtml(str) {
-    if (window.SafeHtml && typeof window.SafeHtml.escape === 'function') {
-      return window.SafeHtml.escape(str);
-    }
-    var div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
   function generateModalId() {
     return 'quickActions-modal-' + (++modalCounter) + '-' + Date.now();
   }
@@ -605,8 +591,8 @@
             '<div class="flex items-start gap-4">' +
               buildIconHtml(config) +
               '<div class="flex-1 min-w-0">' +
-                '<h3 id="' + id + '-title" class="text-lg font-semibold text-text-primary">' + escapeHtml(title) + '</h3>' +
-                '<p id="' + id + '-desc" class="mt-2 text-sm text-text-secondary">' + escapeHtml(message) + '</p>' +
+                '<h3 id="' + id + '-title" class="text-lg font-semibold text-text-primary">' + SafeHtml.escape(title) + '</h3>' +
+                '<p id="' + id + '-desc" class="mt-2 text-sm text-text-secondary">' + SafeHtml.escape(message) + '</p>' +
                 extraBody +
               '</div>' +
             '</div>' +
@@ -668,8 +654,8 @@
 
     return new Promise(function (resolve) {
       var modal = buildDialog(generateModalId(), config, title, message, '',
-        '<button type="button" data-modal-cancel class="btn btn-secondary">' + escapeHtml(cancelText) + '</button>' +
-        '<button type="button" data-modal-confirm class="' + config.btnClass + '">' + escapeHtml(confirmText) + '</button>');
+        '<button type="button" data-modal-cancel class="btn btn-secondary">' + SafeHtml.escape(cancelText) + '</button>' +
+        '<button type="button" data-modal-confirm class="' + config.btnClass + '">' + SafeHtml.escape(confirmText) + '</button>');
 
       var close = presentDynamic(modal, resolve, '[data-modal-cancel]');
       modal.querySelector('[data-modal-cancel]').addEventListener('click', function () { close(false); });
@@ -695,7 +681,7 @@
 
     return new Promise(function (resolve) {
       var modal = buildDialog(generateModalId(), config, title, message, '',
-        '<button type="button" data-modal-ok class="' + config.btnClass + '">' + escapeHtml(okText) + '</button>');
+        '<button type="button" data-modal-ok class="' + config.btnClass + '">' + SafeHtml.escape(okText) + '</button>');
 
       var close = presentDynamic(modal, function () { resolve(); }, '[data-modal-ok]');
       modal.querySelector('[data-modal-ok]').addEventListener('click', function () { close(true); });
@@ -728,13 +714,13 @@
     return new Promise(function (resolve) {
       var extra =
         '<div class="mt-4">' +
-          '<label for="' + id + '-input" class="form-label block mb-2">' + escapeHtml(inputLabel) + '</label>' +
+          '<label for="' + id + '-input" class="form-label block mb-2">' + SafeHtml.escape(inputLabel) + '</label>' +
           '<input type="text" id="' + id + '-input" data-modal-input class="form-input" ' +
-            'placeholder="' + escapeHtml(requiredText) + '" autocomplete="off" autocapitalize="off" spellcheck="false" />' +
+            'placeholder="' + SafeHtml.escape(requiredText) + '" autocomplete="off" autocapitalize="off" spellcheck="false" />' +
         '</div>';
       var modal = buildDialog(id, config, title, message, extra,
-        '<button type="button" data-modal-cancel class="btn btn-secondary">' + escapeHtml(cancelText) + '</button>' +
-        '<button type="button" data-modal-confirm disabled class="' + config.btnClass + '">' + escapeHtml(confirmText) + '</button>');
+        '<button type="button" data-modal-cancel class="btn btn-secondary">' + SafeHtml.escape(cancelText) + '</button>' +
+        '<button type="button" data-modal-confirm disabled class="' + config.btnClass + '">' + SafeHtml.escape(confirmText) + '</button>');
 
       var close = presentDynamic(modal, resolve, '[data-modal-input]');
       var input = modal.querySelector('[data-modal-input]');

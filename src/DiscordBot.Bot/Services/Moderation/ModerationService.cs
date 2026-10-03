@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -307,7 +308,7 @@ public class ModerationService : IModerationService
                     var topModerators = new List<ModeratorStatsEntryDto>();
                     foreach (var group in moderatorGroups)
                     {
-                        var username = (await _userResolver.ResolveUserAsync(group.ModeratorId)).Username;
+                        var username = UserDisplay.Name((await _userResolver.ResolveUserAsync(group.ModeratorId)).Username);
                         topModerators.Add(new ModeratorStatsEntryDto
                         {
                             UserId = group.ModeratorId,
@@ -324,7 +325,7 @@ public class ModerationService : IModerationService
                 }
                 else
                 {
-                    summary.ModeratorUsername = (await _userResolver.ResolveUserAsync(moderatorId.Value)).Username;
+                    summary.ModeratorUsername = UserDisplay.Name((await _userResolver.ResolveUserAsync(moderatorId.Value)).Username);
                 }
 
                 _logger.LogDebug("Calculated moderator statistics for guild {GuildId}: {TotalCases} total cases",
@@ -360,8 +361,8 @@ public class ModerationService : IModerationService
     /// </summary>
     private async Task<ModerationCaseDto> MapToDtoAsync(ModerationCase moderationCase, CancellationToken ct = default)
     {
-        var targetUsername = (await _userResolver.ResolveUserAsync(moderationCase.TargetUserId)).Username;
-        var moderatorUsername = (await _userResolver.ResolveUserAsync(moderationCase.ModeratorUserId)).Username;
+        var targetUsername = UserDisplay.Name((await _userResolver.ResolveUserAsync(moderationCase.TargetUserId)).Username);
+        var moderatorUsername = UserDisplay.Name((await _userResolver.ResolveUserAsync(moderationCase.ModeratorUserId)).Username);
 
         return new ModerationCaseDto
         {

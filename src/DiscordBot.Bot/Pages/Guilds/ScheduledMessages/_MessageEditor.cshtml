@@ -26,17 +26,6 @@
         _ => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
     };
 
-    static string FrequencyLabel(ScheduleFrequency freq) => freq switch
-    {
-        ScheduleFrequency.Once => "One-time",
-        ScheduleFrequency.Hourly => "Hourly",
-        ScheduleFrequency.Daily => "Daily",
-        ScheduleFrequency.Weekly => "Weekly",
-        ScheduleFrequency.Monthly => "Monthly",
-        ScheduleFrequency.Custom => "Custom",
-        _ => freq.ToString()
-    };
-
     var frequencyGroup = new RadioCardGroupViewModel
     {
         Name = "Input.Frequency",
@@ -48,9 +37,9 @@
         Options = Enum.GetValues<ScheduleFrequency>().Select(freq => new RadioCardViewModel
         {
             Value = ((int)freq).ToString(),
-            Title = FrequencyLabel(freq),
+            Title = freq.DisplayName(),
             IconPath = FrequencyIcon(freq),
-            AdditionalAttributes = new Dictionary<string, string> { ["data-frequency-label"] = FrequencyLabel(freq) }
+            AdditionalAttributes = new Dictionary<string, string> { ["data-frequency-label"] = freq.DisplayName() }
         }).ToList()
     };
 
@@ -253,7 +242,7 @@
                         }
                         <div>
                             <dt class="text-xs text-text-secondary">Frequency</dt>
-                            <dd id="schedule-frequency-display" class="text-text-primary font-medium">@FrequencyLabel(Model.Frequency)</dd>
+                            <dd id="schedule-frequency-display" class="text-text-primary font-medium">@Model.Frequency.DisplayName()</dd>
                         </div>
                         <div>
                             <dt class="text-xs text-text-secondary">Next run</dt>

@@ -230,7 +230,7 @@
             const counts = row.querySelector('.cache-hits');
             if (counts) counts.textContent = (s.hits || 0).toLocaleString() + ' hits / ' + (s.misses || 0).toLocaleString() + ' misses';
             const sizeText = row.querySelector('.cache-size');
-            if (sizeText) sizeText.textContent = 'Size: ' + (s.size || 0) + ' items';
+            if (sizeText) sizeText.textContent = 'Size: ' + (window.Format ? window.Format.plural(s.size || 0, 'item') : (s.size || 0) + ' items');
         });
         if (stats.length > 0) {
             setText('totalCacheHits', hits.toLocaleString());

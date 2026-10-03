@@ -39,7 +39,7 @@ public class PortalTtsViewModel
     public int MaxMessageLength { get; set; } = 200;
 
     /// <summary>
-    /// Gets or sets whether the bot is connected to a voice channel in this guild.
+    /// Gets or sets whether the bot is connected to a voice channel in this server.
     /// </summary>
     public bool IsConnected { get; set; }
 

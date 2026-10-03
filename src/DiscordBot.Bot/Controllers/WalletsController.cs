@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
@@ -106,7 +107,7 @@ public class WalletsController : CurrencyControllerBase
             {
                 WalletId = w.Id,
                 UserId = w.UserId,
-                Username = resolved ? identity.Username : $"Unknown ({w.UserId})",
+                Username = UserDisplay.Name(resolved ? identity.Username : null),
                 AvatarUrl = resolved ? identity.AvatarUrl : null,
                 Balance = w.CachedBalance
             };

@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Helpers;
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using System.Text.Json;
@@ -303,10 +305,10 @@ public record AuditLogListItem
             Timestamp = dto.Timestamp,
             TimestampUtcIso = DateTime.SpecifyKind(dto.Timestamp, DateTimeKind.Utc).ToString("o"),
             CategoryEnum = dto.Category,
-            Category = dto.CategoryName,
+            Category = EnumDisplayExtensions.DisplayNameFor<AuditLogCategory>(dto.CategoryName),
             CategoryBadgeClass = categoryBadgeClass,
             ActionEnum = dto.Action,
-            Action = dto.ActionName,
+            Action = EnumDisplayExtensions.DisplayNameFor<AuditLogAction>(dto.ActionName),
             ActionBadgeClass = actionBadgeClass,
             ActionBorderClass = actionBorderClass,
             ActorType = dto.ActorType,
@@ -348,11 +350,7 @@ public record AuditLogListItem
         if (string.IsNullOrWhiteSpace(name))
             return "?";
 
-        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 2)
-            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
-
-        return name.Length >= 2 ? name.Substring(0, 2).ToUpper() : name.ToUpper();
+        return TextDisplay.WordInitials(name);
     }
 
     /// <summary>
@@ -450,10 +448,7 @@ public record AuditLogListItem
         const int maxLength = 80;
         var cleaned = details.Replace("\r", "").Replace("\n", " ").Trim();
 
-        if (cleaned.Length <= maxLength)
-            return cleaned;
-
-        return cleaned.Substring(0, maxLength) + "...";
+        return TextDisplay.Truncate(cleaned, maxLength);
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
@@ -196,12 +197,12 @@ public class ModNoteService : IModNoteService
         try
         {
             var user = await _client.Rest.GetUserAsync(userId);
-            return user?.Username ?? $"Unknown#{userId}";
+            return UserDisplay.Name(user?.Username);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to resolve username for user {UserId}", userId);
-            return $"Unknown#{userId}";
+            return UserDisplay.UnknownName;
         }
     }
 }
