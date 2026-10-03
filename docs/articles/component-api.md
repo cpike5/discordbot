@@ -62,6 +62,9 @@ Then in the view:
 | [Card](#card-component) | Content containers | Dashboard widgets, grouped content |
 | [FormInput](#forminput-component) | Text input fields | Forms, search bars |
 | [FormSelect](#formselect-component) | Dropdown selection | Forms, filters |
+| [FormTextarea](#formtextarea-component) | Multi-line text | Messages, reasons, descriptions |
+| [RadioCard](#radiocard-components) | Pick one by clicking a card | Modes, channels, presets |
+| [FormToggle](#formtoggle-component) | On/off switch | Settings, flags |
 | [Alert](#alert-component) | Persistent page-level state | Load failures, degraded services, validation summaries |
 | [Toasts](#toasts-and-the-tempdata-bridge) | Action results | Saved, deleted, failed to save (JS or `TempData.Set*Toast`) |
 | [ApiClient](#apiclient-javascript-api) | Requests from page scripts | Session expiry, plain-language errors, timeouts |
@@ -70,7 +73,10 @@ Then in the view:
 | [TypedConfirmationModal](#typedconfirmationmodal-component) | Text-verified confirmations | Irreversible destructive actions |
 | [quickActions JS API](#quickactions-javascript-api) | Promise-based dialogs | AJAX-gated confirms, dynamic alerts |
 | [LoadingSpinner](#loadingspinner-component) | Loading states | Async operations, page loads |
-| [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results |
+| [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results, load errors (server and `EmptyState` JS twin) |
+| [Skeletons](#skeleton-components) | Loading placeholders | Regions that load after the page (`Skeleton.show` waits 300ms) |
+| [Unsaved changes](#unsaved-changes) | Leave-page protection | `data-unsaved-changes` on any editable form |
+| [Focus the first error](#focus-the-first-error) | Focus after a failed server validation | `data-focus-first-error` on the form, plus `form-focus.js` |
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
 | [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
 | [SortDropdown](#sortdropdown-component) | Sort selection dropdown | Table headers, list sorting |
@@ -579,7 +585,7 @@ var dataCard = new CardViewModel
 
 ## FormInput Component
 
-Text input field with label, validation states, help text, icons, and character counting.
+Text input field with label, validation states, help text, icons, and character counting. A thin wrapper over the `.form-input` class (UX plan D3): the partial adds the label, the help and message paragraphs and the ARIA wiring; the look lives in `site.css`.
 
 ### Properties
 
@@ -588,7 +594,7 @@ Text input field with label, validation states, help text, icons, and character 
 | `Id` | `string` | `""` | Input element ID (required) |
 | `Name` | `string` | `""` | Input name attribute (required) |
 | `Label` | `string?` | `null` | Field label text |
-| `Type` | `string` | `"text"` | Input type: `text`, `email`, `password`, `search`, `url`, `tel` |
+| `Type` | `string` | `"text"` | Input type: `text`, `email`, `password`, `search`, `url`, `tel`, `number`, `date`... |
 | `Placeholder` | `string?` | `null` | Placeholder text |
 | `Value` | `string?` | `null` | Input value |
 | `HelpText` | `string?` | `null` | Help text below input |
@@ -601,8 +607,14 @@ Text input field with label, validation states, help text, icons, and character 
 | `IconLeft` | `string?` | `null` | SVG path for left icon |
 | `IconRight` | `string?` | `null` | SVG path for right icon |
 | `MaxLength` | `int?` | `null` | Maximum character length |
-| `ShowCharacterCount` | `bool` | `false` | Shows character counter |
-| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Custom HTML attributes |
+| `ShowCharacterCount` | `bool` | `false` | Shows the character count as of page load (it does not update while typing) |
+| `Autocomplete` | `string?` | `null` | `autocomplete` token: `email`, `username`, `current-password`, `new-password`, `one-time-code`, `off`... Passwords and sign-in names need one |
+| `InputMode` | `string?` | `null` | `inputmode` hint for the phone keyboard: `numeric`, `decimal`, `email`, `tel`, `url`, `search`. Use `numeric` on `type="text"` for IDs (Discord snowflakes are too large for a number field) |
+| `Min` / `Max` | `string?` | `null` | Bounds for `number` and date inputs (strings, so decimals and dates pass through) |
+| `Step` | `string?` | `null` | `step` for `number` (`1`, `0.01`, `any`) |
+| `Pattern` | `string?` | `null` | `pattern` regular expression |
+| `DescribedBy` | `string?` | `null` | Extra element IDs for `aria-describedby`, after the component's own help or message ID |
+| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Custom HTML attributes (values are HTML-encoded) |
 
 ### Enums
 
@@ -610,18 +622,20 @@ Text input field with label, validation states, help text, icons, and character 
 
 | Value | Padding | Font Size |
 |-------|---------|-----------|
-| `Small` | `py-1.5 px-3` | `text-xs` |
-| `Medium` | `py-2.5 px-3.5` | `text-sm` |
-| `Large` | `py-3 px-4` | `text-base` |
+| `Small` | `.form-input-sm` | `text-xs` |
+| `Medium` | `.form-input` | `text-sm` (16px under a coarse pointer) |
+| `Large` | `.form-input-lg` | `text-base` |
 
 #### ValidationState
 
 | Value | Description | Border Color |
 |-------|-------------|--------------|
 | `None` | No validation | Default border |
-| `Success` | Valid input | Green border |
-| `Warning` | Warning state | Amber border |
-| `Error` | Invalid input | Red border |
+| `Success` | Valid input | `.input-validation-success` (green border) |
+| `Warning` | Warning state | `.input-validation-warning` (amber border) |
+| `Error` | Invalid input | `.input-validation-error` (red border, red focus ring) |
+
+**Validation classes.** `.input-validation-error`, `-warning` and `-success` are the names ASP.NET tag helpers and jQuery unobtrusive validation add on their own, so server-rendered and live validation look the same. The selectors name the element (`input.input-validation-error`), so a raw `<input asp-for>` that carries utility borders turns red too. `.field-validation-error` colours a `<span asp-validation-for>`, and `.validation-summary-errors` styles the summary list. All are token-based and safelisted.
 
 ### Basic Usage
 
@@ -718,7 +732,8 @@ var idInput = new FormInputViewModel
 - Required inputs include `required` attribute
 - Validation messages use proper ARIA attributes
 - Focus states use blue outline for visibility
-- Help text uses `aria-describedby` association
+- `aria-describedby` points at the help text while the field has no state, at the message while it has one, then at any `DescribedBy` IDs; `aria-invalid="true"` on errors
+- The error message is `role="alert"`; the required asterisk is `aria-hidden` (the input has `required` and `aria-required`)
 
 ---
 
@@ -884,6 +899,74 @@ var validatedSelect = new FormSelectViewModel
 - Required selects include `required` attribute
 - Option groups use `<optgroup>` for semantic grouping
 - Disabled options use `disabled` attribute
+
+---
+
+## FormTextarea Component
+
+Multi-line text with the same label, help, validation and `aria-describedby` rules as `FormInput`, on `.form-textarea` (vertical resize, `min-height` of five rows' worth).
+
+**Partial:** `Components/_FormTextarea` - **ViewModel:** `FormTextareaViewModel`
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id`, `Name`, `Label`, `Placeholder`, `Value`, `HelpText` | `string` | | As `FormInput` |
+| `Rows` | `int` | `4` | Visible rows |
+| `MaxLength` | `int?` | `null` | Browser-enforced limit |
+| `ValidationState` / `ValidationMessage` | | `None` | Same classes and message paragraphs as `FormInput` |
+| `IsRequired`, `IsDisabled`, `IsReadOnly` | `bool` | `false` | |
+| `Autocomplete` | `string?` | `null` | Free text rarely wants one |
+| `Dir` | `string?` | `null` | `auto` lets right-to-left text flow correctly in user-written content |
+| `DescribedBy` | `string?` | `null` | Extra `aria-describedby` IDs |
+| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Encoded attributes |
+
+```razor
+<partial name="Components/_FormTextarea" model='new FormTextareaViewModel {
+    Id = "reason", Name = "Input.Reason", Label = "Reason", IsRequired = true, Rows = 3, Dir = "auto",
+    ValidationState = ModelState.IsValid ? ValidationState.None : ValidationState.Error,
+    ValidationMessage = "Give a reason." }' />
+```
+
+---
+
+## RadioCard Components
+
+Choose one option by clicking a card. The `<input type="radio">` is visually hidden (`.radio-card-input`, clipped, not `display:none`) so it stays in the tab order; the card draws hover, focus (a 2px ring from `:focus-visible`), selected and disabled, and a dot marks the selection so colour is not the only signal. Tab enters the group once, arrow keys move between cards and skip disabled ones.
+
+**Partials:** `Components/_RadioCardGroup` (a `<fieldset>` with a `<legend>`) and `Components/_RadioCard` (one card, for custom layouts) - **ViewModels:** `RadioCardGroupViewModel`, `RadioCardViewModel`
+
+| `RadioCardGroupViewModel` | Type | Description |
+|---------------------------|------|-------------|
+| `Name` | `string` | Shared radio name (the bound property) |
+| `Legend` | `string` | The group label; required for an accessible group |
+| `HelpText` | `string?` | Shown under the legend and described by `aria-describedby` |
+| `Options` | `List<RadioCardViewModel>` | `Value`, `Title`, `Description?`, `IconPath?`, `IsDisabled`, `Id?`, `AdditionalAttributes?` |
+| `SelectedValue` | `string?` | The checked card's `Value` |
+| `Columns` | `int` | 1-4 from `sm` up; one column on phones. Default 2 |
+| `IsRequired` | `bool` | Adds an asterisk to the legend |
+| `ValidationMessage` | `string?` | Turns the cards red (`.radio-card-group-invalid`) and announces the message |
+
+```razor
+<partial name="Components/_RadioCardGroup" model='new RadioCardGroupViewModel {
+    Name = "Input.Mode", Legend = "Purge mode", SelectedValue = Model.Input.Mode,
+    Options = new() {
+        new() { Value = "recent", Title = "Recent messages", Description = "The last 100 in a channel." },
+        new() { Value = "user",   Title = "By user" } } }' />
+```
+
+Each card's radio is named by its title (`aria-labelledby`) and described by its description. Use this instead of `display:none` radios (findings F-7).
+
+---
+
+## FormToggle Component
+
+Switch on the canonical `.toggle` classes. The checkbox has `role="switch"`, is named by its label and described by the description, and shows a focus ring on the track.
+
+**Partial:** `Components/_FormToggle` - **ViewModel:** `FormToggleViewModel` (`Id`, `Name`, `Label`, `Description`, `IsChecked`, `IsDisabled`, `PostsFalseWhenOff`, `AdditionalAttributes`)
+
+**Unchecked posts `false`.** A browser omits an unchecked checkbox, so a form cannot tell "turned off" from "not on the form", and a bound `bool` never becomes false. With `PostsFalseWhenOff` (the default) a hidden `false` input with the same name follows the checkbox; a checked toggle posts `true,false` and the model binder reads the first. It is not rendered while the toggle is disabled (a disabled field posts nothing). Set `PostsFalseWhenOff = false` for scripts that read `checked` themselves: the Settings page does, with `AdditionalAttributes["data-setting-toggle"] = "true"`.
+
+The legacy `.form-toggle*` markup and its CSS are gone: every toggle (Settings, the `llm-models.js` catalog, and the Privacy consent switches) uses this partial's `.toggle` markup. A switch that must be confirmed before it saves, like Privacy's, sits alone in its own `<form>`, carries a `data-*` hook in `AdditionalAttributes`, and a script confirms and then calls `form.requestSubmit()` (see `wwwroot/js/privacy.js`).
 
 ---
 
@@ -1069,12 +1152,13 @@ try {
 |---|---|
 | `get/post/put/del(url, [body], options)` | Resolve with the parsed body; throw `ApiClientError` for any failure |
 | `getRaw/postRaw/putRaw/delRaw(...)` | Resolve with `{ ok, status, data, response }` for HTTP errors; reject only for network failure or timeout |
+| `getHtml(url, options)` | GET an HTML fragment (a partial view a page swaps into a region). Resolves with the markup string; throws `ApiClientError` otherwise, with the server's message for a 4xx. Same as `request(url, { responseType: 'html' })`; `requestRaw` accepts the option too |
 
 What it handles for every caller:
 
 - **Expired session.** The server answers script requests with 401 problem JSON, not a redirect (see `IdentityServiceExtensions`). ApiClient also treats a redirect that lands on the sign-in page as expiry. Either way it shows one "Your session has expired" error toast with a **Sign in** action that returns to the current page, and fails with `err.kind === 'session-expired'`. Same-origin responses to raw `fetch()` calls are watched too, so older scripts get the same toast.
 - **Messages.** `ApiClientError.message` is always plain language. For a 4xx: `detail`, then `message`, `errors`, `title`. For a 5xx `detail` and `title` are skipped (some controllers put exception text in `detail`), so it is `message` or a sentence for the status code. Never "HTTP 500", never HTML.
-- **No HTML as data.** An HTML body (an error page) becomes `{ success: false, message }`.
+- **No HTML as data.** An HTML body (an error page) becomes `{ success: false, message }`. The one exception is a request that asks for it with `responseType: 'html'` / `getHtml`, whose ok response is the fragment.
 - **Network failures and timeouts.** 30 seconds by default (`timeout: 0` to disable, `signal` to cancel). They reject with `kind` `'network'` or `'timeout'` and status 0.
 - **Headers.** Anti-forgery token, `X-Requested-With: XMLHttpRequest`, `Accept: application/json`.
 
@@ -1096,9 +1180,202 @@ Use `data-submit-guard="download"` for a form that does not navigate (a file exp
 
 ---
 
+## Theme Toggle and ThemeManager
+
+`<partial name="_ThemeToggle" model="@("topbar-icon-btn")" />` renders the header button that switches between Graphite (dark) and Purple Dusk (light). The model is extra classes for the button. It is already in `_Navbar` and the portal header; a new layout needs `theme-root` on `<html>`, `<partial name="_ThemeHead" />` in `<head>` and `theme.js`.
+
+`window.ThemeManager` (`wwwroot/js/theme.js`):
+
+| Member | Does |
+|--------|------|
+| `applyTheme(key, persistToServer)` | Shows the theme and saves it (cookie, localStorage, and `PUT /api/theme/preference` when `persistToServer`) |
+| `clearTheme(persistToServer)` | Forgets the saved choice and follows the OS again |
+| `toggle(persistToServer)` | Dark ↔ light |
+| `isSaved()`, `isLight()`, `getActiveTheme()`, `getSystemTheme()` | State |
+
+Every change dispatches `themechange` on `window` with `detail: { themeKey, saved }`. Listen for it rather than polling `data-theme`. The toggle is named for the theme it switches to ("Switch to the light theme").
+
+---
+
+## Chart Theme
+
+`wwwroot/js/chart-theme.js` (loaded by `_Layout`) points Chart.js at the design tokens: `Chart.defaults` text, grid, font and tooltip colours, and a plugin that repaints each chart's own axis, grid, legend, title and tooltip colours as it is created and again on `themechange`. Under `prefers-reduced-motion` chart animation is off. Charts therefore need no colours for their chrome; give them only series colours.
+
+```javascript
+const c = ChartTheme.colors();          // read fresh from the tokens
+new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: c.secondary, backgroundColor: c.alpha('accent-blue', 0.15) }] }
+});
+
+// Recolour token-based datasets when the theme changes
+ChartTheme.onChange((chart, colors) => {
+    chart.data.datasets[0].borderColor = colors.secondary;
+});
+```
+
+`colors()` returns `text`, `textMuted`, `textSubtle`, `grid`, `border`, `surface`, `canvas`, `track`, the inks `primary` (ember), `secondary` (blue), `purple`, `success`, `warning`, `error`, `info`, a `series` array, `fills` for solid bars, and `alpha(token, a)`. A script that creates charts after loading Chart.js itself should call `ChartTheme.ensureRegistered()` first (`Performance.ChartUtils` does).
+
+**Do not set `Chart.defaults.color` or `borderColor` in a page script.** They run after `chart-theme.js` and put the dark theme's greys back.
+
+**Single-colour datasets recolour.** On `themechange`, `chart-theme.js` redraws with `update('resize')`, which re-resolves options without animating, so a dataset with one `backgroundColor` string follows the theme. Use `ChartTheme.onChange` (or `themeColors` in `ChartUtils`, or the recolour callback in `AnalyticsCharts.create`) to compute the new colours.
+
+**`Performance.ChartUtils`** (`wwwroot/js/performance/components/chart-utils.js`) wraps Chart.js for the dashboards and is stable for other screens to use (additive changes only):
+
+```js
+const U = Performance.ChartUtils;
+const chart = U.createBarChart(canvas, labels, [{
+    label: 'Commands', data,
+    themeColors: { backgroundColor: c => c.secondary }   // recoloured on themechange
+}], { plugins: { legend: { display: false } } });
+U.describeChart(canvas, { caption: 'Commands per hour', labels, datasets: [{ label: 'Commands', data }], unit: '' });
+U.showChartEmpty(canvas, { title: 'No commands yet', description: '...' });     // in place of the canvas
+U.showChartError(canvas, null, () => load());                                    // plain text + Retry
+U.clearChartState(canvas);                                                        // before drawing again
+```
+
+Every chart needs a text alternative: `describeChart` sets `role="img"` with a one-line summary (min, max, latest per series) and adds a visually hidden `<table data-chart-table>` of the latest 60 rows; `describeGauge` restates a gauge's value. `createGaugeChart` / `updateGauge` colour a gauge by threshold from the theme. Use `createChart(ctx, config)` instead of `new Chart` so `themeColors` specs are applied.
+
+
+### Analytics charts: `AnalyticsCharts`
+
+`wwwroot/js/analytics-charts.js` is what the analytics pages share; the page modules (`server-analytics.js`, `moderation-analytics.js`, `engagement-analytics.js`, `rat-watch-analytics.js`) are small and only build configs.
+
+```javascript
+AnalyticsCharts.create('myChart', c => ({ type: 'bar', data: {...} /* colours from c */ }),
+                       (chart, c) => { /* rewrite series colours for the new theme */ });
+AnalyticsCharts.heatmap(container, cells, { countKey, unit, unitPlural, accent: 'blue' | 'orange', note });
+AnalyticsCharts.readData('jsonIslandId');   // { ... } or null
+AnalyticsCharts.dayLabel('2026-10-01');     // 'Oct 1' in the viewer's locale; calendar days are labelled in UTC, never shifted
+```
+
+`create` registers one `ChartTheme.onChange` listener for every chart; the recolour callback is stored on the chart. If Chart.js did not load, `create` replaces the canvas with a plain "Chart unavailable" state.
+
+### Chart text alternative: `_ChartDataTable`
+
+Every canvas has `role="img"`, an `aria-label` that says what it shows and `aria-describedby` pointing at a real table of the same figures, rendered on the server beside it:
+
+```razor
+<canvas id="activityChart" role="img" aria-label="Line chart of messages per day" aria-describedby="activityData"></canvas>
+<partial name="Shared/Components/_ChartDataTable" model="new ChartDataTableViewModel { Id = ..., Caption = ..., Columns = ..., Rows = ... }" />
+<partial name="Shared/Components/_ChartDataTable" model="ChartDataTableViewModel.ForHeatmap(id, caption, cells)" />  @* day x hour *@
+```
+
+The table sits in an `sr-only` wrapper (a `<table>` ignores `sr-only`'s 1px width and would widen the page, so the wrapper is what is hidden). Cell text is plain text; Razor encodes it. A data region with no data uses `_EmptyState`; a load failure uses `_EmptyState` with `Type = Error` and a "Try again" link, never zeros.
+
+If screen-reader-only text sits inside an `overflow-x-auto` table wrapper, add `relative` to the wrapper: `sr-only` is absolutely positioned and only a positioned scroller clips it.
+
+---
+
+## DateRangeFilter partial: `_DateRangeFilter`
+
+One date filter for the analytics pages, Rat Watch Incidents and the admin Rat Watch analytics. Put it inside the page's `<form method="get">`, inside a `<filter-panel>`:
+
+```razor
+<partial name="Shared/Components/_DateRangeFilter" model="new DateRangeFilterViewModel { StartDate = Model.StartDate, EndDate = Model.EndDate, ClearUrl = Url.Page(...), HasActiveFilters = hasDateFilter }" />
+```
+
+`Presets` is `DateRangePreset.Standard` (today, 7, 30 days) or `.Long` (7, 30, 90 days); `ShowActions = false` leaves the Apply and Clear buttons to the page when it has more fields. The buttons carry `data-date-preset`; `shared/filter-panel.js` (with `date-range-filter.js`) fills the inputs from `DateRangeFilter.presetRange` (the viewer's local calendar), marks the matching button `aria-pressed` on load and when the dates change, and submits the form. The server never works out "today". `toggleFilterPanel()` in the same file is what the `<filter-panel>` tag helper's button calls; the content grows to its own height and is `inert` while collapsed.
+
+## `_RatWatchStatusBadge`
+
+A Rat Watch status as a dot and words ("Cleared early"). The words come from `status.DisplayName()` (`EnumDisplayExtensions`, `Core/Extensions/`), the one place a `RatWatchStatus` becomes text, so filters, tables, the incident dialog and the CSV agree and no enum name reaches a user.
+
+---
+
+## Formatting: `Format` and `DisplayFormat`
+
+One way to write dates, relative time, plurals, numbers, durations and money (UX plan D6). `wwwroot/js/format.js` (loaded by both layouts, before `timezone.js`) is `window.Format`; `Helpers/DisplayFormat.cs` is its server twin. Do not write another `formatDate`, `timeAgo`, `toLocaleString('en-US')` or "N item(s)".
+
+Rules: dates arrive from the server as UTC and show in the viewer's time zone, language and 12/24-hour setting (the locale is never hard-coded and `hour12` is never forced). A timestamp with no zone designator is read as UTC. CSV exports stay UTC with "UTC" in the header. Every function takes an optional `{ locale, timeZone, now }` for tests.
+
+| `Format.` | Returns |
+|---|---|
+| `formatDate(value, style)` | `style` is `date`, `date-short`, `datetime` (default), `datetime-short`, `datetime-seconds`, `time` or `full`: "Oct 3, 2026, 2:05 PM" (en-US), "3 Oct 2026, 14:05" (en-GB) |
+| `relativeTime(value)` | "now", "5 minutes ago", "yesterday", "in 2 hours"; after 30 days a date |
+| `plural(count, one, [other])` | "1 server", "2 servers", "1,234 entries": count and word together |
+| `number(n, { maximumFractionDigits })` | Locale grouping and decimal marks |
+| `duration(ms, { maxUnits })` | "2d 5h", "5h 30m", "45s", "<1s" |
+| `currency(amount, symbol, { iso })` | Virtual currency "1,250 🪙" (whole units, symbol after); `{ iso: true }` for an ISO code like `USD` |
+| `parseUtc(value)` | A `Date`, or `null` |
+| `initials(text, count = 2, fallback = '?')` | The first characters of a name, upper-cased, for an avatar placeholder; emoji and accented letters stay whole (`Intl.Segmenter`). Never `name.substring(0, 2)` |
+| `truncate(text, max, ellipsis = '...')` | Cut to `max` characters without splitting an emoji |
+| `graphemes(text)` | The text as an array of user-perceived characters |
+| `scan(root)` | Binds relative-time elements under `root` (see below) |
+
+**Relative time in markup.** `<time data-relative-time="2026-10-03T12:00:00Z"></time>` renders the wording, refreshes every 30 seconds (and when the tab becomes visible), and shows the absolute time with zone in a tooltip on hover and on keyboard focus. A lone element gets `tabindex="0"` so keyboard users can reach the tooltip. One inside a link, button or other focusable control, or inside a table, gets no Tab stop of its own and carries the absolute time as its `title` instead (focusing the enclosing control shows the tooltip too). `data-utc="…" data-format="relative"` does the same through `timezone.js`.
+
+**Absolute dates in markup.** `<span data-utc="2026-10-03T12:00:00Z" data-format="datetime-short"></span>`. `timezone.js` converts them on load and, through a `MutationObserver`, anything inserted later (AJAX tabs, row templates) before it is painted. For markup you build by hand and need converted at once, call `timezoneUtils.scan(root)`. From Razor, `@DisplayFormat.Time(value, "datetime-short")` renders the element with a labelled UTC fallback inside, so the page reads correctly before script and the swap barely changes the width; `relative: true` gives the relative form. Put `Iso(value)` (always ends in `Z`) in a hand-written `data-utc`, not `ToString("o")`: an `Unspecified` `DateTime` serializes without the `Z`.
+
+| `DisplayFormat.` (C#) | Notes |
+|---|---|
+| `Time(DateTime?, style, relative, empty)` | `<time>` element, upgraded by script |
+| `Iso(DateTime)`, `ToUtc(DateTime)` | `Unspecified` is treated as UTC |
+| `Date(value, style)`, `RelativeTime(value, now)` | UTC / English fallback text; the script replaces it in the viewer's language |
+| `Plural`, `Number`, `Duration`, `Currency` | Final as rendered; pass a `CultureInfo` in tests |
+
+**Names, initials and cuts (UX plan C-2, E-1).** Three server helpers keep raw names out of the markup:
+
+- `TextDisplay` (`Helpers/TextDisplay.cs`): `Initials(text, count, fallback)`, `WordInitials(text)`, `Truncate(text, max)` and `Take(text, count)` count text elements, so an emoji or an accented letter is never split. Never write `name[..2]`, `Substring(0, 1)` or `name[0].ToString()` for user text (a GUID's hex digits are fine). The script twin is `Format.initials` / `Format.truncate`.
+- `EnumDisplayExtensions` (`DiscordBot.Core.Extensions`, imported into every Razor page): `value.DisplayName()` ("Cleared early"), `DisplayNameLower()` for a sentence, `Description()`, and `DisplayNameFor<TEnum>("PermissionChanged")` for DTOs that carry the member name as a string. A member reads from `[Display(Name = "...", Description = "...")]`, else its own name split into words, so only a member whose words differ from its name needs an attribute. Never `status.ToString()` in text a person reads (`PurgeDisplay` keeps only the user-purge table keys, which are not an enum). `NoCoreEnumMember_ReadsAsRunTogetherWords` fails the build for a run-together name.
+- `UserDisplay.Name(resolved)` maps the resolver's `Unknown#id` to "Unknown user". `DiscordUserResolver` now falls back to the username the bot stored (the `Users` table) before it answers `Unknown#id`, so offline mode shows real names for anyone the bot has seen. `ConsentDisplay.Via(source)` names where a consent change was made ("the web portal").
+
+**Date presets.** `wwwroot/js/date-range-filter.js` is the only preset helper. `DateRangeFilter.presetRange('today' | 'yesterday' | '7days' | '30days' | '90days')` returns `{ start, end }` as `YYYY-MM-DD` in the viewer's local calendar (`toISOString()` is UTC and gives the wrong day in the local evening); `applyPreset(startInput, endInput, preset)` fills two date inputs and `detectPreset(start, end)` names a matching range. Pages that still compute presets with `toISOString()` should switch as they are reworked.
+
+**Escaping in scripts.** `SafeHtml.escape(value)` (`wwwroot/js/safe-html.js`, loaded first by both layouts) is the only HTML escaper; null and undefined give an empty string and quotes are escaped, so the result is safe in element content and in quoted attributes. Do not add another `escapeHtml` (the `textContent`/`innerHTML` trick leaves quotes alone). `discord-markdown.js` keeps an equivalent private copy only because it also runs under node in its tests.
+
+---
+
+## Preset Bar: custom presets endpoint
+
+`_PresetBar` (`PresetBarViewModel`) saves, lists and deletes a person's custom TTS presets. By default it talks to the member portal's `/api/portal/tts/{guildId}/presets/custom`, which refuses everyone while the guild's `EnableMemberPortal` is off. A page that is not the portal sets `CustomPresetsUrl` (rendered as `data-custom-presets-url`); the admin Text-to-Speech page passes `/api/guilds/{guildId}/tts/presets/custom` (`GuildTtsPresetsController`, `RequireAdmin` + `GuildAccess`). GET lists, POST saves, DELETE `{url}/{id}` removes, with the same JSON either way (both go through `CustomTtsPresetService`: 50-character names, 20 presets each, ownership checked). Presets belong to the signed-in person's Discord account, so an admin who never linked Discord gets a 400 `discord_link_required` ("Link your Discord account to save presets"). "Save as preset" reads the page's current voice, style, speed and pitch through `preset-bar.js` (`PresetBar.readSettings`). By default that is the portal's `VoiceSelector` widget (`portalVoiceSelector`) and `#portalStyleSelector-select`; a page whose controls are plain inputs sets `VoiceInputId` and `StyleInputId` (rendered as `data-voice-input` and `data-style-input`), and the admin page passes `voiceSelect` and `styleSelector-select`. Speed and pitch are `#speedSlider` and `#pitchSlider` on both pages. The portal page calls `presetBar_loadCustomPresets('portalPresetBar')` on load; `tts-page.js` does the same for the admin bar.
+
+---
+
+## Live Connection: Hub States, Banner and Stale Badge
+
+`DashboardHub` (`wwwroot/js/dashboard-hub.js`) never gives up. Its states, from `getConnectionState()` and `onStateChange(({ state, previousState }) => …)`, are `connecting` (the first attempt), `connected`, `reconnecting` (lost and still trying; this includes a first attempt that failed, because a page opened while the server is down keeps retrying too) and `disconnected` (only after `disconnect()`). Retries go at 0, 2, 5 and 10 seconds, then every 25 to 35 seconds forever; the browser coming back online or the tab becoming visible retries at once, and `DashboardHub.retryNow()` does the same on demand. When a first attempt that failed finally gets through the hub raises `connected` only; when a connection that was up and dropped comes back it raises `connected` and `reconnected`. The online and tab-visible retries are skipped after a 401/403 (only `retryNow()` from code or a reload starts over). Group memberships do not survive a new connection, so a page that joined groups rejoins them in a `DashboardHub.on('reconnected', …)` handler.
+
+The one thing it does not retry is a 401 or 403: that means the session ended, not that the server is away. The hub goes to `disconnected` with `getDisconnectReason() === 'auth'` (also `reason` on the state change), and `retryNow()` tries once more in case the user signed in elsewhere. If the SignalR client library did not load, `connect()` resolves `false` and nothing retries.
+
+`_ConnectionBanner` (in `_Layout`; driven by `connection-banner.js`) floats under the top bar while the hub is down for more than 1.5 seconds: "Reconnecting…", a "Retry now" button, then "Live updates restored." for 3 seconds. An ended session shows at once as "Signed out" with a Sign in link instead of Retry. It reports the **hub**, not the bot: in offline mode the hub is connected and the banner stays hidden. One polite live region (`#connection-announcer`) carries the announcements.
+
+Any element with `data-stale-badge` and the `hidden` attribute is shown while live updates are paused and hidden again on recovery. Put one beside anything labelled "Live" (the sidebar footer has one):
+
+```cshtml
+<h2>Recent Activity <span class="badge badge-warning" data-stale-badge hidden>Stale</span></h2>
+```
+
+`<partial name="Components/_ConnectionStatus" />` takes `ConnectionStatusViewModel(State, CustomText, Id = "connection-status", Live = true)`. Pass a different `Id` when the default is already on the page, and `Live = false` when something else announces the change. No page script reads the element: connection state belongs to the layout's `_ConnectionBanner`, which `dashboard-realtime.js` no longer duplicates.
+
+**Sidebar bot status.** The sidebar footer shows the bot's own state: "Bot online", "Bot connecting…", "Bot offline" (with "Offline mode" in the detail line under `Discord:OfflineMode`) or "Status unknown" when `/api/bot/status` does not answer. It is rendered by the server from `IBotService`, then kept current by `bot-status-refresh.js` from the `BotStatusUpdated` hub event and a 30-second poll. `BotStatus.apply({ connectionState: 'Connected' })` applies a payload by hand (handy in a browser test: an offline-mode bot cannot be switched on); on the dashboard it redraws the status banner too. `BotStatus.watchRestart()` marks the banner "Restarting" and resolves `true` once the bot reports Connected (polling `/api/bot/status`), or `false` after 90 seconds.
+
+---
+
+## Row Actions
+
+Put `row-actions` on the group of buttons in a table row, list item or card. They fade in on hover, but are never hover-only: they show whenever anything in the row has keyboard focus, and always on devices that cannot hover (touch). The row is a `tr`, `li`, `.table-row`, `.group` or `[data-row]`.
+
+```cshtml
+<tr class="table-row">
+    …
+    <td><div class="flex items-center justify-end gap-1 row-actions">…</div></td>
+</tr>
+```
+
+Do not hand-roll `opacity-0 group-hover:opacity-100` for actions.
+
+---
+
+## Status and Severity Badges
+
+`.status-badge` and `.severity-badge` (in `site.css`) are rounded tint pills. Status variants: `status-pending`, `status-acknowledged`, `status-actioned`, `status-dismissed` (flagged events), `online` / `offline` (portal header, with `status-badge-lg`), and `status-badge-connected|reconnecting|success|warning|error|secondary` (performance incidents). Severity variants: `severity-low|medium|high|critical` (moderation) and `severity-info|warning|critical` (alerts). `_StatusBadge` and `_SeverityBadge` render the flagged-event ones. `.btn-error` is an alias of `.btn-danger`.
+
+---
+
 ## ConfirmationModal Component
 
-Modal dialog for confirming user intent before executing an action. Renders as a `<form>` element with anti-forgery token support, making it suitable for actions that require a server-side POST.
+Modal dialog for confirming user intent before executing an action. It carries a `<form>` with an anti-forgery token, posted over `fetch` by `quick-actions.js`. Open and close it with [`quickActions`](#quickactions-javascript-api); it gets motion, scroll lock, an `inert` background, a focus trap, Escape and focus return from the same layer as every other dialog.
 
 **Partial:** `Components/_ConfirmationModal`
 
@@ -1116,8 +1393,8 @@ Modal dialog for confirming user intent before executing an action. Renders as a
 | `ConfirmText` | `string` | `"Confirm"` | Label for the confirm button |
 | `CancelText` | `string` | `"Cancel"` | Label for the cancel button |
 | `Variant` | `ConfirmationVariant` | `Warning` | Visual severity of the dialog |
-| `FormAction` | `string?` | `null` | Form `action` attribute (URL to POST to on confirm) |
-| `FormHandler` | `string?` | `null` | Razor Pages handler name (e.g., `"Delete"` maps to `OnPostDelete`) |
+| `FormAction` | `string?` | `null` | URL to POST to, with its own query if it needs one (`/Admin/Users/Edit?userId=...`). Null or empty posts to the current page, query included |
+| `FormHandler` | `string?` | `null` | Razor Pages handler name (e.g., `"Delete"` maps to `OnPostDelete`). The partial writes it into the form's `action` as `handler=...`, because Razor Pages reads the handler from the query string, not the body |
 | `CustomIconPath` | `string?` | `null` | SVG path override for the dialog icon |
 
 ### Enums
@@ -1178,12 +1455,26 @@ var restartModal = new ConfirmationModalViewModel
 };
 ```
 
+### What happens on confirm
+
+The form is submitted by one delegated listener in `quick-actions.js` (B-8). It posts to the form's own `action` (handler included), with `redirect: 'manual'`, once per confirmation:
+
+| The handler answers | The modal |
+|---------------------|-----------|
+| JSON `{ success: true, message }` | Closes, shows a success toast, and fires a bubbling `quickactions:confirmed` event (`detail: { modalId, form, data }`) |
+| JSON error or a 4xx/5xx | Stays open, re-enables the button, shows the server's message (or plain text for the status) as an error toast |
+| A redirect (`RedirectToPage`) | Stays busy while the browser loads the current page once. The redirect is **not followed** by script: following it would run the target's GET and spend the TempData toast or one-time value (Users/Edit's generated password) meant for the page the user lands on |
+| Session expired | The "Sign in" toast from `ApiClient`; the modal stays open |
+
+Opt-outs on the `<form>`: `data-custom-submit` (a page script handles submit itself; the generic handler also stands down whenever a script already called `preventDefault`) and `data-submit-mode="navigate"` (a plain browser submit, with the busy state).
+
 ### Accessibility Notes
 
-- Modal uses `role="dialog"` with `aria-modal="true"` and `aria-labelledby` pointing to the title
-- Focus is trapped within the modal while open
-- Pressing `Escape` closes the modal and returns focus to the trigger element
-- Confirm button receives initial focus when the modal opens
+- `role="alertdialog"`, `aria-modal="true"`, `aria-labelledby` the title, `aria-describedby` the message
+- The page behind is `inert` and cannot scroll while it is open; Tab and Shift+Tab stay inside
+- The first focusable control (Cancel) receives focus; `Escape` closes (not while a request is in flight) and returns focus to the opener
+- Cancel and the backdrop are `data-modal-dismiss` controls; there are no inline handlers
+- Enter and exit use class toggles (`.qa-open`), skipped under `prefers-reduced-motion`
 
 ---
 
@@ -1269,9 +1560,11 @@ var removeModal = new TypedConfirmationModalViewModel
 ### Accessibility Notes
 
 - Confirm button is disabled until `RequiredText` matches exactly (case-sensitive)
-- Input field receives focus on modal open
-- Mismatch state is indicated visually; no submit is possible until text matches
+- Input field receives focus on modal open; the phrase is cleared and the button locked again whenever the modal reopens
+- No submit is possible until text matches
 - `Escape` dismisses and clears the typed input
+- It needs only `quick-actions.js` (both layouts load it). The partial does not call `settingsManager`; Settings opens it with `quickActions.showConfirmationModal` (a `data-modal-open` button)
+- Submission and outcomes are the same as [`ConfirmationModal`](#confirmationmodal-component)
 
 ---
 
@@ -1293,6 +1586,31 @@ The object is registered globally and available on all pages that include the sh
 | Display a non-dismissible alert before proceeding | `quickActions.alert()` Promise API |
 | Require text entry before an AJAX destructive action | `quickActions.typedConfirm()` Promise API |
 | Anti-forgery token required on the resulting request | Server-rendered partial (form includes token automatically) |
+
+### Dialog behaviour
+
+Every dialog, static or dynamic, goes through one core in `quick-actions.js`:
+
+- **Motion.** `hidden` is removed, then `.qa-open` is added, so `.qa-modal-backdrop` fades and `.qa-modal-panel` rises in; closing reverses it and adds `hidden` after about 180ms. Under `prefers-reduced-motion` both are immediate. Give the backdrop `qa-modal-backdrop` and the panel `qa-modal-panel` to get the motion.
+- **Scroll lock.** `html.qa-scroll-lock` (counted, so stacked dialogs lock once).
+- **`inert` background.** The siblings of the dialog and of each of its ancestors are made `inert` (the toast region is left live). Closing lifts `inert` before focus returns, because an element inside an inert subtree cannot take focus.
+- **Focus.** The trigger is remembered before anything becomes inert; focus goes to `initialFocus`, `[data-modal-initial-focus]` or the first control, is trapped, and returns to the trigger on close.
+- **Stacking.** A dialog opened from inside another gets a higher `z-index`; Escape closes only the top one, and closing it hands focus back inside the one below. Reopening a dialog that is still fading out cancels its removal; closing twice is harmless.
+
+#### openDialog(element, options) / closeDialog(element)
+
+Give any dialog element the same behaviour (a hand-rolled modal moves onto this instead of keeping its own trap).
+
+```typescript
+openDialog(element: HTMLElement, options?: {
+    initialFocus?: string | HTMLElement;   // selector or element
+    onClose?: () => void;                  // called once, as it starts closing
+    dismissOnEscape?: boolean;             // default true
+}): object | null
+closeDialog(element: HTMLElement): boolean // false when it was not open
+```
+
+The element should be `hidden`, carry `role="dialog"` or `role="alertdialog"` with `aria-modal="true"`, and mark its Cancel/close controls and backdrop with `data-modal-dismiss`.
 
 ### Modal Helpers
 
@@ -1482,10 +1800,89 @@ A page that uses a server-rendered modal for a form POST and JS API for an AJAX 
 
 ### Accessibility Notes
 
-- Promise-based dialogs use the same accessible modal structure as server-rendered modals (`role="dialog"`, `aria-modal`, `aria-labelledby`)
-- Focus is trapped within the dialog while open
-- `Escape` cancels (resolves `false` / resolves `void`)
-- Screen reader announcements are made when dialogs open and close
+- Promise-based dialogs use the same accessible structure as server-rendered modals (`role="alertdialog"`, `aria-modal`, `aria-labelledby`, `aria-describedby`)
+- Focus is trapped within the dialog while open, the page behind is `inert`, and focus returns to the opener
+- `Escape` and a backdrop click cancel (resolve `false` / resolve `void`); the Promise settles once
+- `typedConfirm` also accepts Enter once the phrase matches
+
+---
+
+## Skeleton Components
+
+Placeholders for a region that loads after the page, on the `.skeleton` class (a shimmer that stops under `prefers-reduced-motion`).
+
+| Partial | ViewModel | Use |
+|---------|-----------|-----|
+| `Components/_Skeleton` | `SkeletonViewModel` (`Type`: `Text`, `Title`, `Avatar`, `AvatarSmall`, `AvatarLarge`, `Button`, `Card`, `Rectangle`; `Width`, `Height`, `Rounded`, `Animate`, `CssClass`) | One shape |
+| `Components/_SkeletonCard` | `SkeletonCardViewModel` (`Type`: `Stats`, `Server`, `Activity`, `Table`, `List`, `Form`; `ShowHeader`, `Label`) | A card-shaped placeholder |
+| `Components/_SkeletonTable` | `SkeletonTableViewModel` (`Rows`, `Columns`, `Label`) | Table or list rows |
+| `Components/_SkeletonLines` | `SkeletonLinesViewModel` (`Lines`, `Label`) | Text lines, the last shorter |
+
+The shapes are `aria-hidden`. `Label` adds a visually hidden `role="status"` text ("Loading users"); how reliably a screen reader announces it varies, so pair it with the page's own status line. Leave it off when several cards share a region that announces itself.
+
+### Skeleton JavaScript
+
+`wwwroot/js/skeleton.js` (both layouts). A skeleton that flashes for 80ms is worse than none, so `Skeleton.show` draws nothing for 300ms and nothing at all if the data arrives first.
+
+```javascript
+const loading = Skeleton.show(panel, { kind: 'table', rows: 6, columns: 4, label: 'Loading users' });
+try {
+    const data = await ApiClient.get(url);
+    loading.hide();
+    render(panel, data);
+} catch (err) {
+    loading.hide();
+    EmptyState.error(panel, { onRetry: load });
+}
+```
+
+`show` marks the container `aria-busy="true"` while loading; once drawn, the skeleton replaces the container's content (stale content from an earlier load must not stay on screen) and adds visually hidden "Loading" text. Announcement of text inserted into a busy region varies between screen readers, so do not rely on it alone. Kinds: `lines` (`count`), `table` (`rows`, `columns`), `list` (`rows`), `card` (`type`, `showHeader`). Options: `delay` (ms, default 300, 0 draws at once) and `label`. `Skeleton.build(options)` makes the element without the delay.
+
+---
+
+## Bulk Selection
+
+`wwwroot/js/bulk-selection.js` keeps one selection for a list that renders the same rows twice (a table from `md` up and cards below it). Both layouts stay in the DOM, so counting checked boxes counts every row twice; the module keys the selection by the row's id and mirrors it onto every checkbox with that id.
+
+```html
+<input type="checkbox" data-select-item="<id>" aria-label="Select …">   <!-- one per row per layout -->
+<input type="checkbox" data-select-all aria-label="Select all …">       <!-- any number; indeterminate when partial -->
+<div data-bulk-toolbar hidden class="hidden …"> <span data-selected-count></span> <button data-bulk-clear>…</button> </div>
+<p class="sr-only" role="status" data-selection-status></p>             <!-- polite announcement -->
+```
+
+```javascript
+const selection = BulkSelection.init({ noun: ['member', 'members'], onChange(ids) { … } });
+selection.ids();      // distinct ids, as strings (snowflakes and GUIDs stay exact)
+selection.clear();
+```
+
+The count text uses `Format.plural`. Toggle the toolbar with both the `hidden` attribute and the `hidden` class (the module does), because a utility such as `flex` outranks the attribute. `createSelection` has no DOM dependency and is covered by `wwwroot/js/__tests__/bulk-selection.test.js`. Used by Members and FlaggedEvents.
+
+---
+
+## Unsaved Changes
+
+`wwwroot/js/unsaved-changes.js` (both layouts) warns before a page is left with edits not saved. Opt in with one attribute:
+
+```html
+<form method="post" data-unsaved-changes> ... </form>
+```
+
+A form is dirty when its controls differ from how they were at load, so typing the old value back clears it. Checkboxes and radios count only when checked; buttons, file inputs, disabled controls and the antiforgery token are ignored. Submitting is not a loss: a submit that nothing cancelled does not warn, while a fetch-based save (which calls `preventDefault`) keeps its protection.
+
+| Attribute | On | Effect |
+|-----------|----|--------|
+| `data-unsaved-changes` | `<form>` | Track it |
+| `data-unsaved-dirty-on-load` | `<form>` | Start dirty. Put it on a form the server re-rendered after failed validation: the input on screen is not saved yet. The bare attribute and `"true"` start dirty, `"false"` does not, so a `<form>` can write `data-unsaved-dirty-on-load="@(isPostBack ? "true" : "false")"` (Razor cannot add an attribute conditionally to a tag-helper element) |
+| `data-unsaved-ignore` | control or container | Do not count it (a search box beside the fields) |
+| `data-unsaved-indicator` | element inside the form | Shown (its `hidden` class removed) only while dirty |
+
+The form gets `data-dirty="true|false"` and fires a bubbling `unsavedchange` event (`detail.dirty`). API: `UnsavedChanges.markClean(form)` after a successful fetch save (takes the saved values as the new baseline), `isDirty(form?)`, `track(form)` / `untrack(form)` for forms inserted later, `init(scope)`. The `beforeunload` listener exists only while a tracked form is dirty, so clean pages keep the back/forward cache. The browser decides the wording of the leave-page prompt; a script cannot set it. The tracker core (`serialize`, `createTracker`, `createRegistry`, `handleBeforeUnload`) has no DOM dependency and is covered by `wwwroot/js/__tests__/unsaved-changes.test.js`.
+
+### Focus the first error
+
+`wwwroot/js/form-focus.js` is the one helper for this (global `FormFocus`; not loaded by the layouts, so include it on a page that needs it). Put `data-focus-first-error` on a form the server re-renders after a failed validation, or on a wrapper element to cover everything inside it: on load, the first control in that scope marked `aria-invalid="true"` (or with the `input-validation-error` class, or the first radio of a `.radio-card-group-invalid` group) takes focus and scrolls into view, so keyboard and screen-reader users land on the problem. A scope with no errors, or one inside an `inert` region, is left alone. API: `FormFocus.focusFirstInvalid(scope)` (scope defaults to the document; call it again after a script renders errors of its own; `focusFirstError` is the same function), `FormFocus.firstInvalid(scope)`. Used by Users/Create and Edit, the two purge pages, Guilds/Edit, Welcome, AssistantSettings and the scheduled-message editor; tests in `wwwroot/js/__tests__/form-focus-purge.test.js` and `form-focus.test.js`. It replaces the earlier `form-errors.js`.
 
 ---
 
@@ -1619,7 +2016,9 @@ var cardContent = isLoading
 
 ## EmptyState Component
 
-Placeholder component for empty lists, no search results, error states, and first-time user experiences.
+Placeholder component for empty lists, no search results, error states, and first-time user experiences. Buttons are `.btn btn-primary` and the icon tile is `.empty-state-icon`. For a region a script fills, use the [`EmptyState` JS twin](#emptystate-javascript-twin).
+
+An empty result has three different states, and each needs its own wording: **empty** ("No servers yet", an action to add one), **filtered-empty** ("No users match your filters" with a Clear filters action, never the first-time copy) and **error** ("Could not load this" with Retry, in plain language, never exception text).
 
 ### Properties
 
@@ -1634,7 +2033,12 @@ Placeholder component for empty lists, no search results, error states, and firs
 | `PrimaryActionOnClick` | `string?` | `null` | Primary button JavaScript handler |
 | `SecondaryActionText` | `string?` | `null` | Secondary button/link text |
 | `SecondaryActionUrl` | `string?` | `null` | Secondary link URL |
+| `PrimaryActionIconPath` | `string?` | `null` | SVG path for the action's icon. Null keeps the plus sign; `""` shows no icon (right for Retry and Clear filters) |
+| `PrimaryActionAttributes` | `Dictionary<string, string>?` | `null` | Extra attributes for the action (`data-*`, `id`), encoded. Prefer `data-action="..."` and a delegated listener to `PrimaryActionOnClick` |
 | `Size` | `EmptyStateSize` | `Default` | Component size |
+| `HeadingLevel` | `int` | `3` | Title tag `h1`-`h6`; follow the page's outline rather than skip a level |
+| `Announce` | `bool` | `false` | `role="status"`, for an empty state that appears after load (a filter result, a failed fetch) |
+| `Id` | `string?` | `null` | Element ID, so a script can replace or clear it |
 
 ### Enums
 
@@ -1750,12 +2154,54 @@ else
 - Buttons/links have proper focus states
 - Icon uses decorative `aria-hidden="true"`
 - Text content is fully accessible to screen readers
+- `Announce` makes a late-appearing state a polite live region
+
+### EmptyState JavaScript twin
+
+`wwwroot/js/empty-state.js` (both layouts) draws the same markup for regions a script fills. Text goes in as text, never as HTML; an action's `onClick` is a listener, and event-handler attribute names are refused.
+
+```javascript
+EmptyState.render(container, { type: 'noResults', title: 'No matches', description: '...',
+    action: { text: 'Add one', url: '/Admin/Users/Create' } });
+EmptyState.filtered(container, { noun: 'users', onClear: resetFilters });   // "No users match your filters" + Clear filters
+EmptyState.error(container, { onRetry: load });                             // plain text + Retry, role="status"
+const node = EmptyState.create(options);                                    // build without inserting
+```
+
+Options: `type` (`noData`, `noResults`, `firstTime`, `error`, `noPermission`, `offline`), `title`, `description`, `icon` (SVG path), `size` (`compact`, `default`, `large`), `headingLevel`, `announce`, `id`, and `action` / `secondary` as `{ text, url, onClick, iconPath, attributes }`. The partial and the twin share icons, size classes and structure; change both together.
+
+---
+
+## Settings Form Helpers
+
+Small opt-in scripts and helpers used by the guild configuration screens. All are markup-only (data attributes, no handler text).
+
+| Helper | Use |
+|--------|-----|
+| `confirm-forms.js` | `data-confirm-message` (plus `data-confirm-title`, `-text`, `-cancel`, `-variant`) on a `<form>`: the shared `quickActions.confirm` dialog asks first, then the form posts normally (redirect and TempData toast work as usual, `data-submit-guard` shows the pending state). The message is read as text, so user text in it is safe |
+| `section-gate.js` | A section that only applies while a master switch is on. `<div data-section-gate="#Input_IsEnabled"><p data-section-gate-note hidden>why</p><div data-section-gate-body>...</div></div>`. Off makes the body `inert` (no focus, hidden from assistive technology) and shows the note; `inert` does not stop the values posting, so saved settings are kept |
+| `discord-markdown.js` | `DiscordMarkdown.render(text, { tokens })` returns safe HTML for a message preview: escape first, then bold, italic, underline, strikethrough, spoiler, code, quote, headings, URLs, mentions. `tokens` maps `{user}`-style placeholders to sample data. Styles: `.discord-preview`, `.discord-embed` and `.discord-md-*` in `site.css` |
+| `form-focus.js` | Moves focus to the first invalid field after a failed server validation, for forms or wrappers marked `data-focus-first-error` (see [Focus the first error](#focus-the-first-error)) |
+| `FormFieldState` (C#) | `ModelState.FieldError("Input.X")` and `FormFieldState.StateOf(error)` feed `_FormInput` / `_FormTextarea` / `_FormSelect`; `ChannelOptions(...)` builds a channel picker that keeps a saved channel the bot can no longer see |
+| `.row-action-btn` | Icon-only row action (with `.row-action-btn-danger` / `-accent`); 44px on coarse pointers. Put it inside `.row-actions` and give it an `aria-label` |
+| `_DashboardWidget` + `WidgetStatViewModel` | Widget shell with `BodyPartial` / `BodyModel` (a partial renders the body), `LoadFailed` + `RetryUrl` for a section that failed to load, and `_WidgetStat` for one labelled figure |
+
+Forms that re-render after a failed POST write `data-unsaved-dirty-on-load="@(isPost ? "true" : "false")"` (a `<form>` is a tag-helper element, so Razor cannot add the attribute conditionally); `"false"` does not start dirty.
 
 ---
 
 ## Pagination Component
 
-Navigation component for paginated data with page numbers, item counts, and page size selection.
+Navigation component for paginated data with page numbers, item counts, and page size selection. The state rules live on `PaginationViewModel` (`EffectivePage`, `IsEmpty`, `HasMultiplePages`, `FirstItem`, `LastItem`, `VisiblePages()`) and are unit tested; the partial only draws them.
+
+| State | What shows |
+|-------|------------|
+| Several pages | First, Previous, numbers with ellipses, Next, Last. On phones only the current page sits between Previous and Next |
+| First / last page | Previous (or Next) is a `<span aria-disabled="true">`, not a link |
+| One page | The item count stays ("Showing 1-7 of 7"); no navigation |
+| No items | "No results" (with `ShowItemCount`); never "Showing 1-0 of 0" |
+| `CurrentPage` past the end | Clamped to the last page; never "Showing 201 to 90" |
+| `TotalItems` left at 0 with several pages | "Page X of Y" instead of an invented range |
 
 ### Properties
 
@@ -1771,7 +2217,8 @@ Navigation component for paginated data with page numbers, item counts, and page
 | `ShowItemCount` | `bool` | `false` | Shows "Showing X-Y of Z" text |
 | `ShowFirstLast` | `bool` | `true` | Shows First/Last buttons |
 | `BaseUrl` | `string` | `""` | Base URL for page links |
-| `PageParameterName` | `string` | `"page"` | Query string parameter for page |
+| `PageParameterName` | `string` | `"page"` | Query string parameter for page. Pass `"pageNumber"` when the base URL comes from route values: Razor Pages reserves `page` for the page name |
+| `AriaLabel` | `string` | `"Pagination"` | Landmark name; give each pagination on a page its own |
 | `PageSizeParameterName` | `string` | `"pageSize"` | Query string parameter for page size |
 
 ### Enums
@@ -1882,11 +2329,11 @@ var customPagination = new PaginationViewModel
 
 ### Accessibility Notes
 
-- Uses `<nav>` with `aria-label="Pagination"`
-- Current page marked with `aria-current="page"`
-- Disabled buttons have `disabled` attribute
-- Page links use semantic `<a>` elements
-- Keyboard navigable
+- `<nav>` with `aria-label` (`AriaLabel`)
+- Current page is a `<span aria-current="page" aria-label="Page 3">`; other pages are `<a aria-label="Page 4">`
+- Previous/Next carry `rel="prev"` / `rel="next"` and an `aria-label`; at the ends they are `<span aria-disabled="true">` (not tabbable, not links)
+- Links are 36px, 44px under a coarse pointer
+- The page-size selector is a labelled `<select>` in a GET form that carries the other query values as hidden inputs and resets to page 1. It replaces an inline `onchange` that wrote the base URL (which holds filter values) into script text
 
 ---
 
@@ -2222,6 +2669,8 @@ var tabs = new NavTabsViewModel
 Dropdown component for selecting sort options with keyboard navigation and accessibility support. Commonly used in table headers and list views.
 
 **Location:** `Pages/Shared/_SortDropdown.cshtml`
+
+**In-place sorting.** With `UseAjax = true`, `TargetSelector` and `PartialUrl`, the dropdown fires `sortchange` and `wwwroot/js/ajax-sort.js` fetches the partial and swaps it into the target. The old list stays on screen (dimmed, `aria-busy`) while it loads; a failure keeps it and shows an error toast with Retry, and the partial handler should answer an error status rather than 200 HTML. Each sort adds a history entry, the first entry is stamped, so Back and Forward re-render the list and the dropdown (`wrapper.sortDropdown.setSelected`). Anything that depends on the new markup listens for `ajaxsort:loaded` on the target (or `AjaxSort.configure({ onAfterLoad })`); render values the script would otherwise fill in (such as a select's options) on the server so they survive the swap. The partial is HTML, which `ApiClient` refuses as data, so this one request uses `fetch()`.
 
 ### Properties
 
@@ -2564,6 +3013,20 @@ Voice channel control panel with connection status, channel selection, now playi
 | `AvailableChannels` | `IReadOnlyList<VoiceChannelInfo>` | `[]` | Available voice channels |
 | `NowPlaying` | `NowPlayingInfo?` | `null` | Currently playing audio info |
 | `Queue` | `IReadOnlyList<QueueItemInfo>` | `[]` | Queued audio items |
+| `ApiBase` | `string?` | `null` | Member portal voice endpoints for this guild (`/api/portal/soundboard/{guildId}`). Set on portal pages: join, leave, stop and status use them, the queue section is left out, and the panel polls `GET {ApiBase}/status` instead of relying on SignalR. `null` keeps the Viewer-gated `/api/guilds/{id}/audio` endpoints the admin pages use |
+| `IsPortal` | `bool` | (derived) | `ApiBase` is set |
+
+### Client script (`wwwroot/js/voice-channel-panel.js`)
+
+The panel keeps what the server last said (connected, channel, head count, playing, busy) and renders everything
+from that. "Connected" is the bot being in a voice channel; the state of the page's own SignalR connection only
+decides whether a "Live updates are paused" note shows. After a successful join or leave the panel applies the
+answer at once instead of waiting for an event, and on portal pages it re-reads `/status`.
+
+- Below 1024px the panel shows a **voice bar** (channel name, state chip, Stop while something plays) that opens the controls; on portal pages the bar is sticky.
+- `window.VoiceChannelPanel`: `refresh()` (portal: read status now), `notePlaying(name, source)`, `reveal()` (open the controls and focus the picker: what a page does when someone tries to play without a voice channel), `toggle(force)`, `getState()`.
+- Events on `document`: `voicepanel:change` (`detail: { isConnected, channelId, isPlaying, busy }`) after every state change, and `voicepanel:playbackended`. `#voice-channel-panel` also carries `data-connected`, `data-channel-id`, `data-playing` and `data-busy`.
+- `resolveVoiceEndpoint` and `voiceJoinBody` are exported for tests (`__tests__/voice-channel-panel.test.js`). A channel ID is sent as JSON text so its digits survive.
 
 ### Supporting Types
 
@@ -3242,6 +3705,9 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.6 (2026-10-03)
+- Added Bulk Selection (`bulk-selection.js`)
 
 ### Version 1.5 (2026-10-02)
 - Alert is for persistent page state; `role="status"`; dismiss works without a callback; `DismissCallback` is a function name, never evaluated code

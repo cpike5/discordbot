@@ -7,8 +7,9 @@
 
     const CHANNEL_SEARCH_INPUT_ID = 'ChannelId-search';
     const CHANNEL_HIDDEN_INPUT_ID = 'ChannelId';
-    const GUILD_HIDDEN_INPUT_ID = 'GuildId';
-    const CLEAR_FILTERS_SELECTOR = 'a[href*="MessageLogs"]';
+    // The guild filter's hidden input; the channel autocomplete reads it through guildIdSource
+    const GUILD_HIDDEN_INPUT_ID = 'MessageGuildId';
+    const GUILD_SEARCH_INPUT_ID = 'MessageGuildId-search';
 
     /**
      * Updates the channel input state based on guild selection.
@@ -26,7 +27,7 @@
             channelSearchInput.placeholder = 'Search by channel name...';
         } else {
             channelSearchInput.disabled = true;
-            channelSearchInput.placeholder = 'Select a guild first...';
+            channelSearchInput.placeholder = 'Select a server first...';
 
             // Clear channel value when guild is cleared
             const channelHiddenInput = document.getElementById(CHANNEL_HIDDEN_INPUT_ID);
@@ -55,7 +56,7 @@
                 updateChannelInputState();
 
                 // Clear channel when guild changes
-                const channelInstance = window.AutocompleteManager?.get(CHANNEL_SEARCH_INPUT_ID);
+                const channelInstance = (typeof AutocompleteManager !== 'undefined' ? AutocompleteManager : null)?.get(CHANNEL_SEARCH_INPUT_ID);
                 if (channelInstance) {
                     channelInstance.clear();
                 }
@@ -63,13 +64,13 @@
         }
 
         // Listen for guild autocomplete clear events
-        const guildSearchInput = document.getElementById('GuildId-search');
+        const guildSearchInput = document.getElementById(GUILD_SEARCH_INPUT_ID);
         if (guildSearchInput) {
             guildSearchInput.addEventListener('autocomplete:clear', function() {
                 updateChannelInputState();
 
                 // Clear channel when guild is cleared
-                const channelInstance = window.AutocompleteManager?.get(CHANNEL_SEARCH_INPUT_ID);
+                const channelInstance = (typeof AutocompleteManager !== 'undefined' ? AutocompleteManager : null)?.get(CHANNEL_SEARCH_INPUT_ID);
                 if (channelInstance) {
                     channelInstance.clear();
                 }
@@ -78,17 +79,6 @@
 
         // Set initial channel input state
         updateChannelInputState();
-
-        // Handle Clear Filters link - reset all autocomplete fields
-        const clearFiltersLink = document.querySelector(CLEAR_FILTERS_SELECTOR);
-        if (clearFiltersLink) {
-            clearFiltersLink.addEventListener('click', function() {
-                // Clear all autocomplete instances
-                if (window.AutocompleteManager) {
-                    window.AutocompleteManager.destroyAll();
-                }
-            });
-        }
     }
 
     // Initialize when DOM is ready

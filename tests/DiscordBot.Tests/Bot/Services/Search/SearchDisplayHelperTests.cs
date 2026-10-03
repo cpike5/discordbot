@@ -32,6 +32,24 @@ public class SearchDisplayHelperTests
         result.Should().EndWith("...");
     }
 
+    [Fact]
+    public void Truncate_EmojiText_IsCountedInCharactersNotCodeUnits()
+    {
+        // 20 emoji are 40 UTF-16 units but 20 characters: it fits in 30 and is returned whole.
+        var text = string.Concat(Enumerable.Repeat("\U0001F600", 20));
+
+        SearchDisplayHelper.Truncate(text, 30).Should().Be(text);
+    }
+
+    [Fact]
+    public void Truncate_LongEmojiText_CutsOnWholeEmoji()
+    {
+        var text = string.Concat(Enumerable.Repeat("\U0001F600", 40));
+
+        SearchDisplayHelper.Truncate(text, 10).Should()
+            .Be(string.Concat(Enumerable.Repeat("\U0001F600", 7)) + "...");
+    }
+
     [Theory]
     [InlineData("SuperAdmin", "danger")]
     [InlineData("Admin", "warning")]

@@ -73,6 +73,20 @@ public class IndexModel : PaginatedPageModel
     public ulong? GuildId { get; set; }
 
     /// <summary>
+    /// Show notifications of every date. Set by clearing the "Last 7 days" chip; without it, a
+    /// list with no filters at all shows the last 7 days.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool AllTime { get; set; }
+
+    /// <summary>
+    /// True when this page applied the default "Last 7 days" window because nothing else was
+    /// asked for. The chip that shows it, and the links that must not freeze it into explicit
+    /// dates, key off this.
+    /// </summary>
+    public bool DefaultWindowApplied { get; private set; }
+
+    /// <summary>
     /// The view model containing notification list data.
     /// </summary>
     public NotificationListViewModel ViewModel { get; set; } = new();
@@ -82,8 +96,16 @@ public class IndexModel : PaginatedPageModel
     /// </summary>
     public IReadOnlyList<GuildDto> AvailableGuilds { get; set; } = Array.Empty<GuildDto>();
 
+    /// <summary>
+    /// When this request began, in UTC. Taken before the list is read, so a notification created
+    /// after it cannot be on the page; "Delete all" sends it as the upper bound of what to delete.
+    /// </summary>
+    public DateTime RenderedAtUtc { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        RenderedAtUtc = DateTime.UtcNow;
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
@@ -94,11 +116,13 @@ public class IndexModel : PaginatedPageModel
         // Load guilds for dropdown
         AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
-        // Set default date filter to last 7 days if no filters are provided
-        if (!HasAnyFilters())
+        // A list with no filters at all shows the last 7 days (decision D14). The window is whole
+        // days, so "Delete all" on this list removes exactly what it shows. AllTime opts out.
+        if (!HasAnyFilters() && !AllTime)
         {
-            StartDate = DateTime.UtcNow.AddDays(-7);
-            EndDate = DateTime.UtcNow;
+            StartDate = DateTime.UtcNow.Date.AddDays(-7);
+            EndDate = DateTime.UtcNow.Date;
+            DefaultWindowApplied = true;
         }
 
         var query = new NotificationQueryDto
@@ -122,8 +146,9 @@ public class IndexModel : PaginatedPageModel
             Type = Type,
             IsRead = IsRead,
             Severity = Severity,
-            StartDate = StartDate,
-            EndDate = EndDate,
+            // The default window is not a filter the user chose; it has its own chip
+            StartDate = DefaultWindowApplied ? null : StartDate,
+            EndDate = DefaultWindowApplied ? null : EndDate,
             SearchTerm = SearchTerm,
             GuildId = GuildId
         };

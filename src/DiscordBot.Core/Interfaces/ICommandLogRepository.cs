@@ -60,6 +60,19 @@ public interface ICommandLogRepository : IRepository<CommandLog>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets command usage statistics for a window, optionally for one guild.
+    /// </summary>
+    /// <param name="since">Inclusive lower bound of the execution time, or null for no lower bound.</param>
+    /// <param name="until">Exclusive upper bound of the execution time, or null for no upper bound.</param>
+    /// <param name="guildId">Restrict to one guild, or null for all.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IDictionary<string, int>> GetCommandUsageStatsAsync(
+        DateTime? since,
+        DateTime? until,
+        ulong? guildId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Logs a command execution.
     /// </summary>
     Task<CommandLog> LogCommandAsync(
@@ -89,6 +102,26 @@ public interface ICommandLogRepository : IRepository<CommandLog>
         DateTime? since = null,
         ulong? guildId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets success/failure rate statistics for a window (<paramref name="until"/> is exclusive,
+    /// like <see cref="GetUsageOverTimeAsync"/>).
+    /// </summary>
+    Task<CommandSuccessRateDto> GetSuccessRateAsync(
+        DateTime? since,
+        DateTime? until,
+        ulong? guildId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets response time performance metrics by command for a window (<paramref name="until"/> is exclusive).
+    /// </summary>
+    Task<IReadOnlyList<CommandPerformanceDto>> GetCommandPerformanceAsync(
+        DateTime? since,
+        DateTime? until,
+        ulong? guildId,
+        int limit,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets response time performance metrics by command.

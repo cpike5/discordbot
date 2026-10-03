@@ -169,7 +169,7 @@ public class AutocompleteController : ControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Invalid request",
-                Detail = "Guild ID is required for channel search.",
+                Detail = "Server ID is required for channel search.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -182,7 +182,7 @@ public class AutocompleteController : ControllerBase
 
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
+                Message = "Server not found",
                 Detail = $"No guild with ID {guildId.Value} is connected to the bot.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()

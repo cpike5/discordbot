@@ -6,7 +6,7 @@
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
         <div>
             <h1 class="page-title">Users</h1>
             <p class="mt-1 text-sm text-text-secondary">Manage application users and their roles</p>
@@ -24,13 +24,15 @@
 
     <!-- Search and Filters -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
-        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <form method="get" role="search" aria-label="Filter users" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Search -->
             <div>
-                <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                <label for="filter-search" class="block text-sm font-medium text-text-primary mb-1">Search</label>
                 <input
-                    type="text"
+                    type="search"
+                    id="filter-search"
                     name="SearchTerm"
+                    autocomplete="off"
                     value="@Model.SearchTerm"
                     placeholder="Email, name, or Discord username..."
                     class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
@@ -38,11 +40,12 @@
 
             <!-- Role Filter -->
             <div>
-                <label class="block text-sm font-medium text-text-primary mb-1">Role</label>
+                <label for="filter-role" class="block text-sm font-medium text-text-primary mb-1">Role</label>
                 <select
+                    id="filter-role"
                     name="RoleFilter"
                     class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
-                    <option value="">All Roles</option>
+                    <option value="">All roles</option>
                     @foreach (var role in Model.ViewModel.AvailableRoles)
                     {
                         <option value="@role" selected="@(Model.RoleFilter == role)">@role</option>
@@ -52,8 +55,9 @@
 
             <!-- Status Filter -->
             <div>
-                <label class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                <label for="filter-status" class="block text-sm font-medium text-text-primary mb-1">Status</label>
                 <select
+                    id="filter-status"
                     name="ActiveFilter"
                     class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
                     <option value="">All</option>
@@ -64,19 +68,20 @@
 
             <!-- Discord Filter -->
             <div>
-                <label class="block text-sm font-medium text-text-primary mb-1">Discord</label>
+                <label for="filter-discord" class="block text-sm font-medium text-text-primary mb-1">Discord</label>
                 <select
+                    id="filter-discord"
                     name="DiscordLinkedFilter"
                     class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
                     <option value="">All</option>
                     <option value="true" selected="@(Model.DiscordLinkedFilter == true)">Linked</option>
-                    <option value="false" selected="@(Model.DiscordLinkedFilter == false)">Not Linked</option>
+                    <option value="false" selected="@(Model.DiscordLinkedFilter == false)">Not linked</option>
                 </select>
             </div>
 
             <!-- Search Button -->
-            <div class="md:col-span-4 flex justify-end gap-2">
-                <a asp-page="Index" class="btn btn-secondary">Clear</a>
+            <div class="md:col-span-4 flex flex-wrap justify-end gap-2">
+                <a asp-page="Index" class="btn btn-secondary">Clear filters</a>
                 <button type="submit" class="btn btn-primary">
                     <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -97,7 +102,7 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Role</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Discord</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Last Login</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Last sign-in</th>
                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -116,7 +121,7 @@
                                         else
                                         {
                                             <div class="h-10 w-10 rounded-full bg-accent-blue flex items-center justify-center">
-                                                <span class="text-white font-medium text-sm">@user.Email.Substring(0, 1).ToUpper()</span>
+                                                <span class="text-white font-medium text-sm">@TextDisplay.Initials(user.Email, 1)</span>
                                             </div>
                                         }
                                         <div class="ml-4">
@@ -142,6 +147,10 @@
                                     <partial name="Shared/Components/_Badge" model="new DiscordBot.Bot.ViewModels.Components.BadgeViewModel { Text = user.HighestRole, Variant = badgeVariant, Size = DiscordBot.Bot.ViewModels.Components.BadgeSize.Small }" />
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
+                                    @if (user.IsLockedOut)
+                                    {
+                                        <span class="inline-flex items-center px-2.5 py-0.5 mr-1 rounded-full text-xs font-medium bg-warning/20 text-warning" title="Too many failed sign-ins. The lock lifts by itself.">Locked out</span>
+                                    }
                                     @if (user.IsActive)
                                     {
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
@@ -187,13 +196,30 @@
                                     }
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div class="flex justify-end gap-2">
-                                        <a asp-page="Details" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                                    <div class="flex justify-end items-center gap-3">
+                                        <a asp-page="Details" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80" aria-label="View @user.Email">
                                             View
                                         </a>
-                                        <a asp-page="Edit" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                                        <a asp-page="Edit" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80" aria-label="Edit @user.Email">
                                             Edit
                                         </a>
+                                        @if (user.Id != Model.ViewModel.CurrentUserId
+                                             && (User.IsInRole("SuperAdmin") || user.HighestRole != "SuperAdmin"))
+                                        {
+                                            @* Disable / enable. Not yourself, and only a SuperAdmin may do it to a SuperAdmin; the service refuses too. *@
+                                            <form method="post" asp-page-handler="ToggleActive" class="inline" data-submit-guard>
+                                                <input type="hidden" name="userId" value="@user.Id" />
+                                                <input type="hidden" name="isActive" value="@((!user.IsActive).ToString().ToLowerInvariant())" />
+                                                <input type="hidden" name="returnUrl" value="@(Model.Request.Path + Model.Request.QueryString)" />
+                                                <button type="submit"
+                                                        class="@(user.IsActive ? "text-error hover:text-error/80" : "text-accent-blue hover:text-accent-blue/80")"
+                                                        @(user.IsActive ? "data-confirm-disable" : "")
+                                                        data-user-email="@user.Email"
+                                                        aria-label="@(user.IsActive ? "Disable" : "Enable") @user.Email">
+                                                    @(user.IsActive ? "Disable" : "Enable")
+                                                </button>
+                                            </form>
+                                        }
                                     </div>
                                 </td>
                             </tr>
@@ -203,15 +229,25 @@
                     {
                         <tr>
                             <td colspan="6" class="px-6 py-12 text-center">
-                                @{
-                                    var emptyTitle = Model.SearchTerm != null ? "No users found" : "No users yet";
-                                    var emptyDesc = Model.SearchTerm != null ? "Try adjusting your search or filters" : "Create your first user to get started";
+                                @if (Model.HasActiveFilters)
+                                {
+                                    <partial name="Shared/Components/_EmptyState" model='new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                                        Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
+                                        Title = "No users match",
+                                        Description = "No one fits the search and filters you chose. Widen them or clear them to see everyone.",
+                                        PrimaryActionText = "Clear filters",
+                                        PrimaryActionUrl = Url.Page("Index"),
+                                        PrimaryActionIconPath = ""
+                                    }' />
                                 }
-                                <partial name="Shared/Components/_EmptyState" model="new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
-                                    Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
-                                    Title = emptyTitle,
-                                    Description = emptyDesc
-                                }" />
+                                else
+                                {
+                                    <partial name="Shared/Components/_EmptyState" model='new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                                        Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.FirstTime,
+                                        Title = "No users yet",
+                                        Description = "Create the first user to get started."
+                                    }' />
+                                }
                             </td>
                         </tr>
                     }
@@ -238,7 +274,14 @@
     </div>
 
     <!-- Results Summary -->
-    <div class="mt-4 text-sm text-text-secondary">
-        Showing @((Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1) to @Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount) of @Model.ViewModel.TotalCount users
-    </div>
+    @if (Model.ViewModel.TotalCount > 0)
+    {
+        <div class="mt-4 text-sm text-text-secondary">
+            Showing @((Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1) to @Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount) of @Model.ViewModel.TotalCount.ToString("N0") @(Model.ViewModel.TotalCount == 1 ? "user" : "users")
+        </div>
+    }
 </div>
+
+@section Scripts {
+    <script src="~/js/users-index.js" asp-append-version="true"></script>
+}

@@ -16,6 +16,27 @@ let resizeTimeout = null;
 // LocalStorage key for persisting collapsed state
 const SIDEBAR_COLLAPSED_KEY = 'sidebarCollapsed';
 
+// The drawer layout applies below this width (matches Tailwind's `lg`)
+const desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+// A closed mobile drawer is only translated off screen, which leaves every link in it a Tab stop
+// nobody can see. `inert` takes it out of the tab order and the accessibility tree; on desktop the
+// sidebar is always visible, so it is never inert there.
+function syncSidebarInert() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  sidebar.toggleAttribute('inert', !desktopQuery.matches && !sidebarOpen);
+}
+// quick-actions.js restores the sidebar through this after a dialog closes
+window.syncSidebarInert = syncSidebarInert;
+// Follow the breakpoint itself, not only the debounced resize handler: a rotation or a window snap
+// would otherwise leave a visible sidebar inert (or a hidden drawer in the tab order) for 100 ms.
+if (typeof desktopQuery.addEventListener === 'function') {
+  desktopQuery.addEventListener('change', syncSidebarInert);
+} else if (typeof desktopQuery.addListener === 'function') {
+  desktopQuery.addListener(syncSidebarInert);
+}
+
 // Get all focusable elements within the sidebar
 function getSidebarFocusableElements() {
   const sidebar = document.getElementById('sidebar');
@@ -72,8 +93,9 @@ function toggleMobileSidebar() {
     overlay.classList.remove('active');
   }
 
-  // Update aria-expanded state
+  // Update aria-expanded state. Opening must make the drawer focusable before focus moves into it.
   toggleButton.setAttribute('aria-expanded', sidebarOpen.toString());
+  syncSidebarInert();
 
   // Focus management
   if (sidebarOpen) {
@@ -112,6 +134,11 @@ function toggleSidebarCollapse() {
     collapseIcon.style.transform = sidebarCollapsed ? 'rotate(180deg)' : '';
   }
 
+  const collapseToggle = document.getElementById('sidebarCollapseToggle');
+  if (collapseToggle) {
+    collapseToggle.setAttribute('aria-expanded', (!sidebarCollapsed).toString());
+  }
+
   // Persist state in localStorage
   try {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.toString());
@@ -138,6 +165,7 @@ function closeSidebar() {
     sidebar.classList.add('-translate-x-full');
     overlay.classList.remove('active');
     toggleButton.setAttribute('aria-expanded', 'false');
+    syncSidebarInert();
     toggleButton.focus();
   }
 }
@@ -152,83 +180,18 @@ function toggleUserMenu() {
   button.setAttribute('aria-expanded', isExpanded.toString());
 }
 
-// Server Action Menu Toggle
-function toggleServerActionMenu(button, event) {
-  event.stopPropagation();
-
-  const dropdown = button.nextElementSibling;
-  if (!dropdown) return;
-
-  // Close any other open server action menus
-  document.querySelectorAll('.server-action-dropdown.active').forEach(function(menu) {
-    if (menu !== dropdown) {
-      menu.classList.remove('active');
-      const prevButton = menu.previousElementSibling;
-      if (prevButton) {
-        prevButton.setAttribute('aria-expanded', 'false');
-      }
-    }
-  });
-
-  const isExpanded = dropdown.classList.toggle('active');
-  button.setAttribute('aria-expanded', isExpanded.toString());
-}
-
-// Copy Server ID to clipboard
-function copyServerId(serverId, event) {
-  event.stopPropagation();
-
-  const button = event.currentTarget;
-  const copyText = button.querySelector('.copy-text');
-
-  navigator.clipboard.writeText(serverId).then(function() {
-    // Show success feedback
-    if (copyText) {
-      const originalText = copyText.textContent;
-      copyText.textContent = 'Copied!';
-      setTimeout(function() {
-        copyText.textContent = originalText;
-      }, 2000);
-    }
-
-    // Close the dropdown
-    const dropdown = button.closest('.server-action-dropdown');
-    if (dropdown) {
-      dropdown.classList.remove('active');
-      const menuButton = dropdown.previousElementSibling;
-      if (menuButton) {
-        menuButton.setAttribute('aria-expanded', 'false');
-      }
-    }
-  }).catch(function(err) {
-    console.error('Failed to copy server ID:', err);
-  });
-}
-
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(event) {
   // Close user menu
   const userMenu = document.getElementById('userMenu');
   const userMenuButton = document.getElementById('userMenuButton');
   if (userMenu) {
-    const userButton = event.target.closest('[aria-label="User menu"]');
-    if (!userButton && !event.target.closest('#userMenu')) {
+    if (!event.target.closest('#userMenuButton') && !event.target.closest('#userMenu')) {
       userMenu.classList.remove('active');
       if (userMenuButton) {
         userMenuButton.setAttribute('aria-expanded', 'false');
       }
     }
-  }
-
-  // Close server action menus
-  if (!event.target.closest('.server-action-btn') && !event.target.closest('.server-action-dropdown')) {
-    document.querySelectorAll('.server-action-dropdown.active').forEach(function(menu) {
-      menu.classList.remove('active');
-      const button = menu.previousElementSibling;
-      if (button) {
-        button.setAttribute('aria-expanded', 'false');
-      }
-    });
   }
 });
 
@@ -265,6 +228,7 @@ window.addEventListener('resize', function() {
         overlay.classList.remove('active');
         toggleButton.setAttribute('aria-expanded', 'false');
       }
+      syncSidebarInert();
     }
   }, 100); // 100ms debounce delay
 });
@@ -274,11 +238,12 @@ document.addEventListener('keydown', function(event) {
   // Handle focus trap in sidebar
   trapFocus(event);
 
-  // Close menus on Escape
-  if (event.key === 'Escape') {
+  // Escape closes whatever is open, and does nothing when nothing is. It used to focus the user
+  // menu button on every press, which pulled focus out of dialogs and inputs.
+  if (event.key === 'Escape' && !event.defaultPrevented) {
     const userMenu = document.getElementById('userMenu');
     const userMenuButton = document.getElementById('userMenuButton');
-    if (userMenu) {
+    if (userMenu && userMenu.classList.contains('active')) {
       userMenu.classList.remove('active');
       if (userMenuButton) {
         userMenuButton.setAttribute('aria-expanded', 'false');
@@ -287,23 +252,42 @@ document.addEventListener('keydown', function(event) {
       }
     }
 
-    // Close server action menus
-    document.querySelectorAll('.server-action-dropdown.active').forEach(function(menu) {
-      menu.classList.remove('active');
-      const button = menu.previousElementSibling;
-      if (button) {
-        button.setAttribute('aria-expanded', 'false');
-        button.focus();
-      }
-    });
-
-    // Close mobile sidebar and return focus to toggle button
+    // Close mobile sidebar and return focus to toggle button (acts only when it is open)
     closeSidebar();
   }
 });
 
+// The user menu is a disclosure: tabbing out of it closes it, as clicking elsewhere does.
+document.addEventListener('focusin', function(event) {
+  const userMenu = document.getElementById('userMenu');
+  if (!userMenu || !userMenu.classList.contains('active')) return;
+  if (event.target.closest('#userMenu') || event.target.closest('#userMenuButton')) return;
+  userMenu.classList.remove('active');
+  const userMenuButton = document.getElementById('userMenuButton');
+  if (userMenuButton) {
+    userMenuButton.setAttribute('aria-expanded', 'false');
+  }
+});
+
+// Skip link: a fragment jump alone leaves focus where it was in some browsers. Focus <main>
+// (tabindex="-1") so the next Tab lands on the first control in the page content.
+document.addEventListener('click', function(event) {
+  const link = event.target.closest('a.skip-link');
+  if (!link || !link.hash) return;
+  const target = document.getElementById(link.hash.slice(1));
+  if (!target) return;
+  event.preventDefault();
+  target.focus();
+  target.scrollIntoView();
+});
+
+// The script sits at the end of <body>, so the sidebar exists: take the closed drawer out of the
+// tab order before the first Tab.
+syncSidebarInert();
+
 // Initialize sidebar state on page load
 document.addEventListener('DOMContentLoaded', function() {
+  syncSidebarInert();
   // Restore sidebar collapsed state from localStorage
   // Note: The html.sidebar-collapsed class is already set by inline script in <head> for FOUC prevention
   // Here we sync the sidebar element's collapsed class and set the JS state variable
@@ -320,6 +304,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const collapseIcon = document.getElementById('sidebarCollapseIcon');
         if (collapseIcon) {
           collapseIcon.style.transform = 'rotate(180deg)';
+        }
+        const collapseToggle = document.getElementById('sidebarCollapseToggle');
+        if (collapseToggle) {
+          collapseToggle.setAttribute('aria-expanded', 'false');
         }
       }
     } else {

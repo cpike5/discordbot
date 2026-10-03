@@ -82,6 +82,8 @@ No `<meta name="description">` or `<meta name="theme-color">`.
 
 **Fix:** Add `<meta name="theme-color" content="#1d2022">` so mobile browser chrome matches the dark theme. Optionally add a description meta tag.
 
+**Done (UX polish Phase 2):** `Pages/Shared/_ThemeHead.cshtml` renders `theme-color` for the active theme in every layout, and `theme.js` updates it when the theme changes. The description meta is still open.
+
 ---
 
 ### 9. Breadcrumb partial invoked on every page even when empty

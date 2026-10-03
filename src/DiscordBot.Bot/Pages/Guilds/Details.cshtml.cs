@@ -200,6 +200,26 @@ public class DetailsModel : GuildPageModelBase
     /// </summary>
     public int AssistantRateLimitWindowMinutes { get; set; }
 
+    /// <summary>
+    /// Sections (see <see cref="GuildDetailsSections"/>) that could not be loaded. Each is shown as a
+    /// widget with a retry link rather than as zeros.
+    /// </summary>
+    public IReadOnlyCollection<string> FailedSections { get; set; } = Array.Empty<string>();
+
+    /// <summary>True when the named section failed to load.</summary>
+    public bool SectionFailed(string section) => FailedSections.Contains(section);
+
+    /// <summary>
+    /// The CDN avatar URL for a member, or null when they have no custom avatar.
+    /// </summary>
+    public string? MemberAvatarUrl(GuildMemberDto member)
+    {
+        if (string.IsNullOrEmpty(member.AvatarHash)) return null;
+
+        var extension = member.AvatarHash.StartsWith("a_", StringComparison.Ordinal) ? "gif" : "png";
+        return $"https://cdn.discordapp.com/avatars/{member.UserId}/{member.AvatarHash}.{extension}?size=80";
+    }
+
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", guildId);
@@ -211,6 +231,8 @@ public class DetailsModel : GuildPageModelBase
         }
 
         var guild = aggregate.Guild;
+
+        FailedSections = aggregate.FailedSections;
 
         WelcomeEnabled = aggregate.WelcomeEnabled;
         ScheduledMessagesTotal = aggregate.ScheduledMessagesTotal;
@@ -312,10 +334,10 @@ public class DetailsModel : GuildPageModelBase
                 // Check if this is an AJAX request
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
-                    return new JsonResult(new { success = true, message = "Guild synced successfully" });
+                    return new JsonResult(new { success = true, message = "Server synced successfully" });
                 }
 
-                TempData.SetSuccessToast("Guild synced successfully");
+                TempData.SetSuccessToast("Server synced successfully");
                 return RedirectToPage(new { guildId });
             }
             else
@@ -324,10 +346,10 @@ public class DetailsModel : GuildPageModelBase
 
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
-                    return new JsonResult(new { success = false, message = "Guild not found in Discord client" });
+                    return new JsonResult(new { success = false, message = "Server not found in Discord client" });
                 }
 
-                TempData.SetErrorToast("Guild not found in Discord client");
+                TempData.SetErrorToast("Server not found in Discord client");
                 return RedirectToPage(new { guildId });
             }
         }
@@ -337,10 +359,10 @@ public class DetailsModel : GuildPageModelBase
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
-                return new JsonResult(new { success = false, message = "An error occurred while syncing the guild" });
+                return new JsonResult(new { success = false, message = "An error occurred while syncing the server" });
             }
 
-            TempData.SetErrorToast("An error occurred while syncing the guild");
+            TempData.SetErrorToast("An error occurred while syncing the server");
             return RedirectToPage(new { guildId });
         }
     }

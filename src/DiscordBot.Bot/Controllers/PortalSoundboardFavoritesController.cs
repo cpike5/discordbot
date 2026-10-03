@@ -79,7 +79,7 @@ public class PortalSoundboardFavoritesController : PortalSoundboardControllerBas
         // Validate that the sound exists in this guild
         var sound = await _soundService.GetByIdAsync(soundId, guildId, cancellationToken);
         if (sound == null)
-            return NotFound(new { message = "Sound not found in this guild" });
+            return NotFound(new { message = "Sound not found in this server" });
 
         var favorite = new UserSoundFavorite
         {

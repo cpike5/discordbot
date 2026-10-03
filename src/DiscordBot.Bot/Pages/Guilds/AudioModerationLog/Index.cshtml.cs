@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -20,17 +21,21 @@ public class IndexModel : PaginatedGuildPageModel
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<IndexModel> _logger;
+    private readonly IDiscordUserResolver? _userResolver;
+    private readonly Dictionary<ulong, string> _resolvedUserNames = new();
 
     public IndexModel(
         IAudioPlaybackLogRepository audioPlaybackLogRepository,
         IGuildService guildService,
         DiscordSocketClient discordClient,
-        ILogger<IndexModel> logger)
+        ILogger<IndexModel> logger,
+        IDiscordUserResolver? userResolver = null)
     {
         _audioPlaybackLogRepository = audioPlaybackLogRepository;
         _guildService = guildService;
         _discordClient = discordClient;
         _logger = logger;
+        _userResolver = userResolver;
 
         // Override base class defaults for audio log
         SortBy = "PlayedAt";
@@ -84,6 +89,22 @@ public class IndexModel : PaginatedGuildPageModel
     public string? GuildIconUrl { get; set; }
 
     /// <summary>
+    /// What is wrong with the user filter, when it is not a Discord user ID. The log then shows
+    /// no rows rather than quietly ignoring the filter and listing everybody.
+    /// </summary>
+    public string? UserFilterError { get; private set; }
+
+    /// <summary>
+    /// What is wrong with the date range, when the end is before the start.
+    /// </summary>
+    public string? DateRangeError { get; private set; }
+
+    /// <summary>
+    /// Whether the filters can be applied. When not, no query runs and the page says why.
+    /// </summary>
+    public bool FiltersValid => UserFilterError == null && DateRangeError == null;
+
+    /// <summary>
     /// Whether any filters are currently active.
     /// </summary>
     public bool HasActiveFilters =>
@@ -105,8 +126,10 @@ public class IndexModel : PaginatedGuildPageModel
     };
 
     /// <summary>
-    /// Resolves a Discord user ID to a display name using the Discord client.
-    /// Falls back to the raw ID if the user cannot be resolved.
+    /// Resolves a Discord user ID to a display name: the guild's cached member, the user resolver
+    /// (Discord, then the username the bot stored), and only then "Unknown user". A raw ID is not
+    /// something an admin can act on, so it never becomes the text (UX plan C-1); the preview popup
+    /// on the name still carries the ID.
     /// </summary>
     public string ResolveUserName(ulong userId)
     {
@@ -131,12 +154,13 @@ public class IndexModel : PaginatedGuildPageModel
             // Ignore resolution failures
         }
 
-        return userId.ToString();
+        return _resolvedUserNames.TryGetValue(userId, out var resolved) ? resolved : UserDisplay.UnknownName;
     }
 
     /// <summary>
     /// Resolves a Discord channel ID to a channel name.
-    /// Falls back to the raw ID if the channel cannot be resolved.
+    /// Falls back to <c>unknown (ID 123)</c> if the channel cannot be resolved, so the row still says
+    /// which channel it was (the page puts the "#" in front).
     /// </summary>
     public string ResolveChannelName(ulong channelId)
     {
@@ -152,7 +176,40 @@ public class IndexModel : PaginatedGuildPageModel
             // Ignore resolution failures
         }
 
-        return channelId.ToString();
+        return $"unknown (ID {channelId})";
+    }
+
+    /// <summary>
+    /// Looks up, through the user resolver, the people the Discord client does not have cached, so
+    /// the rows show a name rather than "Unknown user" whenever the bot has ever seen them.
+    /// </summary>
+    private async Task ResolveMissingUserNamesAsync()
+    {
+        if (_userResolver is null) return;
+
+        try
+        {
+            var guild = _discordClient.GetGuild(GuildId);
+            var missing = LogEntries
+                .Select(e => e.UserId)
+                .Where(id => id != 0 && guild?.GetUser(id) is null && _discordClient.GetUser(id) is null)
+                .Distinct()
+                .ToList();
+            if (missing.Count == 0) return;
+
+            var names = await _userResolver.ResolveUsersAsync(missing);
+            foreach (var (id, identity) in names)
+            {
+                if (!UserDisplay.IsUnknown(identity.Username))
+                {
+                    _resolvedUserNames[id] = identity.Username;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve the names of audio log users");
+        }
     }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -176,11 +233,32 @@ public class IndexModel : PaginatedGuildPageModel
         GuildName = guild.Name;
         GuildIconUrl = guild.IconUrl;
 
-        // Parse user filter to ulong if provided
         ulong? userIdFilter = null;
-        if (!string.IsNullOrWhiteSpace(UserFilter) && ulong.TryParse(UserFilter.Trim(), out var parsedUserId))
+        if (!string.IsNullOrWhiteSpace(UserFilter))
         {
-            userIdFilter = parsedUserId;
+            if (TryParseUserId(UserFilter, out var parsedUserId))
+            {
+                userIdFilter = parsedUserId;
+            }
+            else
+            {
+                UserFilterError = "Enter a Discord user ID: digits only, like 123456789012345678. You can paste a mention too.";
+                ModelState.AddModelError(nameof(UserFilter), UserFilterError);
+            }
+        }
+
+        if (DateFrom.HasValue && DateTo.HasValue && DateFrom.Value.Date > DateTo.Value.Date)
+        {
+            DateRangeError = "The end date is before the start date. Swap them or pick a later end date.";
+            ModelState.AddModelError(nameof(DateTo), DateRangeError);
+        }
+
+        if (!FiltersValid)
+        {
+            // Show nothing, not everything: an unreadable filter is not "no filter"
+            PopulateGuildLayout(guild.Id, guild.Name, guild.IconUrl, "audio", "Audio Log",
+                $"Audio playback history for {guild.Name}");
+            return Page();
         }
 
         // Adjust DateTo to include the entire day
@@ -198,6 +276,7 @@ public class IndexModel : PaginatedGuildPageModel
             cancellationToken);
 
         LogEntries = items;
+        await ResolveMissingUserNamesAsync();
         TotalCount = totalCount;
         TotalPages = (int)Math.Ceiling((double)totalCount / PageSize);
 
@@ -210,5 +289,25 @@ public class IndexModel : PaginatedGuildPageModel
             $"Audio playback history for {guild.Name}");
 
         return Page();
+    }
+
+    /// <summary>
+    /// Reads a Discord user ID from filter text: plain digits, or a pasted mention (&lt;@123&gt;).
+    /// </summary>
+    internal static bool TryParseUserId(string? text, out ulong userId)
+    {
+        userId = 0;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+        if (trimmed.StartsWith("<@", StringComparison.Ordinal) && trimmed.EndsWith('>'))
+        {
+            trimmed = trimmed[2..^1].TrimStart('!');
+        }
+
+        return trimmed.All(char.IsAsciiDigit) && ulong.TryParse(trimmed, out userId) && userId != 0;
     }
 }

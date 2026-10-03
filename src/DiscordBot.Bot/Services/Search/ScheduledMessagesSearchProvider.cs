@@ -2,6 +2,7 @@ using System.Security.Claims;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Services.Search;
@@ -64,7 +65,7 @@ public class ScheduledMessagesSearchProvider : ISearchProvider
                 Subtitle = $"Channel ID: {x.Message.ChannelId}",
                 Description = x.Message.NextExecutionAt.HasValue
                     ? $"Next: {x.Message.NextExecutionAt.Value:MMM d, yyyy h:mm tt} UTC"
-                    : $"Frequency: {x.Message.Frequency}",
+                    : $"Frequency: {x.Message.Frequency.DisplayName()}",
                 BadgeText = x.Message.IsEnabled ? "Active" : "Disabled",
                 BadgeVariant = x.Message.IsEnabled ? "success" : "secondary",
                 Url = $"/Guilds/ScheduledMessages/Edit/{x.Message.GuildId}/{x.Message.Id}",

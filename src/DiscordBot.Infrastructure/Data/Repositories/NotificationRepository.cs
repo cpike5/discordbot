@@ -348,32 +348,7 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
             .Include(n => n.Guild)
             .Where(n => n.UserId == userId && n.DismissedAt == null);
 
-        // Apply filters
-        if (query.Type.HasValue)
-            baseQuery = baseQuery.Where(n => n.Type == query.Type.Value);
-
-        if (query.IsRead.HasValue)
-            baseQuery = baseQuery.Where(n => n.IsRead == query.IsRead.Value);
-
-        if (query.Severity.HasValue)
-            baseQuery = baseQuery.Where(n => n.Severity == query.Severity.Value);
-
-        if (query.StartDate.HasValue)
-            baseQuery = baseQuery.Where(n => n.CreatedAt >= query.StartDate.Value);
-
-        if (query.EndDate.HasValue)
-            baseQuery = baseQuery.Where(n => n.CreatedAt <= query.EndDate.Value);
-
-        if (query.GuildId.HasValue)
-            baseQuery = baseQuery.Where(n => n.GuildId == query.GuildId.Value);
-
-        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
-        {
-            var term = query.SearchTerm.ToLower();
-            baseQuery = baseQuery.Where(n =>
-                n.Title.ToLower().Contains(term) ||
-                n.Message.ToLower().Contains(term));
-        }
+        baseQuery = ApplyFilters(baseQuery, query);
 
         // Apply ordering, then delegate count + skip/take to the shared paging helper
         var orderedQuery = baseQuery.OrderByDescending(n => n.CreatedAt);
@@ -497,5 +472,62 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
 
         _logger.LogInformation("Deleted {Count} notifications for user {UserId}", deleted, userId);
         return deleted;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteMatchingAsync(
+        string userId,
+        NotificationQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Deleting notifications matching a filter for user {UserId}", userId);
+
+        // No Include here: ExecuteDeleteAsync cannot run over a query that joins another table
+        var matching = ApplyFilters(DbSet.Where(n => n.UserId == userId && n.DismissedAt == null), query);
+        var deleted = await matching.ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogInformation("Deleted {Count} matching notifications for user {UserId}", deleted, userId);
+        return deleted;
+    }
+
+    /// <summary>
+    /// Applies the filters of a notification query (everything but paging) to a query.
+    /// Shared by the list and by the filtered delete, so "Delete all" removes exactly what the
+    /// list shows.
+    /// </summary>
+    private static IQueryable<UserNotification> ApplyFilters(
+        IQueryable<UserNotification> source,
+        NotificationQueryDto query)
+    {
+        if (query.Type.HasValue)
+            source = source.Where(n => n.Type == query.Type.Value);
+
+        if (query.IsRead.HasValue)
+            source = source.Where(n => n.IsRead == query.IsRead.Value);
+
+        if (query.Severity.HasValue)
+            source = source.Where(n => n.Severity == query.Severity.Value);
+
+        if (query.StartDate.HasValue)
+            source = source.Where(n => n.CreatedAt >= query.StartDate.Value);
+
+        if (query.EndDate.HasValue)
+            source = source.Where(n => n.CreatedAt <= query.EndDate.Value);
+
+        if (query.Before.HasValue)
+            source = source.Where(n => n.CreatedAt <= query.Before.Value);
+
+        if (query.GuildId.HasValue)
+            source = source.Where(n => n.GuildId == query.GuildId.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var term = query.SearchTerm.ToLower();
+            source = source.Where(n =>
+                n.Title.ToLower().Contains(term) ||
+                n.Message.ToLower().Contains(term));
+        }
+
+        return source;
     }
 }

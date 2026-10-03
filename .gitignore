@@ -286,6 +286,9 @@ ServiceFabricBackup/
 # SQLite database files
 discordbot.db*
 
+# Personal-data export archives (contain user data; written under {ContentRoot}/data/exports)
+**/data/exports/
+
 # Business Intelligence projects
 *.rdl.data
 *.bim.layout

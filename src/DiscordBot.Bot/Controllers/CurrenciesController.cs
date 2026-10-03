@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
@@ -25,6 +26,8 @@ public class CurrenciesController : CurrencyControllerBase
     private readonly ICurrencyAccessService? _accessService;
     private readonly IAuditLogService _auditLog;
     private readonly ILogger<CurrenciesController> _logger;
+    private readonly IDiscordUserResolver? _userResolver;
+    private readonly DiscordSocketClient? _discordClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CurrenciesController"/> class.
@@ -36,16 +39,22 @@ public class CurrenciesController : CurrencyControllerBase
     /// registered. Every route answers 404 in that case.
     /// </param>
     /// <param name="accessService">The currency access service, null under the same condition.</param>
+    /// <param name="userResolver">Resolves user IDs to names for the mint authority list; optional.</param>
+    /// <param name="discordClient">Resolves role IDs to names for the mint authority list; optional.</param>
     public CurrenciesController(
         IAuditLogService auditLog,
         ILogger<CurrenciesController> logger,
         ICurrencyService? currencyService = null,
-        ICurrencyAccessService? accessService = null)
+        ICurrencyAccessService? accessService = null,
+        IDiscordUserResolver? userResolver = null,
+        DiscordSocketClient? discordClient = null)
     {
         _auditLog = auditLog;
         _logger = logger;
         _currencyService = currencyService;
         _accessService = accessService;
+        _userResolver = userResolver;
+        _discordClient = discordClient;
     }
 
     /// <summary>
@@ -267,7 +276,7 @@ public class CurrenciesController : CurrencyControllerBase
             return FeatureDisabled();
         }
 
-        var (_, failure) = await ResolveCurrencyAsync(
+        var (currency, failure) = await ResolveCurrencyAsync(
             _currencyService, _accessService, User, id, CurrencyAccessLevel.Administer, cancellationToken);
 
         if (failure != null)
@@ -276,7 +285,73 @@ public class CurrenciesController : CurrencyControllerBase
         }
 
         var authorities = await _currencyService.GetMintAuthoritiesAsync(id, cancellationToken);
-        return Ok(authorities);
+        return Ok(await WithPrincipalNamesAsync(authorities, currency?.GuildId));
+    }
+
+    /// <summary>
+    /// Adds a display name to each grant: the username for a user, the role's name for a role,
+    /// "System" for the system principal. A name that cannot be found stays null and the page
+    /// falls back to the ID, so a missing Discord connection never hides a grant.
+    /// </summary>
+    internal async Task<IReadOnlyList<MintAuthorityDto>> WithPrincipalNamesAsync(
+        IReadOnlyList<MintAuthorityDto> authorities,
+        ulong? guildId)
+    {
+        IReadOnlyDictionary<ulong, (string Username, string? AvatarUrl)>? users = null;
+        var userIds = authorities
+            .Where(a => a.PrincipalType == MintPrincipalType.User && a.PrincipalId.HasValue)
+            .Select(a => a.PrincipalId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (_userResolver != null && userIds.Count > 0)
+        {
+            try
+            {
+                users = await _userResolver.ResolveUsersAsync(userIds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not resolve mint authority user names");
+            }
+        }
+
+        var guild = guildId.HasValue ? _discordClient?.GetGuild(guildId.Value) : null;
+
+        return authorities.Select(a => a with
+        {
+            PrincipalName = a.PrincipalType switch
+            {
+                MintPrincipalType.System => "System",
+                MintPrincipalType.Role when a.PrincipalId.HasValue => guild?.GetRole(a.PrincipalId.Value)?.Name,
+                MintPrincipalType.User when a.PrincipalId.HasValue &&
+                                            users != null && users.TryGetValue(a.PrincipalId.Value, out var resolved) &&
+                                            !resolved.Username.StartsWith("Unknown#", StringComparison.Ordinal) => resolved.Username,
+                _ => null
+            }
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Why a role cannot hold mint authority, or null when it can. <c>@everyone</c> would hand the
+    /// grant to every member, and a managed role belongs to an integration or the server's boost,
+    /// not to a group of people. <c>@everyone</c> is recognised by its ID, which is the guild's ID,
+    /// so it is refused even while the guild is not in the cache; <paramref name="role"/> is the
+    /// cached role when there is one, and is what tells a managed role.
+    /// </summary>
+    internal static string? GetRoleGrantRefusal(ulong guildId, ulong roleId, Discord.IRole? role)
+    {
+        if (roleId == guildId)
+        {
+            return "The @everyone role cannot be granted mint authority: that would let every member mint.";
+        }
+
+        if (role?.IsManaged == true)
+        {
+            return "A managed role (one created by an integration or a boost) cannot be granted mint authority.";
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -288,6 +363,7 @@ public class CurrenciesController : CurrencyControllerBase
     [HttpPost]
     [Route("api/currencies/{id:guid}/mint-authorities")]
     [ProducesResponseType(typeof(MintAuthorityDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<MintAuthorityDto>> GrantMintAuthority(
         Guid id,
@@ -318,6 +394,18 @@ public class CurrenciesController : CurrencyControllerBase
             return BadRequestError(
                 "Discord account required",
                 "Link your Discord account before granting mint authority; the grant records who made it.");
+        }
+
+        // The UI only offers roles that can be granted; the API has to agree, because anyone with
+        // Administer access can post here directly
+        if (request.PrincipalType == MintPrincipalType.Role && request.PrincipalId.HasValue && currency!.GuildId.HasValue)
+        {
+            var role = _discordClient?.GetGuild(currency.GuildId.Value)?.GetRole(request.PrincipalId.Value);
+            var refusal = GetRoleGrantRefusal(currency.GuildId.Value, request.PrincipalId.Value, role);
+            if (refusal != null)
+            {
+                return BadRequestError("Role cannot be granted", refusal);
+            }
         }
 
         var result = await _currencyService.GrantMintAuthorityAsync(

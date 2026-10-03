@@ -35,7 +35,7 @@ You are a domain expert for the **Moderation & Safety** stream of a Discord bot 
 - `ModerationCasesController`, `ModerationConfigController`, `UserModerationController`, `ModTagsController`, `FlaggedEventsController`, `BulkPurgeController`
 
 ### Pages
-- `Guilds/Members/Moderation.cshtml`, `Guilds/FlaggedEvents/` (Index, Details), `Guilds/ModerationSettings/Index.cshtml`, `Admin/BulkPurge.cshtml`
+- `Guilds/Members/Moderation.cshtml`, `Guilds/FlaggedEvents/` (Index, Details), `Guilds/ModerationSettings/Index.cshtml`, `Admin/BulkPurge.cshtml` (criteria are a GET, the purge a redirecting POST; `purge.js` and the `BulkPurgeProgress` hub event drive the confirm and progress)
 
 ### Repositories (7)
 - `ModerationCaseRepository`, `ModNoteRepository`, `ModTagRepository`, `UserModTagRepository`, `WatchlistRepository`, `FlaggedEventRepository`, `GuildModerationConfigRepository`
@@ -48,3 +48,11 @@ You are a domain expert for the **Moderation & Safety** stream of a Discord bot 
 - **Moderation settings are per-guild** via `GuildModerationConfig`, not global
 - **Audit logging:** Log moderation actions using the fluent `IAuditLogBuilder` API
 - **Interactive components:** Use `ComponentIdBuilder` for Discord button/select menu IDs
+
+## Patterns added by the UX polish pass (Phase 7)
+
+- **Review actions are form posts, not API calls.** `FlaggedEvents/Index` (`Dismiss`, `Acknowledge`, `Bulk`) and `Details` (`Dismiss`, `Acknowledge`, `RecordOutcome`) take the reviewer from `User.GetDiscordUserId()`, check the event belongs to the guild, apply `FlaggedEventReviewRules`, and report counts through `FlaggedEventBatchOutcome` as a TempData toast. The reviewer id the old pages sent came from a claim that does not exist (`DiscordId`), so those calls always failed.
+- **Settings saves are patches.** The ModerationSettings handlers bind `SpamConfigPatchDto`, `ContentFilterPatchDto` and `RaidProtectionPatchDto` (Core), validate them (400 with `errors` keyed by camelCase field), and merge only the fields sent onto the saved config. `AllowedLinkDomains` and `BlockUnlistedLinks` are not on the page and are never touched by a content save. Tag categories are `Positive = 0, Negative = 1, Neutral = 2`; `ModTagStyle` maps category to chip class, label and stored colour.
+- **Member queries** can ask for `NeverActive` (no `LastActiveAt`); the page, the CSV export (`?handler=Export`, optional `UserIds`) and the cache key all carry it.
+- **One route per verb.** User tag apply/remove live only on `UserModerationController`; `RouteAmbiguityTests` fails if any two endpoints share a route and verb.
+- `FlaggedEventRepository.UpdateAsync` drops the loaded `Guild` before updating, so several events can be updated through one context.

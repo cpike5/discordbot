@@ -1,652 +1,577 @@
 /**
- * TTS Page Module
- * Handles AJAX form submissions for TTS message sending, settings updates, and message deletion
+ * TTS admin page (Pages/Guilds/TextToSpeech): send, preview, server defaults, history.
+ *
+ * Send and Preview use the voice settings on screen (voice, speed, pitch, volume, style) and,
+ * in Pro mode, the SSML built from the message; the server falls back to the saved defaults for
+ * anything left out. "Save as server defaults" is the only thing that changes what /tts uses.
+ *
+ * Every request goes through ApiClient. History rows are built with DOM calls, so message text
+ * never reaches markup or an inline handler. The pure helpers are exported for node --test.
  */
-(function() {
+(function (root, factory) {
+    var api = factory(root);
+    if (typeof module === 'object' && module.exports) {
+        module.exports = api;
+    } else {
+        root.ttsPage = api;
+        if (root.document.readyState === 'loading') {
+            root.document.addEventListener('DOMContentLoaded', function () { api.init(); });
+        } else {
+            api.init();
+        }
+    }
+})(typeof self !== 'undefined' ? self : this, function (root) {
     'use strict';
 
-    // Icon SVG templates for button states
-    const icons = {
-        save: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>',
-        loading: '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>',
-        success: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-        error: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
-        play: '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'
+    // loading-manager.js declares a top-level const, so it is a global binding but not window.LoadingManager
+    function loadingManager() {
+        return typeof LoadingManager !== 'undefined' ? LoadingManager : { setButtonLoading: function (b, on) { b.disabled = on; } };
+    }
+
+    // ---------------------------------------------------------------- pure helpers
+
+    /**
+     * The body for a Send or Preview request, from what is on screen.
+     * @param {object} s - { message, voice, speed, pitch, volume, mode, style, styleIntensity, ssml }
+     */
+    function buildRequestBody(s) {
+        var body = {
+            message: (s.message || '').trim(),
+            voice: s.voice || null,
+            speed: finiteOrNull(s.speed),
+            pitch: finiteOrNull(s.pitch),
+            volume: finiteOrNull(s.volume)
+        };
+        // The style selector is hidden in Simple mode, so a style picked earlier does not apply
+        if (s.mode !== 'simple' && s.style) {
+            body.style = s.style;
+            body.styleIntensity = finiteOrNull(s.styleIntensity);
+        }
+        if (s.mode === 'pro' && s.ssml) {
+            body.ssml = s.ssml;
+        }
+        return body;
+    }
+
+    function finiteOrNull(value) {
+        var n = typeof value === 'number' ? value : parseFloat(value);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    /** A whole number in range, or null: never a silent 0 for an empty or garbled field. */
+    function parseWholeNumber(raw, min, max) {
+        var text = String(raw === undefined || raw === null ? '' : raw).trim();
+        if (!/^-?\d+$/.test(text)) return null;
+        var n = parseInt(text, 10);
+        return n >= min && n <= max ? n : null;
+    }
+
+    function sliderText(type, value) {
+        return type === 'volume' ? Math.round(value * 100) + '%' : value.toFixed(1) + 'x';
+    }
+
+    var api = {
+        buildRequestBody: buildRequestBody,
+        parseWholeNumber: parseWholeNumber,
+        sliderText: sliderText,
+        init: init
     };
 
-    // Store original button states for reset
-    const buttonOriginalStates = new WeakMap();
+    // ---------------------------------------------------------------- page behaviour
 
-    /**
-     * Build form data with proper checkbox handling
-     * Checkboxes need special handling because unchecked boxes don't submit values
-     * @param {HTMLFormElement} form - The form element
-     * @returns {FormData} - FormData with correct checkbox values
-     */
-    function buildFormData(form) {
-        const formData = new FormData();
+    function init() {
+        var doc = root.document;
+        var cfg = root.ttsPageConfig;
+        if (!cfg || !doc.getElementById('ttsForm')) return;
 
-        // Add the anti-forgery token
-        const token = form.querySelector('input[name="__RequestVerificationToken"]');
-        if (token) {
-            formData.append('__RequestVerificationToken', token.value);
+        var guildId = String(cfg.guildId);
+        var pageUrl = function (handler, query) {
+            return '/Guilds/TextToSpeech/' + guildId + '?handler=' + handler + (query || '');
+        };
+        var $ = function (id) { return doc.getElementById(id); };
+
+        var currentMode = 'standard';
+        var currentSsml = '';
+        var ssmlTimer = null;
+        var ssmlSequence = 0;
+        var sending = false;
+        var previewing = false;
+        var previewAudio = null;
+
+        var textarea = $('messageInput');
+        var sendBtn = $('sendBtn');
+        var previewBtn = $('previewBtn');
+
+        function pending(button, isPending, text) {
+            loadingManager().setButtonLoading(button, isPending, text || null);
         }
 
-        // Process all checkboxes - add their current state (true/false)
-        const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-            if (checkbox.name && !checkbox.name.startsWith('__')) {
-                formData.append(checkbox.name, checkbox.checked ? 'true' : 'false');
-            }
-        });
-
-        // Process all other form inputs (text, number, select, textarea, range, etc.)
-        const inputs = form.querySelectorAll('input:not([type="checkbox"]), select, textarea');
-        inputs.forEach(input => {
-            if (input.name && !input.name.startsWith('__')) {
-                formData.append(input.name, input.value);
-            }
-        });
-
-        return formData;
-    }
-
-    /**
-     * Store the original state of a button for later reset
-     * @param {HTMLButtonElement} button - The button element
-     */
-    function storeButtonState(button) {
-        if (!button || buttonOriginalStates.has(button)) return;
-        buttonOriginalStates.set(button, {
-            innerHTML: button.innerHTML,
-            disabled: button.disabled
-        });
-    }
-
-    /**
-     * Reset a button to its original state
-     * @param {HTMLButtonElement} button - The button element
-     */
-    function resetButtonState(button) {
-        if (!button) return;
-        const original = buttonOriginalStates.get(button);
-        if (original) {
-            button.innerHTML = original.innerHTML;
-            button.disabled = original.disabled;
-        }
-    }
-
-    /**
-     * Set button to loading state
-     * @param {HTMLButtonElement} button - The button element
-     * @param {string} loadingText - Optional loading text
-     */
-    function setButtonLoading(button, loadingText = 'Sending...') {
-        if (!button) return;
-        storeButtonState(button);
-        button.disabled = true;
-        button.innerHTML = `${icons.loading} ${loadingText}`;
-    }
-
-    /**
-     * Set button to success state
-     * @param {HTMLButtonElement} button - The button element
-     * @param {string} successText - Optional success text
-     * @param {boolean} autoReset - Whether to auto-reset after 2 seconds
-     */
-    function setButtonSuccess(button, successText = 'Sent!', autoReset = true) {
-        if (!button) return;
-        button.disabled = true;
-        button.innerHTML = `${icons.success} ${successText}`;
-
-        if (autoReset) {
-            setTimeout(() => resetButtonState(button), 2000);
-        }
-    }
-
-    /**
-     * Set button to error state (allows retry)
-     * @param {HTMLButtonElement} button - The button element
-     * @param {string} errorText - Optional error text
-     */
-    function setButtonError(button, errorText = 'Failed - Retry') {
-        if (!button) return;
-        button.disabled = false; // Allow retry
-        button.innerHTML = `${icons.error} ${errorText}`;
-
-        // Reset after 3 seconds
-        setTimeout(() => resetButtonState(button), 3000);
-    }
-
-    /**
-     * Update stats cards with new data
-     * @param {Object} stats - Stats data from server
-     */
-    function updateStats(stats) {
-        if (!stats) return;
-
-        // Update Messages Today
-        const messagesToday = document.getElementById('statsMessagesToday');
-        if (messagesToday && stats.messagesToday !== undefined) {
-            messagesToday.textContent = stats.messagesToday;
-        }
-
-        // Update Total Playback
-        const totalPlayback = document.getElementById('statsTotalPlayback');
-        if (totalPlayback && stats.totalPlaybackFormatted) {
-            totalPlayback.textContent = stats.totalPlaybackFormatted;
-        }
-
-        // Update Active Voices
-        const activeVoices = document.getElementById('statsActiveVoices');
-        if (activeVoices && stats.uniqueUsers !== undefined) {
-            activeVoices.textContent = stats.uniqueUsers;
-        }
-    }
-
-    /**
-     * Add a new message to the recent messages list
-     * @param {Object} messageData - Message data from server
-     */
-    function addRecentMessage(messageData) {
-        if (!messageData) return;
-
-        const messagesList = document.getElementById('recentMessagesList');
-        if (!messagesList) return;
-
-        // Check if empty state exists and remove it
-        const emptyState = messagesList.querySelector('.p-8');
-        if (emptyState) {
-            emptyState.remove();
-        }
-
-        // Create message element
-        const messageEl = document.createElement('div');
-        messageEl.className = 'flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors group';
-        messageEl.dataset.messageId = messageData.id;
-
-        // Extract initials from username (first 2 chars)
-        const initials = messageData.username.substring(0, Math.min(2, messageData.username.length)).toUpperCase();
-
-        messageEl.innerHTML = `
-            <div class="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                ${initials}
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="text-sm text-text-primary truncate">${escapeHtml(messageData.message)}</div>
-                <div class="flex items-center gap-2 mt-1 text-xs text-text-tertiary">
-                    <span class="preview-trigger" data-preview-type="user" data-user-id="${messageData.userId}" data-context-guild-id="${window.guildId}">${escapeHtml(messageData.username)}</span>
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue-muted text-accent-blue rounded font-medium text-[0.65rem]">
-                        ${escapeHtml(messageData.voice)}
-                    </span>
-                    <span>${escapeHtml(messageData.durationFormatted)}</span>
-                </div>
-            </div>
-            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button type="button"
-                        disabled
-                        title="Replay functionality coming soon"
-                        class="p-2 rounded text-text-tertiary cursor-not-allowed opacity-50">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                </button>
-                <button type="button"
-                        onclick="showDeleteModal('${messageData.id}', '${escapeHtml(messageData.message).replace(/'/g, "\\'")}')"
-                        class="p-2 rounded text-error hover:bg-error/10 transition-colors"
-                        title="Delete">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
-            </div>
-        `;
-
-        // Prepend to list
-        const container = messagesList.querySelector('.divide-y');
-        if (container) {
-            container.insertBefore(messageEl, container.firstChild);
-        } else {
-            // If no container exists, create one
-            const newContainer = document.createElement('div');
-            newContainer.className = 'divide-y divide-border-secondary';
-            newContainer.appendChild(messageEl);
-            messagesList.appendChild(newContainer);
-        }
-
-        // Update count badge
-        const countBadge = document.querySelector('.inline-flex.items-center.justify-center.px-2\\.5.py-1.text-xs');
-        if (countBadge) {
-            const currentCount = parseInt(countBadge.textContent) || 0;
-            countBadge.textContent = currentCount + 1;
-        }
-    }
-
-    /**
-     * Remove a message from the recent messages list
-     * @param {string} messageId - The message ID to remove
-     */
-    function removeMessage(messageId) {
-        const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
-        if (messageEl) {
-            messageEl.remove();
-
-            // Update count badge
-            const countBadge = document.querySelector('.inline-flex.items-center.justify-center.px-2\\.5.py-1.text-xs');
-            if (countBadge) {
-                const currentCount = parseInt(countBadge.textContent) || 0;
-                countBadge.textContent = Math.max(0, currentCount - 1);
-            }
-
-            // Check if list is now empty
-            const messagesList = document.getElementById('recentMessagesList');
-            if (messagesList) {
-                const container = messagesList.querySelector('.divide-y');
-                if (!container || container.children.length === 0) {
-                    // Show empty state
-                    messagesList.innerHTML = `
-                        <div class="p-8">
-                            <div class="text-center space-y-3">
-                                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-bg-tertiary text-text-tertiary">
-                                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="text-sm font-semibold text-text-primary">No Messages Yet</h3>
-                                    <p class="mt-1 text-xs text-text-secondary">Send your first TTS message using the form above.</p>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
+        function fieldError(id, message, control) {
+            var el = $(id);
+            if (!el) return;
+            el.textContent = message || '';
+            el.classList.toggle('hidden', !message);
+            if (control) {
+                if (message) control.setAttribute('aria-invalid', 'true'); else control.removeAttribute('aria-invalid');
             }
         }
-    }
 
-    /**
-     * Escape HTML to prevent XSS
-     * @param {string} text - Text to escape
-     * @returns {string} - Escaped text
-     */
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
+        // ------------------------------------------------------------ stats
 
-    /**
-     * Send TTS message via AJAX
-     * @param {HTMLFormElement} form - The form element
-     */
-    async function sendMessage(form) {
-        const formData = buildFormData(form);
-        const submitButton = form.querySelector('button[type="submit"]');
-
-        // Get guild ID from window (as string to preserve precision)
-        const guildId = window.guildId;
-        if (!guildId) {
-            window.quickActions?.showToast('Guild ID not found.', 'error');
-            return;
+        function updateStats(stats) {
+            if (!stats) return;
+            var messagesToday = $('statsMessagesToday');
+            if (messagesToday && stats.messagesToday !== undefined) messagesToday.textContent = stats.messagesToday;
+            var totalPlayback = $('statsTotalPlayback');
+            if (totalPlayback && stats.totalPlaybackFormatted) totalPlayback.textContent = stats.totalPlaybackFormatted;
+            var activeVoices = $('statsActiveVoices');
+            if (activeVoices && stats.uniqueUsers !== undefined) activeVoices.textContent = stats.uniqueUsers;
         }
 
-        // Show loading state
-        setButtonLoading(submitButton, 'Sending...');
+        // ------------------------------------------------------------ history
 
-        try {
-            const response = await fetch(`?handler=SendMessage&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData
+        function historyList() { return doc.querySelector('[data-recent-messages]'); }
+
+        function setCount(delta) {
+            var badge = $('recentMessagesCount');
+            if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent, 10) || 0) + delta);
+        }
+
+        function showEmptyHistory() {
+            var holder = $('recentMessagesList');
+            if (holder && root.EmptyState) {
+                var wrap = doc.createElement('div');
+                wrap.className = 'p-8';
+                holder.textContent = '';
+                holder.appendChild(wrap);
+                root.EmptyState.render(wrap, {
+                    type: 'firstTime',
+                    title: 'No messages yet',
+                    description: 'Send your first TTS message using the form above.',
+                    iconPath: 'M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z'
+                });
+            }
+        }
+
+        function addRecentMessage(m) {
+            if (!m) return;
+            var holder = $('recentMessagesList');
+            var list = historyList();
+            if (!list) {
+                holder.textContent = '';
+                list = doc.createElement('ul');
+                list.className = 'divide-y divide-border-secondary';
+                list.setAttribute('data-recent-messages', '');
+                holder.appendChild(list);
+            }
+
+            var li = doc.createElement('li');
+            li.className = 'flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors';
+            li.setAttribute('data-row', '');
+            li.dataset.messageId = m.id;
+
+            var avatar = doc.createElement('div');
+            avatar.className = 'w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0';
+            avatar.setAttribute('aria-hidden', 'true');
+            avatar.textContent = Format.initials(m.username, 2);
+            li.appendChild(avatar);
+
+            var body = doc.createElement('div');
+            body.className = 'flex-1 min-w-0';
+            var text = doc.createElement('div');
+            text.className = 'text-sm text-text-primary break-words line-clamp-2';
+            text.setAttribute('dir', 'auto');
+            text.textContent = m.message;
+            body.appendChild(text);
+
+            var meta = doc.createElement('div');
+            meta.className = 'flex flex-wrap items-center gap-2 mt-1 text-xs text-text-tertiary';
+            var who = doc.createElement('span');
+            who.className = 'preview-trigger';
+            who.dataset.previewType = 'user';
+            who.dataset.userId = m.userId;
+            who.dataset.contextGuildId = guildId;
+            who.textContent = m.username;
+            var voice = doc.createElement('span');
+            voice.className = 'inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue-muted text-accent-blue rounded font-medium text-[0.65rem]';
+            voice.textContent = m.voice;
+            var duration = doc.createElement('span');
+            duration.textContent = m.durationFormatted;
+            meta.appendChild(who);
+            meta.appendChild(voice);
+            meta.appendChild(duration);
+            body.appendChild(meta);
+            li.appendChild(body);
+
+            var actions = doc.createElement('div');
+            actions.className = 'flex items-center gap-1 row-actions';
+            var del = doc.createElement('button');
+            del.type = 'button';
+            del.className = 'p-2 rounded text-error hover:bg-error/10 transition-colors';
+            del.dataset.messageDelete = m.id;
+            del.dataset.messageText = m.message;
+            del.setAttribute('aria-label', 'Delete the message from ' + m.username);
+            del.title = 'Delete this message from the history';
+            del.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+            actions.appendChild(del);
+            li.appendChild(actions);
+
+            list.insertBefore(li, list.firstChild);
+            setCount(1);
+        }
+
+        async function deleteMessage(button) {
+            var id = button.dataset.messageDelete;
+            var preview = button.dataset.messageText || '';
+            if (preview.length > 80) preview = preview.slice(0, 80) + '…';
+            var confirmed = await root.quickActions.confirm({
+                title: 'Delete message',
+                message: 'Remove "' + preview + '" from the history? This cannot be undone.',
+                variant: 'danger',
+                confirmText: 'Delete message'
             });
+            if (!confirmed) return;
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                // Show success state
-                setButtonSuccess(submitButton, 'Sent!', true);
-
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-
-                // Update stats if provided
-                if (data.stats) {
-                    updateStats(data.stats);
-                }
-
-                // Add new message to recent messages if provided
-                if (data.recentMessage) {
-                    addRecentMessage(data.recentMessage);
-                }
-
-                // Clear the form
-                form.reset();
-
-                // Reset character counter
-                const counter = document.getElementById('charCounter');
-                const textarea = document.getElementById('messageInput');
-                if (counter && textarea) {
-                    counter.textContent = `0/${textarea.maxLength}`;
-                    counter.classList.remove('warning', 'error');
-                }
-            } else {
-                // Show error state
-                setButtonError(submitButton, 'Send Failed');
-
-                // Show toast
-                window.quickActions?.showToast(data.message || 'Failed to send message.', 'error');
-            }
-        } catch (error) {
-            console.error('Send message error:', error);
-
-            // Show error state
-            setButtonError(submitButton, 'Send Failed');
-
-            // Show toast
-            window.quickActions?.showToast('An error occurred while sending the message.', 'error');
-        }
-    }
-
-    /**
-     * Update TTS settings via AJAX
-     * @param {HTMLFormElement} form - The form element
-     */
-    async function updateSettings(form) {
-        const formData = buildFormData(form);
-        const submitButton = form.querySelector('button[type="submit"]');
-
-        // Get guild ID from window (as string to preserve precision)
-        const guildId = window.guildId;
-        if (!guildId) {
-            window.quickActions?.showToast('Guild ID not found.', 'error');
-            return;
-        }
-
-        // Show loading state
-        setButtonLoading(submitButton, 'Saving...');
-
-        try {
-            const response = await fetch(`?handler=UpdateSettings&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                // Show success state
-                setButtonSuccess(submitButton, 'Saved!', true);
-
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-            } else {
-                // Show error state
-                setButtonError(submitButton, 'Save Failed');
-
-                // Show toast
-                window.quickActions?.showToast(data.message || 'Failed to update settings.', 'error');
-            }
-        } catch (error) {
-            console.error('Update settings error:', error);
-
-            // Show error state
-            setButtonError(submitButton, 'Save Failed');
-
-            // Show toast
-            window.quickActions?.showToast('An error occurred while updating settings.', 'error');
-        }
-    }
-
-    /**
-     * Delete TTS message via AJAX
-     * @param {string} messageId - The message ID to delete
-     */
-    async function deleteMessage(messageId) {
-        // Get guild ID from window (as string to preserve precision)
-        const guildId = window.guildId;
-        if (!guildId) {
-            window.quickActions?.showToast('Guild ID not found.', 'error');
-            return;
-        }
-
-        // Get anti-forgery token
-        const token = document.querySelector('input[name="__RequestVerificationToken"]');
-        if (!token) {
-            window.quickActions?.showToast('Security token not found.', 'error');
-            return;
-        }
-
-        // Create form data
-        const formData = new FormData();
-        formData.append('__RequestVerificationToken', token.value);
-        formData.append('messageId', messageId);
-
-        try {
-            const response = await fetch(`?handler=DeleteMessage&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-
-                // Remove message from list
-                if (data.messageId) {
-                    removeMessage(data.messageId);
-                }
-
-                // Hide modal if it exists
-                if (typeof hideDeleteModal === 'function') {
-                    hideDeleteModal();
-                }
-            } else {
-                // Show toast
-                window.quickActions?.showToast(data.message || 'Failed to delete message.', 'error');
-            }
-        } catch (error) {
-            console.error('Delete message error:', error);
-
-            // Show toast
-            window.quickActions?.showToast('An error occurred while deleting the message.', 'error');
-        }
-    }
-
-    // --- Character counter setup ---
-    function initCharacterCounter() {
-        const textarea = document.getElementById('messageInput');
-        const counter = document.getElementById('charCounter');
-
-        if (textarea && counter) {
-            textarea.addEventListener('input', function() {
-                const count = this.value.length;
-                const max = this.maxLength;
-                counter.textContent = `${count}/${max}`;
-
-                if (count >= max) {
-                    counter.classList.add('error');
-                    counter.classList.remove('warning');
-                } else if (count >= max * 0.8) {
-                    counter.classList.add('warning');
-                    counter.classList.remove('error');
-                } else {
-                    counter.classList.remove('warning', 'error');
-                }
-            });
-        }
-    }
-
-    // --- Slider value display ---
-    function updateSliderValue(type) {
-        const slider = document.getElementById(`${type}Slider`);
-        const value = parseFloat(slider.value);
-        const display = document.getElementById(`${type}Value`);
-
-        if (type === 'volume') {
-            display.textContent = `${Math.round(value * 100)}%`;
-        } else {
-            display.textContent = `${value.toFixed(1)}x`;
-        }
-    }
-
-    // --- Delete modal handling ---
-    function showDeleteModal(messageId, messageText) {
-        document.getElementById('delete-message-id').value = messageId;
-        document.getElementById('delete-modal').classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function hideDeleteModal() {
-        document.getElementById('delete-modal').classList.add('hidden');
-        document.body.style.overflow = '';
-    }
-
-    // --- Mode switching handler ---
-    function handleModeChange(mode) {
-        console.log('[TTS] Mode changed to:', mode);
-
-        const presetBar = document.getElementById('presetBarContainer');
-        const styleSelector = document.getElementById('styleSelectorContainer');
-        const emphasisToolbar = document.getElementById('emphasisToolbarContainer');
-        const ssmlPreview = document.getElementById('ssmlPreviewContainer');
-
-        if (mode === 'simple') {
-            presetBar?.classList.add('hidden');
-            styleSelector?.classList.add('hidden');
-            emphasisToolbar?.classList.add('hidden');
-            ssmlPreview?.classList.add('hidden');
-        } else if (mode === 'standard') {
-            presetBar?.classList.remove('hidden');
-            styleSelector?.classList.remove('hidden');
-            emphasisToolbar?.classList.add('hidden');
-            ssmlPreview?.classList.add('hidden');
-        } else if (mode === 'pro') {
-            presetBar?.classList.remove('hidden');
-            styleSelector?.classList.remove('hidden');
-            emphasisToolbar?.classList.remove('hidden');
-            ssmlPreview?.classList.remove('hidden');
-        }
-    }
-
-    // --- Preset application handler ---
-    function handlePresetApply(presetData) {
-        console.log('[TTS] Applying preset:', presetData);
-
-        const voiceSelect = document.getElementById('voiceSelect');
-        if (voiceSelect && presetData.voice) {
-            voiceSelect.value = presetData.voice;
-        }
-
-        const styleSelect = document.getElementById('styleSelector-select');
-        if (styleSelect) {
-            styleSelect.value = presetData.style || '';
-            styleSelector_onStyleChange('styleSelector');
-        }
-
-        document.getElementById('hiddenStyle').value = presetData.style || '';
-
-        const speedSlider = document.getElementById('speedSlider');
-        if (speedSlider && presetData.speed) {
-            speedSlider.value = presetData.speed;
-            updateSliderValue('speed');
-        }
-
-        const pitchSlider = document.getElementById('pitchSlider');
-        if (pitchSlider && presetData.pitch) {
-            pitchSlider.value = presetData.pitch;
-            updateSliderValue('pitch');
-        }
-
-        if (window.showToast) {
-            showToast(`Applied "${presetData.name}" preset`, 'success');
-        }
-    }
-
-    // --- Style change handler ---
-    function handleStyleChange(style) {
-        console.log('[TTS] Style changed to:', style);
-        document.getElementById('hiddenStyle').value = style || '';
-    }
-
-    // --- Intensity change handler ---
-    function handleIntensityChange(intensity) {
-        console.log('[TTS] Intensity changed to:', intensity);
-        document.getElementById('hiddenStyleIntensity').value = intensity;
-    }
-
-    // --- Format change handler (Pro mode) ---
-    function handleFormatChange(formattedText) {
-        console.log('[TTS] Format changed:', formattedText);
-    }
-
-    // --- SSML copy handler (Pro mode) ---
-    function handleSsmlCopy() {
-        console.log('[TTS] SSML copied to clipboard');
-        if (window.showToast) {
-            showToast('SSML copied to clipboard', 'success');
-        }
-    }
-
-    // --- Initialization ---
-    function initializePage() {
-        initCharacterCounter();
-
-        // Escape key to close modal
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                hideDeleteModal();
-            }
-        });
-
-        // Initialize SignalR connection for real-time updates
-        (async function initializeRealtime() {
+            var row = button.closest('li');
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
             try {
-                await DashboardHub.connect();
-                console.log('[TTS] SignalR connected');
-            } catch (error) {
-                console.error('[TTS] Failed to connect SignalR:', error);
+                var data = await root.ApiClient.post(pageUrl('DeleteMessage', '&messageId=' + encodeURIComponent(id)));
+                var list = row && row.parentNode;
+                if (row) row.remove();
+                setCount(-1);
+                updateStats(data.stats);
+                if (list && list.children.length === 0) showEmptyHistory();
+                root.toast.success(data.message);
+            } catch (err) {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+                root.ApiClient.showErrorToast(err);
             }
-        })();
+        }
 
-        // Initialize mode on page load
-        requestAnimationFrame(() => {
-            const savedMode = localStorage.getItem('tts_mode_preference') || 'standard';
-            handleModeChange(savedMode);
+        // ------------------------------------------------------------ the request
+
+        function readScreen() {
+            return {
+                message: textarea.value,
+                voice: $('voiceSelect').value,
+                speed: $('speedSlider').value,
+                pitch: $('pitchSlider').value,
+                volume: $('volumeSlider').value,
+                mode: currentMode,
+                style: ($('hiddenStyle') || {}).value,
+                styleIntensity: ($('hiddenStyleIntensity') || {}).value,
+                ssml: currentSsml
+            };
+        }
+
+        /**
+         * Build the SSML for the message on screen (Pro mode). Resolves to '' when there is
+         * nothing to build; rejects when the server refuses the markup.
+         */
+        async function buildSsml() {
+            var message = textarea.value.trim();
+            var voice = $('voiceSelect').value;
+            if (!message || !voice || !root.SsmlMarkers) return '';
+
+            var speed = parseFloat($('speedSlider').value);
+            var pitch = parseFloat($('pitchSlider').value);
+            var style = ($('hiddenStyle') || {}).value || null;
+            var payload = {
+                language: 'en-US',
+                segments: [{
+                    voice: voice,
+                    style: style,
+                    rate: speed !== 1 ? speed : null,
+                    pitch: pitch !== 1 ? pitch : null,
+                    text: null,
+                    elements: root.SsmlMarkers.parseMarkers(message)
+                }]
+            };
+            var data = await root.ApiClient.post('/api/portal/tts/build-ssml', payload);
+            return data.ssml || '';
+        }
+
+        function showSsml(ssml) {
+            currentSsml = ssml;
+            if (root.ssmlPreview_update) root.ssmlPreview_update('ssmlPreview', ssml, textarea.value.length);
+        }
+
+        function scheduleSsmlBuild() {
+            if (currentMode !== 'pro') return;
+            clearTimeout(ssmlTimer);
+            ssmlTimer = setTimeout(async function () {
+                var mine = ++ssmlSequence;
+                try {
+                    var ssml = await buildSsml();
+                    if (mine === ssmlSequence) showSsml(ssml);
+                } catch (e) {
+                    // The preview just stays as it was; Send reports a build failure properly
+                }
+            }, 250);
+        }
+
+        /** The request body, with fresh SSML in Pro mode. Throws if the markup cannot be built. */
+        async function currentBody() {
+            if (currentMode === 'pro') {
+                clearTimeout(ssmlTimer);
+                ssmlSequence++;
+                showSsml(await buildSsml());
+            }
+            return buildRequestBody(readScreen());
+        }
+
+        function checkMessage() {
+            var message = textarea.value.trim();
+            if (!message) {
+                fieldError('messageError', 'Type a message first.', textarea);
+                textarea.focus();
+                return false;
+            }
+            fieldError('messageError', '', textarea);
+            return true;
+        }
+
+        function applyFieldError(err) {
+            if (err && err.data && err.data.field === 'message') {
+                fieldError('messageError', err.message, textarea);
+                textarea.focus();
+                return true;
+            }
+            return false;
+        }
+
+        async function sendMessage() {
+            if (sending || previewing) return;
+            if (!checkMessage()) return;
+
+            sending = true;
+            pending(sendBtn, true, 'Sending…');
+            previewBtn.disabled = true;
+            try {
+                var body = await currentBody();
+                // No timeout: the request lasts as long as the bot is speaking
+                var data = await root.ApiClient.post(pageUrl('SendMessage'), body, { timeout: 0 });
+                root.toast.success(data.message);
+                updateStats(data.stats);
+                addRecentMessage(data.recentMessage);
+
+                // Clear only the message: the voice settings stay for the next one
+                textarea.value = '';
+                updateCounter();
+                if (currentMode === 'pro') showSsml('');
+                textarea.focus();
+            } catch (err) {
+                // The text stays so it can be sent again
+                if (!applyFieldError(err)) {
+                    if (err && err.data && err.data.code === 'not_connected' && root.VoiceChannelPanel && root.VoiceChannelPanel.reveal) {
+                        root.VoiceChannelPanel.reveal();
+                    }
+                    root.ApiClient.showErrorToast(err);
+                }
+            } finally {
+                sending = false;
+                pending(sendBtn, false);
+                previewBtn.disabled = !cfg.configured;
+                if (!cfg.configured) sendBtn.disabled = true;
+            }
+        }
+
+        async function previewMessage() {
+            if (sending || previewing) return;
+            if (!checkMessage()) return;
+
+            previewing = true;
+            pending(previewBtn, true, 'Making preview…');
+            sendBtn.disabled = true;
+            try {
+                var body = await currentBody();
+                var blob = await root.ApiClient.post(pageUrl('Preview'), body, { responseType: 'blob', timeout: 60000 });
+                if (previewAudio) previewAudio.pause();
+                var url = URL.createObjectURL(blob);
+                previewAudio = new Audio(url);
+                var release = function () { URL.revokeObjectURL(url); };
+                previewAudio.addEventListener('ended', release);
+                previewAudio.addEventListener('error', function () {
+                    release();
+                    root.toast.error('Your browser could not play the preview.');
+                });
+                await previewAudio.play().catch(function () {
+                    release();
+                    root.toast.warning('Your browser blocked the preview from playing. Press Preview again.');
+                });
+            } catch (err) {
+                if (!applyFieldError(err)) root.ApiClient.showErrorToast(err);
+            } finally {
+                previewing = false;
+                pending(previewBtn, false);
+                sendBtn.disabled = !cfg.configured;
+            }
+        }
+
+        // ------------------------------------------------------------ server defaults
+
+        async function saveSettings() {
+            var form = $('settingsForm');
+            var saveBtn = $('saveSettingsBtn');
+            var rateInput = $('rateLimitInput');
+
+            var rate = parseWholeNumber(rateInput.value, 1, 60);
+            if (rate === null) {
+                fieldError('rateLimitError', 'Enter a whole number from 1 to 60.', rateInput);
+                rateInput.focus();
+                return;
+            }
+            fieldError('rateLimitError', '', rateInput);
+
+            pending(saveBtn, true, 'Saving…');
+            try {
+                var data = await root.ApiClient.post(pageUrl('UpdateSettings'), {
+                    defaultVoice: $('voiceSelect').value,
+                    defaultSpeed: parseFloat($('speedSlider').value),
+                    defaultPitch: parseFloat($('pitchSlider').value),
+                    defaultVolume: parseFloat($('volumeSlider').value),
+                    autoPlayOnSend: form.elements.autoPlayOnSend.checked,
+                    announceJoinsLeaves: form.elements.announceJoinsLeaves.checked,
+                    rateLimitPerMinute: rate
+                });
+                root.toast.success(data.message);
+            } catch (err) {
+                if (err && err.data && err.data.field === 'rateLimitPerMinute') {
+                    fieldError('rateLimitError', err.message, rateInput);
+                    rateInput.focus();
+                } else {
+                    root.ApiClient.showErrorToast(err);
+                }
+            } finally {
+                pending(saveBtn, false);
+            }
+        }
+
+        // ------------------------------------------------------------ controls
+
+        function updateCounter() {
+            var counter = $('charCounter');
+            if (!counter) return;
+            var count = textarea.value.length;
+            var max = textarea.maxLength;
+            counter.textContent = count + '/' + max;
+            counter.classList.toggle('error', count >= max);
+            counter.classList.toggle('warning', count < max && count >= max * 0.8);
+        }
+
+        function updateSliderValue(type) {
+            var slider = $(type + 'Slider');
+            var display = $(type + 'Value');
+            if (slider && display) display.textContent = sliderText(type, parseFloat(slider.value));
+        }
+
+        doc.querySelectorAll('[data-slider]').forEach(function (slider) {
+            slider.addEventListener('input', function () {
+                updateSliderValue(slider.dataset.slider);
+                scheduleSsmlBuild();
+            });
         });
+        $('voiceSelect').addEventListener('change', scheduleSsmlBuild);
+
+        textarea.addEventListener('input', function () {
+            updateCounter();
+            if (textarea.value.trim()) fieldError('messageError', '', textarea);
+            scheduleSsmlBuild();
+        });
+        // Enter sends on a keyboard; Shift+Enter is a new line. Not while an IME is composing
+        // (Enter then confirms the candidate), and not on a touch keyboard, where Enter is how you
+        // start a new line and the Send button is right there.
+        textarea.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+            if (root.matchMedia && root.matchMedia('(pointer: coarse)').matches) return;
+            e.preventDefault();
+            if (!sendBtn.disabled) sendMessage();
+        });
+
+        $('ttsForm').addEventListener('submit', function (e) { e.preventDefault(); sendMessage(); });
+        previewBtn.addEventListener('click', previewMessage);
+        $('settingsForm').addEventListener('submit', function (e) { e.preventDefault(); saveSettings(); });
+        $('rateLimitInput').addEventListener('input', function () { fieldError('rateLimitError', '', $('rateLimitInput')); });
+
+        doc.getElementById('recentMessagesList').addEventListener('click', function (e) {
+            var del = e.target.closest('[data-message-delete]');
+            if (del) deleteMessage(del);
+        });
+
+        // ------------------------------------------------------------ component callbacks
+
+        function handleModeChange(mode) {
+            currentMode = mode;
+            var show = function (id, visible) {
+                var el = $(id);
+                if (el) el.classList.toggle('hidden', !visible);
+            };
+            show('presetBarContainer', mode !== 'simple');
+            show('styleSelectorContainer', mode !== 'simple');
+            show('emphasisToolbarContainer', mode === 'pro');
+            show('ssmlPreviewContainer', mode === 'pro');
+            if (mode === 'pro') scheduleSsmlBuild();
+        }
+
+        function handlePresetApply(preset) {
+            var voiceSelect = $('voiceSelect');
+            if (voiceSelect && preset.voice) voiceSelect.value = preset.voice;
+
+            var styleSelect = $('styleSelector-select');
+            if (styleSelect) {
+                styleSelect.value = preset.style || '';
+                if (root.styleSelector_onStyleChange) root.styleSelector_onStyleChange('styleSelector');
+            }
+            $('hiddenStyle').value = preset.style || '';
+
+            if (preset.speed) { $('speedSlider').value = preset.speed; updateSliderValue('speed'); }
+            if (preset.pitch) { $('pitchSlider').value = preset.pitch; updateSliderValue('pitch'); }
+
+            root.toast.success('Applied the "' + preset.name + '" preset. It is used for your next message.', { key: 'tts-preset' });
+            scheduleSsmlBuild();
+        }
+
+        function handleStyleChange(style) {
+            $('hiddenStyle').value = style || '';
+            scheduleSsmlBuild();
+        }
+
+        function handleIntensityChange(intensity) {
+            $('hiddenStyleIntensity').value = intensity;
+        }
+
+        function handleFormatChange() { scheduleSsmlBuild(); }
+
+        function handleSsmlCopy() {
+            root.toast.success('SSML copied to clipboard.', { key: 'ssml-copied' });
+        }
+
+        root.updateSliderValue = updateSliderValue;
+        root.handleModeChange = handleModeChange;
+        root.handlePresetApply = handlePresetApply;
+        root.handleStyleChange = handleStyleChange;
+        root.handleIntensityChange = handleIntensityChange;
+        root.handleFormatChange = handleFormatChange;
+        root.handleSsmlCopy = handleSsmlCopy;
+
+        // ------------------------------------------------------------ start up
+
+        updateCounter();
+
+        // The mode switcher restores the saved mode before this script is loaded, so ask it
+        var switcher = $('modeSwitcher');
+        handleModeChange((switcher && switcher.dataset.currentMode) || 'standard');
+
+        // The admin's saved presets (the bar names its own endpoint; the portal's is off-limits here)
+        if (typeof root.presetBar_loadCustomPresets === 'function') root.presetBar_loadCustomPresets('presetBar');
+
+        // Voice panel updates (now playing, Stop, queue) arrive over the hub
+        if (root.DashboardHub && typeof root.DashboardHub.connect === 'function') {
+            Promise.resolve(root.DashboardHub.connect()).catch(function () { /* the global connection banner reports it */ });
+        }
     }
 
-    // Run initialization when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializePage);
-    } else {
-        initializePage();
-    }
-
-    // Expose public API
-    window.ttsPage = {
-        sendMessage,
-        updateSettings,
-        deleteMessage
-    };
-
-    // Expose functions called from HTML attributes and component callbacks
-    window.updateSliderValue = updateSliderValue;
-    window.showDeleteModal = showDeleteModal;
-    window.hideDeleteModal = hideDeleteModal;
-    window.handleModeChange = handleModeChange;
-    window.handlePresetApply = handlePresetApply;
-    window.handleStyleChange = handleStyleChange;
-    window.handleIntensityChange = handleIntensityChange;
-    window.handleFormatChange = handleFormatChange;
-    window.handleSsmlCopy = handleSsmlCopy;
-})();
+    return api;
+});

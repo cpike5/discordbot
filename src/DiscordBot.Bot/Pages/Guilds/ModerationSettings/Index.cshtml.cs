@@ -1,8 +1,11 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Moderation;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +20,9 @@ namespace DiscordBot.Bot.Pages.Guilds.ModerationSettings;
 [Authorize(Policy = "GuildAccess")]
 public class IndexModel : GuildPageModelBase
 {
+    /// <summary>The preset names the "Protection level" cards offer.</summary>
+    public static readonly string[] PresetNames = { "Relaxed", "Moderate", "Strict" };
+
     private readonly IGuildModerationConfigService _configService;
     private readonly IModTagService _modTagService;
     private readonly IGuildService _guildService;
@@ -70,9 +76,9 @@ public class IndexModel : GuildPageModelBase
     public int EventsFlagged { get; set; }
 
     /// <summary>
-    /// Gets or sets the number of auto-actions taken in the last 24 hours.
+    /// Gets or sets the number of events in the last 24 hours that a moderator has recorded an outcome for.
     /// </summary>
-    public int AutoActions { get; set; }
+    public int ActionedEvents { get; set; }
 
     /// <summary>
     /// Gets or sets the number of active moderation rules.
@@ -80,9 +86,14 @@ public class IndexModel : GuildPageModelBase
     public int ActiveRules { get; set; }
 
     /// <summary>
-    /// Gets or sets the number of false positives dismissed in the last 24 hours.
+    /// Gets or sets the number of events from the last 24 hours that a moderator dismissed.
     /// </summary>
-    public int FalsePositives { get; set; }
+    public int DismissedEvents { get; set; }
+
+    /// <summary>
+    /// Whether the last-24-hours numbers could be loaded. When false the page says so instead of showing zeros.
+    /// </summary>
+    public bool StatisticsLoaded { get; set; } = true;
 
     /// <summary>
     /// Gets or sets the list of available text channels for alert routing.
@@ -153,24 +164,40 @@ public class IndexModel : GuildPageModelBase
     }
 
     /// <summary>
-    /// Handles POST requests to save overview settings (mode and preset).
+    /// Handles POST requests to save overview settings (the configuration mode).
     /// </summary>
     public async Task<IActionResult> OnPostSaveOverviewAsync([FromBody] OverviewUpdateDto request, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Saving overview settings for guild {GuildId}: Mode={Mode}, Preset={Preset}",
-            GuildId, request.Mode, request.SimplePreset);
+            GuildId, request?.Mode, request?.SimplePreset);
+
+        if (request == null)
+        {
+            return Rejected("Nothing to save.");
+        }
+
+        if (request.SimplePreset != null && !PresetNames.Contains(request.SimplePreset, StringComparer.OrdinalIgnoreCase))
+        {
+            return ValidationFailure(new Dictionary<string, string> { ["simplePreset"] = "Choose Relaxed, Moderate or Strict." });
+        }
 
         try
         {
             var config = await _configService.GetConfigAsync(GuildId, cancellationToken);
-            config.Mode = request.Mode;
-            config.SimplePreset = request.SimplePreset;
+            if (request.Mode.HasValue)
+            {
+                config.Mode = request.Mode.Value;
+            }
+            if (request.SimplePreset != null)
+            {
+                config.SimplePreset = request.SimplePreset;
+            }
 
-            var updated = await _configService.UpdateConfigAsync(GuildId, config, cancellationToken);
+            await _configService.UpdateConfigAsync(GuildId, config, cancellationToken);
 
             _logger.LogInformation("Overview settings saved successfully for guild {GuildId}", GuildId);
 
-            return new JsonResult(new { success = true, message = "Overview settings saved successfully." });
+            return new JsonResult(new { success = true, message = "Overview settings saved successfully.", mode = (int)config.Mode });
         }
         catch (Exception ex)
         {
@@ -180,86 +207,35 @@ public class IndexModel : GuildPageModelBase
     }
 
     /// <summary>
-    /// Handles POST requests to save spam detection settings.
+    /// Handles POST requests to save spam detection settings. Only the fields sent change.
     /// </summary>
-    public async Task<IActionResult> OnPostSaveSpamAsync([FromBody] SpamDetectionConfigDto request, CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Saving spam detection settings for guild {GuildId}", GuildId);
-
-        try
-        {
-            var config = await _configService.GetConfigAsync(GuildId, cancellationToken);
-            config.SpamConfig = request;
-
-            var updated = await _configService.UpdateConfigAsync(GuildId, config, cancellationToken);
-
-            _logger.LogInformation("Spam detection settings saved successfully for guild {GuildId}", GuildId);
-
-            return new JsonResult(new { success = true, message = "Spam detection settings saved successfully." });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save spam detection settings for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = false, message = "Failed to save spam detection settings." }) { StatusCode = 500 };
-        }
-    }
+    public Task<IActionResult> OnPostSaveSpamAsync([FromBody] SpamConfigPatchDto request, CancellationToken cancellationToken)
+        => SaveSectionAsync(request, "Spam detection", c => c.SpamConfig, cancellationToken);
 
     /// <summary>
-    /// Handles POST requests to save content filter settings.
+    /// Handles POST requests to save content filter settings. Only the fields sent change.
     /// </summary>
-    public async Task<IActionResult> OnPostSaveContentAsync([FromBody] ContentFilterConfigDto request, CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Saving content filter settings for guild {GuildId}", GuildId);
-
-        try
-        {
-            var config = await _configService.GetConfigAsync(GuildId, cancellationToken);
-            config.ContentFilterConfig = request;
-
-            var updated = await _configService.UpdateConfigAsync(GuildId, config, cancellationToken);
-
-            _logger.LogInformation("Content filter settings saved successfully for guild {GuildId}", GuildId);
-
-            return new JsonResult(new { success = true, message = "Content filter settings saved successfully." });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save content filter settings for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = false, message = "Failed to save content filter settings." }) { StatusCode = 500 };
-        }
-    }
+    public Task<IActionResult> OnPostSaveContentAsync([FromBody] ContentFilterPatchDto request, CancellationToken cancellationToken)
+        => SaveSectionAsync(request, "Content filter", c => c.ContentFilterConfig, cancellationToken);
 
     /// <summary>
-    /// Handles POST requests to save raid protection settings.
+    /// Handles POST requests to save raid protection settings. Only the fields sent change.
     /// </summary>
-    public async Task<IActionResult> OnPostSaveRaidAsync([FromBody] RaidProtectionConfigDto request, CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Saving raid protection settings for guild {GuildId}", GuildId);
-
-        try
-        {
-            var config = await _configService.GetConfigAsync(GuildId, cancellationToken);
-            config.RaidProtectionConfig = request;
-
-            var updated = await _configService.UpdateConfigAsync(GuildId, config, cancellationToken);
-
-            _logger.LogInformation("Raid protection settings saved successfully for guild {GuildId}", GuildId);
-
-            return new JsonResult(new { success = true, message = "Raid protection settings saved successfully." });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save raid protection settings for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = false, message = "Failed to save raid protection settings." }) { StatusCode = 500 };
-        }
-    }
+    public Task<IActionResult> OnPostSaveRaidAsync([FromBody] RaidProtectionPatchDto request, CancellationToken cancellationToken)
+        => SaveSectionAsync(request, "Raid protection", c => c.RaidProtectionConfig, cancellationToken);
 
     /// <summary>
-    /// Handles POST requests to apply a preset configuration.
+    /// Handles POST requests to apply a preset configuration. This replaces the spam, content filter
+    /// and raid rules, including the blocklist.
     /// </summary>
     public async Task<IActionResult> OnPostApplyPresetAsync([FromBody] ApplyPresetDto request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Applying preset {PresetName} for guild {GuildId}", request.PresetName, GuildId);
+        _logger.LogInformation("Applying preset {PresetName} for guild {GuildId}", request?.PresetName, GuildId);
+
+        if (request == null || !PresetNames.Contains(request.PresetName ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            return ValidationFailure(new Dictionary<string, string> { ["presetName"] = "Choose Relaxed, Moderate or Strict." });
+        }
 
         try
         {
@@ -267,7 +243,13 @@ public class IndexModel : GuildPageModelBase
 
             _logger.LogInformation("Preset {PresetName} applied successfully for guild {GuildId}", request.PresetName, GuildId);
 
-            return new JsonResult(new { success = true, message = $"Preset '{request.PresetName}' applied successfully.", config });
+            return new JsonResult(new
+            {
+                success = true,
+                message = $"Preset '{request.PresetName}' applied successfully.",
+                config,
+                activeRules = CalculateActiveRulesCount(config)
+            });
         }
         catch (Exception ex)
         {
@@ -281,7 +263,37 @@ public class IndexModel : GuildPageModelBase
     /// </summary>
     public async Task<IActionResult> OnPostCreateTagAsync([FromBody] ModTagCreateDto request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Creating tag {TagName} for guild {GuildId}", request.Name, GuildId);
+        _logger.LogInformation("Creating tag {TagName} for guild {GuildId}", request?.Name, GuildId);
+
+        if (request == null)
+        {
+            return Rejected("Nothing to save.");
+        }
+
+        request.Name = (request.Name ?? string.Empty).Trim();
+        var errors = new Dictionary<string, string>();
+        if (request.Name.Length == 0)
+        {
+            errors["name"] = "Give the tag a name.";
+        }
+        else if (request.Name.Length > 50)
+        {
+            errors["name"] = "Tag names can be up to 50 characters.";
+        }
+        if (!Enum.IsDefined(request.Category))
+        {
+            errors["category"] = "Choose a colour.";
+        }
+        if (errors.Count > 0)
+        {
+            return ValidationFailure(errors);
+        }
+
+        // The stored colour follows the category unless the caller sent one
+        if (string.IsNullOrWhiteSpace(request.Color))
+        {
+            request.Color = ModTagStyle.DefaultColor(request.Category);
+        }
 
         try
         {
@@ -290,7 +302,23 @@ public class IndexModel : GuildPageModelBase
 
             _logger.LogInformation("Tag {TagName} created successfully for guild {GuildId}", request.Name, GuildId);
 
-            return new JsonResult(new { success = true, message = "Tag created successfully.", tag });
+            return new JsonResult(new
+            {
+                success = true,
+                message = "Tag created successfully.",
+                tag,
+                cssClass = ModTagStyle.CssClass(tag.Category)
+            });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+        {
+            return new JsonResult(new
+            {
+                success = false,
+                message = $"A tag named \"{request.Name}\" already exists.",
+                errors = new Dictionary<string, string> { ["name"] = "A tag with this name already exists." }
+            })
+            { StatusCode = 409 };
         }
         catch (Exception ex)
         {
@@ -328,19 +356,39 @@ public class IndexModel : GuildPageModelBase
     }
 
     /// <summary>
-    /// Handles POST requests to import template tags.
+    /// Handles POST requests to import template tags. Templates the guild already has are skipped.
+    /// The response lists the tags that were added so the page can show them without a reload.
     /// </summary>
     public async Task<IActionResult> OnPostImportTemplatesAsync([FromBody] string[] templateNames, CancellationToken cancellationToken)
     {
+        templateNames ??= Array.Empty<string>();
         _logger.LogInformation("Importing {Count} template tags for guild {GuildId}", templateNames.Length, GuildId);
+
+        if (templateNames.Length == 0)
+        {
+            return ValidationFailure(new Dictionary<string, string> { ["templates"] = "Choose at least one template tag." });
+        }
 
         try
         {
+            var before = (await _modTagService.GetGuildTagsAsync(GuildId, cancellationToken))
+                .Select(t => t.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             var count = await _modTagService.ImportTemplateTagsAsync(GuildId, templateNames, cancellationToken);
+
+            var added = (await _modTagService.GetGuildTagsAsync(GuildId, cancellationToken))
+                .Where(t => !before.Contains(t.Name))
+                .Select(t => new { name = t.Name, userCount = t.UserCount, cssClass = ModTagStyle.CssClass(t.Category) })
+                .ToList();
 
             _logger.LogInformation("{Count} template tags imported successfully for guild {GuildId}", count, GuildId);
 
-            return new JsonResult(new { success = true, message = $"{count} template tags imported successfully.", count });
+            var message = count == 0
+                ? "Those tags already exist, so nothing was added."
+                : $"{count} template tags imported successfully.";
+
+            return new JsonResult(new { success = true, message, count, tags = added });
         }
         catch (Exception ex)
         {
@@ -349,29 +397,90 @@ public class IndexModel : GuildPageModelBase
         }
     }
 
+    /// <summary>
+    /// Loads the saved config, applies only the fields the patch carries, and saves.
+    /// </summary>
+    private async Task<IActionResult> SaveSectionAsync<TPatch, TSection>(
+        TPatch? request,
+        string label,
+        Func<GuildModerationConfigDto, TSection> section,
+        CancellationToken cancellationToken)
+        where TPatch : class, IModerationConfigPatch<TSection>
+    {
+        _logger.LogInformation("Saving {Section} settings for guild {GuildId}", label, GuildId);
+
+        if (request == null)
+        {
+            return Rejected("Nothing to save.");
+        }
+
+        var errors = request.Validate();
+        if (errors.Count > 0)
+        {
+            return ValidationFailure(errors);
+        }
+
+        try
+        {
+            var config = await _configService.GetConfigAsync(GuildId, cancellationToken);
+            request.ApplyTo(section(config));
+
+            var updated = await _configService.UpdateConfigAsync(GuildId, config, cancellationToken);
+
+            _logger.LogInformation("{Section} settings saved successfully for guild {GuildId}", label, GuildId);
+
+            return new JsonResult(new
+            {
+                success = true,
+                message = $"{label} settings saved successfully.",
+                settings = section(updated ?? config),
+                activeRules = CalculateActiveRulesCount(updated ?? config)
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save {Section} settings for guild {GuildId}", label, GuildId);
+            return new JsonResult(new { success = false, message = $"Failed to save {label.ToLowerInvariant()} settings." }) { StatusCode = 500 };
+        }
+    }
+
+    private static IActionResult ValidationFailure(IReadOnlyDictionary<string, string> errors)
+        => new JsonResult(new { success = false, message = "Fix the highlighted fields and try again.", errors }) { StatusCode = 400 };
+
+    private static IActionResult Rejected(string message)
+        => new JsonResult(new { success = false, message }) { StatusCode = 400 };
+
     private async Task LoadStatisticsAsync(ulong guildId, CancellationToken cancellationToken)
     {
         var since = DateTime.UtcNow.AddHours(-24);
 
         try
         {
-            // Get pending events for the guild (page size of 1000 to get all recent events for stats)
-            var (events, totalCount) = await _flaggedEventService.GetPendingEventsAsync(guildId, 1, 1000, cancellationToken);
+            // Every event from the last day, whatever its status: the "pending" list would hide the
+            // dismissed and actioned ones these numbers are about.
+            var (events, _) = await _flaggedEventService.GetFilteredEventsAsync(
+                guildId,
+                new FlaggedEventQueryDto { DateFrom = since, Page = 1, PageSize = 1000 },
+                cancellationToken);
 
-            EventsFlagged = events.Count(e => e.CreatedAt >= since);
-            AutoActions = events.Count(e => e.CreatedAt >= since && !string.IsNullOrEmpty(e.ActionTaken));
-            FalsePositives = events.Count(e => e.CreatedAt >= since && e.Status == Core.Enums.FlaggedEventStatus.Dismissed);
+            var recent = events.Where(e => e.CreatedAt >= since).ToList();
 
-            _logger.LogDebug("Loaded statistics for guild {GuildId}: Events={Events}, AutoActions={AutoActions}, FalsePositives={FalsePositives}",
-                guildId, EventsFlagged, AutoActions, FalsePositives);
+            EventsFlagged = recent.Count;
+            ActionedEvents = recent.Count(e => e.Status == FlaggedEventStatus.Actioned);
+            DismissedEvents = recent.Count(e => e.Status == FlaggedEventStatus.Dismissed);
+            StatisticsLoaded = true;
+
+            _logger.LogDebug("Loaded statistics for guild {GuildId}: Events={Events}, Actioned={Actioned}, Dismissed={Dismissed}",
+                guildId, EventsFlagged, ActionedEvents, DismissedEvents);
         }
         catch (Exception ex)
         {
+            StatisticsLoaded = false;
             _logger.LogWarning(ex, "Failed to load statistics for guild {GuildId}", guildId);
         }
     }
 
-    private int CalculateActiveRulesCount(GuildModerationConfigDto config)
+    private static int CalculateActiveRulesCount(GuildModerationConfigDto config)
     {
         int count = 0;
 
@@ -380,6 +489,15 @@ public class IndexModel : GuildPageModelBase
         if (config.RaidProtectionConfig.Enabled) count++;
 
         return count;
+    }
+
+    /// <summary>
+    /// The tag templates the import dialog offers, each marked when the guild already has a tag by that name.
+    /// </summary>
+    public IEnumerable<(ModTagTemplates.TagTemplate Template, bool AlreadyImported)> TemplateOptions()
+    {
+        var existing = ViewModel.Tags.Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return ModTagTemplates.AllTemplates.Select(t => (t, existing.Contains(t.Name)));
     }
 
     /// <summary>

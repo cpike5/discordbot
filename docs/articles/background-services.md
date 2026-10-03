@@ -656,6 +656,7 @@ Summary of all data retention services and their cleanup schedules.
 | `SoundPlayLogRetentionService` | Sound play logs | 30 days | 1440 minutes | `SoundPlayLogRetention` |
 | `AnalyticsRetentionService` | Analytics snapshots | Varies by granularity | 1440 minutes | `AnalyticsRetention` |
 | `VerificationCleanupService` | Verification codes | 24 hours | 60 minutes | `Verification` |
+| `UserDataExportCleanupService` | Personal-data export ZIPs (`data/exports`) | 7 days | 60 minutes (fixed) | none |
 
 ### NotificationRetentionService
 
@@ -782,7 +783,7 @@ public interface IBackgroundServiceHealth
 
 **Purpose:** Tracks all background service health status.
 
-**Location:** Accessible via Performance Dashboard at `/Admin/Performance/HealthMetrics`
+**Location:** Accessible via Performance Dashboard at `/Admin/Performance?tab=health`
 
 **Monitoring:**
 - Automatic exception logging when service fails
@@ -931,7 +932,7 @@ if (!health.IsHealthy)
 
 ### Checking Service Health
 
-**Via Dashboard:** Navigate to `/Admin/Performance/HealthMetrics`
+**Via Dashboard:** Navigate to `/Admin/Performance?tab=health`
 
 **Via Code:**
 ```csharp

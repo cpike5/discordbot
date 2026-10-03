@@ -104,6 +104,16 @@ public static class IdentityServiceExtensions
             {
                 if (context.Request.IsScriptRequest())
                 {
+                    // The portal handler says when the cause is a guild that switched its portal off
+                    if (context.HttpContext.Items[PortalGuildMemberAuthorizationHandler.FailureReasonKey] as string
+                        == PortalGuildMemberAuthorizationHandler.PortalDisabledReason)
+                    {
+                        return context.Response.WriteProblemAsync(
+                            StatusCodes.Status403Forbidden,
+                            "Portal disabled",
+                            "The member portal is switched off for this server.");
+                    }
+
                     return context.Response.WriteProblemAsync(
                         StatusCodes.Status403Forbidden,
                         "Forbidden",

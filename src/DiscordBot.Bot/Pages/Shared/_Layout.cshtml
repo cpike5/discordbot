@@ -1,23 +1,12 @@
-@inject DiscordBot.Core.Interfaces.IThemeService ThemeService
 <!DOCTYPE html>
-<html lang="en" data-theme="@(await ThemeService.GetCurrentThemeKeyAsync())">
+<html lang="en" theme-root>
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f1114" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <partial name="_ThemeHead" />
     <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
     <partial name="_PwaHead" />
     <title>@ViewData["Title"] - Discord Bot Admin</title>
-    <!-- Blocking theme application script - runs before first paint to prevent flash -->
-    <script>
-        (function() {
-            try {
-                var match = document.cookie.match(/theme-preference=([^;]+)/);
-                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
-                if (theme) document.documentElement.setAttribute('data-theme', theme);
-            } catch (e) {}
-        })();
-    </script>
     <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,8 +42,11 @@
     <!-- Top Bar (offset by the sidebar on desktop) -->
     @await Html.PartialAsync("_Navbar")
 
+    <!-- Live-connection banner (hidden until the SignalR connection drops) -->
+    @await Html.PartialAsync("_ConnectionBanner")
+
     <!-- Main Content Area -->
-    <main id="main-content" class="main-content-redesign">
+    <main id="main-content" class="main-content-redesign" tabindex="-1">
         <div class="page-container">
             <!-- Breadcrumb Navigation -->
             @if (ViewData["Breadcrumbs"] != null)
@@ -80,6 +72,8 @@
     <script src="~/js/api-client.js" asp-append-version="true"></script>
     <!-- Dashboard Hub Connection Manager -->
     <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    <!-- Connection banner and stale badges, driven by the hub's state -->
+    <script src="~/js/connection-banner.js" asp-append-version="true"></script>
     <!-- Notification Bell Module -->
     <script src="~/js/notification-bell.js" asp-append-version="true"></script>
     <!-- JavaScript for Navigation -->
@@ -90,6 +84,12 @@
     <script src="~/js/quick-actions.js" asp-append-version="true"></script>
     <!-- JavaScript for Loading State Management -->
     <script src="~/js/loading-manager.js" asp-append-version="true"></script>
+    <!-- Formatting: dates, relative time, plurals, numbers, durations (before timezone.js) -->
+    <script src="~/js/format.js" asp-append-version="true"></script>
+    <!-- Interaction primitives: empty/loading states from script, unsaved-changes warning -->
+    <script src="~/js/empty-state.js" asp-append-version="true"></script>
+    <script src="~/js/skeleton.js" asp-append-version="true"></script>
+    <script src="~/js/unsaved-changes.js" asp-append-version="true"></script>
     <!-- Timezone Utilities -->
     <script src="~/js/timezone.js" asp-append-version="true"></script>
     <!-- Bot Status Auto-Refresh -->
@@ -100,6 +100,8 @@
     <script src="~/js/preview-popup.js" asp-append-version="true"></script>
     <!-- Theme Manager Module -->
     <script src="~/js/theme.js" asp-append-version="true"></script>
+    <!-- Chart.js colours from the design tokens, redrawn on theme change -->
+    <script src="~/js/chart-theme.js" asp-append-version="true"></script>
     <!-- Global SignalR connection for notifications (idempotent - safe to call on all pages) -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {

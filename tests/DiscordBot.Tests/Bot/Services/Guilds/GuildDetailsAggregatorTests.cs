@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services.Guilds;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
@@ -336,6 +337,63 @@ public class GuildDetailsAggregatorTests
             s => s.GetLogsAsync(It.IsAny<CommandLogQueryDto>(), cancellationToken),
             Times.Once,
             "cancellation token should be passed to command log service");
+    }
+
+    [Fact]
+    public async Task BuildAsync_WhenOneWidgetSourceThrows_RecordsThatSectionAndKeepsTheRest()
+    {
+        // Arrange - the reminder store is down; everything else answers
+        const ulong guildId = 123456789UL;
+        SetupHappyPathDefaults(guildId);
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildDto { Id = guildId, Name = "Test Guild", IsActive = true });
+        _mockReminderRepository
+            .Setup(r => r.GetGuildStatsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("reminders table missing"));
+        _mockGuildMemberService
+            .Setup(s => s.GetMemberCountAsync(guildId, It.IsAny<GuildMemberQueryDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(42);
+
+        // Act
+        var result = await _aggregator.BuildAsync(guildId, 10, CancellationToken.None);
+
+        // Assert - no exception, the failed widget is named, and the others still carry their data
+        result.Should().NotBeNull();
+        result!.FailedSections.Should().Equal(GuildDetailsSections.Reminders);
+        result.MembersTotalCount.Should().Be(42);
+        result.RatWatchEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task BuildAsync_WhenEverySourceWorks_ReportsNoFailedSections()
+    {
+        const ulong guildId = 123456789UL;
+        SetupHappyPathDefaults(guildId);
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildDto { Id = guildId, Name = "Test Guild" });
+
+        var result = await _aggregator.BuildAsync(guildId, 10, CancellationToken.None);
+
+        result!.FailedSections.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task BuildAsync_WhenTheCallerCancels_StillThrowsInsteadOfHidingItAsAFailedSection()
+    {
+        const ulong guildId = 123456789UL;
+        SetupHappyPathDefaults(guildId);
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildDto { Id = guildId, Name = "Test Guild" });
+        _mockWelcomeService
+            .Setup(s => s.GetConfigurationAsync(guildId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var act = () => _aggregator.BuildAsync(guildId, 10, CancellationToken.None);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
     [Fact]

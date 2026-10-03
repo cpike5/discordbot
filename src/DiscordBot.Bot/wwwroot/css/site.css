@@ -47,7 +47,8 @@
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --transition-fast: 120ms var(--ease-out-quart);
+  --duration-fast: 120ms;
+  --transition-fast: var(--duration-fast) var(--ease-out-quart);
   --transition-normal: 180ms var(--ease-out-quart);
   --transition-smooth: 260ms var(--ease-out-expo);
   --transition-enter: 320ms var(--ease-out-expo);
@@ -61,10 +62,20 @@
   --z-toast: 1300;
   --z-notification: 1300;
 
+  /* Safe-area insets (notches, rounded corners, the home indicator). The layouts set
+     viewport-fit=cover, so the shell pads itself with these; they are 0 elsewhere. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
   /* Canvas grain (0 disables) */
   --grain-opacity: 0.035;
 
   /* ---- Graphite (default) ------------------------------------------------ */
+  /* Native controls, scrollbars and form autofill follow the theme */
+  color-scheme: dark;
+
   /* Surfaces */
   --color-bg-primary: #0f1114;      --color-bg-primary-rgb: 15, 17, 20;
   --color-bg-secondary: #16191d;    --color-bg-secondary-rgb: 22, 25, 29;
@@ -75,15 +86,20 @@
   /* Text */
   --color-text-primary: #e7e4df;    --color-text-primary-rgb: 231, 228, 223;
   --color-text-secondary: #a09c96;  --color-text-secondary-rgb: 160, 156, 150;
-  --color-text-tertiary: #6d6a66;   --color-text-tertiary-rgb: 109, 106, 102;
-  --color-text-placeholder: #5d5a56; --color-text-placeholder-rgb: 93, 90, 86;
+  --color-text-tertiary: #8b8883;   --color-text-tertiary-rgb: 139, 136, 131;
+  --color-text-placeholder: #87837d; --color-text-placeholder-rgb: 135, 131, 125;
   --color-text-inverse: #ffffff;
+  /* Text on a warning fill. Warning is a light colour in every theme, so its text is dark. */
+  --color-on-warning: #1a1205;
 
   /* Ember — the one accent. Selected, active, primary. */
   --color-accent-orange: #e6602b;        --color-accent-orange-rgb: 230, 96, 43;
   --color-accent-orange-hover: #f2703a;  --color-accent-orange-hover-rgb: 242, 112, 58;
   --color-accent-orange-active: #c9501f; --color-accent-orange-active-rgb: 201, 80, 31;
   --color-accent-orange-muted: rgba(230, 96, 43, 0.14);
+  --color-accent-orange-fill: #c9501f;    --color-accent-orange-fill-rgb: 201, 80, 31;
+  --color-accent-orange-fill-hover: #b8461a;  --color-accent-orange-fill-hover-rgb: 184, 70, 26;
+  --color-accent-orange-fill-active: #a33d15;  --color-accent-orange-fill-active-rgb: 163, 61, 21;
 
   /* Signal blue — links, information, focus. Cooler and quieter than ember. */
   --color-accent-blue: #3d9ad6;          --color-accent-blue-rgb: 61, 154, 214;
@@ -91,6 +107,12 @@
   --color-accent-blue-active: #2c82b9;   --color-accent-blue-active-rgb: 44, 130, 185;
   --color-accent-blue-muted: rgba(61, 154, 214, 0.16);
   --color-accent-purple: #9b7bea;        --color-accent-purple-rgb: 155, 123, 234;
+  --color-accent-blue-fill: #257ab1;      --color-accent-blue-fill-rgb: 37, 122, 177;
+  --color-accent-blue-fill-hover: #226fa0;  --color-accent-blue-fill-hover-rgb: 34, 111, 160;
+  --color-accent-blue-fill-active: #1f6693;  --color-accent-blue-fill-active-rgb: 31, 102, 147;
+  --color-accent-purple-fill: #8058e4;    --color-accent-purple-fill-rgb: 128, 88, 228;
+  --color-accent-purple-fill-hover: #764be2;  --color-accent-purple-fill-hover-rgb: 118, 75, 226;
+  --color-accent-purple-fill-active: #6c3de0;  --color-accent-purple-fill-active-rgb: 108, 61, 224;
 
   /* Semantic */
   --color-success: #2fbf7f;        --color-success-rgb: 47, 191, 127;
@@ -106,17 +128,34 @@
   --color-info-hover: #279cb2;     --color-info-hover-rgb: 39, 156, 178;
   --color-info-active: #1f8093;    --color-info-active-rgb: 31, 128, 147;
 
-  --color-success-bg: rgba(47, 191, 127, 0.12);   --color-success-border: rgba(47, 191, 127, 0.3);
-  --color-warning-bg: rgba(240, 163, 35, 0.12);   --color-warning-border: rgba(240, 163, 35, 0.3);
-  --color-error-bg: rgba(239, 79, 79, 0.12);      --color-error-border: rgba(239, 79, 79, 0.3);
-  --color-info-bg: rgba(47, 179, 204, 0.12);      --color-info-border: rgba(47, 179, 204, 0.3);
+  /* Fills carry white text (warning carries --color-on-warning), so they are
+     darker than the inks above, which are tuned for text on the surfaces.
+     Tailwind maps bg-* utilities to the fills (tailwind.config.js), and tints
+     are made from the fill. tests/…/Styles/DesignTokenContrastTests checks both. */
+  --color-success-fill: #208357;          --color-success-fill-rgb: 32, 131, 87;
+  --color-success-fill-hover: #1d774f;    --color-success-fill-hover-rgb: 29, 119, 79;
+  --color-success-fill-active: #1a6a47;   --color-success-fill-active-rgb: 26, 106, 71;
+  --color-warning-fill: #f0a323;          --color-warning-fill-rgb: 240, 163, 35;
+  --color-warning-fill-hover: #d98f16;    --color-warning-fill-hover-rgb: 217, 143, 22;
+  --color-warning-fill-active: #b87812;   --color-warning-fill-active-rgb: 184, 120, 18;
+  --color-error-fill: #d13a3a;            --color-error-fill-rgb: 209, 58, 58;
+  --color-error-fill-hover: #c93a3a;      --color-error-fill-hover-rgb: 201, 58, 58;
+  --color-error-fill-active: #b93434;     --color-error-fill-active-rgb: 185, 52, 52;
+  --color-info-fill: #217f91;             --color-info-fill-rgb: 33, 127, 145;
+  --color-info-fill-hover: #1f7485;       --color-info-fill-hover-rgb: 31, 116, 133;
+  --color-info-fill-active: #1c6978;      --color-info-fill-active-rgb: 28, 105, 120;
+
+  --color-success-bg: rgba(var(--color-success-fill-rgb), 0.12);   --color-success-border: rgba(var(--color-success-rgb), 0.3);
+  --color-warning-bg: rgba(var(--color-warning-fill-rgb), 0.12);   --color-warning-border: rgba(var(--color-warning-rgb), 0.3);
+  --color-error-bg: rgba(var(--color-error-fill-rgb), 0.12);       --color-error-border: rgba(var(--color-error-rgb), 0.3);
+  --color-info-bg: rgba(var(--color-info-fill-rgb), 0.12);         --color-info-border: rgba(var(--color-info-rgb), 0.3);
 
   /* Rules & borders — hairlines that read the same on every surface */
   --color-border-primary: rgba(255, 255, 255, 0.08);
   --color-border-secondary: rgba(255, 255, 255, 0.05);
   --color-border-strong: rgba(255, 255, 255, 0.14);
   --color-border-hover: rgba(255, 255, 255, 0.24);
-  --color-border-focus: #3d9ad6;
+  --color-border-focus: #3d9ad6;     --color-border-focus-rgb: 61, 154, 214;
 
   /* Interaction washes */
   --color-nav-hover: rgba(255, 255, 255, 0.045);
@@ -148,15 +187,16 @@
   --color-status-active: #2fbf7f;
   --color-status-active-bg: rgba(47, 191, 127, 0.12);
   --color-status-active-border: rgba(47, 191, 127, 0.3);
-  --color-status-inactive: #6d6a66;
-  --color-status-inactive-bg: rgba(109, 106, 102, 0.12);
-  --color-status-inactive-border: rgba(109, 106, 102, 0.3);
+  --color-status-inactive: #8b8883;
+  --color-status-inactive-bg: rgba(139, 136, 131, 0.12);
+  --color-status-inactive-border: rgba(139, 136, 131, 0.3);
 }
 
 /* ---- Purple Dusk (light) --------------------------------------------------
    Warm paper surfaces with a plum ink. Ember maps to plum, blue maps to rose,
    so every component keeps its meaning across themes. */
 [data-theme="purple-dusk"] {
+  color-scheme: light;
   --grain-opacity: 0.05;
 
   --color-bg-primary: #ebe6e2;      --color-bg-primary-rgb: 235, 230, 226;
@@ -167,44 +207,61 @@
 
   --color-text-primary: #3f1a3b;    --color-text-primary-rgb: 63, 26, 59;
   --color-text-secondary: #5d4672;  --color-text-secondary-rgb: 93, 70, 114;
-  --color-text-tertiary: #857793;   --color-text-tertiary-rgb: 133, 119, 147;
-  --color-text-placeholder: #9a8da8; --color-text-placeholder-rgb: 154, 141, 168;
+  --color-text-tertiary: #665a72;   --color-text-tertiary-rgb: 102, 90, 114;
+  --color-text-placeholder: #6d5f7c; --color-text-placeholder-rgb: 109, 95, 124;
   --color-text-inverse: #ffffff;
 
   --color-accent-orange: #614978;        --color-accent-orange-rgb: 97, 73, 120;
   --color-accent-orange-hover: #7a5c8f;  --color-accent-orange-hover-rgb: 122, 92, 143;
   --color-accent-orange-active: #4f214a; --color-accent-orange-active-rgb: 79, 33, 74;
   --color-accent-orange-muted: rgba(97, 73, 120, 0.16);
+  --color-accent-orange-fill: #614978;    --color-accent-orange-fill-rgb: 97, 73, 120;
+  --color-accent-orange-fill-hover: #563f6b;  --color-accent-orange-fill-hover-rgb: 86, 63, 107;
+  --color-accent-orange-fill-active: #4f214a;  --color-accent-orange-fill-active-rgb: 79, 33, 74;
 
-  --color-accent-blue: #c9305a;          --color-accent-blue-rgb: 201, 48, 90;
-  --color-accent-blue-hover: #e5476d;    --color-accent-blue-hover-rgb: 229, 71, 109;
-  --color-accent-blue-active: #b82a4d;   --color-accent-blue-active-rgb: 184, 42, 77;
-  --color-accent-blue-muted: rgba(201, 48, 90, 0.14);
-  --color-accent-purple: #7c3aed;        --color-accent-purple-rgb: 124, 58, 237;
+  --color-accent-blue: #a8284b;            --color-accent-blue-rgb: 168, 40, 75;
+  --color-accent-blue-hover: #9e2547;      --color-accent-blue-hover-rgb: 158, 37, 71;
+  --color-accent-blue-active: #8c2140;     --color-accent-blue-active-rgb: 140, 33, 64;
+  --color-accent-blue-muted: rgba(168, 40, 75, 0.14);
+  --color-accent-purple: #6d28d9;          --color-accent-purple-rgb: 109, 40, 217;
+  --color-accent-blue-fill: #a8284b;      --color-accent-blue-fill-rgb: 168, 40, 75;
+  --color-accent-blue-fill-hover: #9e2547;  --color-accent-blue-fill-hover-rgb: 158, 37, 71;
+  --color-accent-blue-fill-active: #8c2140;  --color-accent-blue-fill-active-rgb: 140, 33, 64;
+  --color-accent-purple-fill: #6d28d9;    --color-accent-purple-fill-rgb: 109, 40, 217;
+  --color-accent-purple-fill-hover: #6024c8;  --color-accent-purple-fill-hover-rgb: 96, 36, 200;
+  --color-accent-purple-fill-active: #521eab;  --color-accent-purple-fill-active-rgb: 82, 30, 171;
 
-  --color-success: #059669;        --color-success-rgb: 5, 150, 105;
-  --color-success-hover: #047857;  --color-success-hover-rgb: 4, 120, 87;
-  --color-success-active: #065f46; --color-success-active-rgb: 6, 95, 70;
-  --color-warning: #c2410c;        --color-warning-rgb: 194, 65, 12;
-  --color-warning-hover: #9a3412;  --color-warning-hover-rgb: 154, 52, 18;
-  --color-warning-active: #7c2d12; --color-warning-active-rgb: 124, 45, 18;
-  --color-error: #dc2626;          --color-error-rgb: 220, 38, 38;
-  --color-error-hover: #b91c1c;    --color-error-hover-rgb: 185, 28, 28;
-  --color-error-active: #991b1b;   --color-error-active-rgb: 153, 27, 27;
-  --color-info: #0e7490;           --color-info-rgb: 14, 116, 144;
-  --color-info-hover: #155e75;     --color-info-hover-rgb: 21, 94, 117;
-  --color-info-active: #164e63;    --color-info-active-rgb: 22, 78, 99;
+  --color-success: #03684a;        --color-success-rgb: 3, 104, 74;
+  --color-success-hover: #035e42;  --color-success-hover-rgb: 3, 94, 66;
+  --color-success-active: #024f37; --color-success-active-rgb: 2, 79, 55;
+  --color-warning: #a1360a;        --color-warning-rgb: 161, 54, 10;
+  --color-warning-hover: #93310a;  --color-warning-hover-rgb: 147, 49, 10;
+  --color-warning-active: #7c2a09; --color-warning-active-rgb: 124, 42, 9;
+  --color-error: #b01c1c;          --color-error-rgb: 176, 28, 28;
+  --color-error-hover: #a31b1b;    --color-error-hover-rgb: 163, 27, 27;
+  --color-error-active: #8e1818;   --color-error-active-rgb: 142, 24, 24;
+  --color-info: #0b6178;           --color-info-rgb: 11, 97, 120;
+  --color-info-hover: #0a5a6f;     --color-info-hover-rgb: 10, 90, 111;
+  --color-info-active: #084c5e;    --color-info-active-rgb: 8, 76, 94;
 
-  --color-success-bg: rgba(5, 150, 105, 0.1);    --color-success-border: rgba(5, 150, 105, 0.3);
-  --color-warning-bg: rgba(194, 65, 12, 0.1);    --color-warning-border: rgba(194, 65, 12, 0.3);
-  --color-error-bg: rgba(220, 38, 38, 0.1);      --color-error-border: rgba(220, 38, 38, 0.3);
-  --color-info-bg: rgba(14, 116, 144, 0.1);      --color-info-border: rgba(14, 116, 144, 0.3);
+  --color-success-fill: #03684a;          --color-success-fill-rgb: 3, 104, 74;
+  --color-success-fill-hover: #035e42;    --color-success-fill-hover-rgb: 3, 94, 66;
+  --color-success-fill-active: #024f37;   --color-success-fill-active-rgb: 2, 79, 55;
+  --color-warning-fill: #f0a323;          --color-warning-fill-rgb: 240, 163, 35;
+  --color-warning-fill-hover: #d98f16;    --color-warning-fill-hover-rgb: 217, 143, 22;
+  --color-warning-fill-active: #b87812;   --color-warning-fill-active-rgb: 184, 120, 18;
+  --color-error-fill: #b01c1c;            --color-error-fill-rgb: 176, 28, 28;
+  --color-error-fill-hover: #a31b1b;      --color-error-fill-hover-rgb: 163, 27, 27;
+  --color-error-fill-active: #8e1818;     --color-error-fill-active-rgb: 142, 24, 24;
+  --color-info-fill: #0b6178;             --color-info-fill-rgb: 11, 97, 120;
+  --color-info-fill-hover: #0a5a6f;       --color-info-fill-hover-rgb: 10, 90, 111;
+  --color-info-fill-active: #084c5e;      --color-info-fill-active-rgb: 8, 76, 94;
 
   --color-border-primary: rgba(63, 26, 59, 0.14);
   --color-border-secondary: rgba(63, 26, 59, 0.08);
   --color-border-strong: rgba(63, 26, 59, 0.24);
   --color-border-hover: rgba(63, 26, 59, 0.38);
-  --color-border-focus: #614978;
+  --color-border-focus: #614978;     --color-border-focus-rgb: 97, 73, 120;
 
   --color-nav-hover: rgba(63, 26, 59, 0.06);
   --color-nav-active: rgba(63, 26, 59, 0.1);
@@ -228,12 +285,12 @@
   --color-glass-bg-active: rgba(215, 207, 201, 0.8);
   --color-glass-border: rgba(63, 26, 59, 0.18);
   --color-glass-border-hover: rgba(97, 73, 120, 0.5);
-  --color-status-active: #059669;
-  --color-status-active-bg: rgba(5, 150, 105, 0.12);
-  --color-status-active-border: rgba(5, 150, 105, 0.35);
-  --color-status-inactive: #6b7280;
-  --color-status-inactive-bg: rgba(107, 114, 128, 0.12);
-  --color-status-inactive-border: rgba(107, 114, 128, 0.35);
+  --color-status-active: #03684a;
+  --color-status-active-bg: rgba(3, 104, 74, 0.12);
+  --color-status-active-border: rgba(3, 104, 74, 0.35);
+  --color-status-inactive: #665a72;
+  --color-status-inactive-bg: rgba(102, 90, 114, 0.12);
+  --color-status-inactive-border: rgba(102, 90, 114, 0.35);
 }
 
 /* -----------------------------------------------------------------------------
@@ -256,6 +313,7 @@
     margin: 0;
     padding: 0;
     min-height: 100vh;
+    min-height: 100dvh;
     font-family: var(--font-body);
     color: var(--color-text-primary);
     background-color: var(--color-bg-primary);
@@ -296,7 +354,7 @@
   }
 
   ::selection {
-    background-color: rgba(var(--color-accent-orange-rgb), 0.35);
+    background-color: rgba(var(--color-accent-orange-fill-rgb), 0.35);
     color: var(--color-text-primary);
   }
 
@@ -433,15 +491,15 @@
 
   .btn-primary {
     color: #ffffff;
-    background-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange-fill);
     border-color: rgba(0, 0, 0, 0.22);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(0, 0, 0, 0.25);
   }
   .btn-primary:hover {
-    background-color: var(--color-accent-orange-hover);
+    background-color: var(--color-accent-orange-fill-hover);
   }
   .btn-primary:active {
-    background-color: var(--color-accent-orange-active);
+    background-color: var(--color-accent-orange-fill-active);
     box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.25);
   }
   .btn-primary:focus-visible {
@@ -465,15 +523,15 @@
 
   .btn-accent {
     color: #ffffff;
-    background-color: var(--color-accent-blue);
+    background-color: var(--color-accent-blue-fill);
     border-color: rgba(0, 0, 0, 0.22);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(0, 0, 0, 0.25);
   }
   .btn-accent:hover {
-    background-color: var(--color-accent-blue-hover);
+    background-color: var(--color-accent-blue-fill-hover);
   }
   .btn-accent:active {
-    background-color: var(--color-accent-blue-active);
+    background-color: var(--color-accent-blue-fill-active);
     box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.25);
   }
   .btn-accent:focus-visible {
@@ -481,26 +539,29 @@
     box-shadow: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent-blue);
   }
 
-  .btn-danger {
+  .btn-danger,
+  .btn-error {
     color: #ffffff;
-    background-color: var(--color-error);
+    background-color: var(--color-error-fill);
     border-color: rgba(0, 0, 0, 0.22);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(0, 0, 0, 0.25);
   }
-  .btn-danger:hover {
-    background-color: var(--color-error-hover);
+  .btn-danger:hover,
+  .btn-error:hover {
+    background-color: var(--color-error-fill-hover);
   }
-  .btn-danger:active {
-    background-color: var(--color-error-active);
+  .btn-danger:active,
+  .btn-error:active {
+    background-color: var(--color-error-fill-active);
   }
 
   .btn-warning {
     color: var(--color-warning);
-    background-color: rgba(var(--color-warning-rgb), 0.12);
+    background-color: rgba(var(--color-warning-fill-rgb), 0.12);
     border-color: rgba(var(--color-warning-rgb), 0.35);
   }
   .btn-warning:hover {
-    background-color: rgba(var(--color-warning-rgb), 0.2);
+    background-color: rgba(var(--color-warning-fill-rgb), 0.2);
     border-color: rgba(var(--color-warning-rgb), 0.5);
   }
 
@@ -592,37 +653,6 @@
     box-shadow: var(--shadow-md), var(--surface-highlight);
   }
 
-  /* Enhanced card — a metric panel with a 2px accent rule along the top */
-  .card-enhanced {
-    position: relative;
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--surface-highlight);
-    overflow: hidden;
-    transition: border-color var(--transition-normal), transform var(--transition-normal), box-shadow var(--transition-normal);
-  }
-  .card-enhanced:hover {
-    border-color: var(--color-border-strong);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md), var(--surface-highlight);
-  }
-  .card-enhanced::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--color-border-strong);
-  }
-  .card-enhanced.accent-blue::before { background-color: var(--color-accent-blue); }
-  .card-enhanced.accent-orange::before { background-color: var(--color-accent-orange); }
-  .card-enhanced.accent-success::before { background-color: var(--color-success); }
-  .card-enhanced.accent-info::before { background-color: var(--color-info); }
-  .card-enhanced.accent-warning::before { background-color: var(--color-warning); }
-  .card-enhanced.accent-error::before { background-color: var(--color-error); }
-
   .hero-metric-card {
     position: relative;
     padding: 1.25rem 1.25rem 1.125rem;
@@ -647,10 +677,10 @@
     height: 2px;
     background-color: var(--color-border-strong);
   }
-  .hero-metric-card.accent-blue::before { background-color: var(--color-accent-blue); }
-  .hero-metric-card.accent-orange::before { background-color: var(--color-accent-orange); }
-  .hero-metric-card.accent-success::before { background-color: var(--color-success); }
-  .hero-metric-card.accent-info::before { background-color: var(--color-info); }
+  .hero-metric-card.accent-blue::before { background-color: var(--color-accent-blue-fill); }
+  .hero-metric-card.accent-orange::before { background-color: var(--color-accent-orange-fill); }
+  .hero-metric-card.accent-success::before { background-color: var(--color-success-fill); }
+  .hero-metric-card.accent-info::before { background-color: var(--color-info-fill); }
   .hero-metric-label {
     font-family: var(--font-mono);
     font-size: 0.6875rem;
@@ -692,7 +722,7 @@
   .sparkline-bar {
     flex: 1;
     min-width: 2px;
-    background-color: var(--color-accent-blue);
+    background-color: var(--color-accent-blue-fill);
     border-radius: 2px 2px 0 0;
     opacity: 0.75;
     transition: opacity var(--transition-fast), height var(--transition-normal);
@@ -830,7 +860,7 @@
     transition: transform var(--transition-smooth), background-color var(--transition-normal);
   }
   .toggle-input:checked + .toggle-slider {
-    background-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange-fill);
     border-color: var(--color-accent-orange);
   }
   .toggle-input:checked + .toggle-slider::before {
@@ -843,6 +873,283 @@
   .toggle-label {
     font-size: 0.875rem;
     color: var(--color-text-primary);
+  }
+
+  /* ---- Form control states and sizes (Phase 3) --------------------------- */
+  .form-textarea {
+    min-height: 5rem;
+    line-height: 1.5;
+    resize: vertical;
+  }
+  .form-input-sm { min-height: 1.875rem; padding: 0.25rem 0.625rem; font-size: 0.75rem; }
+  .form-input-lg { min-height: 2.75rem; padding: 0.625rem 1rem; font-size: 1rem; }
+  .form-input[readonly] { background-color: var(--color-bg-secondary); }
+
+  /* Invalid, warning and valid fields. The selectors name the element too, so a raw
+     <input asp-for> or one that jQuery validation marks at run time still turns red even when
+     it carries utility borders. Tag helpers and unobtrusive validation add these classes. */
+  input.input-validation-error,
+  select.input-validation-error,
+  textarea.input-validation-error,
+  .form-input.input-validation-error,
+  .form-select.input-validation-error,
+  .form-textarea.input-validation-error {
+    border-color: var(--color-error);
+  }
+  input.input-validation-error:focus,
+  select.input-validation-error:focus,
+  textarea.input-validation-error:focus,
+  .form-input.input-validation-error:focus,
+  .form-select.input-validation-error:focus,
+  .form-textarea.input-validation-error:focus {
+    border-color: var(--color-error);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(var(--color-error-rgb), 0.2);
+  }
+  input.input-validation-warning,
+  select.input-validation-warning,
+  textarea.input-validation-warning,
+  .form-input.input-validation-warning,
+  .form-select.input-validation-warning,
+  .form-textarea.input-validation-warning {
+    border-color: var(--color-warning);
+  }
+  input.input-validation-warning:focus,
+  select.input-validation-warning:focus,
+  textarea.input-validation-warning:focus,
+  .form-input.input-validation-warning:focus,
+  .form-select.input-validation-warning:focus,
+  .form-textarea.input-validation-warning:focus {
+    border-color: var(--color-warning);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(var(--color-warning-rgb), 0.2);
+  }
+  input.input-validation-success,
+  select.input-validation-success,
+  textarea.input-validation-success,
+  .form-input.input-validation-success,
+  .form-select.input-validation-success,
+  .form-textarea.input-validation-success {
+    border-color: var(--color-success);
+  }
+  input.input-validation-success:focus,
+  select.input-validation-success:focus,
+  textarea.input-validation-success:focus,
+  .form-input.input-validation-success:focus,
+  .form-select.input-validation-success:focus,
+  .form-textarea.input-validation-success:focus {
+    border-color: var(--color-success);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(var(--color-success-rgb), 0.2);
+  }
+  .field-validation-error {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--color-error);
+  }
+  .field-validation-valid,
+  .validation-summary-valid {
+    display: none;
+  }
+  .validation-summary-errors {
+    padding: 0.75rem 1rem;
+    font-size: 0.8125rem;
+    color: var(--color-error);
+    background-color: rgba(var(--color-error-fill-rgb), 0.07);
+    border: 1px solid rgba(var(--color-error-rgb), 0.25);
+    border-left: 3px solid var(--color-error);
+    border-radius: var(--radius-md);
+  }
+  .validation-summary-errors ul {
+    margin: 0;
+    padding-left: 1.125rem;
+    list-style: disc;
+  }
+
+  /* Toggle: a disabled switch looks and acts disabled */
+  .toggle-input:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .toggle-disabled { cursor: not-allowed; }
+
+  /* ---- Radio cards -------------------------------------------------------- */
+  /* The radio itself is visually hidden (sr-only) but stays focusable; the card shows
+     focus, hover, selected and disabled. A dot marks the selection so colour is not the
+     only signal. */
+  .radio-card {
+    position: relative;
+    display: block;
+    cursor: pointer;
+  }
+  .radio-card-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .radio-card-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    height: 100%;
+    padding: 0.875rem 1rem;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .radio-card:hover .radio-card-body {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
+  }
+  .radio-card-dot {
+    flex-shrink: 0;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.125rem;
+    border: 2px solid var(--color-border-hover);
+    border-radius: 50%;
+    background-color: transparent;
+    box-shadow: inset 0 0 0 3px var(--color-bg-secondary);
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  }
+  .radio-card-input:checked + .radio-card-body {
+    background-color: rgba(var(--color-accent-orange-fill-rgb), 0.12);
+    border-color: var(--color-accent-orange);
+    box-shadow: inset 0 0 0 1px var(--color-accent-orange);
+  }
+  .radio-card-input:checked + .radio-card-body .radio-card-dot {
+    border-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange);
+  }
+  .radio-card-input:focus-visible + .radio-card-body {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+  }
+  .radio-card-input:disabled + .radio-card-body {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .radio-card-disabled { cursor: not-allowed; }
+  .radio-card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+  .radio-card-description {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+  .radio-card-group-invalid .radio-card-body {
+    border-color: var(--color-error);
+  }
+
+  /* ---- Pagination --------------------------------------------------------- */
+  .pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+  }
+  a.pagination-link:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+  }
+  .pagination-link svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+  .pagination-link[aria-current="page"] {
+    font-weight: 600;
+    color: #ffffff;
+    background-color: var(--color-accent-orange-fill);
+  }
+  .pagination-link[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .pagination-link-boxed {
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border-primary);
+  }
+  .pagination-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    color: var(--color-text-tertiary);
+  }
+  .pagination-group {
+    display: inline-flex;
+    align-items: stretch;
+    overflow: hidden;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-lg);
+  }
+  .pagination-group > .pagination-link,
+  .pagination-group > .pagination-ellipsis {
+    border-radius: 0;
+    border-right: 1px solid var(--color-border-primary);
+  }
+  .pagination-group > :last-child { border-right: 0; }
+  .pagination-summary {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+  .pagination-summary strong {
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+  @media (pointer: coarse) {
+    .pagination-link { min-width: 2.75rem; min-height: 2.75rem; }
+  }
+
+  /* ---- Modal motion (quick-actions.js) ------------------------------------ */
+  /* openDialog removes `hidden`, then adds .qa-open; closeDialog removes .qa-open and adds
+     `hidden` after the exit. Class toggles, because display:none cannot transition. */
+  .qa-modal-backdrop {
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+  }
+  .qa-modal-panel {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+    transition: opacity var(--transition-normal), transform var(--transition-smooth);
+  }
+  .qa-open .qa-modal-backdrop { opacity: 1; }
+  .qa-open .qa-modal-panel {
+    opacity: 1;
+    transform: none;
+  }
+  html.qa-scroll-lock {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qa-modal-backdrop,
+    .qa-modal-panel {
+      transition: none;
+      transform: none;
+    }
   }
 
   /* ---- Legacy navigation classes (component gallery, prototypes) --------- */
@@ -914,12 +1221,12 @@
     text-transform: uppercase;
     color: var(--color-text-tertiary);
   }
-  .sidebar-badge-dot { margin-left: auto; width: 0.5rem; height: 0.5rem; background-color: var(--color-accent-orange); border-radius: 50%; }
+  .sidebar-badge-dot { margin-left: auto; width: 0.5rem; height: 0.5rem; background-color: var(--color-accent-orange-fill); border-radius: 50%; }
   .sidebar-status { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.8125rem; }
   .sidebar-status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; }
-  .sidebar-status-dot.online { background-color: var(--color-success); }
+  .sidebar-status-dot.online { background-color: var(--color-success-fill); }
   .sidebar-status-dot.offline { background-color: var(--color-text-tertiary); }
-  .sidebar-status-dot.error { background-color: var(--color-error); }
+  .sidebar-status-dot.error { background-color: var(--color-error-fill); }
 
   /* ---- Breadcrumbs ------------------------------------------------------- */
   .breadcrumb {
@@ -1028,23 +1335,23 @@
     width: 0.75rem;
     height: 0.75rem;
   }
-  .badge-orange  { color: var(--color-accent-orange); background-color: rgba(var(--color-accent-orange-rgb), 0.12); border-color: rgba(var(--color-accent-orange-rgb), 0.32); }
-  .badge-blue    { color: var(--color-accent-blue);   background-color: rgba(var(--color-accent-blue-rgb), 0.12);   border-color: rgba(var(--color-accent-blue-rgb), 0.32); }
-  .badge-purple  { color: var(--color-accent-purple); background-color: rgba(var(--color-accent-purple-rgb), 0.12); border-color: rgba(var(--color-accent-purple-rgb), 0.32); }
-  .badge-success { color: var(--color-success);       background-color: rgba(var(--color-success-rgb), 0.12);       border-color: rgba(var(--color-success-rgb), 0.32); }
-  .badge-warning { color: var(--color-warning);       background-color: rgba(var(--color-warning-rgb), 0.12);       border-color: rgba(var(--color-warning-rgb), 0.32); }
-  .badge-error   { color: var(--color-error);         background-color: rgba(var(--color-error-rgb), 0.12);         border-color: rgba(var(--color-error-rgb), 0.32); }
-  .badge-info    { color: var(--color-info);          background-color: rgba(var(--color-info-rgb), 0.12);          border-color: rgba(var(--color-info-rgb), 0.32); }
+  .badge-orange  { color: var(--color-accent-orange); background-color: rgba(var(--color-accent-orange-fill-rgb), 0.12); border-color: rgba(var(--color-accent-orange-rgb), 0.32); }
+  .badge-blue    { color: var(--color-accent-blue);   background-color: rgba(var(--color-accent-blue-fill-rgb), 0.12);   border-color: rgba(var(--color-accent-blue-rgb), 0.32); }
+  .badge-purple  { color: var(--color-accent-purple); background-color: rgba(var(--color-accent-purple-fill-rgb), 0.12); border-color: rgba(var(--color-accent-purple-rgb), 0.32); }
+  .badge-success { color: var(--color-success);       background-color: rgba(var(--color-success-fill-rgb), 0.12);       border-color: rgba(var(--color-success-rgb), 0.32); }
+  .badge-warning { color: var(--color-warning);       background-color: rgba(var(--color-warning-fill-rgb), 0.12);       border-color: rgba(var(--color-warning-rgb), 0.32); }
+  .badge-error   { color: var(--color-error);         background-color: rgba(var(--color-error-fill-rgb), 0.12);         border-color: rgba(var(--color-error-rgb), 0.32); }
+  .badge-info    { color: var(--color-info);          background-color: rgba(var(--color-info-fill-rgb), 0.12);          border-color: rgba(var(--color-info-rgb), 0.32); }
   .badge-gray    { color: var(--color-text-secondary); background-color: var(--color-bg-tertiary); border-color: var(--color-border-primary); }
 
   .badge-solid                { color: #ffffff; border-color: transparent; }
-  .badge-solid.badge-orange   { background-color: var(--color-accent-orange); }
-  .badge-solid.badge-blue     { background-color: var(--color-accent-blue); }
-  .badge-solid.badge-purple   { background-color: var(--color-accent-purple); }
-  .badge-solid.badge-success  { background-color: var(--color-success); }
-  .badge-solid.badge-warning  { background-color: var(--color-warning); color: #1a1205; }
-  .badge-solid.badge-error    { background-color: var(--color-error); }
-  .badge-solid.badge-info     { background-color: var(--color-info); }
+  .badge-solid.badge-orange   { background-color: var(--color-accent-orange-fill); }
+  .badge-solid.badge-blue     { background-color: var(--color-accent-blue-fill); }
+  .badge-solid.badge-purple   { background-color: var(--color-accent-purple-fill); }
+  .badge-solid.badge-success  { background-color: var(--color-success-fill); }
+  .badge-solid.badge-warning  { background-color: var(--color-warning-fill); color: var(--color-on-warning); }
+  .badge-solid.badge-error    { background-color: var(--color-error-fill); }
+  .badge-solid.badge-info     { background-color: var(--color-info-fill); }
   .badge-solid.badge-gray     { background-color: var(--color-bg-hover); color: var(--color-text-primary); }
 
   .badge-outline { background-color: transparent; }
@@ -1085,13 +1392,72 @@
     flex-shrink: 0;
   }
   .status-online  { color: var(--color-success); }
-  .status-online::before  { background-color: var(--color-success); box-shadow: 0 0 0 3px rgba(var(--color-success-rgb), 0.18); }
+  .status-online::before  { background-color: var(--color-success-fill); box-shadow: 0 0 0 3px rgba(var(--color-success-rgb), 0.18); }
   .status-idle    { color: var(--color-warning); }
-  .status-idle::before    { background-color: var(--color-warning); box-shadow: 0 0 0 3px rgba(var(--color-warning-rgb), 0.18); }
+  .status-idle::before    { background-color: var(--color-warning-fill); box-shadow: 0 0 0 3px rgba(var(--color-warning-rgb), 0.18); }
   .status-busy    { color: var(--color-error); }
-  .status-busy::before    { background-color: var(--color-error); box-shadow: 0 0 0 3px rgba(var(--color-error-rgb), 0.18); }
+  .status-busy::before    { background-color: var(--color-error-fill); box-shadow: 0 0 0 3px rgba(var(--color-error-rgb), 0.18); }
   .status-offline { color: var(--color-text-tertiary); }
   .status-offline::before { background-color: var(--color-text-tertiary); }
+
+  /* ---- Status and severity badges ---------------------------------------
+     Rounded tint pills used by flagged events, moderation, alerts and the
+     portal header. One definition here; the page stylesheets add none. */
+  .status-badge,
+  .severity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    background-color: var(--color-bg-tertiary);
+    border-radius: var(--radius-pill);
+  }
+  .status-badge-lg {
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: var(--radius-md);
+  }
+
+  /* Flagged-event status (FlaggedEventStatus) */
+  .status-badge.status-pending,
+  .status-badge.status-acknowledged { color: var(--color-info); background-color: var(--color-info-bg); }
+  .status-badge.status-actioned     { color: var(--color-success); background-color: var(--color-success-bg); }
+  .status-badge.status-dismissed    { color: var(--color-text-tertiary); }
+
+  /* Connection and incident status */
+  .status-badge.online,
+  .status-badge-connected,
+  .status-badge-success      { color: var(--color-success); background-color: var(--color-success-bg); }
+  .status-badge-reconnecting,
+  .status-badge-warning      { color: var(--color-warning); background-color: var(--color-warning-bg); }
+  .status-badge.offline,
+  .status-badge-error        { color: var(--color-error); background-color: var(--color-error-bg); }
+  .status-badge-secondary    { color: var(--color-text-secondary); }
+
+  /* Severity: moderation (Severity) and performance alerts (AlertSeverity) */
+  .severity-badge.severity-low      { color: var(--color-text-secondary); }
+  .severity-badge.severity-medium,
+  .severity-badge.severity-warning  { color: var(--color-warning); background-color: var(--color-warning-bg); }
+  .severity-badge.severity-high,
+  .severity-badge.severity-critical { color: var(--color-error); background-color: var(--color-error-bg); }
+  .severity-badge.severity-info     { color: var(--color-accent-blue); background-color: rgba(var(--color-accent-blue-fill-rgb), 0.12); }
+
+  /* The live dot on a critical severity badge */
+  .pulse-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background-color: currentColor;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
 
   /* ---- Alerts — a 3px rule on the leading edge carries the meaning ------- */
   .alert {
@@ -1134,10 +1500,10 @@
   }
   .alert-close:hover { color: var(--color-text-primary); }
 
-  .alert-info    { background-color: rgba(var(--color-info-rgb), 0.07);    border-color: rgba(var(--color-info-rgb), 0.25);    border-left-color: var(--color-info); }
-  .alert-success { background-color: rgba(var(--color-success-rgb), 0.07); border-color: rgba(var(--color-success-rgb), 0.25); border-left-color: var(--color-success); }
-  .alert-warning { background-color: rgba(var(--color-warning-rgb), 0.07); border-color: rgba(var(--color-warning-rgb), 0.25); border-left-color: var(--color-warning); }
-  .alert-error   { background-color: rgba(var(--color-error-rgb), 0.07);   border-color: rgba(var(--color-error-rgb), 0.25);   border-left-color: var(--color-error); }
+  .alert-info    { background-color: rgba(var(--color-info-fill-rgb), 0.07);    border-color: rgba(var(--color-info-rgb), 0.25);    border-left-color: var(--color-info); }
+  .alert-success { background-color: rgba(var(--color-success-fill-rgb), 0.07); border-color: rgba(var(--color-success-rgb), 0.25); border-left-color: var(--color-success); }
+  .alert-warning { background-color: rgba(var(--color-warning-fill-rgb), 0.07); border-color: rgba(var(--color-warning-rgb), 0.25); border-left-color: var(--color-warning); }
+  .alert-error   { background-color: rgba(var(--color-error-fill-rgb), 0.07);   border-color: rgba(var(--color-error-rgb), 0.25);   border-left-color: var(--color-error); }
   .alert-info .alert-icon,    .alert-info .alert-title    { color: var(--color-info); }
   .alert-success .alert-icon, .alert-success .alert-title { color: var(--color-success); }
   .alert-warning .alert-icon, .alert-warning .alert-title { color: var(--color-warning); }
@@ -1162,12 +1528,17 @@
     z-index: 1000;
     padding: 0.5rem 1rem;
     color: #ffffff;
-    background-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange-fill);
     transform: translateY(-100%);
     transition: transform var(--transition-normal);
   }
   .skip-link:focus {
     transform: translateY(0);
+  }
+  /* <main tabindex="-1"> takes focus from the skip link; it is not a control, so no ring on it. */
+  main[tabindex="-1"]:focus,
+  main[tabindex="-1"]:focus-visible {
+    outline: none;
   }
 
   /* ---- Pulses & dots ----------------------------------------------------- */
@@ -1250,38 +1621,38 @@
   }
 
   /* ---- Connection status ------------------------------------------------- */
-  #connection-status[data-state="connected"] { color: var(--color-success); background-color: rgba(var(--color-success-rgb), 0.1); }
-  #connection-status[data-state="connected"] .connection-dot { background-color: var(--color-success); }
-  #connection-status[data-state="connected"] .connection-dot::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background-color: var(--color-success);
-    animation: connection-pulse 2s ease-in-out infinite;
-  }
-  #connection-status[data-state="connecting"],
-  #connection-status[data-state="reconnecting"] { color: var(--color-warning); background-color: rgba(var(--color-warning-rgb), 0.1); }
-  #connection-status[data-state="connecting"] .connection-dot,
-  #connection-status[data-state="reconnecting"] .connection-dot { background-color: var(--color-warning); animation: connection-blink 1s ease-in-out infinite; }
-  #connection-status[data-state="disconnected"] { color: var(--color-error); background-color: rgba(var(--color-error-rgb), 0.1); }
-  #connection-status[data-state="disconnected"] .connection-dot { background-color: var(--color-error); }
-
-  .connection-status[data-state="connected"] .connection-dot { background-color: var(--color-success); }
+  .connection-status[data-state="connected"] { color: var(--color-success); background-color: rgba(var(--color-success-fill-rgb), 0.1); }
+  .connection-status[data-state="connected"] .connection-dot { background-color: var(--color-success-fill); }
   .connection-status[data-state="connected"] .connection-dot::before {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background-color: var(--color-success);
+    background-color: var(--color-success-fill);
+    animation: connection-pulse 2s ease-in-out infinite;
+  }
+  .connection-status[data-state="connecting"],
+  .connection-status[data-state="reconnecting"] { color: var(--color-warning); background-color: rgba(var(--color-warning-fill-rgb), 0.1); }
+  .connection-status[data-state="connecting"] .connection-dot,
+  .connection-status[data-state="reconnecting"] .connection-dot { background-color: var(--color-warning-fill); animation: connection-blink 1s ease-in-out infinite; }
+  .connection-status[data-state="disconnected"] { color: var(--color-error); background-color: rgba(var(--color-error-fill-rgb), 0.1); }
+  .connection-status[data-state="disconnected"] .connection-dot { background-color: var(--color-error-fill); }
+
+  .connection-status[data-state="connected"] .connection-dot { background-color: var(--color-success-fill); }
+  .connection-status[data-state="connected"] .connection-dot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-color: var(--color-success-fill);
     animation: connection-pulse 2s ease-in-out infinite;
   }
   .connection-status[data-state="connected"] .connection-text { color: var(--color-success); }
   .connection-status[data-state="connecting"] .connection-dot,
-  .connection-status[data-state="reconnecting"] .connection-dot { background-color: var(--color-warning); animation: connection-blink 1s ease-in-out infinite; }
+  .connection-status[data-state="reconnecting"] .connection-dot { background-color: var(--color-warning-fill); animation: connection-blink 1s ease-in-out infinite; }
   .connection-status[data-state="connecting"] .connection-text,
   .connection-status[data-state="reconnecting"] .connection-text { color: var(--color-warning); }
-  .connection-status[data-state="disconnected"] .connection-dot { background-color: var(--color-error); }
+  .connection-status[data-state="disconnected"] .connection-dot { background-color: var(--color-error-fill); }
   .connection-status[data-state="disconnected"] .connection-text { color: var(--color-error); }
 
   @keyframes connection-pulse {
@@ -1292,6 +1663,80 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
   }
+
+  /* ---- Connection banner and stale badge ---------------------------------- */
+  /* Floats under the top bar so showing it never moves the page. The sidebar offset follows the
+     rail on desktop. */
+  .connection-banner {
+    position: fixed;
+    z-index: calc(var(--z-fixed) + 5);
+    top: calc(var(--navbar-height) + var(--safe-top) + 0.5rem);
+    left: max(1rem, var(--safe-left));
+    right: max(1rem, var(--safe-right));
+    pointer-events: none;
+  }
+  @media (min-width: 1024px) {
+    .connection-banner { left: calc(var(--sidebar-width) + 1rem); }
+    html.sidebar-collapsed .connection-banner { left: calc(var(--sidebar-collapsed-width) + 1rem); }
+  }
+  .connection-banner[hidden] { display: none; }
+  .connection-banner-inner {
+    pointer-events: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 0.75rem;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg), var(--surface-highlight);
+  }
+  .connection-banner-text {
+    margin: 0;
+    flex: 1 1 14rem;
+    min-width: 0;
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+  @media (max-width: 639px) {
+    /* Pill and button share a row, the sentence goes under them: half the height. */
+    .connection-banner-inner { justify-content: space-between; padding: 0.5rem; }
+    .connection-banner-text { order: 3; flex-basis: 100%; font-size: 0.75rem; }
+  }
+  .connection-banner [data-connection-retry][hidden],
+  .connection-banner [data-connection-signin][hidden] { display: none; }
+  [data-stale-badge][hidden] { display: none; }
+  .bot-status-stale { margin-left: 0.375rem; vertical-align: middle; }
+
+  /* ---- Relative time ------------------------------------------------------- */
+  /* An element carrying an absolute time on hover and focus: underlined so it reads as such. */
+  .relative-time {
+    text-decoration: underline dotted var(--color-text-tertiary);
+    text-underline-offset: 3px;
+    cursor: help;
+  }
+  .format-tooltip {
+    position: fixed;
+    z-index: var(--z-tooltip);
+    max-width: calc(100vw - 1rem);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .format-tooltip[hidden] { display: none; }
+  /* Server dates swap text when the script runs: equal-width digits keep the swap from nudging neighbours. */
+  [data-utc], .relative-time { font-variant-numeric: tabular-nums; }
 
   .card-update-pulse {
     animation: update-pulse 0.6s ease-out;
@@ -1325,7 +1770,7 @@
     transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast);
   }
   .btn-toggle:hover { color: var(--color-text-primary); background-color: var(--color-bg-hover); }
-  .btn-toggle.active { color: #ffffff; background-color: var(--color-accent-orange); border-color: var(--color-accent-orange); }
+  .btn-toggle.active { color: #ffffff; background-color: var(--color-accent-orange-fill); border-color: var(--color-accent-orange); }
 
   /* ---- Bot status banner — a status stripe on the leading edge ----------- */
   .bot-status-banner {
@@ -1344,11 +1789,11 @@
     bottom: 0;
     left: 0;
     width: 3px;
-    background-color: var(--color-success);
+    background-color: var(--color-success-fill);
     box-shadow: 0 0 12px rgba(var(--color-success-rgb), 0.55);
   }
   .bot-status-banner.offline::before {
-    background-color: var(--color-error);
+    background-color: var(--color-error-fill);
     box-shadow: 0 0 12px rgba(var(--color-error-rgb), 0.55);
   }
   .bot-status-metric {
@@ -1403,10 +1848,10 @@
     border: 2px solid var(--color-border-strong);
     border-radius: 50%;
   }
-  .activity-item.success::before { border-color: var(--color-success); background-color: var(--color-success); }
-  .activity-item.info::before    { border-color: var(--color-accent-blue); background-color: var(--color-accent-blue); }
-  .activity-item.warning::before { border-color: var(--color-warning); background-color: var(--color-warning); }
-  .activity-item.error::before   { border-color: var(--color-error); background-color: var(--color-error); }
+  .activity-item.success::before { border-color: var(--color-success); background-color: var(--color-success-fill); }
+  .activity-item.info::before    { border-color: var(--color-accent-blue); background-color: var(--color-accent-blue-fill); }
+  .activity-item.warning::before { border-color: var(--color-warning); background-color: var(--color-warning-fill); }
+  .activity-item.error::before   { border-color: var(--color-error); background-color: var(--color-error-fill); }
 
   /* ---- Page header ------------------------------------------------------- */
   .page-header {
@@ -1624,7 +2069,7 @@
     top: 0.5rem;
     bottom: 0.5rem;
     width: 2px;
-    background-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange-fill);
     border-radius: 0 2px 2px 0;
     box-shadow: 0 0 8px var(--glow-primary);
   }
@@ -1675,13 +2120,23 @@
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 50%;
-    background-color: var(--color-success);
+    background-color: var(--color-success-fill);
     box-shadow: 0 0 0 3px rgba(var(--color-success-rgb), 0.18), 0 0 10px rgba(var(--color-success-rgb), 0.6);
     animation: led-pulse 2.4s ease-in-out infinite;
   }
   .bot-status-led.offline {
-    background-color: var(--color-error);
+    background-color: var(--color-error-fill);
     box-shadow: 0 0 0 3px rgba(var(--color-error-rgb), 0.18);
+    animation: none;
+  }
+  .bot-status-led.connecting {
+    background-color: var(--color-warning-fill);
+    box-shadow: 0 0 0 3px rgba(var(--color-warning-rgb), 0.18);
+    animation: connection-blink 1s ease-in-out infinite;
+  }
+  .bot-status-led.unknown {
+    background-color: var(--color-text-tertiary);
+    box-shadow: 0 0 0 3px rgba(var(--color-text-tertiary-rgb, 128, 128, 128), 0.18);
     animation: none;
   }
   @keyframes led-pulse {
@@ -1749,8 +2204,8 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    height: var(--navbar-height);
-    padding: 0 1rem;
+    height: calc(var(--navbar-height) + var(--safe-top));
+    padding: var(--safe-top) max(1rem, var(--safe-right)) 0 1rem;
     background-color: var(--color-bg-primary);
     border-bottom: 1px solid var(--color-border-primary);
     transition: left var(--transition-smooth);
@@ -1791,6 +2246,12 @@
     width: 1.125rem;
     height: 1.125rem;
   }
+
+  /* Theme toggle: the icon shows the theme it switches to (theme.js names the button) */
+  .theme-toggle svg { width: 1.125rem; height: 1.125rem; }
+  .theme-toggle .theme-toggle-icon-dark { display: none; }
+  [data-theme="purple-dusk"] .theme-toggle .theme-toggle-icon-light { display: none; }
+  [data-theme="purple-dusk"] .theme-toggle .theme-toggle-icon-dark { display: block; }
   .topbar-brand {
     display: flex;
     align-items: center;
@@ -1903,7 +2364,7 @@
     height: 1.75rem;
     border-radius: var(--radius-md);
     object-fit: cover;
-    background-color: var(--color-accent-blue);
+    background-color: var(--color-accent-blue-fill);
     color: #ffffff;
     display: flex;
     align-items: center;
@@ -1934,7 +2395,6 @@
 
   /* Dropdown surfaces */
   .user-menu-dropdown,
-  .server-action-dropdown,
   .notification-dropdown {
     position: absolute;
     right: 0;
@@ -1948,14 +2408,16 @@
     visibility: hidden;
     transform: translateY(-6px) scale(0.98);
     transform-origin: top right;
-    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+    /* Visibility flips at the end when closing but at once when opening, so a Tab pressed right
+       after opening already reaches the items (it used to skip a menu that was still "hidden"). */
+    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility 0s linear var(--duration-fast);
   }
   .user-menu-dropdown.active,
-  .server-action-dropdown.active,
   .notification-dropdown.active {
     opacity: 1;
     visibility: visible;
     transform: translateY(0) scale(1);
+    transition-delay: 0s;
   }
   .user-menu-dropdown {
     width: 240px;
@@ -2013,11 +2475,6 @@
   .user-menu-item.danger svg {
     color: var(--color-error);
   }
-  .server-action-dropdown {
-    top: calc(100% + 0.25rem);
-    width: 180px;
-    overflow: hidden;
-  }
   .notification-dropdown {
     display: flex;
     flex-direction: column;
@@ -2032,7 +2489,7 @@
     right: 6px;
     width: 8px;
     height: 8px;
-    background-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange-fill);
     border: 2px solid var(--color-bg-primary);
     border-radius: 50%;
   }
@@ -2049,7 +2506,7 @@
     line-height: 0.9375rem;
     text-align: center;
     color: #ffffff;
-    background-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange-fill);
     border: 1px solid var(--color-bg-primary);
     border-radius: var(--radius-pill);
     box-shadow: 0 0 0 1px rgba(var(--color-accent-orange-rgb), 0.35);
@@ -2075,9 +2532,9 @@
     font-weight: 600;
     border-radius: var(--radius-pill);
   }
-  .bot-status-indicator.online { color: var(--color-success); background-color: rgba(var(--color-success-rgb), 0.12); }
-  .bot-status-indicator.offline { color: var(--color-error); background-color: rgba(var(--color-error-rgb), 0.12); }
-  .bot-status-indicator.connecting { color: var(--color-warning); background-color: rgba(var(--color-warning-rgb), 0.12); }
+  .bot-status-indicator.online { color: var(--color-success); background-color: rgba(var(--color-success-fill-rgb), 0.12); }
+  .bot-status-indicator.offline { color: var(--color-error); background-color: rgba(var(--color-error-fill-rgb), 0.12); }
+  .bot-status-indicator.connecting { color: var(--color-warning); background-color: rgba(var(--color-warning-fill-rgb), 0.12); }
   .status-dot {
     width: 8px;
     height: 8px;
@@ -2091,8 +2548,9 @@
   /* ---- Main content ------------------------------------------------------ */
   .main-content-redesign {
     margin-left: var(--sidebar-width);
-    padding-top: var(--navbar-height);
+    padding-top: calc(var(--navbar-height) + var(--safe-top));
     min-height: 100vh;
+    min-height: 100dvh;
     background-color: var(--color-bg-primary);
     background-image: radial-gradient(1100px 520px at 38% -180px, var(--glow-canvas), transparent 70%);
     background-repeat: no-repeat;
@@ -2101,13 +2559,13 @@
   .page-container {
     max-width: var(--content-max-width);
     margin: 0 auto;
-    padding: 1.25rem 1rem 3rem;
+    padding: 1.25rem max(1rem, var(--safe-right)) calc(3rem + var(--safe-bottom)) max(1rem, var(--safe-left));
   }
   @media (min-width: 640px) {
-    .page-container { padding: 1.5rem 1.5rem 3.5rem; }
+    .page-container { padding: 1.5rem max(1.5rem, var(--safe-right)) calc(3.5rem + var(--safe-bottom)) max(1.5rem, var(--safe-left)); }
   }
   @media (min-width: 1024px) {
-    .page-container { padding: 1.75rem 2rem 4rem; }
+    .page-container { padding: 1.75rem max(2rem, var(--safe-right)) calc(4rem + var(--safe-bottom)) 2rem; }
   }
 
   /* Mobile drawer */
@@ -2126,10 +2584,11 @@
   }
   @media (max-width: 1023px) {
     .topbar,
-    .navbar-redesign { left: 0 !important; }
+    .navbar-redesign { left: 0 !important; padding-left: max(1rem, var(--safe-left)); }
     .main-content-redesign { margin-left: 0 !important; }
     .sidebar-redesign {
-      width: min(var(--sidebar-width), 86vw);
+      width: min(calc(var(--sidebar-width) + var(--safe-left)), 86vw);
+      padding: var(--safe-top) 0 var(--safe-bottom) var(--safe-left);
       box-shadow: var(--shadow-xl);
     }
   }
@@ -2190,7 +2649,6 @@
     .bot-status-led,
     .status-dot.pulse,
     .user-menu-dropdown,
-    .server-action-dropdown,
     .notification-dropdown,
     .notification-badge,
     .quick-action-card {
@@ -2310,8 +2768,8 @@
   border-radius: var(--radius-lg);
   background-color: var(--color-bg-secondary);
 }
-.login-alert-warning { border-color: rgba(var(--color-warning-rgb), 0.3); border-left-color: var(--color-warning); background-color: rgba(var(--color-warning-rgb), 0.07); }
-.login-alert-error   { border-color: rgba(var(--color-error-rgb), 0.3);   border-left-color: var(--color-error);   background-color: rgba(var(--color-error-rgb), 0.07); }
+.login-alert-warning { border-color: rgba(var(--color-warning-rgb), 0.3); border-left-color: var(--color-warning); background-color: rgba(var(--color-warning-fill-rgb), 0.07); }
+.login-alert-error   { border-color: rgba(var(--color-error-rgb), 0.3);   border-left-color: var(--color-error);   background-color: rgba(var(--color-error-fill-rgb), 0.07); }
 .login-alert-icon {
   display: flex;
   align-items: center;
@@ -2321,13 +2779,13 @@
   flex-shrink: 0;
   border-radius: var(--radius-md);
 }
-.login-alert-warning .login-alert-icon { color: var(--color-warning); background-color: rgba(var(--color-warning-rgb), 0.14); }
-.login-alert-error .login-alert-icon   { color: var(--color-error);   background-color: rgba(var(--color-error-rgb), 0.14); }
+.login-alert-warning .login-alert-icon { color: var(--color-warning); background-color: rgba(var(--color-warning-fill-rgb), 0.14); }
+.login-alert-error .login-alert-icon   { color: var(--color-error);   background-color: rgba(var(--color-error-fill-rgb), 0.14); }
 .login-alert-title { font-size: 0.875rem; font-weight: 600; color: var(--color-text-primary); }
 .login-alert-message { margin-top: 0.125rem; font-size: 0.8125rem; color: var(--color-text-secondary); }
 .login-alert-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; }
 .login-error-alert {
-  animation: login-slide-down 0.3s var(--ease-out-quart);
+  animation: login-slide-down 0.3s var(--ease-out-quart) forwards;
 }
 @keyframes login-slide-down {
   from { opacity: 0; transform: translateY(-8px); }
@@ -2350,7 +2808,7 @@
   border: 1px solid rgba(var(--color-error-rgb), 0.3);
   border-left: 3px solid var(--color-error);
   border-radius: var(--radius-lg);
-  background-color: rgba(var(--color-error-rgb), 0.07);
+  background-color: rgba(var(--color-error-fill-rgb), 0.07);
 }
 .validation-summary-errors ul { margin: 0; padding-left: 1rem; }
 .validation-summary-valid { display: none; }
@@ -2487,7 +2945,7 @@
 }
 .form-input-floating.error {
   border-color: var(--color-error);
-  background-color: rgba(var(--color-error-rgb), 0.04);
+  background-color: rgba(var(--color-error-fill-rgb), 0.04);
 }
 .form-input-floating.error:focus {
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(var(--color-error-rgb), 0.2);
@@ -2550,7 +3008,7 @@
 .remember-me-checkbox-custom svg { width: 0.75rem; height: 0.75rem; color: #ffffff; opacity: 0; transform: scale(0.5); transition: opacity var(--transition-fast), transform var(--transition-fast); }
 .remember-me-checkbox:hover + .remember-me-checkbox-custom { border-color: var(--color-border-hover); }
 .remember-me-checkbox:focus-visible + .remember-me-checkbox-custom { outline: 2px solid var(--color-accent-blue); outline-offset: 2px; }
-.remember-me-checkbox:checked + .remember-me-checkbox-custom { background-color: var(--color-accent-orange); border-color: var(--color-accent-orange); }
+.remember-me-checkbox:checked + .remember-me-checkbox-custom { background-color: var(--color-accent-orange-fill); border-color: var(--color-accent-orange); }
 .remember-me-checkbox:checked + .remember-me-checkbox-custom svg { opacity: 1; transform: scale(1); }
 .remember-me-label { font-size: 0.875rem; color: var(--color-text-secondary); cursor: pointer; user-select: none; transition: color var(--transition-fast); }
 .remember-me-label:hover { color: var(--color-text-primary); }
@@ -2567,7 +3025,7 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: #ffffff;
-  background-color: var(--color-accent-orange);
+  background-color: var(--color-accent-orange-fill);
   border: 1px solid rgba(0, 0, 0, 0.22);
   border-radius: var(--radius-md);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -2576,12 +3034,12 @@
   transition: background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 .btn-submit-login:hover {
-  background-color: var(--color-accent-orange-hover);
+  background-color: var(--color-accent-orange-fill-hover);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 6px 16px var(--glow-primary);
   transform: translateY(-1px);
 }
 .btn-submit-login:active {
-  background-color: var(--color-accent-orange-active);
+  background-color: var(--color-accent-orange-fill-active);
   transform: translateY(0);
   box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.25);
 }
@@ -2763,13 +3221,14 @@
    ----------------------------------------------------------------------------- */
 [data-theme="purple-dusk"] .settings-tab { color: var(--color-text-secondary); }
 [data-theme="purple-dusk"] .settings-tab:hover { background-color: var(--color-bg-hover); color: var(--color-text-primary); }
-[data-theme="purple-dusk"] .settings-tab.active { background-color: var(--color-accent-orange); color: var(--color-text-inverse); }
+[data-theme="purple-dusk"] .settings-tab.active { background-color: var(--color-accent-orange-fill); color: var(--color-text-inverse); }
 [data-theme="purple-dusk"] .tab-panel-tab { color: var(--color-text-secondary); }
 [data-theme="purple-dusk"] .tab-panel-tab.disabled,
 [data-theme="purple-dusk"] .tab-panel-tab[aria-disabled="true"] { color: var(--color-text-tertiary); opacity: 0.5; }
 [data-theme="purple-dusk"] .btn-primary,
 [data-theme="purple-dusk"] .btn-accent,
-[data-theme="purple-dusk"] .btn-danger { border-color: rgba(0, 0, 0, 0.12); }
+[data-theme="purple-dusk"] .btn-danger,
+[data-theme="purple-dusk"] .btn-error { border-color: rgba(0, 0, 0, 0.12); }
 
 /* -----------------------------------------------------------------------------
    9. NOTIFICATION PANEL (rendered by notification-bell.js)
@@ -2856,7 +3315,7 @@
   }
 
   .notification-list::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-accent-blue);
+    background-color: var(--color-accent-blue-fill);
   }
 
   /* Notification Dropdown Footer */
@@ -2920,11 +3379,11 @@
 
   /* Unread state - blue accent background */
   .notification-item[data-read="false"] {
-    background-color: rgba(var(--color-accent-blue-rgb), 0.08);
+    background-color: rgba(var(--color-accent-blue-fill-rgb), 0.08);
   }
 
   .notification-item[data-read="false"]:hover {
-    background-color: rgba(var(--color-accent-blue-rgb), 0.12);
+    background-color: rgba(var(--color-accent-blue-fill-rgb), 0.12);
   }
 
   .notification-item[data-read="false"] .notification-title {
@@ -2941,7 +3400,7 @@
     transform: translateY(-50%);
     width: 6px;
     height: 6px;
-    background-color: var(--color-accent-blue);
+    background-color: var(--color-accent-blue-fill);
     border-radius: 50%;
   }
 
@@ -2963,32 +3422,32 @@
 
   /* Icon variants by type */
   .notification-icon-critical {
-    background-color: rgba(var(--color-error-rgb), 0.15);
+    background-color: rgba(var(--color-error-fill-rgb), 0.15);
     color: var(--color-error);
   }
 
   .notification-icon-warning {
-    background-color: rgba(var(--color-warning-rgb), 0.15);
+    background-color: rgba(var(--color-warning-fill-rgb), 0.15);
     color: var(--color-warning);
   }
 
   .notification-icon-info {
-    background-color: rgba(var(--color-info-rgb), 0.15);
+    background-color: rgba(var(--color-info-fill-rgb), 0.15);
     color: var(--color-info);
   }
 
   .notification-icon-success {
-    background-color: rgba(var(--color-success-rgb), 0.15);
+    background-color: rgba(var(--color-success-fill-rgb), 0.15);
     color: var(--color-success);
   }
 
   .notification-icon-guild {
-    background-color: rgba(var(--color-accent-orange-rgb), 0.15);
+    background-color: rgba(var(--color-accent-orange-fill-rgb), 0.15);
     color: var(--color-accent-orange);
   }
 
   .notification-icon-command {
-    background-color: rgba(var(--color-accent-blue-rgb), 0.15);
+    background-color: rgba(var(--color-accent-blue-fill-rgb), 0.15);
     color: var(--color-accent-blue);
   }
 
@@ -3195,8 +3654,8 @@
   /* Toast container: under the top bar, newest first. Full width on narrow screens. */
   .toast-container {
     position: fixed;
-    top: calc(var(--navbar-height) + 1rem);
-    right: 1rem;
+    top: calc(var(--navbar-height) + var(--safe-top) + 1rem);
+    right: max(1rem, var(--safe-right));
     z-index: var(--z-toast);
     display: flex;
     flex-direction: column;
@@ -3207,7 +3666,7 @@
   }
 
   @media (max-width: 480px) {
-    .toast-container { left: 1rem; }
+    .toast-container { left: max(1rem, var(--safe-left)); }
     .toast-container .toast { min-width: 0; max-width: none; }
   }
 
@@ -3315,19 +3774,19 @@
   }
 
   .toast-info .toast-progress {
-    background-color: var(--color-info);
+    background-color: var(--color-info-fill);
   }
 
   .toast-success .toast-progress {
-    background-color: var(--color-success);
+    background-color: var(--color-success-fill);
   }
 
   .toast-warning .toast-progress {
-    background-color: var(--color-warning);
+    background-color: var(--color-warning-fill);
   }
 
   .toast-error .toast-progress {
-    background-color: var(--color-error);
+    background-color: var(--color-error-fill);
   }
 
   @keyframes progressShrink {
@@ -3434,17 +3893,11 @@
 
 /* Search result highlighting */
 .search-highlight {
-    background-color: rgba(251, 191, 36, 0.3);  /* accent-orange with transparency */
+    /* Follows the app theme, not the OS: a warning-fill wash under the inherited text */
+    background-color: rgba(var(--color-warning-fill-rgb), 0.28);
     color: inherit;
     padding: 0 2px;
     border-radius: 2px;
-  }
-
-  /* Dark mode adjustment if needed */
-  @media (prefers-color-scheme: dark) {
-    .search-highlight {
-      background-color: rgba(251, 191, 36, 0.25);
-    }
   }
 
   /* Recent searches dropdown */
@@ -3625,7 +4078,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1rem;
+    padding: calc(1rem + var(--safe-top)) max(1rem, var(--safe-right)) 1rem max(1rem, var(--safe-left));
     background-color: var(--color-bg-secondary);
     border-bottom: 1px solid var(--color-border-primary);
     flex-shrink: 0;
@@ -3820,7 +4273,7 @@
 }
 
 .autocomplete-item.selected {
-  background-color: rgba(var(--color-accent-blue-rgb), 0.15);
+  background-color: rgba(var(--color-accent-blue-fill-rgb), 0.15);
 }
 
 /* Item icon container */
@@ -3836,7 +4289,7 @@
 
 /* Icon variants based on entity type */
 .autocomplete-icon-default {
-  background-color: rgba(var(--color-accent-blue-rgb), 0.15);
+  background-color: rgba(var(--color-accent-blue-fill-rgb), 0.15);
   color: var(--color-accent-blue);
 }
 
@@ -3846,7 +4299,7 @@
 }
 
 .autocomplete-icon-guild {
-  background-color: rgba(var(--color-accent-orange-rgb), 0.15);
+  background-color: rgba(var(--color-accent-orange-fill-rgb), 0.15);
   color: var(--color-accent-orange);
   border-radius: 0.25rem;
 }
@@ -4050,3 +4503,527 @@
   }
 }
 
+
+/* =============================================================================
+   11. TOUCH AND HOVER-LESS DEVICES
+   -----------------------------------------------------------------------------
+   Outside @layer on purpose: these must beat utilities such as `text-sm`.
+   ============================================================================= */
+
+/* Row actions: revealed on row hover, but never hover-only. They show while
+   anything in the row has focus, and always on devices that cannot hover.
+   Put `row-actions` on the action group; the row is a tr, li, .table-row,
+   .group or [data-row]. */
+.row-actions {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+:is(tr, li, .table-row, .group, [data-row]):hover .row-actions,
+:is(tr, li, .table-row, .group, [data-row]):focus-within .row-actions,
+.row-actions:focus-within {
+  opacity: 1;
+}
+@media (hover: none) {
+  .row-actions { opacity: 1; }
+}
+
+@media (pointer: coarse) {
+  /* 16px text stops iOS zooming into a focused field */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+  select,
+  textarea,
+  .form-textarea,
+  .form-input-sm,
+  .form-input-lg {
+    font-size: 1rem;
+  }
+  .form-input-sm {
+    min-height: 2.75rem;
+  }
+
+  /* 44px targets (WCAG 2.5.5) for the shared controls */
+  .btn,
+  .btn-sm,
+  .btn-lg {
+    min-height: 2.75rem;
+  }
+  .btn-icon,
+  .btn-icon.btn-sm {
+    min-width: 2.75rem;
+  }
+  .topbar-icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .sidebar-link-redesign,
+  .guild-nav-tab,
+  .guild-nav-dropdown-item,
+  .user-menu-item {
+    min-height: 2.75rem;
+  }
+  .alert-close,
+  .toast-close {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-actions { transition: none; }
+}
+
+/* Phase 5 — Dashboard: Connected Servers card layout.
+   One row markup for every width, switched by the card's own width (a container query), because
+   the card is half the page at xl and full width below it. Narrow: a stacked card per server.
+   Wide: a grid with a header row (D13: card layouts, never a clipped table). */
+.connected-servers {
+  container-type: inline-size;
+}
+.connected-servers-head {
+  display: none;
+  padding: 0.625rem 1.5rem 0.625rem 1.5rem;
+  background-color: rgba(var(--color-bg-primary-rgb), 0.5);
+  border-bottom: 1px solid var(--color-border-primary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.connected-servers-head[hidden],
+.connected-servers-list[hidden],
+#connected-servers-empty[hidden] {
+  display: none;
+}
+.connected-servers-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.connected-server {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--color-border-primary);
+  transition: background-color var(--transition-fast);
+}
+.connected-server:last-child {
+  border-bottom: 0;
+}
+.connected-server:hover,
+.connected-server:focus-within {
+  background-color: var(--color-bg-hover);
+}
+.connected-server-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.connected-server-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.connected-server-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.connected-server-link {
+  min-width: 0;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+/* The whole row opens the server; the copy button sits above the stretched link */
+.connected-server-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.connected-server:hover .connected-server-link {
+  color: var(--color-accent-blue);
+}
+.connected-server-link:focus-visible {
+  outline: none;
+}
+.connected-server:has(.connected-server-link:focus-visible) {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: -2px;
+}
+.connected-server-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+.connected-server-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.connected-server-label {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+}
+.connected-server-actions {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+@container (min-width: 40rem) {
+  .connected-servers-head {
+    display: grid;
+  }
+  .connected-servers-head[hidden] {
+    display: none;
+  }
+  .connected-servers-head,
+  .connected-server {
+    grid-template-columns: minmax(0, 1fr) 5.5rem 7rem 8.5rem 2.75rem;
+    gap: 0 0.75rem;
+    padding-left: 1.5rem;
+    padding-right: 1rem;
+  }
+  .connected-server-meta {
+    display: contents;
+  }
+  .connected-server-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .connected-server-meta .connected-server-cell {
+    grid-row: 1;
+  }
+  .connected-server-meta .connected-server-cell:nth-child(1) { grid-column: 2; }
+  .connected-server-meta .connected-server-cell:nth-child(2) { grid-column: 3; }
+  .connected-server-meta .connected-server-cell:nth-child(3) { grid-column: 4; }
+  .connected-server-label {
+    display: none;
+  }
+  .connected-server-actions {
+    grid-column: 5;
+    grid-row: 1;
+  }
+}
+
+/* Phase 5 — Dashboard: the banner while a restart the user asked for is in progress */
+.bot-status-banner.restarting::before {
+  background-color: var(--color-warning-fill);
+  box-shadow: 0 0 12px rgba(var(--color-warning-rgb), 0.55);
+}
+
+/* Phase 12 — notification bell: the title is the link, stretched over the whole item */
+@layer components {
+  .notification-title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .notification-title-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+  .notification-title-link:hover {
+    text-decoration: underline;
+  }
+  /* Keyboard focus lands on the link or a button, not on the item itself */
+  .notification-item:focus-within {
+    background-color: var(--color-bg-hover);
+  }
+  .notification-item:focus-within .notification-actions {
+    opacity: 1;
+  }
+}
+
+/* Phase 7 — moderation screens */
+.tab-dirty-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.375rem;
+  border-radius: 9999px;
+  background-color: var(--color-warning-fill);
+  flex-shrink: 0;
+}
+
+/* Phase 10 — audio admin (Soundboard, TTS, VOX, Audio Settings) */
+.gradient-card-orange {
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, rgba(var(--color-accent-orange-rgb), 0.1) 100%);
+}
+
+/* Sound preview button: loading, playing */
+.play-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.play-button.playing {
+  background-color: var(--color-accent-orange-fill);
+  animation: pulse-play 1.5s ease-in-out infinite;
+}
+.play-button.playing:hover {
+  background-color: var(--color-accent-orange-fill-hover);
+}
+@keyframes pulse-play {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .play-button.playing { animation: none; }
+}
+
+/* Upload dropzone and per-file progress */
+#dropzone.drag-over {
+  border-color: var(--color-accent-blue);
+  background-color: var(--color-accent-blue-muted);
+}
+#dropzone:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+#dropzone:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+.upload-progress {
+  height: 0.375rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  appearance: none;
+  background-color: var(--color-border-primary);
+}
+.upload-progress::-webkit-progress-bar { background-color: var(--color-border-primary); }
+.upload-progress::-webkit-progress-value { background-color: var(--color-accent-blue-fill); }
+.upload-progress::-moz-progress-bar { background-color: var(--color-accent-blue-fill); }
+
+/* TTS page: range sliders and the message counter */
+.tts-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent-blue-fill);
+  cursor: pointer;
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+.tts-range::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: var(--shadow-md); }
+.tts-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent-blue-fill);
+  cursor: pointer;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+.tts-range::-moz-range-track { background: transparent; border: none; }
+.tts-range:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 4px; border-radius: 9999px; }
+#charCounter.warning { color: var(--color-warning); }
+#charCounter.error { color: var(--color-error); }
+
+/* Sounds list under sm: each row becomes a card, so name, category and actions are all on screen
+   (a clipped table would hide them behind a sideways scroll) */
+@media (max-width: 639px) {
+  .sounds-table, .sounds-table tbody, .sounds-table tr, .sounds-table td { display: block; }
+  .sounds-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .sounds-table tr.sound-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "play name name actions"
+      "play dur plays plays"
+      "cat cat cat cat";
+    column-gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    align-items: center;
+  }
+  .sounds-table td { padding: 0.25rem 0.25rem; }
+  .sounds-table td[data-cell="play"] { grid-area: play; }
+  .sounds-table td[data-cell="name"] { grid-area: name; }
+  .sounds-table td[data-cell="duration"] { grid-area: dur; }
+  .sounds-table td[data-cell="plays"] { grid-area: plays; }
+  .sounds-table td[data-cell="category"] { grid-area: cat; }
+  .sounds-table td[data-cell="category"] select { max-width: none; width: 100%; }
+  .sounds-table td[data-cell="actions"] { grid-area: actions; }
+  .sounds-table td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--color-text-tertiary);
+  }
+}
+
+/* Phase 8 — guild configuration and scheduling */
+
+/* A settings section whose master switch is off. The section is also inert (section-gate.js);
+   this is only the visual. */
+.section-gated {
+  opacity: 0.55;
+}
+
+/* Discord message replica used by the Welcome and Scheduled Messages previews. The hex values
+   copy Discord's own dark theme on purpose: the preview shows what the message looks like in
+   Discord, not in this portal, so it does not follow the portal's theme tokens. */
+.discord-preview {
+  background-color: #313338;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #dbdee1;
+  font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+.discord-preview-name {
+  color: #f2f3f5;
+  font-weight: 500;
+}
+.discord-preview-muted {
+  color: #b5bac1;
+}
+.discord-bot-badge {
+  background-color: #5865f2;
+  color: #fff;
+  font-size: 0.625rem;
+  line-height: 1;
+  padding: 0.1875rem 0.3125rem;
+  border-radius: 0.1875rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.discord-mention {
+  background-color: rgba(88, 101, 242, 0.3);
+  color: #c9cdfb;
+  padding: 0 2px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.discord-md-code {
+  background-color: #2b2d31;
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+  font-family: Consolas, 'Andale Mono WT', 'Andale Mono', 'Lucida Console', monospace;
+  font-size: 0.875em;
+}
+.discord-md-codeblock {
+  background-color: #2b2d31;
+  border: 1px solid #1e1f22;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem 0;
+  overflow-x: auto;
+  font-family: Consolas, 'Andale Mono WT', 'Andale Mono', 'Lucida Console', monospace;
+  font-size: 0.8125rem;
+  white-space: pre;
+}
+.discord-md-quote {
+  border-left: 4px solid #4e5058;
+  padding-left: 0.75rem;
+  margin: 0.125rem 0;
+}
+.discord-md-h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.2; margin: 0.25rem 0; }
+.discord-md-h2 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0.25rem 0; }
+.discord-md-h3 { font-size: 1.0625rem; font-weight: 700; line-height: 1.2; margin: 0.25rem 0; }
+.discord-md-link {
+  color: #00a8fc;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+.discord-md-spoiler {
+  background-color: #1e1f22;
+  color: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.discord-md-spoiler:hover,
+.discord-md-spoiler:focus {
+  background-color: #2b2d31;
+  color: inherit;
+}
+.discord-embed {
+  background-color: #2b2d31;
+  border-left: 4px solid #5865f2;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem 0.75rem;
+  margin-top: 0.25rem;
+  max-width: 32rem;
+}
+.discord-embed-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1e1f22;
+  color: #b5bac1;
+  font-size: 0.625rem;
+  line-height: 1.1;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+/* Icon-only row actions (edit, pause, delete, cancel): a real button-sized target. On touch
+   devices it grows to 44px. Colour comes from the tone modifier. */
+.row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.row-action-btn:hover { background-color: var(--color-bg-hover); color: var(--color-text-primary); }
+.row-action-btn-danger:hover { background-color: var(--color-error-bg); color: var(--color-error); }
+.row-action-btn-accent:hover { background-color: var(--color-bg-hover); color: var(--color-accent-blue); }
+@media (pointer: coarse) {
+  .row-action-btn { min-width: 44px; min-height: 44px; }
+}
+
+/* Phase 15 — Account, landing, error copy */
+
+/* Login: the form heading is the page's h1 (it was an h2); same look as before */
+.login-form-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
+
+/* Privacy: consent history timeline (was an inline <style> on the page) */
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 1rem;
+  top: 2.25rem;
+  bottom: -0.5rem;
+  width: 2px;
+  background-color: var(--color-border-primary);
+}
+.timeline-item:last-child::before {
+  display: none;
+}

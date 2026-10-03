@@ -4,6 +4,8 @@
 **Feature Reference:** Issue #295 (Epic)
 **Status:** Completed (9 of 9 sub-issues completed)
 
+> **Update (UX polish Phase 13).** The standalone pages described below (`/Admin/Performance/HealthMetrics`, `/System`, `/SystemHealth`, `/Commands`, `/ApiMetrics`, `/Alerts`) were retired. Each route now redirects (302, so browsers do not cache it) to the matching tab of the one dashboard shell: `/Admin/Performance?tab=health|system|commands|api|alerts` (and `overview`), with `&hours=168|720` for the time range. "Live" appears only on tabs subscribed to a hub group (Overview and Health: `performance`, System: `system-health`, Alerts: `alerts`); other tabs show when they were last loaded. Read the page sections below as descriptions of the tabs.
+
 ---
 
 ## Table of Contents
@@ -1535,7 +1537,7 @@ The following default thresholds are seeded during database migration:
 | `gateway_latency` | Gateway Latency | 100 | 200 | ms | Yes |
 | `command_p95_latency` | Command P95 Latency | 300 | 500 | ms | Yes |
 | `error_rate` | Error Rate | 1.0 | 5.0 | % | Yes |
-| `memory_usage` | Memory Usage | 400 | 480 | MB | Yes |
+| `memory_usage` | Memory Usage | 1024 | 1536 | MB | Yes |
 | `api_rate_limit_usage` | API Rate Limit | 85 | 95 | % | Yes |
 | `database_query_time` | Database Query Time | 50 | 100 | ms | Yes |
 | `bot_disconnected` | Bot Disconnected | - | 1 | event | Yes |
@@ -1545,6 +1547,8 @@ The following default thresholds are seeded during database migration:
 - Event-based metrics (bot_disconnected, service_failure) only have critical thresholds
 - Thresholds can be customized per deployment via the Alerts page UI
 - All metrics are enabled by default but can be disabled individually
+- The memory thresholds were 400/480 MB until a data migration raised them (the bot's idle working set is about 620 MB, so the old values raised a critical alert on a fresh install). The migration only changes a row still at the old defaults that no one has edited, so a value you set on the Alerts page is kept
+- `bot_disconnected` is not evaluated when `Discord:OfflineMode` is on: the bot never connects there by design, so there is nothing to alert on
 
 #### Incident Lifecycle
 
@@ -2014,9 +2018,11 @@ Real-time updates are provided by the `PerformanceMetricsBroadcastService` backg
 
 ### Page Integration
 
-#### Health Metrics Page (`/Admin/Performance/HealthMetrics`)
+#### Health Tab (`/Admin/Performance?tab=health`)
 
-**JavaScript Module:** `wwwroot/js/performance/health-metrics-realtime.js`
+The old standalone `/Admin/Performance/HealthMetrics` page redirects to this tab.
+
+**JavaScript Module:** `wwwroot/js/performance/tabs/health.js` (declares `live = { group: 'performance', events, snapshot }`); `wwwroot/js/performance/live.js` joins the hub group while the tab is open, leaves it on a tab switch and rejoins on `connected` / `reconnected`.
 
 **SignalR Usage:**
 ```javascript
@@ -2044,9 +2050,11 @@ const metrics = await DashboardHub.invoke('GetCurrentPerformanceMetrics');
 
 ---
 
-#### System Health Page (`/Admin/Performance/SystemHealth`)
+#### System Tab (`/Admin/Performance?tab=system`)
 
-**JavaScript Module:** `wwwroot/js/performance/system-health-realtime.js`
+The old standalone `/Admin/Performance/SystemHealth` page redirects to this tab.
+
+**JavaScript Module:** `wwwroot/js/performance/tabs/system.js` (`live = { group: 'system-health', ... }`), subscribed through `wwwroot/js/performance/live.js`.
 
 **SignalR Usage:**
 ```javascript
@@ -2074,9 +2082,11 @@ const health = await DashboardHub.invoke('GetCurrentSystemHealth');
 
 ---
 
-#### Alerts Page (`/Admin/Performance/Alerts`)
+#### Alerts Tab (`/Admin/Performance?tab=alerts`)
 
-**JavaScript Module:** `wwwroot/js/performance/alerts-realtime.js`
+The old standalone `/Admin/Performance/Alerts` page redirects to this tab.
+
+**JavaScript Module:** `wwwroot/js/performance/tabs/alerts.js` (`live = { group: 'alerts', ... }`), subscribed through `wwwroot/js/performance/live.js`. A pushed incident change refreshes the tab.
 
 **SignalR Usage:**
 ```javascript

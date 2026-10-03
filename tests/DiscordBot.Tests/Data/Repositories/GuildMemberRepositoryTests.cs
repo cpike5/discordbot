@@ -1115,6 +1115,37 @@ public class GuildMemberRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetMembersAsync_WithNeverActive_ReturnsOnlyMembersWithoutActivity()
+    {
+        // Arrange
+        var guild = CreateTestGuild(123456789);
+        var user1 = CreateTestUser(111111111);
+        var user2 = CreateTestUser(222222222);
+
+        var seen = CreateTestGuildMember(guild.Id, user1.Id);
+        seen.LastActiveAt = DateTime.UtcNow.AddDays(-30);
+
+        var silent = CreateTestGuildMember(guild.Id, user2.Id);
+        silent.LastActiveAt = null;
+
+        await _context.Guilds.AddAsync(guild);
+        await _context.Users.AddRangeAsync(user1, user2);
+        await _context.GuildMembers.AddRangeAsync(seen, silent);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (members, totalCount) = await _repository.GetMembersAsync(
+            guild.Id,
+            neverActive: true,
+            page: 1,
+            pageSize: 10);
+
+        // Assert
+        members.Should().ContainSingle().Which.UserId.Should().Be(user2.Id);
+        totalCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task GetMembersAsync_WithIsActiveFalse_ReturnsInactiveMembers()
     {
         // Arrange

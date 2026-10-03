@@ -2,6 +2,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Services.DiscordIntegration;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -109,5 +110,55 @@ public class DiscordUserResolverTests : IAsyncDisposable
             username.Should().Be($"Unknown#{id}");
             avatarUrl.Should().BeNull();
         }
+    }
+
+    [Fact]
+    public async Task ResolveUserAsync_WhenDiscordCannotBeReached_FallsBackToTheStoredUsername()
+    {
+        // Offline mode, a deleted account or an outage: the Users table still knows who this was
+        const ulong userId = 222333444555666777;
+        var users = new Mock<DiscordBot.Core.Interfaces.IUserRepository>();
+        users.Setup(r => r.GetByDiscordIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DiscordBot.Core.Entities.User { Id = userId, Username = "stored_name" });
+        var resolver = new DiscordUserResolver(_client, new MemoryCache(new MemoryCacheOptions()), _mockLogger.Object, ScopeFactoryFor(users.Object));
+
+        var (username, avatarUrl) = await resolver.ResolveUserAsync(userId);
+
+        username.Should().Be("stored_name");
+        avatarUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ResolveUserAsync_WhenNeitherDiscordNorTheStoreKnowsTheUser_KeepsTheUnknownMarker()
+    {
+        const ulong userId = 333444555666777888;
+        var users = new Mock<DiscordBot.Core.Interfaces.IUserRepository>();
+        users.Setup(r => r.GetByDiscordIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DiscordBot.Core.Entities.User?)null);
+        var resolver = new DiscordUserResolver(_client, new MemoryCache(new MemoryCacheOptions()), _mockLogger.Object, ScopeFactoryFor(users.Object));
+
+        var (username, _) = await resolver.ResolveUserAsync(userId);
+
+        username.Should().Be($"Unknown#{userId}", "the screens turn the marker into \"Unknown user\" through UserDisplay");
+    }
+
+    [Fact]
+    public async Task ResolveUserAsync_WhenTheStoredLookupThrows_StillAnswers()
+    {
+        const ulong userId = 444555666777888999;
+        var users = new Mock<DiscordBot.Core.Interfaces.IUserRepository>();
+        users.Setup(r => r.GetByDiscordIdAsync(userId, It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("db down"));
+        var resolver = new DiscordUserResolver(_client, new MemoryCache(new MemoryCacheOptions()), _mockLogger.Object, ScopeFactoryFor(users.Object));
+
+        var (username, _) = await resolver.ResolveUserAsync(userId);
+
+        username.Should().Be($"Unknown#{userId}");
+    }
+
+    private static IServiceScopeFactory ScopeFactoryFor(DiscordBot.Core.Interfaces.IUserRepository users)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => users);
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 }

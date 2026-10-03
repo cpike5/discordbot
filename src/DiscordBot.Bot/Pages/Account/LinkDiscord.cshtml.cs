@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Pages.Account;
 
@@ -25,6 +27,7 @@ public class LinkDiscordModel : PageModel
     private readonly IUserDiscordGuildService _userDiscordGuildService;
     private readonly IVerificationService _verificationService;
     private readonly DiscordOAuthSettings _oauthSettings;
+    private readonly VerificationOptions _verificationOptions;
     private readonly ILogger<LinkDiscordModel> _logger;
 
     public LinkDiscordModel(
@@ -36,6 +39,7 @@ public class LinkDiscordModel : PageModel
         IUserDiscordGuildService userDiscordGuildService,
         IVerificationService verificationService,
         DiscordOAuthSettings oauthSettings,
+        IOptions<VerificationOptions> verificationOptions,
         ILogger<LinkDiscordModel> logger)
     {
         _userManager = userManager;
@@ -46,6 +50,7 @@ public class LinkDiscordModel : PageModel
         _userDiscordGuildService = userDiscordGuildService;
         _verificationService = verificationService;
         _oauthSettings = oauthSettings;
+        _verificationOptions = verificationOptions.Value;
         _logger = logger;
     }
 
@@ -93,6 +98,28 @@ public class LinkDiscordModel : PageModel
     /// The pending verification code information, if any.
     /// </summary>
     public VerificationCode? PendingVerification { get; set; }
+
+    /// <summary>
+    /// How many characters a verification code has (<c>Verification:CodeLength</c>), so the form
+    /// copy and the length check follow the configuration.
+    /// </summary>
+    public int VerificationCodeLength => Math.Max(1, _verificationOptions.CodeLength);
+
+    /// <summary>
+    /// A sample of the code shape for the input placeholder, such as "ABC-123". It is a pattern,
+    /// not a real code.
+    /// </summary>
+    public string CodePlaceholder
+    {
+        get
+        {
+            const string sample = "ABC234DEF567GHJ89";
+            var chars = Enumerable.Range(0, VerificationCodeLength).Select(i => sample[i % sample.Length]).ToArray();
+            return VerificationCodeLength > 3
+                ? string.Concat(new string(chars, 0, 3), "-", new string(chars, 3, chars.Length - 3))
+                : new string(chars);
+        }
+    }
 
     /// <summary>
     /// The verification code entered by the user.
@@ -334,12 +361,20 @@ public class LinkDiscordModel : PageModel
         if (string.IsNullOrWhiteSpace(VerificationCode))
         {
             _logger.LogWarning("User {UserId} submitted empty verification code", user.Id);
-            TempData.SetErrorToast("Please enter a verification code.");
+            TempData.SetErrorToast($"Enter the {VerificationCodeLength}-character code from the Discord bot.");
             return RedirectToPage();
         }
 
         // Remove any formatting (hyphens, spaces) from the code
         var cleanCode = VerificationCode.Replace("-", "").Replace(" ", "").ToUpperInvariant();
+
+        // A wrong-length code cannot match, so say so without spending one of the limited attempts
+        if (cleanCode.Length != VerificationCodeLength)
+        {
+            _logger.LogDebug("User {UserId} submitted a verification code of the wrong length", user.Id);
+            TempData.SetErrorToast($"The code has {VerificationCodeLength} characters. Check it and try again.");
+            return RedirectToPage();
+        }
 
         _logger.LogInformation("User {UserId} attempting to verify code", user.Id);
 

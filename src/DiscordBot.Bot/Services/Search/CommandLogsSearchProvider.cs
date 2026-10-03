@@ -65,7 +65,7 @@ public class CommandLogsSearchProvider : ISearchProvider
                     : $"Failed: {x.Log.ErrorMessage}",
                 BadgeText = x.Log.Success ? "Success" : "Failed",
                 BadgeVariant = x.Log.Success ? "success" : "danger",
-                Url = $"/CommandLogs/{x.Log.Id}",
+                Url = $"/CommandLogs/Details/{x.Log.Id}",
                 RelevanceScore = SearchScoringHelper.Clamp(x.Score),
                 Timestamp = x.Log.ExecutedAt,
                 Metadata = new Dictionary<string, string>

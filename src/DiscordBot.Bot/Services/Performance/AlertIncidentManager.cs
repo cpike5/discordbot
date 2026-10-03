@@ -79,7 +79,7 @@ public class AlertIncidentManager : IAlertIncidentManager
         await _performanceNotifier.BroadcastAlertTriggeredAsync(dto, cancellationToken);
 
         // Create admin notification (fire-and-forget)
-        _ = CreateAlertNotificationAsync(createdIncident, isResolved: false, cancellationToken);
+        _ = CreateAlertNotificationAsync(createdIncident, config.DisplayName, isResolved: false, cancellationToken);
 
         return true;
     }
@@ -111,7 +111,7 @@ public class AlertIncidentManager : IAlertIncidentManager
         await _performanceNotifier.BroadcastAlertResolvedAsync(dto, cancellationToken);
 
         // Create admin notification for resolution (fire-and-forget)
-        _ = CreateAlertNotificationAsync(resolvedIncident, isResolved: true, cancellationToken);
+        _ = CreateAlertNotificationAsync(resolvedIncident, config.DisplayName, isResolved: true, cancellationToken);
 
         return true;
     }
@@ -153,6 +153,7 @@ public class AlertIncidentManager : IAlertIncidentManager
     /// </summary>
     private async Task CreateAlertNotificationAsync(
         PerformanceIncident incident,
+        string displayName,
         bool isResolved,
         CancellationToken cancellationToken)
     {
@@ -181,9 +182,11 @@ public class AlertIncidentManager : IAlertIncidentManager
             using var scope = _serviceProvider.CreateScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
+            // The config's display name ("Memory Usage"), not the metric key ("memory_usage")
+            var label = string.IsNullOrWhiteSpace(displayName) ? incident.MetricName : displayName;
             var title = isResolved
-                ? $"{incident.MetricName} Resolved"
-                : $"{incident.MetricName} Alert";
+                ? $"{label} Resolved"
+                : $"{label} Alert";
 
             var deduplicationWindow = TimeSpan.FromMinutes(_notificationOptions.DuplicateSuppressionMinutes);
 
@@ -191,7 +194,7 @@ public class AlertIncidentManager : IAlertIncidentManager
                 NotificationType.PerformanceAlert,
                 title,
                 incident.Message,
-                linkUrl: "/Admin/Performance/Alerts",
+                linkUrl: PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Alerts),
                 severity: incident.Severity,
                 relatedEntityType: "PerformanceIncident",
                 relatedEntityId: incident.Id.ToString(),

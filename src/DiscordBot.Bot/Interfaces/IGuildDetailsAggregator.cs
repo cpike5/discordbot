@@ -21,11 +21,34 @@ public interface IGuildDetailsAggregator
 }
 
 /// <summary>
+/// The names of the sections the details page loads separately. A section that fails to load is
+/// listed in <see cref="GuildDetailsAggregateDto.FailedSections"/> and the page shows a retry state
+/// for that widget instead of failing as a whole.
+/// </summary>
+public static class GuildDetailsSections
+{
+    public const string Activity = "activity";
+    public const string Welcome = "welcome";
+    public const string ScheduledMessages = "scheduled-messages";
+    public const string RatWatch = "rat-watch";
+    public const string Reminders = "reminders";
+    public const string Members = "members";
+    public const string Audio = "audio";
+    public const string Assistant = "assistant";
+}
+
+/// <summary>
 /// Aggregate view of everything the Guild Details page displays, produced by
 /// <see cref="IGuildDetailsAggregator"/>.
 /// </summary>
 public sealed record GuildDetailsAggregateDto
 {
+    /// <summary>
+    /// Sections (see <see cref="GuildDetailsSections"/>) whose data could not be loaded. Their
+    /// values on this record are defaults, not zeros the server really has.
+    /// </summary>
+    public IReadOnlyCollection<string> FailedSections { get; init; } = Array.Empty<string>();
+
     public required GuildDto Guild { get; init; }
     public required IReadOnlyList<CommandLogDto> RecentCommandLogs { get; init; }
 

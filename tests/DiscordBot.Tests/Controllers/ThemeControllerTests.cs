@@ -355,6 +355,69 @@ public class ThemeControllerTests
 
     #endregion
 
+    #region SetPreference / ClearPreference Tests
+
+    [Fact]
+    public async Task SetPreference_SavesTheThemeByKey_AndSetsTheCookie()
+    {
+        // Arrange
+        SetupAuthenticatedUser("user-1");
+        _mockThemeService.Setup(s => s.GetThemeByKeyAsync("purple-dusk", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_purpleDuskTheme);
+        _mockThemeService.Setup(s => s.SetUserThemeAsync("user-1", 2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.SetPreference(new SetThemePreferenceDto { ThemeKey = "purple-dusk" });
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        _controller.Response.Headers.SetCookie.ToString().Should().Contain("theme-preference=purple-dusk");
+        _mockThemeService.Verify(s => s.SetUserThemeAsync("user-1", 2, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SetPreference_ReturnsBadRequest_ForAnUnknownKey()
+    {
+        // Arrange
+        SetupAuthenticatedUser("user-1");
+        _mockThemeService.Setup(s => s.GetThemeByKeyAsync("nope", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ThemeDto?)null);
+
+        // Act
+        var result = await _controller.SetPreference(new SetThemePreferenceDto { ThemeKey = "nope" });
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _mockThemeService.Verify(s => s.SetUserThemeAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SetPreference_ReturnsUnauthorized_WithoutAUser()
+    {
+        var result = await _controller.SetPreference(new SetThemePreferenceDto { ThemeKey = "purple-dusk" });
+
+        result.Should().BeOfType<UnauthorizedResult>();
+    }
+
+    [Fact]
+    public async Task ClearPreference_ClearsTheStoredTheme_AndDeletesTheCookie()
+    {
+        // Arrange
+        SetupAuthenticatedUser("user-1");
+        _mockThemeService.Setup(s => s.SetUserThemeAsync("user-1", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.ClearPreference();
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+        _controller.Response.Headers.SetCookie.ToString().Should().Contain("theme-preference=;");
+    }
+
+    #endregion
+
     #region SetDefaultTheme Tests
 
     [Fact]

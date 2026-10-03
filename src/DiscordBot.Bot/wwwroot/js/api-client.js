@@ -206,10 +206,18 @@
      * @param {number} [options.timeout=30000] - ms before the request is aborted; 0 for none.
      * @param {AbortSignal} [options.signal] - caller's own abort signal (e.g. a newer search).
      *   An abort through it rejects with the browser's AbortError, untouched.
+     * @param {string} [options.redirect='follow'] - 'manual' to stop at a redirect instead of
+     *   following it. Following runs the redirect target's GET, which consumes TempData
+     *   (toasts, one-time values) meant for the page the user lands on next. A manual redirect
+     *   resolves with `{ ok: true, redirected: true, status: 0, data: null }`: the handler
+     *   finished, and the caller navigates itself (see quickActions' confirm forms).
      * @param {string} [options.responseType] - 'blob' to read the body as a Blob
      *   (audio synthesize/preview endpoints) instead of JSON/text. Only applied
      *   when the response is ok; error bodies are always parsed as JSON/text so
-     *   error messages can still be extracted.
+     *   error messages can still be extracted. 'html' asks for an HTML fragment (a partial
+     *   view a page swaps into a region): an ok response resolves with the markup as
+     *   `data` (a string). Errors behave as for JSON, so a 4xx with a JSON body still
+     *   gives its message and an error page still becomes a plain-language message.
      */
     async function requestRaw(url, options = {}) {
         const {
@@ -220,14 +228,15 @@
             credentials = 'same-origin',
             timeout = DEFAULT_TIMEOUT_MS,
             signal,
-            responseType
+            responseType,
+            redirect
         } = options;
 
         // Mark the request as script-initiated, so the server answers an expired
         // session with 401 JSON instead of redirecting to the sign-in page.
         const finalHeaders = Object.assign({
             'X-Requested-With': 'XMLHttpRequest',
-            'Accept': responseType === 'blob' ? '*/*' : 'application/json'
+            'Accept': responseType === 'blob' ? '*/*' : (responseType === 'html' ? 'text/html' : 'application/json')
         }, headers);
         let finalBody = body;
 
@@ -267,12 +276,18 @@
                     headers: finalHeaders,
                     body: finalBody,
                     credentials,
+                    redirect: redirect || 'follow',
                     signal: controller ? controller.signal : signal
                 });
             } catch (err) {
                 if (timedOut) throw new ApiClientError(TIMEOUT_MESSAGE, 0, null, null, 'timeout');
                 if (err && err.name === 'AbortError') throw err;
                 throw new ApiClientError(NETWORK_MESSAGE, 0, null, null, 'network');
+            }
+
+            // redirect: 'manual' answers a redirect with an opaque, empty response
+            if (response.type === 'opaqueredirect') {
+                return { ok: true, status: 0, redirected: true, data: null, response };
             }
 
             if (isSessionExpired(response)) {
@@ -297,6 +312,10 @@
                 if (timedOut) throw new ApiClientError(TIMEOUT_MESSAGE, 0, null, null, 'timeout');
                 if (err && err.name === 'AbortError') throw err;
                 throw new ApiClientError(NETWORK_MESSAGE, 0, null, null, 'network');
+            }
+
+            if (responseType === 'html' && response.ok) {
+                return { ok: true, status: response.status, data: text, response };
             }
 
             if (isHtmlResponse(response, text)) {
@@ -345,6 +364,14 @@
     }
     function del(url, options = {}) {
         return request(url, Object.assign({}, options, { method: 'DELETE' }));
+    }
+
+    /**
+     * GET an HTML fragment (a partial view). Resolves with the markup string; throws
+     * ApiClientError otherwise, with the server's message for a client error.
+     */
+    function getHtml(url, options = {}) {
+        return request(url, Object.assign({}, options, { method: 'GET', responseType: 'html' }));
     }
 
     function getRaw(url, options = {}) {
@@ -412,6 +439,7 @@
         request,
         requestRaw,
         get,
+        getHtml,
         post,
         put,
         del,

@@ -15,8 +15,14 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Services:** `SoundService`, `SoundCacheService`, `SoundFileService`, `SoundboardOrchestrationService`, `PlaybackService` (918 lines), `AudioService`, `AudioCacheCleanupService`
 - **Commands:** `SoundboardModule`, `VoiceModule` (join/leave)
 - **Controllers:** `SoundsController`, `AudioController`, `PortalSoundboardController`
-- **Pages:** `Guilds/Soundboard/Index.cshtml`, `Portal/Soundboard/Index.cshtml`
+- **Pages:** `Guilds/Soundboard/Index.cshtml` (+ `_SoundsList.cshtml`; script `wwwroot/js/soundboard-admin.js`, sort via `ajax-sort.js`), `Portal/Soundboard/Index.cshtml`; also `Guilds/AudioSettings` (`audio-settings.js`, one `SaveAll` handler) and `Guilds/AudioModerationLog`
 - **Config:** `SoundboardOptions`, `AudioCacheOptions`
+- **Member portal access:** portal pages, `PortalGuildMemberAuthorizationHandler` and the portal playback
+  controllers go through `IPortalGuildDirectory` (not `DiscordSocketClient`): `DiscordPortalGuildDirectory` in
+  production, `DevelopmentPortalGuildDirectory` only when the host is Development **and** `Discord:OfflineMode`
+  (`DevelopmentPortal.IsEnabled`; `DevelopmentPortal.SeedAsync` also links the default admin and creates the
+  role-less `portal-member@example.com`). The guild's `EnableMemberPortal` gates pages and `/api/portal/*`
+  independently of `AudioEnabled` and before the admin bypass; pages render `_PortalDisabled` instead of 404.
 - **Pricing hook:** `SoundboardOrchestrationService` takes an optional `IChargeService?` (null when
   `Currency:Enabled` is false, which is the rollback path — every sound plays free).
   `PlaySoundAsync` holds the price of `soundboard:{soundId}` —
@@ -30,10 +36,10 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 
 ### Text-to-Speech (Azure)
 - **Entities:** `TtsMessage`, `GuildTtsSettings`
-- **Services:** `AzureTtsService` (527 lines), `Tts/TtsSettingsService`, `Tts/SsmlBuilder`, `Tts/SsmlValidator` (631 lines), `Tts/StylePresetProvider`, `Tts/VoiceCapabilityProvider` (649 lines), `Tts/TtsPlaybackService`, `Tts/TtsHistoryService`
+- **Services:** `AzureTtsService` (527 lines), `Tts/TtsSettingsService`, `Tts/SsmlBuilder`, `Tts/SsmlValidator` (631 lines), `Tts/StylePresetProvider`, `Tts/CustomTtsPresetService` (saved custom presets; one rule set for the portal and admin endpoints), `Tts/VoiceCapabilityProvider` (649 lines), `Tts/TtsPlaybackService`, `Tts/TtsHistoryService`
 - **Commands:** `TtsModule`
-- **Controllers:** `PortalTtsController` (1,089 lines)
-- **Pages:** `Guilds/TextToSpeech/Index.cshtml`, `Portal/TTS/Index.cshtml`
+- **Controllers:** `PortalTtsController` (1,089 lines), `PortalTtsPresetsController` (member portal custom presets), `GuildTtsPresetsController` (admin `api/guilds/{guildId}/tts/presets/custom`, `RequireAdmin` + `GuildAccess`, anti-forgery validated; used by the admin TTS page's preset bar)
+- **Pages:** `Guilds/TextToSpeech/Index.cshtml` (script `wwwroot/js/tts-page.js`; Send/Preview take the on-screen voice settings as JSON, `Services/Tts/WavAudio` wraps preview audio), `Portal/TTS/Index.cshtml`
 - **Config:** `AzureSpeechOptions`, `AzureSpeechSsmlOptions`
 
 ### VOX System
@@ -68,9 +74,17 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Azure TTS secrets:** `AzureSpeech:SubscriptionKey` in User Secrets, never commit
 - **Azure TTS connection failures** (`WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED`, SDK `ConnectionFailure`/`ServiceTimeout`/`ServiceUnavailable`) are retried once in `AzureTtsService` and then thrown as `TtsUpstreamUnavailableException` (Core, derives from `InvalidOperationException`); `TtsSendPipeline` and `PortalTtsSynthesisController` map it to `503 tts_upstream_unavailable`. Other SDK cancellations stay `InvalidOperationException` → `400 tts_not_configured`. Tests override `AzureTtsService.RunSynthesisAttemptAsync` instead of hitting the SDK.
 - **Audio settings are per-guild** via `GuildAudioSettings`
+- **Admin pages must not call `/api/portal/*`.** `PortalGuildMemberAuthorizationHandler` refuses everyone, administrators included, while `EnableMemberPortal` is off. The admin Soundboard page therefore has its own category handlers, and the admin TTS page its own `Preview` handler. `build-ssml` and `validate-ssml` are `[AllowAnonymous]` and safe to call from an admin page.
+- **Sound category assignment:** `ISoundService.GetByIdAsync` returns the sound untracked with `Category` loaded; clear `sound.Category` when changing `CategoryId`, or `Update` writes the old key back.
 - **Leaving voice must go through `IVoiceChannel.DisconnectAsync()`** (→ `SocketGuild.DisconnectAudioAsync`). Calling `IAudioClient.StopAsync()`/`Dispose()` directly only closes the voice websocket; the gateway voice state is never cleared, so Discord keeps showing the bot in the channel while `AudioService.IsConnected` says false, and Discord.NET's `SocketGuild._audioClient` is left pointing at a disposed client. See `docs/lessons-learned/voice-channel-state-drift.md`.
 - **Charge on accepted playback, not on completion.** A sound someone skips half way through is
   still paid for. Anything added between the hold and `PlaybackService.PlayAsync` must leave via a
   `return` or a throw so the `finally` releases the hold — never swallow a failure and carry on.
 - **Portal pages** use separate controllers (PortalSoundboardController, PortalTtsController, PortalVoxController)
+- **Portal members have no Identity role:** `/api/guilds/{id}/audio/*` and the `DashboardHub` (`RequireViewer`) refuse them,
+  and the Viewer role is never granted to members (D10). The voice panel takes `VoiceChannelPanelViewModel.ApiBase`
+  (`/api/portal/soundboard/{guildId}`) and reads `GET .../status` for the truth about voice state; portal pages leave the hub
+  scripts out unless `CanUseDashboardHub`. Real fix for live events, not done: a hub policy admitting guild members plus a
+  membership check inside `JoinGuildAudioGroup`
+- **Portal error text:** controllers answer with sentences a member can act on; never put `ex.Message` in `Detail` (C-7)
 - **Rate limiting:** VOX commands: 5 per 10 seconds

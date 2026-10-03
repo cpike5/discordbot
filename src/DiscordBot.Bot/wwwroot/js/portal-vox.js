@@ -58,13 +58,14 @@
             };
         }
 
-        // HTML escape utility to prevent XSS
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        // A touch keyboard covers half the screen: do not raise it as a side effect of a tap on a tile
+        function isCoarsePointer() {
+            return window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
         }
 
+
+        // The voice panel announces connect and disconnect; the play hint follows
+        document.addEventListener('voicepanel:change', () => updatePlayButton(voxEls.playBtn ? !voxEls.playBtn.disabled : false));
 
         // Initialize VOX Portal
         document.addEventListener('DOMContentLoaded', async () => {
@@ -299,8 +300,8 @@
 
             voxState.highlightedIndex = -1;
             voxEls.autocompleteDropdown.innerHTML = matches.map((clip, idx) => `
-                <div class="vox-autocomplete-item" role="option" id="${prefix}-option-${idx}" data-clip-name="${escapeHtml(clip.name)}" data-index="${idx}">
-                    <span class="vox-autocomplete-name">${escapeHtml(clip.name)}</span>
+                <div class="vox-autocomplete-item" role="option" id="${prefix}-option-${idx}" data-clip-name="${SafeHtml.escape(clip.name)}" data-index="${idx}">
+                    <span class="vox-autocomplete-name">${SafeHtml.escape(clip.name)}</span>
                     <span class="vox-autocomplete-duration">${clip.durationSeconds.toFixed(1)}s</span>
                 </div>
             `).join('');
@@ -340,8 +341,10 @@
             const isAutocompleteActive = voxEls.autocompleteDropdown &&
                                           voxEls.autocompleteDropdown.classList.contains('active');
 
-            // Handle Enter key - either select suggestion or play message
+            // Handle Enter key - either select suggestion or play message.
+            // While an IME is composing, Enter confirms the candidate and must not send.
             if (e.key === 'Enter') {
+                if (e.isComposing || e.keyCode === 229) return;
                 e.preventDefault();
                 if (isAutocompleteActive) {
                     const items = Array.from(voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item'));
@@ -434,7 +437,7 @@
             if (words.length === 0) {
                 voxEls.tokenPills.innerHTML = '<span class="vox-token-empty">No words</span>';
                 voxEls.previewStats.textContent = '';
-                updatePlayButton(false);
+                updatePlayButton(false, 'empty');
                 return;
             }
 
@@ -449,7 +452,7 @@
 
                 const tokenClass = isMatched ? 'matched' : 'skipped';
                 const gap = idx < words.length - 1 ? '<span class="vox-token-gap">·</span>' : '';
-                return `<span class="vox-token ${tokenClass}">${escapeHtml(word)}</span>${gap}`;
+                return `<span class="vox-token ${tokenClass}">${SafeHtml.escape(word)}</span>${gap}`;
             }).join('');
 
             // Add word gap duration
@@ -460,12 +463,31 @@
             voxEls.tokenPills.innerHTML = pillsHtml;
             voxEls.previewStats.textContent = `${matchedCount}/${words.length} clips, ~${totalDuration.toFixed(1)}s`;
 
-            updatePlayButton(matchedCount > 0);
+            updatePlayButton(matchedCount > 0, matchedCount > 0 ? null : 'nomatch');
         }
 
-        function updatePlayButton(canPlay) {
+        // The reason the button is off, kept so the hint can be redrawn when the voice state changes
+        let playBlockReason = 'empty';
+
+        function isVoiceConnected() {
+            const panel = document.getElementById('voice-channel-panel');
+            return !!panel && panel.dataset.connected === 'true';
+        }
+
+        function updatePlayButton(canPlay, reason) {
             if (!voxEls.playBtn) return;
+            if (reason !== undefined) playBlockReason = reason;
             voxEls.playBtn.disabled = !canPlay || voxState.isLoading;
+
+            // A disabled button without a reason is a dead end
+            const hint = document.getElementById(voxEls.playBtn.id.replace(/-play-btn$/, '-play-hint'));
+            if (hint) {
+                hint.textContent = voxState.isLoading ? ''
+                    : playBlockReason === 'empty' ? 'Type words or tap clips to build a message.'
+                    : playBlockReason === 'nomatch' ? 'None of those words are in this clip group. Pick clips from the list.'
+                    : !isVoiceConnected() ? 'Join a voice channel before you play it.'
+                    : '';
+            }
         }
 
         // Play
@@ -474,6 +496,12 @@
 
             const message = voxEls.messageInput.value.trim();
             if (!message) return;
+
+            if (!isVoiceConnected()) {
+                toast.warning('Join a voice channel first, then play it.', { key: 'vox-join-first' });
+                if (window.VoiceChannelPanel) VoiceChannelPanel.reveal();
+                return;
+            }
 
             voxState.isLoading = true;
             voxEls.playBtn.classList.add('loading');
@@ -501,19 +529,15 @@
                 // Refresh history panel
                 loadVoxHistory();
             } catch (error) {
-                // Display specific error message inline
+                // The message stays in the box; say what went wrong where a toast can be dismissed or read again
+                const reason = error.message || 'Could not play that message. Try again.';
                 if (voxEls.playBtnText) {
-                    const errMsg = (error.message || 'Failed to play').substring(0, 100);
-                    voxEls.playBtnText.textContent = 'Error: ' + errMsg;
-                    if (voxEls.playbackStatus) {
-                        voxEls.playbackStatus.textContent = 'Error: ' + errMsg;
-                    }
-                    setTimeout(() => {
-                        if (voxEls.playBtnText) {
-                            voxEls.playBtnText.textContent = 'Play VOX Announcement';
-                        }
-                    }, 4000);
+                    voxEls.playBtnText.textContent = 'Play VOX Announcement';
                 }
+                if (voxEls.playbackStatus) {
+                    voxEls.playbackStatus.textContent = reason;
+                }
+                if (!error.sessionExpired) toast.error(reason);
             } finally {
                 voxState.isLoading = false;
                 voxEls.playBtn.classList.remove('loading');
@@ -537,11 +561,11 @@
             const filtered = [...prefixMatches, ...substringMatches];
 
             if (voxEls.clipCount) {
-                voxEls.clipCount.textContent = searchTerm ? `${filtered.length} matching` : `${filtered.length} clips`;
+                voxEls.clipCount.textContent = searchTerm ? `${filtered.length} matching` : Format.plural(filtered.length, 'clip');
             }
 
             if (filtered.length === 0) {
-                const escapedQuery = escapeHtml(searchTerm);
+                const escapedQuery = SafeHtml.escape(searchTerm);
                 voxEls.clipGrid.innerHTML = searchTerm
                     ? `<div class="vox-token-empty">No clips match '${escapedQuery}'</div>`
                     : '<div class="vox-token-empty">No clips found</div>';
@@ -552,7 +576,7 @@
             // Group clips by first letter
             const grouped = new Map();
             filtered.forEach(clip => {
-                const letter = clip.name.charAt(0).toUpperCase();
+                const letter = Format.initials(clip.name, 1, '#');
                 if (!grouped.has(letter)) {
                     grouped.set(letter, []);
                 }
@@ -571,17 +595,18 @@
                 const letterClips = grouped.get(letter);
 
                 // Section header
-                html += `<div class="vox-section-header" data-letter="${letter}" id="section-${voxState.activeGroup}-${letter}">${letter}</div>`;
+                const safeLetter = SafeHtml.escape(letter);
+                html += `<div class="vox-section-header" data-letter="${safeLetter}" id="section-${SafeHtml.escape(voxState.activeGroup)}-${safeLetter}">${safeLetter}</div>`;
 
                 // Clip tiles for this section
                 letterClips.forEach(clip => {
                     html += `
                         <button class="vox-clip-tile"
-                                data-clip-name="${escapeHtml(clip.name)}"
+                                data-clip-name="${SafeHtml.escape(clip.name)}"
                                 data-tile-index="${tileIndex}"
                                 role="gridcell"
                                 tabindex="-1">
-                            <div class="vox-clip-name">${escapeHtml(clip.name)}</div>
+                            <div class="vox-clip-name">${SafeHtml.escape(clip.name)}</div>
                             <div class="vox-clip-duration">${clip.durationSeconds.toFixed(1)}s</div>
                         </button>
                     `;
@@ -642,9 +667,12 @@
             const tiles = Array.from(voxEls.clipGrid.querySelectorAll('.vox-clip-tile'));
             voxState.focusedTileIndex = tiles.indexOf(tile);
 
-            // Update preview and focus
+            // Update preview. Focus the field only where there is a hardware keyboard: on a phone
+            // a tap on a tile would raise the on-screen keyboard over the very clips being browsed.
             updateTokenPreview();
-            voxEls.messageInput.focus();
+            if (!isCoarsePointer()) {
+                voxEls.messageInput.focus();
+            }
         }
 
         // ==========================================
@@ -786,7 +814,7 @@
             // Scroll the active letter button into view within the strip
             const activeBtn = voxEls.mobileLetterStrip.querySelector('.vox-mobile-letter-btn.active');
             if (activeBtn) {
-                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                activeBtn.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
             }
         }
 
@@ -966,32 +994,54 @@
                 const timeAgo = formatTimeAgo(new Date(entry.playedAt));
                 const favClass = entry.isFavorite ? 'favorite-active' : '';
                 const favIcon = entry.isFavorite ? '&#9733;' : '&#9734;';
+                const favLabel = entry.isFavorite ? 'Remove from favorites' : 'Add to favorites';
 
                 return `
                     <div class="vox-history-item" data-entry-id="${Number(entry.id)}">
-                        <span class="vox-history-message"
-                              title="${escapeHtml(entry.message)}"
-                              data-message="${escapeHtml(entry.message)}"
-                              data-clip-group="${escapeHtml(entry.clipGroup)}"
-                              onclick="replayFromHistory(${Number(entry.id)}, this.dataset.message, this.dataset.clipGroup, ${Number(entry.wordGapMs)})">
-                            ${escapeHtml(entry.message)}
-                        </span>
-                        <span class="vox-history-meta">${escapeHtml(entry.clipGroup)} &middot; ${timeAgo}</span>
+                        <button type="button" class="vox-history-message"
+                                title="Put this message back in the box"
+                                dir="auto"
+                                data-action="replay"
+                                data-message="${SafeHtml.escape(entry.message)}"
+                                data-clip-group="${SafeHtml.escape(entry.clipGroup)}"
+                                data-word-gap="${Number(entry.wordGapMs)}">${SafeHtml.escape(entry.message)}</button>
+                        <span class="vox-history-meta">${SafeHtml.escape(entry.clipGroup)} &middot; ${timeAgo}</span>
                         <div class="vox-history-actions">
-                            <button class="vox-history-action-btn ${favClass}"
-                                    title="${entry.isFavorite ? 'Remove from favorites' : 'Add to favorites'}"
-                                    onclick="toggleFavorite(${entry.id})">
-                                ${favIcon}
+                            <button type="button" class="vox-history-action-btn ${favClass}"
+                                    data-action="favorite"
+                                    title="${favLabel}"
+                                    aria-label="${favLabel}"
+                                    aria-pressed="${entry.isFavorite ? 'true' : 'false'}">
+                                <span aria-hidden="true">${favIcon}</span>
                             </button>
-                            <button class="vox-history-action-btn delete"
+                            <button type="button" class="vox-history-action-btn delete"
+                                    data-action="delete"
                                     title="Delete"
-                                    onclick="deleteHistoryEntry(${entry.id})">
-                                &#10005;
+                                    aria-label="Delete this message">
+                                <span aria-hidden="true">&#10005;</span>
                             </button>
                         </div>
                     </div>
                 `;
             }).join('');
+
+            // One listener per list, however often it is re-rendered
+            if (!list.dataset.historyBound) {
+                list.dataset.historyBound = 'true';
+                list.addEventListener('click', (event) => {
+                    const control = event.target.closest('[data-action]');
+                    const item = control && control.closest('.vox-history-item');
+                    if (!control || !item) return;
+                    const entryId = Number(item.dataset.entryId);
+                    if (control.dataset.action === 'replay') {
+                        replayFromHistory(entryId, control.dataset.message, control.dataset.clipGroup, Number(control.dataset.wordGap));
+                    } else if (control.dataset.action === 'favorite') {
+                        toggleFavorite(entryId);
+                    } else if (control.dataset.action === 'delete') {
+                        deleteHistoryEntry(entryId);
+                    }
+                });
+            }
         }
 
         function replayFromHistory(entryId, message, clipGroup, wordGapMs) {
@@ -999,7 +1049,13 @@
 
             voxEls.messageInput.value = message;
             updateTokenPreview();
-            voxEls.messageInput.focus();
+            if (!isCoarsePointer()) {
+                voxEls.messageInput.focus();
+            } else {
+                // The message is in the box; show it without raising the keyboard
+                voxEls.messageInput.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+                toast.info('Message put back in the box. Tap Play to send it again.', { key: 'vox-replay' });
+            }
         }
 
         async function toggleFavorite(entryId) {
@@ -1009,24 +1065,27 @@
                 // Refresh both lists
                 await loadVoxHistory();
             } catch (error) {
-                console.error('Failed to toggle favorite:', error);
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('error', 'Failed to update favorite');
-                }
+                toast.error('Could not update that favorite. Try again.');
             }
         }
 
         async function deleteHistoryEntry(entryId) {
+            const confirmed = await quickActions.confirm({
+                title: 'Delete this message?',
+                message: 'It will be removed from your history. Announcements already played are not affected.',
+                confirmText: 'Delete message',
+                variant: 'danger'
+            });
+            if (!confirmed) return;
+
             try {
-                await ApiClient.del(`/api/portal/vox/${window.guildId}/history/${entryId}`, { errorMessage: 'Failed to delete entry' });
+                await ApiClient.del(`/api/portal/vox/${window.guildId}/history/${entryId}`, { errorMessage: 'Could not delete that message. Try again.' });
 
                 // Refresh both lists
                 await loadVoxHistory();
+                toast.success('Message deleted');
             } catch (error) {
-                console.error('Failed to delete history entry:', error);
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('error', 'Failed to delete entry');
-                }
+                toast.error(error.message || 'Could not delete that message. Try again.');
             }
         }
 

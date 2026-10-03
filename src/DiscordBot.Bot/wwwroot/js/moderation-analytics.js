@@ -1,402 +1,177 @@
-// moderation-analytics.js
-// Moderation analytics dashboard with Chart.js visualizations
-
+/**
+ * Moderation analytics page (Pages/Guilds/Analytics/Moderation.cshtml): stacked trend chart,
+ * case-type doughnut and moderator workload bars. Data comes from the JSON island
+ * #moderationChartData. Series colours come from ChartTheme and follow the theme
+ * (see analytics-charts.js).
+ */
 (function () {
     'use strict';
 
-    function getDesignToken(name) {
-        return getComputedStyle(document.documentElement)
-            .getPropertyValue(`--color-${name}`).trim();
+    const A = window.AnalyticsCharts;
+    if (!A) return;
+
+    // Warn, mute, kick, ban: the same four colours in the trend and the doughnut.
+    function caseColors(c) {
+        return [c.warning, c.info, c.primary, c.error];
     }
 
-    function initColors() {
+    function caseFills(c) {
+        return [c.alpha('warning', 0.3), c.alpha('info', 0.3), c.alpha('accent-orange', 0.3), c.alpha('error', 0.3)];
+    }
+
+    function buildTrends(trends, c) {
+        const lines = caseColors(c);
+        const fills = caseFills(c);
+        const series = [
+            ['Warns', t => t.warnCount, []],
+            ['Mutes', t => t.muteCount, [6, 3]],
+            ['Kicks', t => t.kickCount, [2, 3]],
+            ['Bans', t => t.banCount, [10, 4]]
+        ];
         return {
-            accentOrange: getDesignToken('accent-orange') || '#e6602b',
-            accentBlue: getDesignToken('accent-blue') || '#3d9ad6',
-            success: getDesignToken('success') || '#2fbf7f',
-            warning: getDesignToken('warning') || '#f0a323',
-            info: getDesignToken('info') || '#2fb3cc',
-            error: getDesignToken('error') || '#ef4f4f',
-            bgPrimary: getDesignToken('bg-primary') || '#0f1114',
-            bgSecondary: getDesignToken('bg-secondary') || '#16191d',
-            bgTertiary: getDesignToken('bg-tertiary') || '#1c2025',
-            textPrimary: getDesignToken('text-primary') || '#e7e4df',
-            textSecondary: getDesignToken('text-secondary') || '#a09c96',
-            textTertiary: getDesignToken('text-tertiary') || '#6d6a66',
-            borderPrimary: getDesignToken('border-primary') || '#2a2f36',
+            type: 'line',
+            data: {
+                labels: trends.map(t => A.dayLabel(t.date)),
+                datasets: series.map((s, i) => ({
+                    label: s[0],
+                    data: trends.map(s[1]),
+                    borderColor: lines[i],
+                    backgroundColor: fills[i],
+                    borderDash: s[2],
+                    fill: true,
+                    tension: 0.4
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } },
+                    tooltip: { padding: 12 }
+                },
+                scales: {
+                    y: { beginAtZero: true, stacked: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } }
+                }
+            }
         };
     }
 
-    let colors = initColors();
-
-    const CHART_COLORS = [
-        colors.accentOrange,
-        colors.accentBlue,
-        colors.success,
-        colors.warning,
-        colors.info,
-        colors.error,
-        '#8b5cf6',
-        '#ec4899',
-        '#14b8a6',
-        '#6366f1',
-    ];
-
-    const BG_COLORS = {
-        primary: colors.bgPrimary,
-        secondary: colors.bgSecondary,
-        tertiary: colors.bgTertiary,
-    };
-
-    const TEXT_COLORS = {
-        primary: colors.textPrimary,
-        secondary: colors.textSecondary,
-        tertiary: colors.textTertiary,
-    };
-
-    const BORDER_COLOR = colors.borderPrimary;
-
-    let moderationTrendsChart = null;
-    let caseDistributionChart = null;
-    let moderatorWorkloadChart = null;
-
-    const commonOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                backgroundColor: BG_COLORS.tertiary,
-                titleColor: TEXT_COLORS.primary,
-                bodyColor: TEXT_COLORS.secondary,
-                borderColor: BORDER_COLOR,
-                borderWidth: 1,
-                padding: 12,
-                cornerRadius: 6,
-            },
-        },
-    };
-
-    const gridConfig = {
-        color: 'rgba(63, 68, 71, 0.5)',
-        drawBorder: false,
-    };
-
-    const ticksConfig = {
-        color: TEXT_COLORS.tertiary,
-        font: {
-            size: 12,
-        },
-    };
-
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    function recolorTrends(chart, c) {
+        const lines = caseColors(c);
+        const fills = caseFills(c);
+        chart.data.datasets.forEach((dataset, i) => {
+            dataset.borderColor = lines[i];
+            dataset.backgroundColor = fills[i];
+        });
     }
 
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${monthNames[date.getMonth()]} ${date.getDate()}`;
-    }
-
-    /**
-     * Center text plugin for doughnut charts.
-     */
-    const centerTextPlugin = {
-        id: 'centerText',
-        afterDatasetsDraw: function (chart) {
-            if (!chart.config.options.plugins.centerText) {
-                return;
-            }
-
-            const { ctx, chartArea: { width, height } } = chart;
-            const centerX = width / 2;
-            const centerY = height / 2;
-            const text = chart.config.options.plugins.centerText.text;
-
-            ctx.save();
-            ctx.font = 'bold 32px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
-            ctx.fillStyle = TEXT_COLORS.primary;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, centerX, centerY);
-            ctx.restore();
-        }
-    };
-
-    /**
-     * Initializes the Moderation Trends stacked area chart.
-     * @param {Array} trendsData - Array of {date, warnings, mutes, kicks, bans} objects
-     */
-    function initModerationTrendsChart(trendsData) {
-        const canvas = document.getElementById('moderationTrendsChart');
-        if (!canvas || !trendsData || trendsData.length === 0) {
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        const labels = trendsData.map(item => formatDate(item.date));
-
-        moderationTrendsChart = new Chart(ctx, {
-            type: 'line',
+    function buildDistribution(d, c) {
+        const counts = [d.warnCount, d.muteCount, d.kickCount, d.banCount];
+        const total = counts.reduce((a, b) => a + b, 0);
+        return {
+            type: 'doughnut',
             data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Warnings',
-                        data: trendsData.map(item => item.warnings),
-                        borderColor: CHART_COLORS[3],
-                        backgroundColor: 'rgba(240, 163, 35, 0.2)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 3,
-                    },
-                    {
-                        label: 'Mutes',
-                        data: trendsData.map(item => item.mutes),
-                        borderColor: CHART_COLORS[4],
-                        backgroundColor: 'rgba(47, 179, 204, 0.2)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 3,
-                    },
-                    {
-                        label: 'Kicks',
-                        data: trendsData.map(item => item.kicks),
-                        borderColor: CHART_COLORS[0],
-                        backgroundColor: 'rgba(230, 96, 43, 0.2)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 3,
-                    },
-                    {
-                        label: 'Bans',
-                        data: trendsData.map(item => item.bans),
-                        borderColor: CHART_COLORS[5],
-                        backgroundColor: 'rgba(239, 79, 79, 0.2)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 3,
-                    }
-                ]
+                labels: ['Warns', 'Mutes', 'Kicks', 'Bans'],
+                datasets: [{ data: counts, backgroundColor: caseColors(c), borderColor: c.canvas, borderWidth: 2 }]
             },
             options: {
-                ...commonOptions,
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
                 plugins: {
-                    ...commonOptions.plugins,
                     legend: {
-                        display: true,
                         position: 'bottom',
                         labels: {
-                            color: TEXT_COLORS.primary,
-                            padding: 16,
-                            font: { size: 12 },
-                            usePointStyle: true,
+                            boxWidth: 12,
+                            padding: 15,
+                            // The count is in the legend text, so the segments never rely on colour alone.
+                            generateLabels(chart) {
+                                const ds = chart.data.datasets[0];
+                                return chart.data.labels.map((label, i) => ({
+                                    text: label + ' (' + A.number(ds.data[i]) + ')',
+                                    fillStyle: ds.backgroundColor[i],
+                                    strokeStyle: ds.backgroundColor[i],
+                                    fontColor: chart.options.plugins.legend.labels.color,
+                                    index: i
+                                }));
+                            }
                         }
                     },
                     tooltip: {
-                        ...commonOptions.plugins.tooltip,
-                        mode: 'index',
-                        intersect: false,
+                        padding: 12,
+                        callbacks: {
+                            label(ctx) {
+                                const share = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0.0';
+                                return ctx.label + ': ' + A.number(ctx.parsed) + ' (' + share + '%)';
+                            }
+                        }
                     }
-                },
-                scales: {
-                    x: {
-                        grid: gridConfig,
-                        ticks: ticksConfig,
-                    },
-                    y: {
-                        stacked: true,
-                        beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: ticksConfig,
-                    }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
                 }
             }
-        });
-
-        console.log('Moderation trends chart initialized');
+        };
     }
 
-    /**
-     * Initializes the Case Type Distribution doughnut chart.
-     * @param {Object} distributionData - Object with case type counts
-     */
-    function initCaseDistributionChart(distributionData) {
-        const canvas = document.getElementById('caseDistributionChart');
-        if (!canvas || !distributionData) {
-            return;
-        }
+    function recolorDistribution(chart, c) {
+        const dataset = chart.data.datasets[0];
+        dataset.backgroundColor = caseColors(c);
+        dataset.borderColor = c.canvas;
+    }
 
-        const ctx = canvas.getContext('2d');
-        const labels = Object.keys(distributionData);
-        const data = Object.values(distributionData);
-        const total = data.reduce((a, b) => a + b, 0);
-
-        caseDistributionChart = new Chart(ctx, {
-            type: 'doughnut',
+    function buildWorkload(workload, c) {
+        const total = workload.reduce((sum, m) => sum + m.totalActions, 0);
+        return {
+            type: 'bar',
             data: {
-                labels: labels,
+                labels: workload.map(m => m.moderatorUsername),
                 datasets: [{
-                    data: data,
-                    backgroundColor: [
-                        CHART_COLORS[3], // warnings - yellow
-                        CHART_COLORS[4], // mutes - cyan
-                        CHART_COLORS[0], // kicks - orange
-                        CHART_COLORS[5], // bans - red
-                        CHART_COLORS[6], // other - purple
-                    ],
-                    borderColor: BG_COLORS.primary,
-                    borderWidth: 3,
+                    label: 'Cases Handled',
+                    data: workload.map(m => m.totalActions),
+                    backgroundColor: A.each(c.fills.secondary, workload.length),
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '70%',
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            color: TEXT_COLORS.primary,
-                            padding: 16,
-                            font: { size: 13 },
-                            usePointStyle: true,
-                            pointStyle: 'circle',
-                        }
-                    },
-                    tooltip: {
-                        ...commonOptions.plugins.tooltip,
-                        callbacks: {
-                            label: function (context) {
-                                const label = context.label || '';
-                                const value = context.parsed;
-                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                                return `${label}: ${formatNumber(value)} (${percentage}%)`;
-                            }
-                        }
-                    },
-                    centerText: {
-                        text: formatNumber(total)
-                    }
-                }
-            },
-            plugins: [centerTextPlugin]
-        });
-
-        console.log('Case distribution chart initialized');
-    }
-
-    /**
-     * Initializes the Moderator Workload horizontal bar chart.
-     * @param {Array} workloadData - Array of {moderatorName, actionCount} objects
-     */
-    function initModeratorWorkloadChart(workloadData) {
-        const canvas = document.getElementById('moderatorWorkloadChart');
-        if (!canvas || !workloadData || workloadData.length === 0) {
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        const labels = workloadData.map(item => item.moderatorName);
-        const data = workloadData.map(item => item.actionCount);
-
-        const colorRange = labels.map((_, index) => CHART_COLORS[index % CHART_COLORS.length]);
-
-        moderatorWorkloadChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Actions',
-                    data: data,
-                    backgroundColor: colorRange,
-                    borderColor: colorRange,
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barThickness: 24,
-                }]
-            },
-            options: {
                 indexAxis: 'y',
-                ...commonOptions,
                 plugins: {
-                    ...commonOptions.plugins,
+                    legend: { display: false },
                     tooltip: {
-                        ...commonOptions.plugins.tooltip,
+                        padding: 12,
                         callbacks: {
-                            label: function (context) {
-                                return `Actions: ${formatNumber(context.parsed.x)}`;
+                            label(ctx) {
+                                const share = total > 0 ? ((ctx.parsed.x / total) * 100).toFixed(1) : '0.0';
+                                return A.number(ctx.parsed.x) + (ctx.parsed.x === 1 ? ' case' : ' cases') + ' (' + share + '%)';
                             }
                         }
                     }
                 },
                 scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: ticksConfig,
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: {
-                            color: TEXT_COLORS.primary,
-                            font: { size: 12 },
-                            padding: 8,
-                        }
-                    }
-                },
-                animation: {
-                    duration: 500,
-                    easing: 'easeOutQuart',
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: { grid: { display: false } }
                 }
             }
-        });
-
-        console.log('Moderator workload chart initialized');
+        };
     }
 
-    /**
-     * Initialize all moderation analytics charts.
-     */
+    function recolorWorkload(chart, c) {
+        chart.data.datasets[0].backgroundColor = A.each(c.fills.secondary, chart.data.labels.length);
+    }
+
     function init() {
-        const dataElement = document.getElementById('moderationAnalyticsChartData');
-        if (!dataElement) {
-            console.log('Moderation analytics chart data not found on this page');
-            return;
+        const data = A.readData('moderationChartData');
+        if (!data) return;
+
+        if (data.trends && data.trends.length > 0) {
+            A.create('moderationTrendsChart', c => buildTrends(data.trends, c), recolorTrends);
         }
-
-        try {
-            const chartData = JSON.parse(dataElement.textContent);
-
-            if (chartData.trends && chartData.trends.length > 0) {
-                initModerationTrendsChart(chartData.trends);
-            }
-
-            if (chartData.distribution) {
-                initCaseDistributionChart(chartData.distribution);
-            }
-
-            if (chartData.workload && chartData.workload.length > 0) {
-                initModeratorWorkloadChart(chartData.workload);
-            }
-
-            console.log('Moderation analytics charts initialized');
-
-        } catch (error) {
-            console.error('Failed to initialize moderation analytics charts:', error);
+        if (data.distribution) {
+            A.create('caseDistributionChart', c => buildDistribution(data.distribution, c), recolorDistribution);
+        }
+        if (data.moderatorWorkload && data.moderatorWorkload.length > 0) {
+            A.create('moderatorWorkloadChart', c => buildWorkload(data.moderatorWorkload, c), recolorWorkload);
         }
     }
 
@@ -405,5 +180,4 @@
     } else {
         init();
     }
-
 })();

@@ -10,7 +10,7 @@
             }
             else
             {
-                <span class="landing-guild-icon-placeholder">@(Model.GuildName.Length > 0 ? Model.GuildName[0].ToString().ToUpper() : "?")</span>
+                <span class="landing-guild-icon-placeholder">@TextDisplay.Initials(Model.GuildName, 1)</span>
             }
         </div>
 

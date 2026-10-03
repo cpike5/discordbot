@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Entities;
@@ -23,6 +22,7 @@ public class IndexModel : PortalPageModelBase
     private readonly IVoxService _voxService;
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -31,17 +31,25 @@ public class IndexModel : PortalPageModelBase
         IAudioService audioService,
         IPlaybackService playbackService,
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        ISettingsService settingsService,
+        IPortalGuildDirectory guildDirectory,
+        IGuildAudioSettingsRepository audioSettingsRepository,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
-        : base(guildService, discordClient, userManager, logger)
+        : base(guildService, guildDirectory, audioSettingsRepository, userManager, logger)
     {
         _voxClipLibrary = voxClipLibrary;
         _voxService = voxService;
         _audioService = audioService;
         _playbackService = playbackService;
+        _settingsService = settingsService;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Gets whether audio features are globally disabled at the bot level.
+    /// </summary>
+    public bool IsAudioGloballyDisabled { get; set; }
 
     /// <summary>
     /// Gets the clip count for the VOX group.
@@ -92,8 +100,12 @@ public class IndexModel : PortalPageModelBase
     {
         try
         {
+            // Check if audio is globally disabled at the bot level
+            var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+            IsAudioGloballyDisabled = !isGloballyEnabled;
+
             // Perform common portal authorization check
-            var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "VOX", cancellationToken);
+            var (authResult, _) = await CheckPortalAuthorizationAsync(guildId, "VOX", cancellationToken);
 
             // Handle auth failures
             var actionResult = GetAuthResultAction(authResult);
@@ -116,22 +128,6 @@ public class IndexModel : PortalPageModelBase
             FvoxClipCount = _voxClipLibrary.GetClipCount(VoxClipGroup.Fvox);
             HgruntClipCount = _voxClipLibrary.GetClipCount(VoxClipGroup.Hgrunt);
 
-            // Build voice channel panel data
-            var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
-            var isConnected = _audioService.IsConnected(guildId);
-            string? connectedChannelName = null;
-            int? channelMemberCount = null;
-
-            if (isConnected && connectedChannelId.HasValue)
-            {
-                var connectedChannel = context!.SocketGuild.GetVoiceChannel(connectedChannelId.Value);
-                if (connectedChannel != null)
-                {
-                    connectedChannelName = connectedChannel.Name;
-                    channelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
-                }
-            }
-
             // Get now playing info — check both soundboard and VOX playback
             NowPlayingMessage = _voxService.GetCurrentMessage(guildId);
             if (string.IsNullOrEmpty(NowPlayingMessage) && _playbackService.IsPlaying(guildId))
@@ -139,28 +135,8 @@ public class IndexModel : PortalPageModelBase
                 NowPlayingMessage = "Now Playing";
             }
 
-            VoicePanel = new VoiceChannelPanelViewModel
-            {
-                GuildId = guildId,
-                IsCompact = true,
-                ShowNowPlaying = true,
-                ShowProgress = false,
-                IsConnected = isConnected,
-                ConnectedChannelId = connectedChannelId,
-                ConnectedChannelName = connectedChannelName,
-                ChannelMemberCount = channelMemberCount,
-                AvailableChannels = BuildVoiceChannelList(context!.SocketGuild)
-                    .Select(c => new DiscordBot.Bot.ViewModels.Components.VoiceChannelInfo
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        MemberCount = c.MemberCount
-                    }).ToList(),
-                NowPlaying = string.IsNullOrEmpty(NowPlayingMessage)
-                    ? null
-                    : new NowPlayingInfo { Name = NowPlayingMessage },
-                Queue = []
-            };
+            // Build voice channel panel data from the bot's real voice state
+            VoicePanel = BuildVoicePanel(guildId, _audioService, NowPlayingMessage);
 
             // Build group tabs
             GroupTabs = new NavTabsViewModel

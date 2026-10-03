@@ -20,6 +20,7 @@ public class UserPurgeService : IUserPurgeService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAuditLogService _auditLogService;
     private readonly IMemoryCache _cache;
+    private readonly IUserDataExportService _exportService;
     private readonly ILogger<UserPurgeService> _logger;
 
     public UserPurgeService(
@@ -27,12 +28,14 @@ public class UserPurgeService : IUserPurgeService
         UserManager<ApplicationUser> userManager,
         IAuditLogService auditLogService,
         IMemoryCache cache,
+        IUserDataExportService exportService,
         ILogger<UserPurgeService> logger)
     {
         _dbContext = dbContext;
         _userManager = userManager;
         _auditLogService = auditLogService;
         _cache = cache;
+        _exportService = exportService;
         _logger = logger;
     }
 
@@ -274,6 +277,16 @@ public class UserPurgeService : IUserPurgeService
 
             // Invalidate all cached data for the user
             InvalidateUserCaches(discordUserId);
+
+            // The export archives hold the user's data too; they must not outlive the purge
+            try
+            {
+                _exportService.DeleteUserExports(discordUserId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete export files for purged Discord user {DiscordUserId}", discordUserId);
+            }
 
             // Create audit log entry (anonymized - no PII)
             try

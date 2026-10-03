@@ -1,13 +1,14 @@
 @page
 @model PrivacyModel
-@* ViewModels.Components removed — no longer using server-rendered confirmation modal *@
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.ViewModels.Components
 @{
-    ViewData["Title"] = "Privacy & Consent";
+    ViewData["Title"] = "Privacy & consent";
 }
 
 <!-- Page Header -->
 <div class="mb-8">
-    <h1 class="text-3xl font-bold text-text-primary mb-2">Privacy & Consent</h1>
+    <h1 class="text-3xl font-bold text-text-primary mb-2">Privacy & consent</h1>
     <p class="text-text-secondary">Manage your data privacy preferences and consent settings for the Discord bot</p>
 </div>
 
@@ -15,23 +16,7 @@
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
     <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = false }" />
-    </div>
-}
-
-<!-- Export Download Link (shown once after an export; a toast would dismiss before it can be used) -->
-@if (!string.IsNullOrEmpty(Model.ExportDownloadUrl))
-{
-    <div class="mb-6">
-        @{
-            var exportAlert = new DiscordBot.Bot.ViewModels.Components.AlertViewModel {
-                Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Success,
-                Title = "Data export ready",
-                Message = $"Download link: {Model.ExportDownloadUrl} (expires in 7 days)",
-                IsDismissible = true
-            };
-        }
-        <partial name="Shared/Components/_Alert" model="exportAlert" />
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel { Variant = AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = false }" />
     </div>
 }
 
@@ -91,14 +76,10 @@ else
                         Linked
                     </span>
                 </div>
-                @if (Model.DiscordUserId.HasValue)
-                {
-                    <p class="text-sm text-text-secondary font-mono">ID: @Model.DiscordUserId.Value</p>
-                }
             </div>
         </div>
         <p class="text-sm text-text-secondary">
-            Your consent preferences are managed for this Discord account. Changes will apply to all servers where the bot is present.
+            Your consent preferences belong to this Discord account. Changes apply on every server where the bot is present.
         </p>
     </div>
 
@@ -108,55 +89,58 @@ else
         <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
             <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
                 <div>
-                    <h3 class="text-lg font-semibold text-text-primary">Consent Settings</h3>
+                    <h2 class="text-lg font-semibold text-text-primary">Consent settings</h2>
                     <p class="text-sm text-text-secondary mt-1">Control what data the bot can collect and process</p>
                 </div>
             </div>
 
-            <div class="p-6 space-y-6">
+            <div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
                 @foreach (var consent in Model.ConsentStatuses)
                 {
-                    <!-- Consent Item -->
-                    <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
-                        <label class="form-toggle cursor-pointer flex-shrink-0 pt-1">
-                            <form method="post" asp-page-handler="ToggleConsent" asp-route-type="@consent.Type" asp-route-grant="@(!consent.IsGranted)" class="consent-toggle-form" data-consent-name="@consent.TypeDisplayName" data-consent-action="@(consent.IsGranted ? "revoke" : "grant")">
-                                <input type="checkbox" class="form-toggle-input" checked="@consent.IsGranted" onchange="window.confirmConsentToggle(this)" />
-                                <span class="form-toggle-track">
-                                    <span class="form-toggle-thumb"></span>
-                                </span>
-                            </form>
-                        </label>
+                    var turnedOff = Model.ConsentHistory
+                        .Where(h => h.Type == consent.Type && h.Action.Equals("Revoked", StringComparison.OrdinalIgnoreCase))
+                        .OrderByDescending(h => h.Timestamp)
+                        .Select(h => (DateTime?)h.Timestamp)
+                        .FirstOrDefault();
 
-                        <div class="flex-1">
-                            <div class="flex items-start justify-between gap-4">
-                                <div>
-                                    <label class="block text-base font-semibold text-text-primary cursor-pointer">
-                                        @consent.TypeDisplayName
-                                    </label>
-                                    <p class="text-sm text-text-secondary mt-1">
-                                        @consent.Description
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="mt-3 flex items-center gap-2">
-                                @if (consent.IsGranted)
+                    <!-- Consent Item: one form per toggle, confirmed before it is sent -->
+                    <div id="consent-@consent.Type" class="p-4 bg-bg-primary rounded-lg border border-border-secondary scroll-mt-20">
+                        <form method="post" asp-page-handler="ToggleConsent" asp-route-type="@consent.Type" class="consent-toggle-form" data-consent-form data-consent-name="@consent.TypeDisplayName" data-consent-action="@(consent.IsGranted ? "revoke" : "grant")">
+                            <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel
+                            {
+                                Id = $"consent-toggle-{consent.Type}",
+                                Name = "grant",
+                                Label = consent.TypeDisplayName,
+                                Description = consent.Description,
+                                IsChecked = consent.IsGranted,
+                                AdditionalAttributes = new Dictionary<string, string> { ["data-consent-toggle"] = "true" }
+                            }' />
+                        </form>
+                        <div class="mt-3 pl-[3.5rem] flex flex-wrap items-center gap-2">
+                            @if (consent.IsGranted)
+                            {
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
+                                    Enabled
+                                </span>
+                                @if (consent.GrantedAt.HasValue)
                                 {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
-                                        Enabled
-                                    </span>
-                                    @if (consent.GrantedAt.HasValue)
-                                    {
-                                        <span class="text-xs text-text-tertiary">Since <span data-utc="@consent.GrantedAtUtcIso" data-format="date">...</span></span>
-                                    }
+                                    <span class="text-xs text-text-secondary">Since @DisplayFormat.Time(consent.GrantedAt, "date")</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary">
+                                    Disabled
+                                </span>
+                                @if (turnedOff.HasValue)
+                                {
+                                    <span class="text-xs text-text-secondary">Turned off @DisplayFormat.Time(turnedOff, "date")</span>
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary">
-                                        Disabled
-                                    </span>
-                                    <span class="text-xs text-text-tertiary">Never enabled</span>
+                                    <span class="text-xs text-text-secondary">Never turned on</span>
                                 }
-                            </div>
+                            }
                         </div>
                     </div>
                 }
@@ -180,33 +164,49 @@ else
     }
 
     <!-- Data Management Card -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
+    <div id="data-management" class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6 scroll-mt-20">
         <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
             <div>
-                <h3 class="text-lg font-semibold text-text-primary">Data Management</h3>
+                <h2 class="text-lg font-semibold text-text-primary">Data management</h2>
                 <p class="text-sm text-text-secondary mt-1">Export or delete your personal data</p>
             </div>
         </div>
 
-        <div class="p-6 space-y-4">
+        <div class="p-4 sm:p-6 space-y-4">
             <!-- Export Data Section -->
             <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
-                <div class="w-12 h-12 rounded-full bg-info-bg border border-info-border flex items-center justify-center flex-shrink-0">
+                <div class="w-12 h-12 rounded-full bg-info-bg border border-info-border flex items-center justify-center flex-shrink-0" aria-hidden="true">
                     <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                     </svg>
                 </div>
-                <div class="flex-1">
-                    <h4 class="text-base font-semibold text-text-primary mb-1">Export My Data</h4>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold text-text-primary mb-1">Export my data</h3>
                     <p class="text-sm text-text-secondary mb-3">
-                        Download all your data in a portable JSON format. The export will be available for 7 days.
+                        Download all your data as a ZIP of JSON files. Each export is available for 7 days.
                     </p>
-                    <form method="post" asp-page-handler="ExportData">
-                        <button type="submit" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-accent-blue border border-accent-blue rounded-md transition-colors hover:bg-accent-blue-hover hover:border-accent-blue-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                    @if (!string.IsNullOrEmpty(Model.ExportDownloadPath))
+                    {
+                        <!-- Shown once, right after an export (a toast would close before it could be used) -->
+                        <div class="mb-3 p-3 bg-success-bg border border-success-border rounded-md" role="status">
+                            <p class="text-sm font-semibold text-success mb-2">Your export is ready</p>
+                            <a href="@Model.ExportDownloadPath" download class="btn btn-primary max-w-full">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download my data
+                            </a>
+                            <p class="text-xs text-text-secondary mt-2">This link is shown only now. Download the file, or export again later.</p>
+                        </div>
+                    }
+
+                    <form method="post" asp-page-handler="ExportData" data-submit-guard>
+                        <button type="submit" class="btn @(string.IsNullOrEmpty(Model.ExportDownloadPath) ? "btn-accent" : "btn-secondary")" data-loading-text="Preparing your export…">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                             </svg>
-                            Export My Data
+                            @(string.IsNullOrEmpty(Model.ExportDownloadPath) ? "Export my data" : "Export again")
                         </button>
                     </form>
                 </div>
@@ -214,21 +214,21 @@ else
 
             <!-- Delete Data Section -->
             <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-error-border">
-                <div class="w-12 h-12 rounded-full bg-error-bg border border-error-border flex items-center justify-center flex-shrink-0">
+                <div class="w-12 h-12 rounded-full bg-error-bg border border-error-border flex items-center justify-center flex-shrink-0" aria-hidden="true">
                     <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                 </div>
-                <div class="flex-1">
-                    <h4 class="text-base font-semibold text-text-primary mb-1">Delete My Data</h4>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold text-text-primary mb-1">Delete my data</h3>
                     <p class="text-sm text-text-secondary mb-3">
-                        Permanently delete all your data from our system. This action cannot be undone.
+                        Permanently delete all your data from our system, then sign you out. This can't be undone.
                     </p>
-                    <button type="button" onclick="deleteAllData()" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover hover:border-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button type="button" class="btn btn-danger" data-delete-data data-delete-url="@Url.Page("/Account/Privacy", "DeleteData")" data-loading-text="Deleting…">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        Delete My Data
+                        Delete my data
                     </button>
                 </div>
             </div>
@@ -245,10 +245,10 @@ else
     @if (Model.ConsentHistory.Any())
     {
         <!-- Consent History Card -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
             <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
                 <div>
-                    <h3 class="text-lg font-semibold text-text-primary">Consent History</h3>
+                    <h2 class="text-lg font-semibold text-text-primary">Consent history</h2>
                     <p class="text-sm text-text-secondary mt-1">A record of all consent changes for your account</p>
                 </div>
             </div>
@@ -268,13 +268,13 @@ else
                                 <div class="absolute left-0 top-1 w-8 h-8 rounded-full @(isGranted ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border") flex items-center justify-center">
                                     @if (isGranted)
                                     {
-                                        <svg class="w-4 h-4 text-success" fill="currentColor" viewBox="0 0 20 20">
+                                        <svg class="w-4 h-4 text-success" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                                         </svg>
                                     }
                                     else
                                     {
-                                        <svg class="w-4 h-4 text-error" fill="currentColor" viewBox="0 0 20 20">
+                                        <svg class="w-4 h-4 text-error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                                             <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                                         </svg>
                                     }
@@ -286,8 +286,8 @@ else
                                             @entry.Action
                                         </span>
                                     </div>
-                                    <p class="text-xs text-text-tertiary" data-utc="@entry.TimestampUtcIso" data-format="datetime-short"></p>
-                                    <p class="text-sm text-text-secondary mt-1">Consent @entry.Action.ToLower() via @entry.Source</p>
+                                    <p class="text-xs text-text-secondary">@DisplayFormat.Time(entry.Timestamp, "datetime-short")</p>
+                                    <p class="text-sm text-text-secondary mt-1">Consent @entry.Action.ToLower() via @ConsentDisplay.Via(entry.Source)</p>
                                 </div>
                             </div>
                         }
@@ -307,7 +307,7 @@ else
     <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
         <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
             <div>
-                <h3 class="text-lg font-semibold text-text-primary">AI Assistant</h3>
+                <h2 class="text-lg font-semibold text-text-primary">AI assistant</h2>
                 <p class="text-sm text-text-secondary mt-1">Information about AI-powered features</p>
             </div>
         </div>
@@ -315,12 +315,12 @@ else
         <div class="p-6 space-y-4">
             <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
                 <div class="w-12 h-12 rounded-full bg-accent-blue/10 border border-accent-blue/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
                 <div class="flex-1">
-                    <h4 class="text-base font-semibold text-text-primary mb-1">Powered by AI</h4>
+                    <h3 class="text-base font-semibold text-text-primary mb-1">Powered by AI</h3>
                     <p class="text-sm text-text-secondary mb-3">
                         This bot uses a large language model to answer questions about bot features.
                         When you ask the bot a question (by mentioning it), your question is sent to OpenRouter,
@@ -336,7 +336,7 @@ else
 
             <div class="p-4 bg-warning-bg border border-warning-border rounded-md">
                 <div class="flex items-start gap-3">
-                    <svg class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                     </svg>
                     <div class="text-sm text-warning">
@@ -358,7 +358,7 @@ else
                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
             </svg>
             <div class="text-sm text-info">
-                <p class="font-semibold mb-1">Managing Consent via Discord</p>
+                <p class="font-semibold mb-1">Managing consent in Discord</p>
                 <p class="text-info/90">
                     You can also manage your consent preferences directly in Discord using the <code class="px-1.5 py-0.5 bg-info/20 rounded font-mono text-xs">/consent</code> slash command. Changes made via Discord will be reflected here.
                 </p>
@@ -367,150 +367,6 @@ else
     </div>
 }
 
-<script>
-    async function deleteAllData() {
-        const confirmed = await quickActions.typedConfirm({
-            title: 'Permanently Delete All Data',
-            message: 'This will permanently delete ALL your personal data including message logs, preferences, and consent records. This action cannot be undone.',
-            requiredText: 'DELETE',
-            inputLabel: 'Type DELETE to confirm',
-            variant: 'danger',
-            confirmText: 'Delete All Data'
-        });
-        if (!confirmed) return;
-
-        const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-        if (!tokenInput) {
-            quickActions.showToast('Security token not found. Please refresh the page.', 'error');
-            return;
-        }
-        const token = tokenInput.value;
-        const btn = document.querySelector('[onclick="deleteAllData()"]');
-        if (btn) btn.disabled = true;
-
-        try {
-            const response = await fetch('?handler=DeleteData', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'RequestVerificationToken': token
-                },
-                body: '__RequestVerificationToken=' + encodeURIComponent(token)
-            });
-            const data = await response.json();
-            if (response.ok && data.success) {
-                quickActions.showToast(data.message || 'All data has been deleted.', 'success');
-                setTimeout(() => window.location.href = data.redirectUrl || '/', 2000);
-            } else {
-                quickActions.showToast(data.message || 'Failed to delete data. Please try again.', 'error');
-                if (btn) btn.disabled = false;
-            }
-        } catch (error) {
-            quickActions.showToast('An error occurred. Please try again.', 'error');
-            if (btn) btn.disabled = false;
-        }
-    }
-
-    window.confirmConsentToggle = async function(checkbox) {
-        const form = checkbox.closest('form');
-        const consentName = form.dataset.consentName;
-        const action = form.dataset.consentAction;
-        const message = action === 'revoke'
-            ? `Are you sure you want to revoke consent for ${consentName}?`
-            : `Are you sure you want to grant consent for ${consentName}?`;
-
-        const confirmed = await quickActions.confirm({
-            title: action === 'revoke' ? 'Revoke Consent' : 'Grant Consent',
-            message: message,
-            variant: 'warning',
-            confirmText: action === 'revoke' ? 'Revoke' : 'Grant'
-        });
-
-        if (confirmed) {
-            form.submit();
-        } else {
-            // Revert the checkbox state
-            checkbox.checked = !checkbox.checked;
-        }
-    };
-</script>
-
-<style>
-    /* Toggle Switch Component */
-    .form-toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .form-toggle-input {
-        position: absolute;
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .form-toggle-track {
-        position: relative;
-        display: inline-block;
-        width: 2.75rem;
-        height: 1.5rem;
-        background-color: var(--color-border-primary);
-        border-radius: 9999px;
-        flex-shrink: 0;
-        transition: background-color 0.2s ease-in-out;
-    }
-
-    .form-toggle-thumb {
-        position: absolute;
-        top: 0.125rem;
-        left: 0.125rem;
-        width: 1.25rem;
-        height: 1.25rem;
-        background-color: var(--color-text-primary);
-        border-radius: 50%;
-        transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
-    }
-
-    .form-toggle:hover .form-toggle-track {
-        background-color: var(--color-bg-hover);
-    }
-
-    .form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
-        background-color: var(--color-accent-orange-hover);
-    }
-
-    .form-toggle-input:focus-visible + .form-toggle-track {
-        outline: 2px solid var(--color-accent-blue);
-        outline-offset: 2px;
-    }
-
-    .form-toggle-input:checked + .form-toggle-track {
-        background-color: var(--color-accent-orange);
-    }
-
-    .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
-        transform: translateX(1.25rem);
-        background-color: white;
-    }
-
-    .form-toggle-input:disabled + .form-toggle-track {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-
-    /* Timeline styles */
-    .timeline-item::before {
-        content: '';
-        position: absolute;
-        left: 1rem;
-        top: 2.25rem;
-        bottom: -0.5rem;
-        width: 2px;
-        background-color: var(--color-border-primary);
-    }
-
-    .timeline-item:last-child::before {
-        display: none;
-    }
-</style>
+@section Scripts {
+    <script src="~/js/privacy.js" asp-append-version="true"></script>
+}

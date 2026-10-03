@@ -222,7 +222,7 @@ public class WelcomeControllerTests
 
         var error = notFoundResult.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Guild not found");
+        error!.Message.Should().Be("Server not found");
         error.Detail.Should().Contain(guildId.ToString());
         error.Detail.Should().Contain("exists in the database");
         error.StatusCode.Should().Be(StatusCodes.Status404NotFound);

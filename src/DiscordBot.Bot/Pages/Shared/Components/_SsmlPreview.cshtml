@@ -401,22 +401,17 @@
                 // Copy to clipboard
                 await navigator.clipboard.writeText(ssmlText);
 
-                // Show toast notification
-                if (typeof showToast === 'function') {
-                    showToast('info', 'SSML copied to clipboard');
-                } else {
-                    console.log('SSML copied to clipboard');
-                }
-
-                // Trigger callback if specified
+                // The page's copy callback reports it when there is one; otherwise say so here.
                 const callback = container.dataset.callbackCopy;
                 if (callback && typeof window[callback] === 'function') {
                     window[callback]();
+                } else if (window.toast) {
+                    toast.success('SSML copied to clipboard.', { key: 'ssml-copied' });
                 }
             } catch (error) {
-                console.error('Failed to copy SSML:', error);
-                if (typeof showToast === 'function') {
-                    showToast('error', 'Failed to copy SSML');
+                // Clipboard access can be refused (insecure page, permissions); say what to do instead
+                if (window.toast) {
+                    toast.error('Could not copy the SSML. Select the text and copy it yourself.', { key: 'ssml-copy-failed' });
                 }
             }
         };
@@ -439,12 +434,6 @@
             if (!ssml) return '';
 
             try {
-                // Escape HTML entities first
-                const escapeHtml = (str) => {
-                    const div = document.createElement('div');
-                    div.textContent = str;
-                    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                };
 
                 // Split by XML tags and process
                 const parts = ssml.split(/(<[^>]+>)/g);
@@ -463,14 +452,21 @@
 
                             // Highlight attributes
                             if (attributes) {
-                                const attrHighlighted = attributes.replace(
-                                    /(\s+)([\w:-]+)(=)("([^"]*)"|'([^']*)')/g,
-                                    (match, space, attrName, equals, quotedValue) => {
-                                        const value = quotedValue.substring(1, quotedValue.length - 1);
-                                        const quote = quotedValue[0];
-                                        return `${space}<span class="ssml-attribute">${attrName}</span>${equals}${quote}<span class="ssml-value">${escapeHtml(value)}</span>${quote}`;
-                                    }
-                                );
+                                // Text between the matched attributes (an unquoted value, a stray "<") is
+                                // escaped like every other segment this function inserts.
+                                const attrPattern = /(\s+)([\w:-]+)(=)("([^"]*)"|'([^']*)')/g;
+                                let attrHighlighted = '';
+                                let lastIndex = 0;
+                                let attrMatch;
+                                while ((attrMatch = attrPattern.exec(attributes)) !== null) {
+                                    const [whole, space, attrName, equals, quotedValue] = attrMatch;
+                                    const value = quotedValue.substring(1, quotedValue.length - 1);
+                                    const quote = quotedValue[0];
+                                    attrHighlighted += SafeHtml.escape(attributes.slice(lastIndex, attrMatch.index))
+                                        + `${space}<span class="ssml-attribute">${attrName}</span>${equals}${quote}<span class="ssml-value">${SafeHtml.escape(value)}</span>${quote}`;
+                                    lastIndex = attrMatch.index + whole.length;
+                                }
+                                attrHighlighted += SafeHtml.escape(attributes.slice(lastIndex));
                                 highlighted += attrHighlighted;
                             }
 
@@ -479,10 +475,10 @@
                         }
 
                         // Fallback for malformed tags
-                        return `<span class="ssml-tag">${escapeHtml(part)}</span>`;
+                        return `<span class="ssml-tag">${SafeHtml.escape(part)}</span>`;
                     } else {
                         // Text content between tags
-                        return `<span class="ssml-text">${escapeHtml(part)}</span>`;
+                        return `<span class="ssml-text">${SafeHtml.escape(part)}</span>`;
                     }
                 }).join('');
 
@@ -490,9 +486,7 @@
             } catch (error) {
                 console.error('SSML highlighting error:', error);
                 // Fallback to plain escaped text
-                const div = document.createElement('div');
-                div.textContent = ssml;
-                return div.innerHTML;
+                return SafeHtml.escape(ssml);
             }
         };
 

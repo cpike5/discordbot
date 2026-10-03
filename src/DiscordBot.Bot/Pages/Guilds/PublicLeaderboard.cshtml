@@ -1,33 +1,25 @@
 @page "{guildId:long}/Leaderboard"
 @model DiscordBot.Bot.Pages.Guilds.PublicLeaderboardModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @{
-    ViewData["Title"] = $"Hall of Shame - {Model.GuildName}";
+    // Refusal and error states carry no guild name, so the title and share cards stay generic there
+    var hasGuildName = !string.IsNullOrEmpty(Model.GuildName);
+    ViewData["Title"] = hasGuildName ? $"Hall of Shame - {Model.GuildName}" : "Hall of Shame";
     Layout = null; // Public page - no sidebar/navbar
 }
 
-@functions {
-    string GetRelativeTime(DateTime utcDate)
-    {
-        var daysAgo = (DateTime.UtcNow - utcDate).Days;
-        if (daysAgo == 0) return "Today";
-        if (daysAgo == 1) return "Yesterday";
-        if (daysAgo < 7) return $"{daysAgo} days ago";
-        if (daysAgo < 30) return $"{daysAgo / 7} week{(daysAgo / 7 != 1 ? "s" : "")} ago";
-        return utcDate.ToString("MMM d, yyyy");
-    }
-}
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" theme-root>
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <partial name="_ThemeHead" />
     <title>@ViewData["Title"]</title>
 
     <!-- Open Graph meta tags for social sharing -->
     <meta property="og:title" content="@ViewData["Title"]" />
-    <meta property="og:description" content="View the Hall of Shame leaderboard for @Model.GuildName - accountability metrics and fun stats!" />
+    <meta property="og:description" content="@(hasGuildName ? $"View the Hall of Shame leaderboard for {Model.GuildName} - accountability metrics and fun stats!" : "View the Hall of Shame leaderboard - accountability metrics and fun stats!")" />
     <meta property="og:type" content="website" />
     @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
     {
@@ -37,7 +29,7 @@
     <!-- Twitter Card meta tags -->
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="@ViewData["Title"]" />
-    <meta name="twitter:description" content="View the Hall of Shame leaderboard for @Model.GuildName" />
+    <meta name="twitter:description" content="@(hasGuildName ? $"View the Hall of Shame leaderboard for {Model.GuildName}" : "View the Hall of Shame leaderboard")" />
 
     <!-- Compiled Tailwind CSS -->
     <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
@@ -55,7 +47,13 @@
 
         .rat-emoji {
             font-size: 2rem;
-            animation: wiggle 2s ease-in-out infinite;
+        }
+
+        /* Decoration only, and only for people who have not asked for less motion */
+        @@media (prefers-reduced-motion: no-preference) {
+            .rat-emoji {
+                animation: wiggle 2s ease-in-out infinite;
+            }
         }
 
         @@keyframes wiggle {
@@ -102,18 +100,45 @@
 </head>
 <body class="font-sans antialiased text-text-primary">
 
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage) && !Model.IsAuthorized)
+    @if (Model.Availability == LeaderboardAvailability.NotAvailable)
     {
-        <!-- Load Error (failed before the leaderboard could be resolved) -->
-        <div class="min-h-screen flex items-center justify-center p-4">
-            <div class="max-w-md w-full">
-                <partial name="Shared/Components/_Alert" model='new AlertViewModel {
-                    Variant = AlertVariant.Error,
+        <main id="main" class="min-h-screen flex items-center justify-center p-4">
+            <div class="max-w-md w-full bg-bg-secondary border border-border-primary rounded-xl p-8 text-center">
+                <h1 class="text-2xl font-bold text-text-primary mb-2">Leaderboard not found</h1>
+                <p class="text-text-secondary">There is no public leaderboard at this address. The link may be wrong, or the server may have turned it off.</p>
+                <div class="pt-6 mt-6 border-t border-border-primary">
+                    <a href="/" class="footer-link font-medium">Go to @Model.AppTitle</a>
+                </div>
+            </div>
+        </main>
+    }
+    else if (Model.Availability == LeaderboardAvailability.NotAMember)
+    {
+        <main id="main" class="min-h-screen flex items-center justify-center p-4">
+            <div class="max-w-md w-full bg-bg-secondary border border-border-primary rounded-xl p-8 text-center">
+                <h1 class="text-2xl font-bold text-text-primary mb-2">Members only</h1>
+                <p class="text-text-secondary">This leaderboard is for members of @(string.IsNullOrEmpty(Model.GuildName) ? "this server" : Model.GuildName). Your Discord account is not in that server.</p>
+                <div class="pt-6 mt-6 border-t border-border-primary">
+                    <a href="/" class="footer-link font-medium">Go to @Model.AppTitle</a>
+                </div>
+            </div>
+        </main>
+    }
+    else if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <!-- The load failed: say so, and offer another go. Never an empty board. -->
+        <main id="main" class="min-h-screen flex items-center justify-center p-4">
+            <div class="max-w-md w-full bg-bg-secondary border border-border-primary rounded-xl p-8">
+                <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                    Type = EmptyStateType.Error,
                     Title = "Leaderboard unavailable",
-                    Message = Model.ErrorMessage
+                    Description = Model.ErrorMessage,
+                    PrimaryActionText = "Try again",
+                    PrimaryActionUrl = Url.Page("/Guilds/PublicLeaderboard", new { guildId = Model.GuildId }),
+                    HeadingLevel = 1
                 }' />
             </div>
-        </div>
+        </main>
     }
     else if (!Model.IsLeaderboardPublic)
     {
@@ -154,7 +179,7 @@
                         </div>
                     }
                     <h1 class="text-2xl font-bold text-text-primary mb-2">@Model.GuildName</h1>
-                    <span class="inline-block text-xs font-medium text-accent-primary bg-accent-primary/10 border border-accent-primary/30 px-3 py-1 rounded-full mb-4">
+                    <span class="inline-block text-xs font-medium text-accent-orange bg-accent-orange/10 border border-accent-orange/30 px-3 py-1 rounded-full mb-4">
                         Hall of Shame
                     </span>
                     <p class="text-text-secondary">
@@ -165,7 +190,7 @@
                 <!-- Login Prompt -->
                 <div class="pt-6 border-t border-border-primary">
                     <p class="text-sm text-text-tertiary mb-4">
-                        Log in with Discord to verify your guild membership and view the leaderboard.
+                        Sign in with Discord to verify you are a member of this server and view the leaderboard.
                     </p>
                     <a href="@Model.LoginUrl" class="inline-flex items-center justify-center gap-2 w-full px-4 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium rounded-lg transition-colors">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -201,16 +226,6 @@
                     <p class="text-xl text-text-secondary">@Model.GuildName</p>
                     <p class="text-sm text-text-tertiary mt-2">Accountability metrics and fun stats</p>
                 </div>
-
-                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-                {
-                    <div class="mb-8">
-                        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                            Variant = AlertVariant.Error,
-                            Message = Model.ErrorMessage
-                        }" />
-                    </div>
-                }
 
                 <!-- Fun Stats Highlight Cards -->
                 @if (Model.FunStats != null)
@@ -295,7 +310,7 @@
                                             <td class="px-6 py-4">
                                                 @if (entry.LastIncidentDate.HasValue)
                                                 {
-                                                    <span class="text-sm text-text-secondary">@GetRelativeTime(entry.LastIncidentDate.Value)</span>
+                                                    <span class="text-sm text-text-secondary">@DisplayFormat.Time(entry.LastIncidentDate.Value, relative: true)</span>
                                                 }
                                                 else
                                                 {
@@ -344,7 +359,7 @@
                                     {
                                         <tr class="hover:bg-bg-hover transition-colors">
                                             <td class="px-6 py-4">
-                                                <span class="text-sm text-text-secondary">@GetRelativeTime(incident.Date)</span>
+                                                <span class="text-sm text-text-secondary">@DisplayFormat.Time(incident.Date, relative: true)</span>
                                             </td>
                                             <td class="px-6 py-4">
                                                 <p class="font-medium text-text-primary">@incident.Username</p>
@@ -383,7 +398,7 @@
                         Powered by <a href="/" class="footer-link font-medium">@Model.AppTitle</a>
                     </p>
                     <p class="text-xs text-text-tertiary">
-                        Accountability metrics updated in real-time • Privacy-focused design
+                        Counts are read from the server's Rat Watch record each time this page loads.
                     </p>
                 </div>
 
@@ -391,5 +406,8 @@
         </div>
     }
 
+    <!-- Dates and relative times are written in the visitor's own time zone and language -->
+    <script src="~/js/format.js" asp-append-version="true"></script>
+    <script src="~/js/timezone.js" asp-append-version="true"></script>
 </body>
 </html>

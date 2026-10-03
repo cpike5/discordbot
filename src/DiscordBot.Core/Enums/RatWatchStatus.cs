@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DiscordBot.Core.Enums;
 
 /// <summary>
@@ -13,6 +15,7 @@ public enum RatWatchStatus
     /// <summary>
     /// Accused checked in before scheduled time.
     /// </summary>
+    [Display(Name = "Cleared early")]
     ClearedEarly = 1,
 
     /// <summary>
@@ -28,6 +31,7 @@ public enum RatWatchStatus
     /// <summary>
     /// Voting complete - not guilty verdict.
     /// </summary>
+    [Display(Name = "Not guilty")]
     NotGuilty = 4,
 
     /// <summary>

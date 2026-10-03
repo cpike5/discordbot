@@ -24,6 +24,18 @@ public class FlaggedEventRepository : Repository<FlaggedEvent>, IFlaggedEventRep
 
     /// <inheritdoc/>
     /// <remarks>
+    /// <see cref="GetByIdAsync"/> returns the event untracked with its Guild loaded. Updating it attaches
+    /// that whole graph, so a second event updated through the same context (a bulk review) collided with
+    /// the Guild the first update had left tracked. Only the event itself is written; the Guild is dropped first.
+    /// </remarks>
+    public override Task UpdateAsync(FlaggedEvent entity, CancellationToken cancellationToken = default)
+    {
+        entity.Guild = null;
+        return base.UpdateAsync(entity, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
     /// Overrides base implementation to include Guild navigation property.
     /// </remarks>
     public override async Task<FlaggedEvent?> GetByIdAsync(object id, CancellationToken cancellationToken = default)

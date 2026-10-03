@@ -12,7 +12,7 @@
         </li>
         <li class="text-text-tertiary">/</li>
         <li>
-            <a asp-page="/Admin/AuditLogs/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Audit Logs</a>
+            <a href="@Model.ReturnUrl" class="text-text-secondary hover:text-accent-blue transition-colors">Audit Logs</a>
         </li>
         <li class="text-text-tertiary">/</li>
         <li class="text-text-primary font-medium">Entry Details</li>
@@ -98,7 +98,7 @@
                     @if (Model.ViewModel.HasGuild)
                     {
                         <div class="flex justify-between items-start">
-                            <span class="text-sm text-text-tertiary">Guild</span>
+                            <span class="text-sm text-text-tertiary">Server</span>
                             <a asp-page="/Admin/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
                                 @Model.ViewModel.GuildName
                                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -107,7 +107,7 @@
                             </a>
                         </div>
                         <div class="flex justify-between items-start">
-                            <span class="text-sm text-text-tertiary">Guild ID</span>
+                            <span class="text-sm text-text-tertiary">Server ID</span>
                             <span class="text-sm font-mono text-text-secondary">@Model.ViewModel.GuildId</span>
                         </div>
                     }
@@ -240,7 +240,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                         Related Entries
-                        <span class="ml-auto text-xs font-normal text-text-tertiary">@Model.ViewModel.RelatedEntries.Count entries</span>
+                        <span class="ml-auto text-xs font-normal text-text-tertiary">@DisplayFormat.Plural(Model.ViewModel.RelatedEntries.Count, "entry", "entries")</span>
                     </h2>
                 </div>
                 <div class="overflow-x-auto">
@@ -278,7 +278,7 @@
                                         <span class="text-sm text-text-secondary">@entry.TargetType</span>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-right">
-                                        <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@entry.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                        <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@entry.Id" asp-route-returnUrl="@Model.ReturnUrl" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
                                             View
                                         </a>
                                     </td>
@@ -384,8 +384,8 @@
                 const jsonData = {
                     entryId: @Model.ViewModel.Id,
                     timestamp: '@Model.ViewModel.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")',
-                    category: '@Model.ViewModel.Category',
-                    action: '@Model.ViewModel.Action',
+                    category: '@Model.ViewModel.CategoryKey',
+                    action: '@Model.ViewModel.ActionKey',
                     actor: {
                         id: '@Model.ViewModel.ActorId',
                         name: '@Model.ViewModel.ActorName',

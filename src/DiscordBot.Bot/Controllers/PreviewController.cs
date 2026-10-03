@@ -118,8 +118,8 @@ public class PreviewController : ControllerBase
         {
             return BadRequest(new ApiErrorDto
             {
-                Message = "Invalid guild ID format",
-                Detail = "Guild ID must be a valid Discord snowflake ID.",
+                Message = "Invalid server ID format",
+                Detail = "Server ID must be a valid Discord snowflake ID.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -134,7 +134,7 @@ public class PreviewController : ControllerBase
             _logger.LogDebug("Guild {GuildId} not found in Discord cache", guildIdParsed);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
+                Message = "Server not found",
                 Detail = $"No guild with ID {guildIdParsed} found in Discord cache.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
@@ -188,8 +188,8 @@ public class PreviewController : ControllerBase
         {
             return BadRequest(new ApiErrorDto
             {
-                Message = "Invalid guild ID format",
-                Detail = "Guild ID must be a valid Discord snowflake ID.",
+                Message = "Invalid server ID format",
+                Detail = "Server ID must be a valid Discord snowflake ID.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -204,7 +204,7 @@ public class PreviewController : ControllerBase
             _logger.LogDebug("Guild {GuildId} not found in Discord cache", guildIdParsed);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
+                Message = "Server not found",
                 Detail = $"No guild with ID {guildIdParsed} found in Discord cache.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()

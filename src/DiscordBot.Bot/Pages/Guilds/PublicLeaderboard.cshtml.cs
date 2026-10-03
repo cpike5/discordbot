@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -24,6 +25,7 @@ public class PublicLeaderboardModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PublicLeaderboardModel> _logger;
+    private readonly IDiscordUserResolver? _userResolver;
 
     public PublicLeaderboardModel(
         IRatRecordRepository ratRecordRepository,
@@ -33,7 +35,8 @@ public class PublicLeaderboardModel : PageModel
         DiscordSocketClient discordClient,
         UserManager<ApplicationUser> userManager,
         IConfiguration configuration,
-        ILogger<PublicLeaderboardModel> logger)
+        ILogger<PublicLeaderboardModel> logger,
+        IDiscordUserResolver? userResolver = null)
     {
         _ratRecordRepository = ratRecordRepository;
         _ratWatchRepository = ratWatchRepository;
@@ -43,6 +46,7 @@ public class PublicLeaderboardModel : PageModel
         _userManager = userManager;
         _configuration = configuration;
         _logger = logger;
+        _userResolver = userResolver;
     }
 
     /// <summary>
@@ -108,6 +112,13 @@ public class PublicLeaderboardModel : PageModel
     public string? ErrorMessage { get; private set; }
 
     /// <summary>
+    /// Which page the visitor gets. The leaderboard is a standalone public page, so a missing board
+    /// or a refused member is shown in the page's own shell with a plain explanation, not as a bare
+    /// browser 404 or 403 body.
+    /// </summary>
+    public LeaderboardAvailability Availability { get; private set; } = LeaderboardAvailability.Available;
+
+    /// <summary>
     /// Handles GET requests to display the public leaderboard.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -135,25 +146,28 @@ public class PublicLeaderboardModel : PageModel
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found", guildId);
-                return NotFound();
+                return Unavailable(StatusCodes.Status404NotFound);
             }
-
-            GuildName = guild.Name;
-            GuildIconUrl = guild.IconUrl;
 
             if (settings == null || !settings.IsEnabled)
             {
+                // Same answer as an unknown server: a visitor learns nothing about which servers exist
                 _logger.LogWarning("Rat Watch not enabled for guild {GuildId}", guildId);
-                return NotFound("Rat Watch is not enabled for this server");
+                return Unavailable(StatusCodes.Status404NotFound);
             }
 
             IsLeaderboardPublic = settings.PublicLeaderboardEnabled;
             if (!IsLeaderboardPublic)
             {
                 _logger.LogInformation("Public leaderboard not enabled for guild {GuildId}", guildId);
-                // Still show page, but with a message that it's not public
+                // Still show page, but with a message that it's not public and no guild details:
+                // anyone can request this URL, so a name here would let visitors enumerate servers
                 return Page();
             }
+
+            // Only a board that is public may name its server; every other state stays generic
+            GuildName = guild.Name;
+            GuildIconUrl = guild.IconUrl;
 
             // Check authentication state
             IsAuthenticated = User.Identity?.IsAuthenticated ?? false;
@@ -178,7 +192,10 @@ public class PublicLeaderboardModel : PageModel
             if (socketGuild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
-                return NotFound();
+                ErrorMessage = "The bot is not connected to this server right now, so membership cannot be checked. Try again in a moment.";
+                ClearGuildDetails();
+                Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return Page();
             }
 
             var guildUser = socketGuild.GetUser(applicationUser.DiscordUserId.Value);
@@ -186,7 +203,10 @@ public class PublicLeaderboardModel : PageModel
             {
                 _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
                     applicationUser.DiscordUserId.Value, guildId);
-                return Forbid();
+                Availability = LeaderboardAvailability.NotAMember;
+                ClearGuildDetails();
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Page();
             }
 
             // User is authenticated and authorized
@@ -199,20 +219,6 @@ public class PublicLeaderboardModel : PageModel
             var userMetrics = await _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 25, cancellationToken);
             var allWatches = await _ratWatchRepository.GetAllAsync(cancellationToken);
 
-            // Phase 3: Parallelize username resolution for leaderboard
-            var leaderboardTasks = userMetrics.Select(async (metric, index) =>
-            {
-                var username = await GetUsernameAsync(metric.UserId, guildId);
-                return new PublicLeaderboardEntryDto
-                {
-                    Rank = index + 1,
-                    Username = username,
-                    RatCount = metric.GuiltyCount,
-                    LastIncidentDate = metric.LastIncidentDate
-                };
-            });
-            Leaderboard = (await Task.WhenAll(leaderboardTasks)).ToList();
-
             // Filter and get recent guilty verdicts (last 10)
             var recentGuiltyWatches = allWatches
                 .Where(w => w.GuildId == guildId && w.Status == Core.Enums.RatWatchStatus.Guilty)
@@ -220,22 +226,32 @@ public class PublicLeaderboardModel : PageModel
                 .Take(10)
                 .ToList();
 
-            // Phase 3: Parallelize username resolution for recent incidents
-            var incidentTasks = recentGuiltyWatches.Select(async watch =>
+            // One pass for both lists: the guild cache first, then a single batched resolver call
+            var usernames = await ResolveUsernamesAsync(
+                userMetrics.Select(m => m.UserId).Concat(recentGuiltyWatches.Select(w => w.AccusedUserId)),
+                guildId);
+
+            Leaderboard = userMetrics.Select((metric, index) => new PublicLeaderboardEntryDto
             {
-                var username = await GetUsernameAsync(watch.AccusedUserId, guildId);
+                Rank = index + 1,
+                Username = usernames[metric.UserId],
+                RatCount = metric.GuiltyCount,
+                LastIncidentDate = metric.LastIncidentDate
+            }).ToList();
+
+            RecentIncidents = recentGuiltyWatches.Select(watch =>
+            {
                 var guiltyVotes = watch.Votes?.Count(v => v.IsGuiltyVote) ?? 0;
                 var notGuiltyVotes = watch.Votes?.Count(v => !v.IsGuiltyVote) ?? 0;
 
                 return new RecentIncidentDto
                 {
                     Date = watch.VotingEndedAt ?? watch.CreatedAt,
-                    Username = username,
+                    Username = usernames[watch.AccusedUserId],
                     Outcome = "Guilty",
                     VoteTally = $"{guiltyVotes}-{notGuiltyVotes}"
                 };
-            });
-            RecentIncidents = (await Task.WhenAll(incidentTasks)).ToList();
+            }).ToList();
 
             _logger.LogInformation(
                 "Public leaderboard loaded for guild {GuildId}. Entries: {EntryCount}, Recent: {RecentCount}",
@@ -244,59 +260,117 @@ public class PublicLeaderboardModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load public leaderboard for guild {GuildId}", guildId);
-            ErrorMessage = "Failed to load leaderboard. Please try again.";
+            ErrorMessage = "The leaderboard could not be loaded. Try again in a moment.";
+            ClearGuildDetails();
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         }
 
         return Page();
     }
 
     /// <summary>
-    /// Gets the display name for a Discord user in a guild.
-    /// Returns username only (not nickname) for privacy.
+    /// Drops the server's name and icon so a refusal or error state renders no guild data.
     /// </summary>
-    private async Task<string> GetUsernameAsync(ulong userId, ulong guildId)
+    private void ClearGuildDetails()
     {
+        GuildName = string.Empty;
+        GuildIconUrl = null;
+    }
+
+    private IActionResult Unavailable(int statusCode)
+    {
+        ClearGuildDetails();
+        Availability = LeaderboardAvailability.NotAvailable;
+        Response.StatusCode = statusCode;
+        return Page();
+    }
+
+    /// <summary>
+    /// Resolves the names of several users in one pass, the same way the Rat Watch service does:
+    /// the guild's cached members first (username only, not nickname, for privacy), then one batched
+    /// <see cref="IDiscordUserResolver"/> call for the rest (Discord, else the username the bot stored
+    /// when it last saw them), and "Unknown user" only when none of those know the person.
+    /// Every requested id is in the result.
+    /// </summary>
+    public async Task<Dictionary<ulong, string>> ResolveUsernamesAsync(IEnumerable<ulong> userIds, ulong guildId)
+    {
+        var ids = userIds.Distinct().ToList();
+        var names = new Dictionary<ulong, string>(ids.Count);
+
         try
         {
             var guild = _discordClient.GetGuild(guildId);
             if (guild == null)
             {
-                _logger.LogWarning("Guild {GuildId} not found when resolving username for user {UserId}", guildId, userId);
-                return "Unknown User";
+                _logger.LogWarning("Guild {GuildId} not found when resolving usernames", guildId);
             }
-
-            var user = guild.GetUser(userId);
-            if (user != null)
+            else
             {
-                // Return username only (not DisplayName which includes nickname)
-                return user.Username;
-            }
-
-            // Try downloading users if not in cache
-            if (!guild.HasAllMembers)
-            {
-                await guild.DownloadUsersAsync();
-                user = guild.GetUser(userId);
-                if (user != null)
+                foreach (var id in ids)
                 {
-                    return user.Username;
+                    var user = guild.GetUser(id);
+                    if (user != null) names[id] = user.Username;
+                }
+
+                // One download for everyone still missing, not one per person
+                if (names.Count < ids.Count && !guild.HasAllMembers)
+                {
+                    await guild.DownloadUsersAsync();
+                    foreach (var id in ids.Where(i => !names.ContainsKey(i)))
+                    {
+                        var user = guild.GetUser(id);
+                        if (user != null) names[id] = user.Username;
+                    }
                 }
             }
-
-            _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
-            return "Unknown User";
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to get username for user {UserId} in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            _logger.LogWarning(ex, "Failed to read members of guild {GuildId} while resolving usernames", guildId);
         }
+
+        var missing = ids.Where(i => !names.ContainsKey(i)).ToList();
+        if (missing.Count > 0 && _userResolver is not null)
+        {
+            try
+            {
+                var resolved = await _userResolver.ResolveUsersAsync(missing);
+                foreach (var (id, user) in resolved)
+                {
+                    names[id] = UserDisplay.Name(user.Username);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "User resolver failed for {Count} users in guild {GuildId}", missing.Count, guildId);
+            }
+        }
+
+        foreach (var id in ids.Where(i => !names.ContainsKey(i)))
+        {
+            names[id] = UserDisplay.UnknownName;
+        }
+
+        return names;
     }
 }
 
 /// <summary>
 /// Public leaderboard entry DTO (privacy-focused).
 /// </summary>
+/// <summary>What the public leaderboard page can say instead of the board.</summary>
+public enum LeaderboardAvailability
+{
+    /// <summary>The page shows the board, the landing prompt, or a load error.</summary>
+    Available,
+
+    /// <summary>No such leaderboard (unknown server, or Rat Watch is off there).</summary>
+    NotAvailable,
+
+    /// <summary>The visitor is signed in but is not a member of the server.</summary>
+    NotAMember
+}
+
 public record PublicLeaderboardEntryDto
 {
     public int Rank { get; init; }

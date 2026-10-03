@@ -56,7 +56,7 @@
                     else
                     {
                         <div class="guild-icon-fallback">
-                            @(Model.GuildName.Length > 0 ? Model.GuildName[0].ToString().ToUpper() : "?")
+                            @TextDisplay.Initials(Model.GuildName, 1)
                         </div>
                     }
                 </div>
@@ -65,9 +65,12 @@
                     <p>Member access for @Model.GuildName</p>
                 </div>
             </div>
-            <div class="status-badge @(Model.IsOnline ? "online" : "offline")">
-                <span class="status-dot"></span>
-                @(Model.IsOnline ? "Online" : "Offline")
+            <div class="header-actions">
+                <div class="status-badge status-badge-lg @(Model.IsOnline ? "online" : "offline")">
+                    <span class="status-dot"></span>
+                    @(Model.IsOnline ? "Online" : "Offline")
+                </div>
+                <partial name="_ThemeToggle" model="@("btn btn-secondary btn-icon")" />
             </div>
         </div>
 

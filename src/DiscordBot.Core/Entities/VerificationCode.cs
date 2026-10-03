@@ -46,9 +46,18 @@ public class VerificationCode
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>
-    /// ExpiresAt in ISO 8601 format for client-side timezone conversion.
+    /// ExpiresAt in ISO 8601 format for client-side timezone conversion: UTC with three fractional digits
+    /// and a "Z" (the shape of <c>DisplayFormat.Iso</c>, which Core cannot reference). The round-trip
+    /// "o" format has seven digits, which a strict <c>Date.parse</c> can reject.
     /// </summary>
-    public string ExpiresAtUtcIso => DateTime.SpecifyKind(ExpiresAt, DateTimeKind.Utc).ToString("o");
+    public string ExpiresAtUtcIso => DateTime.SpecifyKind(ExpiresAt, DateTimeKind.Utc)
+        .ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Whole seconds left before the code expires, measured by the server's clock and never negative.
+    /// The countdown starts from this rather than from a comparison with the browser's clock, which may be wrong.
+    /// </summary>
+    public int SecondsRemaining => (int)Math.Max(0, Math.Ceiling((DateTime.SpecifyKind(ExpiresAt, DateTimeKind.Utc) - DateTime.UtcNow).TotalSeconds));
 
     /// <summary>
     /// When the verification was completed (if successful).

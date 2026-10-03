@@ -1,423 +1,136 @@
-// engagement-analytics.js
-// Engagement analytics dashboard with Chart.js visualizations
-
+/**
+ * Engagement analytics page (Pages/Guilds/Analytics/Engagement.cshtml): message trends line chart
+ * and channel engagement bars. Data comes from the JSON island #engagementChartData. Series
+ * colours come from ChartTheme and follow the theme (see analytics-charts.js).
+ */
 (function () {
     'use strict';
 
-    function getDesignToken(name) {
-        return getComputedStyle(document.documentElement)
-            .getPropertyValue(`--color-${name}`).trim();
-    }
+    const A = window.AnalyticsCharts;
+    if (!A) return;
 
-    function initColors() {
+    function buildTrends(trends, c) {
         return {
-            accentOrange: getDesignToken('accent-orange') || '#e6602b',
-            accentBlue: getDesignToken('accent-blue') || '#3d9ad6',
-            success: getDesignToken('success') || '#2fbf7f',
-            warning: getDesignToken('warning') || '#f0a323',
-            info: getDesignToken('info') || '#2fb3cc',
-            error: getDesignToken('error') || '#ef4f4f',
-            bgPrimary: getDesignToken('bg-primary') || '#0f1114',
-            bgSecondary: getDesignToken('bg-secondary') || '#16191d',
-            bgTertiary: getDesignToken('bg-tertiary') || '#1c2025',
-            textPrimary: getDesignToken('text-primary') || '#e7e4df',
-            textSecondary: getDesignToken('text-secondary') || '#a09c96',
-            textTertiary: getDesignToken('text-tertiary') || '#6d6a66',
-            borderPrimary: getDesignToken('border-primary') || '#2a2f36',
-        };
-    }
-
-    let colors = initColors();
-
-    const CHART_COLORS = [
-        colors.accentOrange,
-        colors.accentBlue,
-        colors.success,
-        colors.warning,
-        colors.info,
-        colors.error,
-        '#8b5cf6',
-        '#ec4899',
-        '#14b8a6',
-        '#6366f1',
-    ];
-
-    const BG_COLORS = {
-        primary: colors.bgPrimary,
-        secondary: colors.bgSecondary,
-        tertiary: colors.bgTertiary,
-    };
-
-    const TEXT_COLORS = {
-        primary: colors.textPrimary,
-        secondary: colors.textSecondary,
-        tertiary: colors.textTertiary,
-    };
-
-    const BORDER_COLOR = colors.borderPrimary;
-
-    let messageTrendsChart = null;
-    let channelEngagementChart = null;
-
-    const commonOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                backgroundColor: BG_COLORS.tertiary,
-                titleColor: TEXT_COLORS.primary,
-                bodyColor: TEXT_COLORS.secondary,
-                borderColor: BORDER_COLOR,
-                borderWidth: 1,
-                padding: 12,
-                cornerRadius: 6,
-            },
-        },
-    };
-
-    const gridConfig = {
-        color: 'rgba(63, 68, 71, 0.5)',
-        drawBorder: false,
-    };
-
-    const ticksConfig = {
-        color: TEXT_COLORS.tertiary,
-        font: {
-            size: 12,
-        },
-    };
-
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${monthNames[date.getMonth()]} ${date.getDate()}`;
-    }
-
-    /**
-     * Initializes the Message Trends dual-axis chart.
-     * @param {Array} trendsData - Array of {date, messageCount, uniqueAuthors, avgLength} objects
-     */
-    function initMessageTrendsChart(trendsData) {
-        const canvas = document.getElementById('messageTrendsChart');
-        if (!canvas || !trendsData || trendsData.length === 0) {
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        const labels = trendsData.map(item => formatDate(item.date));
-        const messagesData = trendsData.map(item => item.messageCount);
-        const authorsData = trendsData.map(item => item.uniqueAuthors);
-
-        const messagesGradient = ctx.createLinearGradient(0, 0, 0, 300);
-        messagesGradient.addColorStop(0, 'rgba(61, 154, 214, 0.3)');
-        messagesGradient.addColorStop(1, 'rgba(61, 154, 214, 0.0)');
-
-        messageTrendsChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: trends.map(t => A.dayLabel(t.date)),
                 datasets: [
                     {
                         label: 'Messages',
-                        data: messagesData,
-                        borderColor: CHART_COLORS[1],
-                        backgroundColor: messagesGradient,
-                        borderWidth: 2,
+                        data: trends.map(t => t.messageCount),
+                        borderColor: c.secondary,
+                        backgroundColor: c.alpha('accent-blue', 0.12),
                         fill: true,
-                        tension: 0.3,
-                        pointRadius: 4,
-                        pointBackgroundColor: CHART_COLORS[1],
-                        pointBorderColor: BG_COLORS.primary,
-                        pointBorderWidth: 2,
-                        pointHoverRadius: 6,
-                        yAxisID: 'y',
+                        tension: 0.4,
+                        yAxisID: 'y'
                     },
                     {
                         label: 'Unique Authors',
-                        data: authorsData,
-                        borderColor: CHART_COLORS[2],
+                        data: trends.map(t => t.uniqueAuthors),
+                        borderColor: c.success,
                         backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        pointBackgroundColor: CHART_COLORS[2],
-                        pointBorderColor: BG_COLORS.primary,
-                        pointBorderWidth: 2,
-                        pointHoverRadius: 5,
-                        yAxisID: 'y1',
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        yAxisID: 'y1'
                     }
                 ]
             },
             options: {
-                ...commonOptions,
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    ...commonOptions.plugins,
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            color: TEXT_COLORS.primary,
-                            padding: 16,
-                            font: { size: 12 },
-                            usePointStyle: true,
-                        }
-                    },
-                    tooltip: {
-                        ...commonOptions.plugins.tooltip,
-                        callbacks: {
-                            title: function (context) {
-                                return trendsData[context[0].dataIndex].date;
-                            },
-                            label: function (context) {
-                                return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
-                            }
-                        }
-                    }
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } },
+                    tooltip: { padding: 12 }
                 },
                 scales: {
-                    x: {
-                        grid: gridConfig,
-                        ticks: ticksConfig,
-                    },
                     y: {
                         type: 'linear',
-                        display: true,
                         position: 'left',
                         beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: {
-                            ...ticksConfig,
-                            callback: function (value) {
-                                if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
-                                return value;
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Messages',
-                            color: TEXT_COLORS.secondary,
-                        }
+                        title: { display: true, text: 'Messages' }
                     },
                     y1: {
                         type: 'linear',
-                        display: true,
                         position: 'right',
                         beginAtZero: true,
-                        grid: {
-                            drawOnChartArea: false,
-                        },
-                        ticks: ticksConfig,
-                        title: {
-                            display: true,
-                            text: 'Unique Authors',
-                            color: TEXT_COLORS.secondary,
-                        }
-                    }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Unique Authors' }
+                    },
+                    x: { grid: { display: false } }
                 }
             }
-        });
-
-        console.log('Message trends chart initialized');
+        };
     }
 
-    /**
-     * Initializes the Channel Engagement bar chart.
-     * @param {Array} channelData - Array of {channelName, messageCount, uniqueUsers} objects
-     */
-    function initChannelEngagementChart(channelData) {
-        const canvas = document.getElementById('channelEngagementChart');
-        if (!canvas || !channelData || channelData.length === 0) {
-            return;
-        }
+    function recolorTrends(chart, c) {
+        const [messages, authors] = chart.data.datasets;
+        messages.borderColor = c.secondary;
+        messages.backgroundColor = c.alpha('accent-blue', 0.12);
+        authors.borderColor = c.success;
+    }
 
-        const ctx = canvas.getContext('2d');
-        const labels = channelData.map(item => '#' + item.channelName);
-        const messagesData = channelData.map(item => item.messageCount);
-        const usersData = channelData.map(item => item.uniqueUsers);
-
-        channelEngagementChart = new Chart(ctx, {
+    function buildChannels(channels, c) {
+        return {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: channels.map(ch => ch.channelName),
                 datasets: [
                     {
                         label: 'Messages',
-                        data: messagesData,
-                        backgroundColor: CHART_COLORS[1],
-                        borderColor: CHART_COLORS[1],
-                        borderWidth: 1,
-                        borderRadius: 4,
+                        data: channels.map(ch => ch.messageCount),
+                        backgroundColor: A.each(c.fills.secondary, channels.length),
+                        borderRadius: 4
                     },
                     {
-                        label: 'Unique Users',
-                        data: usersData,
-                        backgroundColor: CHART_COLORS[2],
-                        borderColor: CHART_COLORS[2],
-                        borderWidth: 1,
-                        borderRadius: 4,
+                        label: 'Engagement Rate (%)',
+                        data: channels.map(ch => ch.engagementRate),
+                        backgroundColor: A.each(c.fills.primary, channels.length),
+                        borderRadius: 4
                     }
                 ]
             },
             options: {
-                ...commonOptions,
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
                 plugins: {
-                    ...commonOptions.plugins,
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            color: TEXT_COLORS.primary,
-                            padding: 16,
-                            font: { size: 12 },
-                            usePointStyle: true,
-                        }
-                    },
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } },
                     tooltip: {
-                        ...commonOptions.plugins.tooltip,
+                        padding: 12,
                         callbacks: {
-                            label: function (context) {
-                                return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
+                            label(ctx) {
+                                return ctx.datasetIndex === 0
+                                    ? A.number(ctx.parsed.x) + (ctx.parsed.x === 1 ? ' message' : ' messages')
+                                    : ctx.parsed.x.toFixed(1) + '% engagement';
                             }
                         }
                     }
                 },
                 scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: ticksConfig,
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: gridConfig,
-                        ticks: {
-                            ...ticksConfig,
-                            callback: function (value) {
-                                if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
-                                return value;
-                            }
-                        },
-                    }
-                },
-                animation: {
-                    duration: 500,
-                    easing: 'easeOutQuart',
+                    x: { beginAtZero: true, ticks: { callback: value => A.number(value) } },
+                    y: { grid: { display: false } }
                 }
             }
-        });
-
-        console.log('Channel engagement chart initialized');
+        };
     }
 
-    /**
-     * Renders the retention funnel visualization.
-     * @param {Array} retentionData - Array of {period, joined, activeDay1, activeDay7, activeDay30} objects
-     */
-    function renderRetentionFunnel(retentionData) {
-        const container = document.getElementById('retentionFunnel');
-        if (!container || !retentionData || retentionData.length === 0) {
-            return;
-        }
-
-        // Aggregate data across all periods
-        const totals = retentionData.reduce((acc, item) => {
-            acc.joined += item.joined || 0;
-            acc.activeDay1 += item.activeDay1 || 0;
-            acc.activeDay7 += item.activeDay7 || 0;
-            acc.activeDay30 += item.activeDay30 || 0;
-            return acc;
-        }, { joined: 0, activeDay1: 0, activeDay7: 0, activeDay30: 0 });
-
-        const stages = [
-            { label: 'Joined', value: totals.joined, color: CHART_COLORS[1] },
-            { label: 'Active Day 1', value: totals.activeDay1, color: CHART_COLORS[2] },
-            { label: 'Active Day 7', value: totals.activeDay7, color: CHART_COLORS[3] },
-            { label: 'Active Day 30', value: totals.activeDay30, color: CHART_COLORS[0] },
-        ];
-
-        const maxValue = Math.max(...stages.map(s => s.value));
-
-        let html = '<div class="space-y-4">';
-        stages.forEach((stage, index) => {
-            const percentage = totals.joined > 0 ? ((stage.value / totals.joined) * 100).toFixed(1) : 0;
-            const barWidth = maxValue > 0 ? (stage.value / maxValue) * 100 : 0;
-            const retentionFromPrev = index === 0 ? 100 : (stages[index - 1].value > 0 ? (stage.value / stages[index - 1].value) * 100 : 0);
-
-            html += `
-                <div class="flex items-center gap-4">
-                    <div class="w-28 text-sm text-text-secondary font-medium">${stage.label}</div>
-                    <div class="flex-1 relative">
-                        <div class="h-8 bg-bg-tertiary rounded-lg overflow-hidden">
-                            <div class="h-full rounded-lg transition-all duration-500"
-                                 style="width: ${barWidth}%; background-color: ${stage.color};">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="w-20 text-right">
-                        <span class="text-lg font-bold text-text-primary">${formatNumber(stage.value)}</span>
-                        <span class="text-xs text-text-tertiary ml-1">(${percentage}%)</span>
-                    </div>
-                </div>
-            `;
-        });
-        html += '</div>';
-
-        // Summary metrics
-        const overallRetention = totals.joined > 0 ? ((totals.activeDay30 / totals.joined) * 100).toFixed(1) : 0;
-        html += `
-            <div class="mt-6 pt-4 border-t border-border-primary">
-                <div class="flex items-center justify-between text-sm">
-                    <span class="text-text-secondary">30-Day Retention Rate</span>
-                    <span class="text-lg font-bold ${parseFloat(overallRetention) >= 20 ? 'text-success' : parseFloat(overallRetention) >= 10 ? 'text-warning' : 'text-error'}">${overallRetention}%</span>
-                </div>
-            </div>
-        `;
-
-        container.innerHTML = html;
-        console.log('Retention funnel rendered');
+    function recolorChannels(chart, c) {
+        const [messages, rate] = chart.data.datasets;
+        const n = chart.data.labels.length;
+        messages.backgroundColor = A.each(c.fills.secondary, n);
+        rate.backgroundColor = A.each(c.fills.primary, n);
     }
 
-    /**
-     * Initialize all engagement analytics charts.
-     */
     function init() {
-        const dataElement = document.getElementById('engagementAnalyticsChartData');
-        if (!dataElement) {
-            console.log('Engagement analytics chart data not found on this page');
-            return;
+        const data = A.readData('engagementChartData');
+        if (!data) return;
+
+        if (data.messageTrends && data.messageTrends.length > 0) {
+            A.create('messageTrendsChart', c => buildTrends(data.messageTrends, c), recolorTrends);
         }
-
-        try {
-            const chartData = JSON.parse(dataElement.textContent);
-
-            if (chartData.messageTrends && chartData.messageTrends.length > 0) {
-                initMessageTrendsChart(chartData.messageTrends);
-            }
-
-            if (chartData.channelEngagement && chartData.channelEngagement.length > 0) {
-                initChannelEngagementChart(chartData.channelEngagement);
-            }
-
-            if (chartData.retention && chartData.retention.length > 0) {
-                renderRetentionFunnel(chartData.retention);
-            }
-
-            console.log('Engagement analytics charts initialized');
-
-        } catch (error) {
-            console.error('Failed to initialize engagement analytics charts:', error);
+        if (data.channelEngagement && data.channelEngagement.length > 0) {
+            A.create('channelEngagementChart', c => buildChannels(data.channelEngagement, c), recolorChannels);
         }
     }
 
@@ -426,5 +139,4 @@
     } else {
         init();
     }
-
 })();

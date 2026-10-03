@@ -45,7 +45,7 @@
                     else
                     {
                         <div class="h-24 w-24 rounded-full bg-accent-blue flex items-center justify-center">
-                            <span class="text-white font-bold text-3xl">@user.Email.Substring(0, 1).ToUpper()</span>
+                            <span class="text-white font-bold text-3xl">@TextDisplay.Initials(user.Email, 1)</span>
                         </div>
                     }
                 </div>
@@ -101,7 +101,7 @@
                         <span class="text-text-primary font-medium" data-utc="@user.CreatedAtUtcIso" data-format="date"></span>
                     </div>
                     <div class="flex justify-between text-sm">
-                        <span class="text-text-secondary">Last Login</span>
+                        <span class="text-text-secondary">Last sign-in</span>
                         <span class="text-text-primary font-medium">
                             @if (user.LastLoginAt.HasValue)
                             {
@@ -195,7 +195,7 @@
                                                     DiscordBot.Core.Entities.UserActivityAction.PasswordReset => (Text: "Password Reset", Variant: DiscordBot.Bot.ViewModels.Components.BadgeVariant.Orange),
                                                     DiscordBot.Core.Entities.UserActivityAction.DiscordLinked => (Text: "Discord Linked", Variant: DiscordBot.Bot.ViewModels.Components.BadgeVariant.Blue),
                                                     DiscordBot.Core.Entities.UserActivityAction.DiscordUnlinked => (Text: "Discord Unlinked", Variant: DiscordBot.Bot.ViewModels.Components.BadgeVariant.Warning),
-                                                    _ => (Text: activity.Action.ToString(), Variant: DiscordBot.Bot.ViewModels.Components.BadgeVariant.Default)
+                                                    _ => (Text: activity.Action.DisplayName(), Variant: DiscordBot.Bot.ViewModels.Components.BadgeVariant.Default)
                                                 };
                                             }
                                             <partial name="Shared/Components/_Badge" model="new DiscordBot.Bot.ViewModels.Components.BadgeViewModel {

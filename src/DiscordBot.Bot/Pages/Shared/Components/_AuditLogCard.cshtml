@@ -61,7 +61,7 @@
                                         <span class="truncate">@log.GuildName</span>
                                         <span aria-hidden="true">•</span>
                                     }
-                                    <span class="flex-shrink-0">@log.RelativeTime</span>
+                                    <span class="flex-shrink-0">@DisplayFormat.Time(log.Timestamp, relative: true)</span>
                                 </div>
                             </div>
                         </div>

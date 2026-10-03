@@ -37,7 +37,7 @@ public class DetailsModel : PageModel
     /// Handles GET requests to display audit log entry details.
     /// </summary>
     /// <param name="id">The unique identifier of the audit log entry to display.</param>
-    /// <param name="returnUrl">Optional URL to return to (defaults to audit logs index page).</param>
+    /// <param name="returnUrl">Optional URL to return to (defaults to the Audit tab of the Logs page).</param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
     /// <returns>The page result, or NotFound if the entry does not exist.</returns>
     public async Task<IActionResult> OnGetAsync(long id, string? returnUrl, CancellationToken cancellationToken)
@@ -46,7 +46,7 @@ public class DetailsModel : PageModel
 
         // Preserve return URL or default to index page
         // The return URL lands in an href, so only same-site paths are accepted
-        ReturnUrl = ReturnUrlHelper.Sanitize(returnUrl, Url.Page("Index") ?? "/Admin/AuditLogs");
+        ReturnUrl = ReturnUrlHelper.Sanitize(returnUrl, Url.Page("/Admin/Logs/Index", new { tab = "audit" }) ?? "/Admin/Logs?tab=audit");
 
         // Retrieve the audit log entry
         var log = await _auditLogService.GetByIdAsync(id, cancellationToken);

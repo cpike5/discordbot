@@ -19,6 +19,26 @@ public class SearchResultsViewModel
     public bool CanViewUsers { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the current user may open the full command log page (a moderator
+    /// area). Everyone else is sent to the Commands page's log dialog instead, so no result
+    /// ends in "Access denied".
+    /// </summary>
+    public bool CanOpenCommandLogDetails { get; set; }
+
+    /// <summary>
+    /// Gets or sets the address of this search page, passed to the command log page as its Back target.
+    /// </summary>
+    public string? ReturnUrl { get; set; }
+
+    /// <summary>
+    /// Gets the number of matches across every category the viewer can see. This is the true
+    /// total: each section lists only its first few, so the length of the lists understates it.
+    /// </summary>
+    public int TotalMatches =>
+        TotalGuildResults + TotalCommandLogResults + TotalCommands + TotalPages +
+        (CanViewUsers ? TotalUserResults + TotalAuditLogs + TotalMessageLogs + TotalReminders + TotalScheduledMessages : 0);
+
+    /// <summary>
     /// Gets or sets an optional validation message to display (e.g., minimum length warning).
     /// </summary>
     public string? ValidationMessage { get; set; }
@@ -149,13 +169,9 @@ public class SearchResultsViewModel
     public bool HasResults =>
         GuildResults.Any() ||
         CommandLogResults.Any() ||
-        UserResults.Any() ||
         Commands.Any() ||
-        AuditLogs.Any() ||
-        MessageLogs.Any() ||
         Pages.Any() ||
-        Reminders.Any() ||
-        ScheduledMessages.Any();
+        (CanViewUsers && (UserResults.Any() || AuditLogs.Any() || MessageLogs.Any() || Reminders.Any() || ScheduledMessages.Any()));
 }
 
 /// <summary>

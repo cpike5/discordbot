@@ -154,4 +154,32 @@ public record PresetBarViewModel
     /// </para>
     /// </remarks>
     public string? OnPresetApply { get; init; }
+
+    /// <summary>
+    /// Gets the address of this page's custom-presets endpoint (GET lists, POST saves, DELETE
+    /// <c>{url}/{id}</c> removes), or null for the member portal's own
+    /// <c>/api/portal/tts/{guildId}/presets/custom</c>.
+    /// </summary>
+    /// <remarks>
+    /// The portal endpoint requires the guild's member portal to be on, so the admin Text-to-Speech
+    /// page passes <c>/api/guilds/{guildId}/tts/presets/custom</c>, which sits behind the admin policies.
+    /// </remarks>
+    public string? CustomPresetsUrl { get; init; }
+
+    /// <summary>
+    /// Gets the id of the plain input or select that holds the voice, or null for the member portal's
+    /// <c>VoiceSelector</c> widget (<c>portalVoiceSelector</c>).
+    /// </summary>
+    /// <remarks>
+    /// "Save as preset" reads the voice from here. The admin Text-to-Speech page passes
+    /// <c>voiceSelect</c>. Rendered as <c>data-voice-input</c> and read by <c>preset-bar.js</c>.
+    /// </remarks>
+    public string? VoiceInputId { get; init; }
+
+    /// <summary>
+    /// Gets the id of the select that holds the style, or null for the portal's
+    /// <c>portalStyleSelector-select</c>. The admin page passes <c>styleSelector-select</c>.
+    /// Speed and pitch are read from <c>speedSlider</c> and <c>pitchSlider</c> on both pages.
+    /// </summary>
+    public string? StyleInputId { get; init; }
 }

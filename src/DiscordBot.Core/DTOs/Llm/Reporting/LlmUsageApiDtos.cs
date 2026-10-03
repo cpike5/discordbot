@@ -82,6 +82,10 @@ public sealed record LlmUsageByModelDto
 public sealed record LlmUsageByModeDto
 {
     public required string Mode { get; init; }
+
+    /// <summary>The mode in words for display ("Server assistant"); <see cref="Mode"/> stays the stable name.</summary>
+    public string ModeLabel { get; init; } = string.Empty;
+
     public int MessageCount { get; init; }
     public long InputTokens { get; init; }
     public long OutputTokens { get; init; }
@@ -118,6 +122,9 @@ public sealed record LlmUsageRecordRowDto
     public required DateTime Timestamp { get; init; }
 
     public required string Mode { get; init; }
+
+    /// <summary>The mode in words for display ("Server assistant").</summary>
+    public string ModeLabel { get; init; } = string.Empty;
 
     public required string UserId { get; init; }
 

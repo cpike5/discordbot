@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DiscordBot.Core.Enums;
 
 /// <summary>
@@ -8,6 +10,7 @@ public enum ScheduleFrequency
     /// <summary>
     /// Message should be sent only once at the specified time.
     /// </summary>
+    [Display(Name = "One-time")]
     Once = 1,
 
     /// <summary>

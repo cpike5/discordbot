@@ -1,0 +1,12 @@
+@model string
+@* Shown in place of a tab's content when the server could not read its data, so an empty
+   or zeroed tab is never mistaken for "nothing to report". Refresh is in the page header. *@
+<div class="chart-card">
+    <div class="empty-state">
+        <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <h2 class="empty-state-title">@Model</h2>
+        <div class="empty-state-description">Something went wrong reading these metrics. Use Refresh to try again; if it keeps failing, check the application log.</div>
+    </div>
+</div>

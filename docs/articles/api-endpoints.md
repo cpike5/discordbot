@@ -64,6 +64,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/scheduled-messages/{id}` | DELETE | Delete scheduled message |
 | `/api/guilds/{guildId}/scheduled-messages/{id}/execute` | POST | Execute scheduled message immediately |
 | `/api/guilds/{guildId}/scheduled-messages/validate-cron` | POST | Validate cron expression |
+| `/api/guilds/{guildId}/tts/presets/custom` | GET | List the signed-in admin's custom TTS presets |
+| `/api/guilds/{guildId}/tts/presets/custom` | POST | Save a custom TTS preset |
+| `/api/guilds/{guildId}/tts/presets/custom/{id}` | DELETE | Delete a custom TTS preset |
 | `/api/guilds/{guildId}/members` | GET | List guild members (filtered, paginated) |
 | `/api/guilds/{guildId}/members/{userId}` | GET | Get specific guild member by user ID |
 | `/api/guilds/{guildId}/members/export` | GET | Export guild members to CSV |
@@ -141,6 +144,8 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/theme/available` | GET | List all active themes |
 | `/api/theme/current` | GET | Get user's current effective theme |
 | `/api/theme/user` | POST | Set user's theme preference |
+| `/api/theme/preference` | PUT | Save user's theme by key (header toggle) |
+| `/api/theme/preference` | DELETE | Clear user's saved theme (follow the OS again) |
 | `/api/theme/default` | POST | Set system default theme (SuperAdmin) |
 
 ---
@@ -260,6 +265,8 @@ curl http://localhost:5000/metrics
 ## Performance Metrics API
 
 The Performance Metrics API provides structured JSON endpoints for monitoring bot performance, health, and operational metrics. All endpoints require authentication with the `RequireViewer` policy (minimum Viewer role).
+
+> **Removed (UX polish Phase 16).** `GET /api/performance/tabs/{overview,health,commands,api,system,alerts}` (`PerformanceTabsController`) was never called by the UI and its partial paths did not resolve. The dashboard loads tab HTML from the page handler `GET /Admin/Performance?handler=Partial&tabId=<tab>&hours=<n>` (through `ApiClient.getHtml`).
 
 **Base Path:** `/api/metrics`
 
@@ -2374,7 +2381,7 @@ Returns HTML partial view (`_CommandListTab.cshtml`) containing:
 
 **Response: 500 Internal Server Error**
 
-Returns HTML error state with retry button if service fails.
+`application/problem+json` with a plain-language `detail`.
 
 ---
 
@@ -2423,11 +2430,15 @@ Returns HTML partial view (`_ExecutionLogsTab.cshtml`) containing:
 
 **Response: 400 Bad Request**
 
-Returns HTML error state if date range exceeds 90 days.
+`application/problem+json` with a user-facing `detail` when the range is longer than 90 days
+(`Choose a date range of 90 days or less.`) or the start date is after the end date.
 
 **Response: 500 Internal Server Error**
 
-Returns HTML error state with retry button if service fails.
+`application/problem+json` with a plain-language `detail`; never exception text. A `pageNumber`
+past the last page returns the last page.
+
+The pagination links in the partial are real `/Commands?tab=execution-logs&...&pageNumber=N` URLs.
 
 ---
 
@@ -2475,15 +2486,15 @@ Returns HTML partial view (`_AnalyticsTab.cshtml`) containing:
 
 **Response: 400 Bad Request**
 
-Returns HTML error state if date range exceeds 90 days.
+`application/problem+json` (`detail`: range over 90 days, or start after end).
 
 **Response: 500 Internal Server Error**
 
-Returns HTML error state with retry button if service fails.
+`application/problem+json` with a plain-language `detail`.
 
 **Notes:**
-- Chart.js 4.4.1 is loaded inline from CDN
-- Charts initialize automatically after partial loads
+- Chart.js 4.4.1 is loaded by the page; `commands-charts.js` draws the charts from a JSON data island after each partial loads
+- Nothing ran in the range: the partial is one empty state, not zero-filled cards
 - All data is serialized as JSON and passed to Chart.js
 
 ---
@@ -4285,7 +4296,7 @@ GET /api/messages/export?guildId=123456789012345678&startDate=2024-12-01T00:00:0
 **Response: 200 OK**
 
 ```csv
-Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildName,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId
+Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildName,Source,Content,Timestamp (UTC),LoggedAt (UTC),HasAttachments,HasEmbeds,ReplyToMessageId
 1,1234567890123456789,987654321098765432,JohnDoe#1234,111222333444555666,general,123456789012345678,My Awesome Server,ServerChannel,"Hello, world!",2024-12-08T15:30:00Z,2024-12-08T15:30:01Z,false,false,
 2,9876543210987654321,111222333444555666,JaneSmith#5678,111222333444555666,announcements,123456789012345678,My Awesome Server,ServerChannel,Check out this cool link!,2024-12-08T15:25:00Z,2024-12-08T15:25:00Z,true,true,1234567890123456789
 ```
@@ -4336,16 +4347,16 @@ Returns all active themes available for selection.
   {
     "id": 1,
     "themeKey": "discord-dark",
-    "displayName": "Discord Dark",
-    "description": "Default dark theme inspired by Discord's interface",
+    "displayName": "Graphite (dark)",
+    "description": "Dark graphite surfaces with an ember accent. The default theme.",
     "colorDefinition": "{\"bgPrimary\":\"#1d2022\",\"bgSecondary\":\"#262a2d\",...}",
     "isActive": true
   },
   {
     "id": 2,
     "themeKey": "purple-dusk",
-    "displayName": "Purple Dusk",
-    "description": "Light theme with warm beige backgrounds and purple/pink accents",
+    "displayName": "Purple Dusk (light)",
+    "description": "Light theme with warm paper surfaces and plum accents.",
     "colorDefinition": "{\"bgPrimary\":\"#E8E3DF\",\"bgSecondary\":\"#DAD4D0\",...}",
     "isActive": true
   }
@@ -4378,7 +4389,7 @@ Returns the current user's effective theme with its source.
   "theme": {
     "id": 1,
     "themeKey": "discord-dark",
-    "displayName": "Discord Dark",
+    "displayName": "Graphite (dark)",
     "description": "Default dark theme inspired by Discord's interface",
     "colorDefinition": "{...}",
     "isActive": true
@@ -4458,6 +4469,48 @@ When `themeId` is null, clears the user's preference and returns the default the
 **Response: 401 Unauthorized**
 
 Returned when the request is not authenticated.
+
+---
+
+### PUT /api/theme/preference
+
+Saves the current user's theme by key. The header theme toggle (`wwwroot/js/theme.js`) calls it, because it knows theme keys rather than ids. Also sets the `theme-preference` cookie the server renders from.
+
+**Authorization:** Authenticated users
+
+**Request Body:**
+
+```json
+{
+  "themeKey": "purple-dusk"
+}
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "themeKey": "purple-dusk"
+}
+```
+
+**Response: 400 Bad Request** — unknown or inactive theme key, or the save failed (`ApiErrorDto`).
+
+**Response: 401 Unauthorized** — not signed in.
+
+---
+
+### DELETE /api/theme/preference
+
+Clears the current user's saved theme and deletes the `theme-preference` cookie. With nothing saved, pages follow the browser's `prefers-color-scheme`.
+
+**Authorization:** Authenticated users
+
+**Response: 204 No Content**
+
+**Response: 400 Bad Request** — the update failed (`ApiErrorDto`).
+
+**Response: 401 Unauthorized** — not signed in.
 
 ---
 
@@ -4666,19 +4719,10 @@ Dismisses a flagged event (marks as not requiring action).
 | `guildId` | ulong | Discord guild snowflake ID |
 | `id` | Guid | Flagged event unique identifier |
 
-**Request Body:**
-
-```json
-{
-  "reviewerId": 111222333444555666
-}
-```
-
-**Request Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
+**Request Body:** `{}`. The reviewer is always the signed-in user's linked Discord account, taken from the sign-in claims. A
+`reviewerId` in the body is accepted for older clients and ignored. A signed-in user with no linked
+Discord account is refused with `403` and the message "Link your Discord account to review events."
+(`errorCode` `DISCORD_LINK_REQUIRED`) rather than recorded as reviewer 0.
 
 **Response: 200 OK**
 
@@ -4714,13 +4758,10 @@ Acknowledges a flagged event (marks as seen but not yet actioned).
 | `guildId` | ulong | Discord guild snowflake ID |
 | `id` | Guid | Flagged event unique identifier |
 
-**Request Body:**
-
-```json
-{
-  "reviewerId": 111222333444555666
-}
-```
+**Request Body:** `{}`. The reviewer is always the signed-in user's linked Discord account, taken from the sign-in claims. A
+`reviewerId` in the body is accepted for older clients and ignored. A signed-in user with no linked
+Discord account is refused with `403` and the message "Link your Discord account to review events."
+(`errorCode` `DISCORD_LINK_REQUIRED`) rather than recorded as reviewer 0.
 
 **Response: 200 OK**
 
@@ -4745,7 +4786,6 @@ Takes action on a flagged event (marks as actioned and records action taken).
 
 ```json
 {
-  "reviewerId": 111222333444555666,
   "action": "User warned and message deleted"
 }
 ```
@@ -4754,8 +4794,12 @@ Takes action on a flagged event (marks as actioned and records action taken).
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
 | `action` | string | Yes | Description of action taken |
+
+The reviewer is always the signed-in user's linked Discord account, taken from the sign-in claims. A
+`reviewerId` in the body is accepted for older clients and ignored. A signed-in user with no linked
+Discord account is refused with `403` and the message "Link your Discord account to review events."
+(`errorCode` `DISCORD_LINK_REQUIRED`) rather than recorded as reviewer 0.
 
 **Response: 200 OK**
 
@@ -6077,6 +6121,8 @@ Currencies are never deleted. Needs `Administer`.
 
 Lists or grants the principals allowed to mint. `principalType` is `0` User, `1` Role, `2` System
 (the principal a background job mints as; it carries no `principalId`). Needs `Administer`.
+A role grant on a guild currency is refused with `400` when the role is `@everyone` (its ID is the
+guild's ID) or a managed role, the same two the portal never offers.
 
 ```json
 { "principalType": 1, "principalId": "987654321098765432" }
@@ -7294,6 +7340,91 @@ curl -X GET "http://localhost:5000/api/autocomplete/channels?search=general&guil
 
 ---
 
+## Admin TTS Preset Endpoints
+
+The preset bar on the admin Text-to-Speech page (`/Guilds/TextToSpeech/{guildId}`) saves a person's custom
+presets here. It used to post to the member portal route (`/api/portal/tts/{guildId}/presets/custom`), which
+refuses everyone while the guild's member portal is off. Both routes share `CustomTtsPresetService`, so the
+limits, validation and JSON are identical; only the policies differ. Presets belong to a Discord account:
+they are keyed to the signed-in admin's linked Discord user, not to the guild.
+
+**Base URL:** `/api/guilds/{guildId}/tts/presets/custom`
+
+**Authorization:** `RequireAdmin` and `GuildAccess`. `POST` and `DELETE` also validate the anti-forgery
+token (`RequestVerificationToken` header, which `ApiClient` sends when the page has a
+`__RequestVerificationToken` input); a request without it is rejected with 400 before the action runs.
+
+| Method | Path | Body | Success | Errors |
+|--------|------|------|---------|--------|
+| GET | `/` | none | 200 `[ preset ]`, oldest first | 400 `discord_link_required` |
+| POST | `/` | `{ name, voiceName, style?, speed, pitch, icon? }` | 201 `preset` | 400 `discord_link_required`; 400 validation error (name or voice missing, name over 50 characters); 400 `preset_limit_reached` (20 per person) |
+| DELETE | `/{id}` | none | 204 | 400 `discord_link_required`; 404 when the preset does not exist or is not the caller's |
+
+**Request fields (POST):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Required, at most 50 characters (trimmed) |
+| `voiceName` | string | Required Azure voice name |
+| `style` | string? | Optional speaking style |
+| `speed` | number | Speech rate, clamped to 0.5 to 2.0 (default 1.0) |
+| `pitch` | number | Pitch multiplier, clamped to 0.5 to 2.0 (default 1.0) |
+| `icon` | string? | Optional icon identifier |
+
+**Preset (response):**
+
+```json
+{
+  "id": 12,
+  "name": "Narrator",
+  "voiceName": "en-US-GuyNeural",
+  "style": "newscast",
+  "speed": 1.0,
+  "pitch": 1.0,
+  "icon": null,
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+```
+
+**Response: 400 Bad Request (no linked Discord account)**
+
+```json
+{
+  "message": "Link your Discord account to save presets",
+  "detail": "Custom presets are saved to your Discord account. Link it from your profile, then try again.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00",
+  "errorCode": "discord_link_required"
+}
+```
+
+Validation failures use the same `ApiErrorDto` shape with the service's message and detail (for example
+"Preset name is required"); `errorCode` is set only for `preset_limit_reached` and `discord_link_required`.
+
+---
+
+## Member Portal Voice Endpoints
+
+The voice panel on every member portal page (Soundboard, TTS, VOX) talks to these routes, which live on the
+soundboard portal controller and serve all three pages. They exist because the admin routes under
+`/api/guilds/{guildId}/audio` need the Viewer role and portal members have none (plan decision D10).
+
+**Base URL:** `/api/portal/soundboard/{guildId}`. **Authorization:** `PortalGuildMember` (the guild's
+`EnableMemberPortal` must be on; a switched-off portal answers 403 "Portal disabled").
+
+| Method | Path | Body | Success | Notes |
+|--------|------|------|---------|-------|
+| GET | `/status` | none | `{ isConnected, channelId, channelName, memberCount, isPlaying, queueLength }` | `channelId` is a string. The panel polls it. |
+| POST | `/channel` | `{ "channelId": <snowflake> }` | `{ message, channelId }` | 404 `channel_not_found` when the bot cannot join; 400 `audio_disabled` / `audio_not_enabled` |
+| DELETE | `/channel` | none | `{ message }` | 400 `not_connected` when the bot is not in a channel |
+| POST | `/stop` | none | `{ message }` | 400 `not_connected`; "Nothing playing" is a 200 |
+| GET | `/channels` | none | `[ { id, name } ]` | Ordered as Discord orders them |
+| POST | `/play/{soundId}` | none | `{ message, soundName, soundId, price, balance, currencySymbol, wasQueued, queuePosition }` | 402 for a priced sound the member cannot pay for |
+
+Error bodies are `ApiErrorDto`; the `detail` is a sentence a member can act on, never exception text.
+
+---
+
 ## VOX Portal API
 
 The VOX Portal API provides endpoints for the VOX announcement system, allowing guild members to browse clips, preview messages, and play Half-Life style announcements in voice channels.
@@ -7560,3 +7691,20 @@ curl -X POST "https://localhost:5001/api/portal/vox/123456789012345678/stop" \
 ---
 
 *Last Updated: February 3, 2026*
+
+## Notifications (changes in UX polish Phase 12)
+
+### POST /api/notifications/delete-all
+
+Deletes the current user's notifications that were created at or before `before`. `before` is required
+(ISO 8601, UTC): the notification list sends the moment its request began, so a notification that
+arrived after the list was rendered is never deleted unseen. A missing or unparseable `before` returns
+400; a `before` in the future is treated as now. On top of that, any of `type`, `isRead`, `severity`,
+`startDate`, `endDate` (the whole of that day is included), `searchTerm` or `guildId` narrow the delete
+to the notifications the list shows for the same filters. Notifications the user dismissed are left
+alone. Returns the number deleted.
+
+### GET /api/currencies/{id}/mint-authorities
+
+Each grant now carries `principalName` (a username, a role name, or `"System"`); it is `null` when the
+name cannot be found and the ID is all there is.

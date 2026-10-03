@@ -140,6 +140,7 @@ public interface IGuildMemberRepository : IRepository<GuildMember>
     /// <param name="page">Page number (1-based).</param>
     /// <param name="pageSize">Number of items per page.</param>
     /// <param name="userIds">Optional list of specific user IDs to filter by. Used for exporting selected members.</param>
+    /// <param name="neverActive">When true, only members who have never been seen active (no recorded last-active time).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A tuple containing the list of members and the total count.</returns>
     Task<(IReadOnlyList<GuildMember> Members, int TotalCount)> GetMembersAsync(
@@ -156,6 +157,7 @@ public interface IGuildMemberRepository : IRepository<GuildMember>
         int page = 1,
         int pageSize = 25,
         List<ulong>? userIds = null,
+        bool neverActive = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>

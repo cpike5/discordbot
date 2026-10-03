@@ -18,7 +18,7 @@
             else
             {
                 <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                    @(Model.GuildName.Length >= 2 ? Model.GuildName[..2].ToUpper() : Model.GuildName.ToUpper())
+                    @TextDisplay.Initials(Model.GuildName)
                 </div>
             }
 

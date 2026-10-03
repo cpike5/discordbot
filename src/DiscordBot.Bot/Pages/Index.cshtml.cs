@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using DiscordBot.Bot.Helpers;
+using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Services.Dashboard;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -25,11 +28,9 @@ public class IndexModel : PageModel
     private readonly IVersionService _versionService;
     private readonly IRatWatchService _ratWatchService;
     private readonly IConnectionStateService _connectionStateService;
+    private readonly IDashboardStatsProvider _statsProvider;
+    private readonly IDashboardStatsBroadcaster _statsBroadcaster;
 
-    public BotStatusViewModel BotStatus { get; private set; } = default!;
-    public GuildStatsViewModel GuildStats { get; private set; } = default!;
-    public CommandStatsViewModel CommandStats { get; private set; } = default!;
-    public RecentActivityViewModel RecentActivity { get; private set; } = default!;
     public QuickActionsCardViewModel QuickActions { get; private set; } = default!;
     public AuditLogCardViewModel? AuditLog { get; private set; }
 
@@ -39,6 +40,15 @@ public class IndexModel : PageModel
     public ActivityFeedTimelineViewModel ActivityTimeline { get; private set; } = default!;
     public ConnectedServersWidgetViewModel ConnectedServers { get; private set; } = default!;
 
+    /// <summary>
+    /// Whether the viewer may see the servers list. A Viewer cannot open a server's page, so the
+    /// card is left out for them (D8) and the grid closes up around it.
+    /// </summary>
+    public bool ShowConnectedServers { get; private set; }
+
+    /// <summary>Whether the viewer may see the audit log card (Admin and above).</summary>
+    public bool ShowAuditLog { get; private set; }
+
     public IndexModel(
         ILogger<IndexModel> logger,
         IBotService botService,
@@ -47,7 +57,9 @@ public class IndexModel : PageModel
         IAuditLogService auditLogService,
         IVersionService versionService,
         IRatWatchService ratWatchService,
-        IConnectionStateService connectionStateService)
+        IConnectionStateService connectionStateService,
+        IDashboardStatsProvider statsProvider,
+        IDashboardStatsBroadcaster statsBroadcaster)
     {
         _logger = logger;
         _botService = botService;
@@ -57,7 +69,13 @@ public class IndexModel : PageModel
         _versionService = versionService;
         _ratWatchService = ratWatchService;
         _connectionStateService = connectionStateService;
+        _statsProvider = statsProvider;
+        _statsBroadcaster = statsBroadcaster;
     }
+
+    private bool IsAdmin => User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+
+    private bool IsModerator => IsAdmin || User.IsInRole("Moderator");
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -66,13 +84,14 @@ public class IndexModel : PageModel
         _logger.LogDebug("Dashboard accessed by authenticated user {UserId}", User.Identity?.Name);
 
         var statusDto = _botService.GetStatus();
-        BotStatus = BotStatusViewModel.FromDto(statusDto);
 
         _logger.LogTrace("Bot status retrieved: {ConnectionState}, Latency: {LatencyMs}ms, Guilds: {GuildCount}",
-            BotStatus.ConnectionState, BotStatus.LatencyMs, BotStatus.GuildCount);
+            statusDto.ConnectionState, statusDto.LatencyMs, statusDto.GuildCount);
 
         // Determine admin status for conditional audit log fetch
-        var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        var isAdmin = IsAdmin;
+        ShowConnectedServers = IsModerator;
+        ShowAuditLog = isAdmin;
 
         // Retrieve data sequentially to avoid DbContext concurrency issues
         // DbContext is not thread-safe and is scoped per request
@@ -98,18 +117,9 @@ public class IndexModel : PageModel
             });
         }
 
-        GuildStats = GuildStatsViewModel.FromGuilds(guilds);
-        _logger.LogDebug("Guild stats retrieved: Total: {TotalGuilds}, Active: {ActiveGuilds}, Inactive: {InactiveGuilds}",
-            GuildStats.TotalGuilds, GuildStats.ActiveGuilds, GuildStats.InactiveGuilds);
-
-        CommandStats = CommandStatsViewModel.FromStats(commandStats, timeRangeHours: 24);
-        _logger.LogDebug("Command stats retrieved: Total: {TotalCommands}, Top command: {TopCommand}",
-            CommandStats.TotalCommands,
-            CommandStats.TopCommands.FirstOrDefault()?.CommandName ?? "None");
-
-        RecentActivity = RecentActivityViewModel.FromLogs(recentLogsResponse.Items);
-        _logger.LogDebug("Recent activity retrieved: {ActivityCount} items",
-            RecentActivity.Activities.Count);
+        var totalCommands = commandStats.Values.Sum();
+        _logger.LogDebug("Dashboard data retrieved: {GuildCount} guilds, {TotalCommands} commands, {ActivityCount} recent logs",
+            guilds.Count, totalCommands, recentLogsResponse.Items.Count);
 
         // Process audit logs if fetched
         if (auditLogsResponse.HasValue)
@@ -140,13 +150,14 @@ public class IndexModel : PageModel
                 new()
                 {
                     Id = "sync-guilds",
-                    Label = "Sync All Guilds",
+                    Label = "Sync All Servers",
                     IconPath = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
                     Color = QuickActionColor.Blue,
                     ActionType = QuickActionType.PostAction,
                     Handler = "SyncAllGuilds",
-                    RequiresConfirmation = false,
-                    IsAdminOnly = false
+                    RequiresConfirmation = true,
+                    ConfirmationModalId = "syncGuildsModal",
+                    IsAdminOnly = true
                 },
                 new()
                 {
@@ -156,14 +167,18 @@ public class IndexModel : PageModel
                     Color = QuickActionColor.Gray,
                     ActionType = QuickActionType.Link,
                     Href = "/Admin/Settings",
-                    IsAdminOnly = false
+                    IsAdminOnly = true
                 }
             }
         };
 
         // Build Dashboard Redesign ViewModels
-        BuildBotStatusBanner(statusDto, guilds);
-        BuildHeroMetrics(guilds, CommandStats.TotalCommands);
+        var stats = DashboardStatsProvider.Build(
+            guilds,
+            totalCommands,
+            _connectionStateService.GetUptimePercentage(DashboardStatsProvider.Window));
+        BuildBotStatusBanner(statusDto, stats);
+        BuildHeroMetrics(stats);
         BuildActivityTimeline(recentLogsResponse.Items, ratWatchActivity);
         BuildConnectedServersWidget(guilds, commandCountsByGuild);
 
@@ -171,30 +186,28 @@ public class IndexModel : PageModel
     }
 
 
-    private void BuildBotStatusBanner(BotStatusDto statusDto, IEnumerable<GuildDto> guilds)
+    private void BuildBotStatusBanner(BotStatusDto statusDto, DashboardStatsDto stats)
     {
-        var guildList = guilds.ToList();
-        var totalMembers = guildList.Sum(g => g.MemberCount ?? 0);
         BotStatusBanner = new BotStatusBannerViewModel
         {
             IsOnline = statusDto.ConnectionState == "Connected",
             StatusText = statusDto.ConnectionState == "Connected" ? "Connected" : "Disconnected",
-            ServerCount = guildList.Count,
-            TotalMembers = totalMembers,
+            ServerCount = stats.TotalServers,
+            TotalMembers = stats.TotalMembers,
             UptimeDisplay = BotStatusViewModel.FormatUptime(statusDto.Uptime),
             Version = _versionService.GetVersion(),
             LatencyMs = statusDto.LatencyMs
         };
     }
 
-    private void BuildHeroMetrics(IEnumerable<GuildDto> guilds, int commandsToday)
+    /// <summary>
+    /// The hero cards. Each value carries a <c>data-stat-*</c> attribute that
+    /// <c>dashboard-realtime.js</c> rewrites from the <c>StatsUpdated</c> event; the names line up
+    /// with <see cref="DashboardStatsDto"/>.
+    /// </summary>
+    private void BuildHeroMetrics(DashboardStatsDto stats)
     {
-        var guildList = guilds.ToList();
-        var activeUsers = guildList.Where(g => g.IsActive).Sum(g => g.MemberCount ?? 0);
-
-        // Get real uptime percentage from ConnectionStateService (24 hour period)
-        var uptime24h = _connectionStateService.GetUptimePercentage(TimeSpan.FromHours(24));
-        var uptimeDisplay = $"{uptime24h:F1}%";
+        var uptimeDisplay = DisplayFormat.Number(stats.UptimePercent24Hours, 1) + "%";
 
         // SVG icon paths matching the prototype design
         const string serverIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01\" />";
@@ -202,12 +215,14 @@ public class IndexModel : PageModel
         const string commandIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z\" />";
         const string uptimeIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z\" />";
 
+        // Titles say what is counted: the command count is a rolling 24 hours, and "members" is the
+        // sum of each server's member count (not distinct users).
         HeroMetrics = new List<HeroMetricCardViewModel>
         {
-            new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), AccentColor = CardAccent.Blue, IconSvg = serverIcon, ShowSparkline = false },
-            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), DataAttribute = "data-active-users", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
-            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), DataAttribute = "data-total-commands", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
-            new() { Title = "Uptime", Value = uptimeDisplay, DataAttribute = "data-uptime-24h", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
+            new() { Title = "Servers", Value = DisplayFormat.Number(stats.TotalServers), DataAttribute = "data-stat-servers", AccentColor = CardAccent.Blue, IconSvg = serverIcon, ShowSparkline = false },
+            new() { Title = "Members", Value = DisplayFormat.Number(stats.TotalMembers), DataAttribute = "data-stat-members", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
+            new() { Title = "Commands (24h)", Value = DisplayFormat.Number(stats.CommandsLast24Hours), DataAttribute = "data-stat-commands", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
+            new() { Title = "Uptime (24h)", Value = uptimeDisplay, DataAttribute = "data-stat-uptime", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
         };
     }
 
@@ -242,7 +257,7 @@ public class IndexModel : PageModel
         _logger.LogDebug("Activity timeline built with {CommandCount} command logs and {RatWatchCount} Rat Watch events",
             recentLogs.Count(), ratWatchActivity.Count());
 
-        ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/Commands?tab=logs", MaxHeight = "400px" };
+        ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = Url.Page("/Commands/Index", new { tab = "logs" }) ?? "/Commands", MaxHeight = "400px" };
     }
 
     private static ActivityItemType MapRatWatchStatusToActivityType(Core.Enums.RatWatchStatus status)
@@ -295,15 +310,15 @@ public class IndexModel : PageModel
     {
         var guildList = guilds.ToList();
 
-        // Gradient palette for avatar initials
-        var gradients = new[]
+        // Avatar fills for initials: token classes (white text reads on every fill), whole names so
+        // Tailwind finds them
+        var avatarClasses = new[]
         {
-            "from-purple-500 to-pink-500",
-            "from-blue-500 to-cyan-500",
-            "from-orange-500 to-red-500",
-            "from-green-500 to-emerald-500",
-            "from-indigo-500 to-purple-500",
-            "from-yellow-500 to-orange-500"
+            "bg-accent-orange",
+            "bg-accent-blue",
+            "bg-success",
+            "bg-info",
+            "bg-accent-purple"
         };
 
         var serverItems = guildList.Select(guild =>
@@ -320,9 +335,8 @@ public class IndexModel : PageModel
             // Generate initials from guild name
             var initials = GenerateInitials(guild.Name);
 
-            // Select gradient deterministically based on guild ID
-            var gradientIndex = (int)(guild.Id % (uint)gradients.Length);
-            var gradient = gradients[gradientIndex];
+            // Same server, same colour, every render
+            var avatarClass = avatarClasses[(int)(guild.Id % (uint)avatarClasses.Length)];
 
             return new ConnectedServerItemViewModel
             {
@@ -330,11 +344,11 @@ public class IndexModel : PageModel
                 Name = guild.Name,
                 IconUrl = guild.IconUrl,
                 Initials = initials,
-                AvatarGradient = gradient,
+                AvatarClass = avatarClass,
                 MemberCount = guild.MemberCount ?? 0,
                 Status = status,
                 CommandsToday = commandsToday,
-                DetailUrl = $"/Guilds/Details/{guild.Id}"
+                DetailUrl = Url.Page("/Guilds/Details", new { guildId = guild.Id }) ?? "/Guilds"
             };
         })
         .OrderByDescending(s => s.CommandsToday)
@@ -345,7 +359,7 @@ public class IndexModel : PageModel
         ConnectedServers = new ConnectedServersWidgetViewModel
         {
             Title = "Connected Servers",
-            ViewAllUrl = "/Guilds",
+            ViewAllUrl = Url.Page("/Guilds/Index") ?? "/Guilds",
             Servers = serverItems,
             TotalServerCount = guildList.Count
         };
@@ -360,24 +374,61 @@ public class IndexModel : PageModel
             return "??";
 
         var words = name.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+            return "??";
 
-        if (words.Length >= 2)
+        // Text elements, not chars: a name that starts with an emoji keeps it whole (UX plan E-1).
+        var initials = words.Length >= 2
+            ? TextDisplay.Take(words[0], 1) + TextDisplay.Take(words[1], 1)
+            : TextDisplay.Take(words[0], 2);
+
+        // A single character is shown twice, as before.
+        if (words.Length == 1 && initials == TextDisplay.Take(words[0], 1))
+            initials += initials;
+
+        return initials.ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// The hero numbers as JSON. Dashboards ask for them again after a hub reconnect (pushes sent
+    /// while the connection was down are gone) and after Sync All.
+    /// </summary>
+    public async Task<IActionResult> OnGetStatsAsync(CancellationToken cancellationToken)
+    {
+        return new JsonResult(await _statsProvider.GetStatsAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// The Connected Servers rows as JSON, for the dashboard to redraw after a sync. Ids are
+    /// strings: a snowflake does not survive a trip through a JavaScript number.
+    /// </summary>
+    public async Task<IActionResult> OnGetConnectedServersAsync()
+    {
+        if (!IsModerator)
         {
-            // Take first letter of first two words
-            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[1][0])}";
-        }
-        else if (words.Length == 1 && words[0].Length >= 2)
-        {
-            // Take first two letters of single word
-            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[0][1])}";
-        }
-        else if (words.Length == 1 && words[0].Length == 1)
-        {
-            // Single character, duplicate it
-            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[0][0])}";
+            return Forbid();
         }
 
-        return "??";
+        var guilds = await _guildService.GetAllGuildsAsync();
+        var commandCountsByGuild = await _commandLogService.GetCommandCountsByGuildAsync(DateTime.UtcNow.Date);
+        BuildConnectedServersWidget(guilds, commandCountsByGuild);
+
+        return new JsonResult(new
+        {
+            totalServerCount = ConnectedServers.TotalServerCount,
+            servers = ConnectedServers.Servers.Select(s => new
+            {
+                id = s.Id.ToString(),
+                name = s.Name,
+                iconUrl = s.IconUrl,
+                initials = s.Initials,
+                avatarClass = s.AvatarClass,
+                memberCount = s.MemberCount,
+                status = s.Status.ToString(),
+                commandsToday = s.CommandsToday,
+                detailUrl = s.DetailUrl
+            })
+        });
     }
 
     /// <summary>
@@ -403,8 +454,22 @@ public class IndexModel : PageModel
             return new JsonResult(new
             {
                 success = true,
-                message = "Bot is restarting..."
+                message = "The bot restarted and is reconnecting to Discord."
             });
+        }
+        catch (NotSupportedException ex)
+        {
+            // Offline mode: there is no gateway connection to restart
+            _logger.LogInformation(ex, "Bot restart refused: {Reason}", ex.Message);
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "The bot is running in offline mode and has no Discord connection to restart."
+            })
+            {
+                StatusCode = StatusCodes.Status409Conflict
+            };
         }
         catch (Exception ex)
         {
@@ -413,7 +478,7 @@ public class IndexModel : PageModel
             return new JsonResult(new
             {
                 success = false,
-                message = "Failed to restart bot. Please check logs for details."
+                message = "Could not restart the bot. Check the logs for details."
             })
             {
                 StatusCode = 500
@@ -447,11 +512,16 @@ public class IndexModel : PageModel
             var syncedCount = await _guildService.SyncAllGuildsAsync();
             _logger.LogInformation("Successfully synced {SyncedCount} guilds", syncedCount);
 
+            // Open dashboards (this one included) pick up the new server and member counts
+            _statsBroadcaster.NotifyChanged();
+
             // Return JSON response for AJAX
             return new JsonResult(new
             {
                 success = true,
-                message = $"Successfully synced {syncedCount} guild{(syncedCount == 1 ? "" : "s")}"
+                message = syncedCount == 0
+                    ? "The bot is not connected to any servers, so there was nothing to sync."
+                    : $"Synced {DisplayFormat.Plural(syncedCount, "server")} from Discord."
             });
         }
         catch (Exception ex)
@@ -461,7 +531,7 @@ public class IndexModel : PageModel
             return new JsonResult(new
             {
                 success = false,
-                message = "Failed to sync guilds. Please check logs for details."
+                message = "Could not sync servers. Check the logs for details."
             })
             {
                 StatusCode = 500

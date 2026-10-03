@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -20,6 +21,8 @@ namespace DiscordBot.Bot.Pages.Guilds.Soundboard;
 public class IndexModel : GuildPageModelBase
 {
     private readonly ISoundService _soundService;
+    private readonly ISoundRepository _soundRepository;
+    private readonly ISoundCategoryRepository _categoryRepository;
     private readonly ISoundFileService _soundFileService;
     private readonly ISoundboardOrchestrationService _orchestrationService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
@@ -32,6 +35,8 @@ public class IndexModel : GuildPageModelBase
 
     public IndexModel(
         ISoundService soundService,
+        ISoundRepository soundRepository,
+        ISoundCategoryRepository categoryRepository,
         ISoundFileService soundFileService,
         ISoundboardOrchestrationService orchestrationService,
         IGuildAudioSettingsRepository audioSettingsRepository,
@@ -43,6 +48,8 @@ public class IndexModel : GuildPageModelBase
         ILogger<IndexModel> logger)
     {
         _soundService = soundService;
+        _soundRepository = soundRepository;
+        _categoryRepository = categoryRepository;
         _soundFileService = soundFileService;
         _orchestrationService = orchestrationService;
         _audioSettingsRepository = audioSettingsRepository;
@@ -144,7 +151,10 @@ public class IndexModel : GuildPageModelBase
                 settings,
                 playsToday,
                 playsYesterday,
-                Sort);
+                Sort) with
+            {
+                Categories = await LoadCategoryOptionsAsync(guildId, cancellationToken)
+            };
 
             // Build voice channel panel view model
             VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
@@ -173,7 +183,8 @@ public class IndexModel : GuildPageModelBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load Soundboard page for guild {GuildId}", guildId);
-            ErrorMessage = "Failed to load soundboard. Please try again.";
+            ErrorMessage = "The soundboard could not be loaded. Try again in a moment.";
+            ViewModel = new SoundboardIndexViewModel { GuildId = guildId };
 
             // Set fallback voice channel panel
             VoiceChannelPanel = new VoiceChannelPanelViewModel { GuildId = guildId };
@@ -187,7 +198,8 @@ public class IndexModel : GuildPageModelBase
     /// </summary>
     /// <param name="guildId">The guild ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Partial view with sorted sounds list.</returns>
+    /// <returns>Partial view with sorted sounds list; an error status when the list cannot be loaded,
+    /// so the script can keep what is on screen and offer Retry.</returns>
     public async Task<IActionResult> OnGetPartialAsync(
         ulong guildId,
         CancellationToken cancellationToken = default)
@@ -196,39 +208,22 @@ public class IndexModel : GuildPageModelBase
 
         try
         {
-            // Get guild info
             var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
             if (guild == null)
             {
-                return new ContentResult
-                {
-                    Content = "<div class=\"p-8 text-center text-text-secondary\">Guild not found</div>",
-                    ContentType = "text/html"
-                };
+                return NotFound();
             }
 
-            // Get all sounds for this guild
             var sounds = await _soundService.GetAllByGuildAsync(guildId, cancellationToken);
-
-            // Apply sorting
             var sortedSounds = ApplySorting(sounds);
 
-            // Build view model with minimal data needed for the partial
+            // Same mapping as the full page, so the duration and size columns are filled in
             ViewModel = new SoundboardIndexViewModel
             {
                 GuildId = guildId,
                 GuildName = guild.Name,
-                Sounds = sortedSounds.Select(s => new SoundViewModel
-                {
-                    Id = s.Id,
-                    Name = s.Name,
-                    FileName = s.FileName,
-                    DurationSeconds = s.DurationSeconds,
-                    FileSizeBytes = s.FileSizeBytes,
-                    PlayCount = s.PlayCount,
-                    CategoryId = s.CategoryId,
-                    CategoryName = s.Category?.Name
-                }).ToList(),
+                Sounds = sortedSounds.Select(SoundViewModel.FromEntity).ToList(),
+                Categories = await LoadCategoryOptionsAsync(guildId, cancellationToken),
                 CurrentSort = Sort
             };
 
@@ -237,86 +232,98 @@ public class IndexModel : GuildPageModelBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load Soundboard partial for guild {GuildId}", guildId);
-            return new ContentResult
-            {
-                Content = "<div class=\"p-8 text-center text-text-secondary\">Failed to load sounds</div>",
-                ContentType = "text/html"
-            };
+            return StatusCode(StatusCodes.Status500InternalServerError);
         }
     }
 
     /// <summary>
-    /// Handles POST requests to delete a sound.
+    /// Handles POST requests to delete a sound. Answers JSON to a script request so the row can be
+    /// removed in place, and redirects (with a toast) otherwise.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
     /// <param name="soundId">The sound ID to delete.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Redirect to the index page.</returns>
     public async Task<IActionResult> OnPostDeleteAsync(
         ulong guildId,
         Guid soundId,
         CancellationToken cancellationToken = default)
     {
-        // Delegate to orchestration service
         var result = await _orchestrationService.DeleteSoundAsync(guildId, soundId, cancellationToken);
+
+        var message = result.Success
+            ? (result.FileDeleted
+                ? "Sound deleted."
+                : "Sound deleted (its file was already missing).")
+            : result.ErrorMessage ?? "Could not delete the sound.";
+
+        if (IsScriptRequest)
+        {
+            if (!result.Success)
+            {
+                return new JsonResult(new { success = false, message }) { StatusCode = StatusCodes.Status400BadRequest };
+            }
+
+            return new JsonResult(new { success = true, message, soundId, stats = await BuildStatsAsync(guildId, cancellationToken) });
+        }
 
         if (result.Success)
         {
-            TempData.SetSuccessToast(result.FileDeleted
-                ? "Sound deleted successfully."
-                : "Sound deleted successfully (file was already missing).");
+            TempData.SetSuccessToast(message);
         }
         else
         {
-            TempData.SetErrorToast(result.ErrorMessage ?? "Failed to delete sound.");
+            TempData.SetErrorToast(message);
         }
 
         return RedirectToPage("Index", new { guildId, sort = Sort });
     }
 
     /// <summary>
-    /// Handles POST requests to upload a new sound file.
+    /// Handles POST requests to upload a new sound file. The page script uploads one file per
+    /// request (so each file has its own progress and result) and gets JSON back; a plain form
+    /// post still works and redirects with a toast.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
     /// <param name="file">The uploaded file.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Redirect to the index page.</returns>
     public async Task<IActionResult> OnPostUploadAsync(
         ulong guildId,
-        [FromForm] IFormFile file,
+        [FromForm] IFormFile? file,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("User attempting to upload sound file for guild {GuildId}", guildId);
 
-        // Validate file exists
+        IActionResult Fail(string message)
+        {
+            if (IsScriptRequest)
+            {
+                return new JsonResult(new { success = false, message }) { StatusCode = StatusCodes.Status400BadRequest };
+            }
+
+            TempData.SetErrorToast(message);
+            return RedirectToPage("Index", new { guildId, sort = Sort });
+        }
+
         if (file == null || file.Length == 0)
         {
-            TempData.SetErrorToast("Please select a file to upload.");
-            return RedirectToPage("Index", new { guildId, sort = Sort });
+            return Fail("Choose a file to upload.");
         }
 
-        // Validate file extension early (before opening stream)
         if (!_soundFileService.IsValidAudioFormat(file.FileName))
         {
-            TempData.SetErrorToast("Invalid file format. Supported formats: MP3, WAV, OGG, M4A.");
-            return RedirectToPage("Index", new { guildId, sort = Sort });
+            return Fail("That file type is not supported. Use MP3, WAV, OGG or M4A.");
         }
 
-        // Get settings for client-side validation
         var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
 
-        // Validate file size early
         if (file.Length > settings.MaxFileSizeBytes)
         {
             var maxSizeMB = settings.MaxFileSizeBytes / (1024.0 * 1024.0);
-            TempData.SetErrorToast($"File size exceeds the maximum allowed size of {maxSizeMB:F1} MB.");
-            return RedirectToPage("Index", new { guildId, sort = Sort });
+            return Fail($"That file is larger than the {maxSizeMB:F1} MB limit.");
         }
 
-        // Extract sound name from filename
         var soundName = Path.GetFileNameWithoutExtension(file.FileName);
 
-        // Delegate to orchestration service
         await using var stream = file.OpenReadStream();
         var result = await _orchestrationService.UploadSoundAsync(
             guildId,
@@ -326,15 +333,24 @@ public class IndexModel : GuildPageModelBase
             file.Length,
             cancellationToken: cancellationToken);
 
-        if (result.Success)
+        if (!result.Success)
         {
-            TempData.SetSuccessToast($"Sound '{result.Sound!.Name}' uploaded successfully.");
-        }
-        else
-        {
-            TempData.SetErrorToast(result.ErrorMessage ?? "Failed to upload sound.");
+            return Fail(result.ErrorMessage ?? "Could not upload the sound.");
         }
 
+        var message = $"Uploaded '{result.Sound!.Name}'.";
+        if (IsScriptRequest)
+        {
+            return new JsonResult(new
+            {
+                success = true,
+                message,
+                soundId = result.Sound.Id,
+                stats = await BuildStatsAsync(guildId, cancellationToken)
+            });
+        }
+
+        TempData.SetSuccessToast(message);
         return RedirectToPage("Index", new { guildId, sort = Sort });
     }
 
@@ -356,7 +372,7 @@ public class IndexModel : GuildPageModelBase
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
             if (!settings.AudioEnabled)
             {
-                TempData.SetErrorToast("Audio features are not enabled for this guild.");
+                TempData.SetErrorToast("Audio features are not enabled for this server.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -367,7 +383,7 @@ public class IndexModel : GuildPageModelBase
 
             if (discoveredFiles.Count == 0)
             {
-                TempData.SetWarningToast("No sound files found in the guild's directory.");
+                TempData.SetWarningToast("No sound files found in the server's directory.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -430,7 +446,7 @@ public class IndexModel : GuildPageModelBase
             {
                 _logger.LogInformation("Discovered {Count} new sounds for guild {GuildId}",
                     newSoundsCount, guildId);
-                TempData.SetSuccessToast($"Discovered {newSoundsCount} new sound(s).");
+                TempData.SetSuccessToast($"Discovered {DisplayFormat.Plural(newSoundsCount, "new sound")}.");
             }
             else
             {
@@ -447,60 +463,186 @@ public class IndexModel : GuildPageModelBase
         }
     }
 
-    /// <summary>
-    /// Handles POST requests to rename a sound.
-    /// </summary>
-    /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
-    /// <param name="soundId">The sound ID to rename.</param>
-    /// <param name="newName">The new name for the sound.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Redirect to the index page.</returns>
-    public async Task<IActionResult> OnPostRenameAsync(
+    // ---- Categories --------------------------------------------------------------------------
+    // These are page handlers, not the member portal's endpoints: those answer 403 for everyone,
+    // administrators included, while the guild's member portal is switched off, and an admin page
+    // must not depend on a member-facing switch.
+
+    /// <summary>Creates a category.</summary>
+    public async Task<IActionResult> OnPostCreateCategoryAsync(
         ulong guildId,
-        Guid soundId,
-        [FromForm] string newName,
+        [FromBody] CategoryNameDto request,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("User attempting to rename sound {SoundId} to {NewName} for guild {GuildId}",
-            soundId, newName, guildId);
-
-        try
+        var name = request?.Name?.Trim() ?? string.Empty;
+        var invalid = ValidateCategoryName(name);
+        if (invalid != null)
         {
-            // Validate new name
-            if (string.IsNullOrWhiteSpace(newName))
+            return CategoryError(invalid);
+        }
+
+        var existing = await _categoryRepository.GetByGuildAsync(guildId, cancellationToken);
+        if (existing.Any(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return CategoryError($"A category named '{name}' already exists on this server.");
+        }
+
+        var category = await _categoryRepository.AddAsync(new SoundCategory
+        {
+            GuildId = guildId,
+            Name = name,
+            SortOrder = 0,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
+        _logger.LogInformation("Created sound category {CategoryId} in guild {GuildId}", category.Id, guildId);
+        return new JsonResult(new { success = true, message = $"Created category '{category.Name}'.", category = new { id = category.Id, name = category.Name } });
+    }
+
+    /// <summary>Renames a category.</summary>
+    public async Task<IActionResult> OnPostRenameCategoryAsync(
+        ulong guildId,
+        [FromBody] CategoryNameDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var name = request?.Name?.Trim() ?? string.Empty;
+        var invalid = ValidateCategoryName(name);
+        if (invalid != null)
+        {
+            return CategoryError(invalid);
+        }
+
+        var category = await _categoryRepository.GetByIdAsync(request!.Id, cancellationToken);
+        if (category == null || category.GuildId != guildId)
+        {
+            return CategoryError("That category no longer exists. Reload the page to see the latest.", StatusCodes.Status404NotFound);
+        }
+
+        var existing = await _categoryRepository.GetByGuildAsync(guildId, cancellationToken);
+        if (existing.Any(c => c.Id != category.Id && string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return CategoryError($"A category named '{name}' already exists on this server.");
+        }
+
+        category.Name = name;
+        await _categoryRepository.UpdateAsync(category, cancellationToken);
+
+        return new JsonResult(new { success = true, message = $"Renamed the category to '{category.Name}'.", category = new { id = category.Id, name = category.Name } });
+    }
+
+    /// <summary>Deletes a category; its sounds become uncategorized.</summary>
+    public async Task<IActionResult> OnPostDeleteCategoryAsync(
+        ulong guildId,
+        [FromBody] CategoryNameDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var category = await _categoryRepository.GetByIdAsync(request?.Id ?? 0, cancellationToken);
+        if (category == null || category.GuildId != guildId)
+        {
+            return CategoryError("That category no longer exists. Reload the page to see the latest.", StatusCodes.Status404NotFound);
+        }
+
+        var name = category.Name;
+        await _categoryRepository.DeleteAsync(category, cancellationToken);
+
+        _logger.LogInformation("Deleted sound category {CategoryId} in guild {GuildId}", request!.Id, guildId);
+        return new JsonResult(new { success = true, message = $"Deleted the category '{name}'. Its sounds are now uncategorized." });
+    }
+
+    /// <summary>Puts a sound in a category, or takes it out of one (null).</summary>
+    public async Task<IActionResult> OnPostAssignCategoryAsync(
+        ulong guildId,
+        [FromBody] AssignCategoryDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request == null)
+        {
+            return CategoryError("The request could not be read. Reload the page and try again.");
+        }
+
+        var sound = await _soundService.GetByIdAsync(request.SoundId, guildId, cancellationToken);
+        if (sound == null)
+        {
+            return CategoryError("That sound no longer exists. Reload the page to see the latest.", StatusCodes.Status404NotFound);
+        }
+
+        string? categoryName = null;
+        if (request.CategoryId.HasValue)
+        {
+            var category = await _categoryRepository.GetByIdAsync(request.CategoryId.Value, cancellationToken);
+            if (category == null || category.GuildId != guildId)
             {
-                TempData.SetErrorToast("Sound name cannot be empty.");
-                return RedirectToPage("Index", new { guildId, sort = Sort });
+                return CategoryError("That category no longer exists. Reload the page to see the latest.");
             }
 
-            // Get sound
-            var sound = await _soundService.GetByIdAsync(soundId, guildId, cancellationToken);
-            if (sound == null)
-            {
-                _logger.LogWarning("Sound {SoundId} not found for guild {GuildId}", soundId, guildId);
-                TempData.SetErrorToast("Sound not found.");
-                return RedirectToPage("Index", new { guildId, sort = Sort });
-            }
-
-            var oldName = sound.Name;
-            sound.Name = newName.Trim();
-
-            // Note: The repository pattern doesn't expose an UpdateSoundAsync method in ISoundService.
-            // For now, we'll just reload the page. In a future enhancement, we could add an UpdateSoundAsync method.
-            // Since this is a limitation, we'll set an error message.
-
-            TempData.SetWarningToast("Rename functionality is not yet implemented. Please delete and re-upload the sound with the new name.");
-            _logger.LogWarning("Rename attempted but UpdateSoundAsync not available in ISoundService");
-
-            return RedirectToPage("Index", new { guildId, sort = Sort });
+            categoryName = category.Name;
         }
-        catch (Exception ex)
+
+        // The sound was read with its Category loaded and untracked; Update would copy that old
+        // category's key back over the new one, so drop the navigation along with changing the key.
+        sound.Category = null;
+        sound.CategoryId = request.CategoryId;
+        await _soundRepository.UpdateAsync(sound, cancellationToken);
+
+        return new JsonResult(new
         {
-            _logger.LogError(ex, "Error renaming sound {SoundId} for guild {GuildId}",
-                soundId, guildId);
-            TempData.SetErrorToast("An error occurred while renaming the sound. Please try again.");
-            return RedirectToPage("Index", new { guildId, sort = Sort });
+            success = true,
+            message = categoryName == null
+                ? $"'{sound.Name}' is no longer in a category."
+                : $"'{sound.Name}' is now in '{categoryName}'."
+        });
+    }
+
+    private static string? ValidateCategoryName(string name)
+    {
+        if (name.Length == 0)
+        {
+            return "Enter a category name.";
         }
+
+        return name.Length > 50 ? "A category name can be at most 50 characters." : null;
+    }
+
+    private static JsonResult CategoryError(string message, int status = StatusCodes.Status400BadRequest)
+        => new(new { success = false, message }) { StatusCode = status };
+
+    private async Task<List<SoundCategoryOption>> LoadCategoryOptionsAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var categories = await _categoryRepository.GetByGuildAsync(guildId, cancellationToken);
+        return categories.Select(c => new SoundCategoryOption(c.Id, c.Name)).ToList();
+    }
+
+    /// <summary>The numbers on the stat cards, returned with an upload or delete so they update in place.</summary>
+    private async Task<object> BuildStatsAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
+        var sounds = await _soundService.GetAllByGuildAsync(guildId, cancellationToken);
+        var stats = SoundboardIndexViewModel.Create(guildId, string.Empty, null, sounds, settings, 0, 0).Stats;
+        return new
+        {
+            totalSounds = stats.TotalSounds,
+            storageUsedFormatted = stats.StorageUsedFormatted,
+            storageLimitFormatted = stats.StorageLimitFormatted,
+            storagePercentage = stats.StoragePercentage,
+            topSoundName = stats.TopSoundName,
+            topSoundPlays = stats.TopSoundPlays
+        };
+    }
+
+    private bool IsScriptRequest => string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.Ordinal);
+
+    /// <summary>Body of a category create, rename or delete request.</summary>
+    public class CategoryNameDto
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+    }
+
+    /// <summary>Body of a sound's category assignment.</summary>
+    public class AssignCategoryDto
+    {
+        public Guid SoundId { get; set; }
+        public int? CategoryId { get; set; }
     }
 
     /// <summary>
@@ -550,8 +692,7 @@ public class IndexModel : GuildPageModelBase
             ConnectedChannelName = connectedChannelName,
             ChannelMemberCount = channelMemberCount,
             AvailableChannels = availableChannels,
-            ShowNowPlaying = false
-            // NowPlaying and Queue will be populated via SignalR in real-time
+            // Now playing, Stop and the queue are filled in over SignalR as the bot plays
         };
     }
 

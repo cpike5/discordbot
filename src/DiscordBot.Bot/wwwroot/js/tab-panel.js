@@ -116,7 +116,7 @@
                 this.bindClickHandlers(container, tabs, panelId, persistenceMode);
 
                 // Restore active tab from persistence
-                const restoredTabId = this.restoreActiveTab(panelId, persistenceMode);
+                const restoredTabId = this.restoreActiveTab(panelId, persistenceMode, container);
                 if (restoredTabId) {
                     this.activateTab(container, restoredTabId, persistenceMode);
                 }
@@ -346,28 +346,54 @@
         },
 
         /**
+         * Whether a container has a tab with this id. A stored or hashed id that is not one of
+         * the container's tabs (a skip-link `#main-content`, a modal's `#log/<id>`, an old
+         * localStorage value) must be ignored: activating it would hide every panel.
+         * @param {HTMLElement|null} container - The tab panel container
+         * @param {string|null} tabId - Candidate tab id
+         * @returns {boolean}
+         */
+        hasTab: function(container, tabId) {
+            if (!container || !tabId) return false;
+            const tabs = container.querySelectorAll(this.config.tabSelector);
+            for (let i = 0; i < tabs.length; i++) {
+                if (tabs[i].dataset.tabId === tabId && !tabs[i].disabled && !tabs[i].hasAttribute('aria-disabled')) {
+                    return true;
+                }
+            }
+            return false;
+        },
+
+        /**
          * Restore the active tab from persisted state.
+         * Only returns an id that is one of the container's own tabs; anything else (a hash that
+         * is not a tab id) is ignored, so unrelated URL hashes leave the current tab alone.
          * @param {string} panelId - The panel identifier
          * @param {string} mode - Persistence mode
+         * @param {HTMLElement} [container] - The tab panel container (looked up by panelId when omitted)
          * @returns {string|null} The restored tab ID or null
          */
-        restoreActiveTab: function(panelId, mode) {
+        restoreActiveTab: function(panelId, mode, container) {
+            const owner = container || document.querySelector(`[data-panel-id="${panelId}"]`);
+            let candidate = null;
+
             switch (mode) {
                 case 'urlhash':
-                    const hash = window.location.hash.slice(1);
-                    // Return the hash directly (no longer using panelId prefix)
-                    if (hash) {
-                        return hash;
-                    }
+                    // The hash is the bare tab id (no panelId prefix)
+                    candidate = window.location.hash.slice(1) || null;
                     break;
 
                 case 'localstorage':
                     try {
-                        return localStorage.getItem(this.config.storageKeyPrefix + panelId);
+                        candidate = localStorage.getItem(this.config.storageKeyPrefix + panelId);
                     } catch (e) {
                         console.warn('TabPanel: Failed to read from localStorage', e);
                     }
                     break;
+            }
+
+            if (candidate && this.hasTab(owner, candidate)) {
+                return candidate;
             }
             return null;
         },
@@ -380,7 +406,7 @@
         bindHashChangeListener: function(container, panelId) {
             const self = this;
             window.addEventListener('hashchange', function() {
-                const tabId = self.restoreActiveTab(panelId, 'urlhash');
+                const tabId = self.restoreActiveTab(panelId, 'urlhash', container);
                 if (tabId) {
                     self.activateTab(container, tabId, 'urlhash');
                 }
@@ -427,7 +453,7 @@
             const listRect = tablist.getBoundingClientRect();
 
             if (tabRect.left < listRect.left || tabRect.right > listRect.right) {
-                tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                tab.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
             }
         },
 
@@ -562,7 +588,6 @@
 
                     if (oldestKey) {
                         container._loadedPanels.delete(oldestKey);
-                        console.log('TabPanel: Removed oldest cache entry:', oldestKey);
                     }
                 }
 
@@ -581,7 +606,6 @@
 
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    console.log('TabPanel: Request aborted:', tabId);
                     // Note: Loading state still needs to be cleared even when aborted
                     // This is handled in the finally block below
                     return;
@@ -630,9 +654,9 @@
          */
         showErrorState: function(container, message, panelId, tabId) {
             container.removeAttribute('aria-busy');
-            const escapedMessage = this.escapeHtml(message);
-            const escapedPanelId = this.escapeHtml(panelId);
-            const escapedTabId = this.escapeHtml(tabId);
+            const escapedMessage = SafeHtml.escape(message);
+            const escapedPanelId = SafeHtml.escape(panelId);
+            const escapedTabId = SafeHtml.escape(tabId);
 
             container.innerHTML = `
                 <div class="tab-panel-error">
@@ -699,17 +723,6 @@
         },
 
         /**
-         * Escape HTML to prevent XSS.
-         * @param {string} text - The text to escape
-         * @returns {string} The escaped text
-         */
-        escapeHtml: function(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        },
-
-        /**
          * Set loading state on a tab panel and announce to screen readers.
          * @param {string} panelId - The panel identifier
          * @param {boolean} isLoading - Whether the panel is loading
@@ -728,6 +741,12 @@
             }
         }
     };
+
+    // Node (tests): export the object and stop; there is no document to initialise
+    if (typeof module === 'object' && module.exports) {
+        module.exports = TabPanel;
+        return;
+    }
 
     // Expose to global scope
     window.TabPanel = TabPanel;

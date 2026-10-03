@@ -29,4 +29,18 @@ public static class ClaimsPrincipalExtensions
 
         return 0;
     }
+
+    /// <summary>
+    /// Retrieves the Discord user ID from claims, and says whether there was one. Use this where
+    /// recording the ID 0 would be wrong, such as the reviewer of a moderation event: an
+    /// account without a linked Discord account has no ID to record.
+    /// </summary>
+    /// <param name="principal">The claims principal.</param>
+    /// <param name="discordUserId">The Discord user snowflake ID when one is linked.</param>
+    /// <returns>True when the principal carries a non-zero Discord user ID.</returns>
+    public static bool TryGetDiscordUserId(this ClaimsPrincipal principal, out ulong discordUserId)
+    {
+        discordUserId = principal.GetDiscordUserId();
+        return discordUserId != 0;
+    }
 }

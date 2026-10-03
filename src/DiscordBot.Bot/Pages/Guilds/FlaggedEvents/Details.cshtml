@@ -1,454 +1,249 @@
 @page "{guildId:long}/{id:guid}"
 @model DiscordBot.Bot.Pages.Guilds.FlaggedEvents.DetailsModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Flagged Event Details - {Model.GuildName}";
     Layout = "_GuildLayout";
+
+    var evt = Model.Event;
+    var canAcknowledge = FlaggedEventReviewRules.CanApply(FlaggedEventReviewAction.Acknowledge, evt.Status);
+    var canDismiss = FlaggedEventReviewRules.CanApply(FlaggedEventReviewAction.Dismiss, evt.Status);
+    var canRecord = FlaggedEventReviewRules.CanRecordOutcome(evt.Status);
+
+    string HandlerUrl(string handler) => Url.Page("/Guilds/FlaggedEvents/Details", handler, new { guildId = Model.GuildId, id = evt.Id }) ?? string.Empty;
+
+    // A reviewer id of 0 means the reviewer had no linked Discord account
+    var reviewer = evt.ReviewedByUserId is null or 0
+        ? "Not recorded"
+        : evt.ReviewedByUsername ?? "Unknown";
+
+    string[] presetOutcomes = { "Warned user", "Muted user for 24 hours", "Kicked user from server", "Banned user from server" };
+}
+
+@section Scripts {
+    <script src="~/js/flagged-events.js" asp-append-version="true"></script>
 }
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Main Content Column -->
-        <div class="lg:col-span-2 space-y-6">
-            <!-- Event Summary Card -->
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="flex items-center gap-3">
-                        <partial name="Shared/Components/_SeverityBadge" model="Model.Event.Severity" />
-                        <partial name="Shared/Components/_StatusBadge" model="Model.Event.Status" />
-                    </div>
-                    <div class="text-sm text-text-tertiary">
-                        <span data-utc="@Model.Event.CreatedAt.ToString("o")" data-format="datetime"></span>
-                    </div>
+    <!-- Main content -->
+    <div class="lg:col-span-2 space-y-6 min-w-0">
+        <section class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6" aria-labelledby="eventSummaryHeading">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <h2 id="eventSummaryHeading" class="sr-only">Event summary</h2>
+                    <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
+                    <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
+                </div>
+                <div class="text-sm text-text-secondary">@DisplayFormat.Time(evt.CreatedAt, "datetime")</div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
+                    <p class="text-text-primary break-words">@evt.Description</p>
                 </div>
 
-                <div class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
-                        <p class="text-text-primary">@Model.Event.Description</p>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Rule Type</h3>
-                            <div class="flex items-center gap-2">
-                                <partial name="Shared/Components/_RuleTypeIcon" model="Model.Event.RuleType" />
-                                <span class="text-text-primary">@Model.Event.RuleType</span>
-                            </div>
+                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Rule type</h3>
+                        <div class="flex items-center gap-2">
+                            <partial name="Shared/Components/_RuleTypeIcon" model="evt.RuleType" />
+                            <span class="text-text-primary">@evt.RuleType</span>
                         </div>
-
-                        @if (Model.Event.ChannelId > 0)
-                        {
-                            <div>
-                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Channel</h3>
-                                <p class="text-text-primary">#{@Model.Event.ChannelName}</p>
-                            </div>
-                        }
                     </div>
 
-                    @if (Model.Event.ReviewedAt.HasValue)
+                    @if (evt.ChannelId > 0)
                     {
-                        <div class="border-t border-border-primary pt-4">
-                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-2">Review Information</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <span class="text-sm text-text-secondary">Reviewed by:</span>
-                                    <p class="text-text-primary">@(Model.Event.ReviewedByUsername ?? "Unknown")</p>
-                                </div>
-                                <div>
-                                    <span class="text-sm text-text-secondary">Reviewed at:</span>
-                                    <p class="text-text-primary"><span data-utc="@Model.Event.ReviewedAt.Value.ToString("o")" data-format="datetime"></span></p>
-                                </div>
-                            </div>
-                            @if (!string.IsNullOrEmpty(Model.Event.ActionTaken))
-                            {
-                                <div class="mt-4">
-                                    <span class="text-sm text-text-secondary">Action taken:</span>
-                                    <p class="text-text-primary">@Model.Event.ActionTaken</p>
-                                </div>
-                            }
+                        <div>
+                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Channel</h3>
+                            <p class="text-text-primary break-all">#@evt.ChannelName</p>
                         </div>
                     }
                 </div>
-            </div>
 
-            <!-- User Info Card -->
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-text-primary mb-4">User Information</h2>
-                <div class="flex items-center gap-4 mb-4">
-                    <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-bold text-lg">
-                        @(Model.Event.Username.Length > 0 ? Model.Event.Username[0].ToString().ToUpper() : "?")
-                    </div>
-                    <div>
-                        <div class="text-text-primary font-medium">@Model.Event.Username</div>
-                        <div class="text-sm text-text-tertiary">User ID: @Model.Event.UserId</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Evidence Card -->
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                <button type="button" onclick="toggleEvidence()" class="w-full flex items-center justify-between text-left">
-                    <h2 class="text-lg font-semibold text-text-primary">Evidence</h2>
-                    <svg id="evidenceChevron" class="w-5 h-5 text-text-secondary transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-                <div id="evidenceContent" class="mt-4">
-                    <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto">@Model.Event.Evidence</pre>
-                </div>
-            </div>
-
-            <!-- User History Card -->
-            @if (Model.UserHistory.Any())
-            {
-                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                    <h2 class="text-lg font-semibold text-text-primary mb-4">User History (@Model.UserHistory.Count() previous events)</h2>
-                    <div class="space-y-3">
-                        @foreach (var evt in Model.UserHistory)
+                @if (evt.ReviewedAt.HasValue)
+                {
+                    <div class="border-t border-border-primary pt-4">
+                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-2">Review</h3>
+                        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <dt class="text-sm text-text-secondary">Reviewed by</dt>
+                                <dd class="text-text-primary break-words">@reviewer</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm text-text-secondary">Reviewed</dt>
+                                <dd class="text-text-primary">@DisplayFormat.Time(evt.ReviewedAt, "datetime")</dd>
+                            </div>
+                        </dl>
+                        @if (!string.IsNullOrEmpty(evt.ActionTaken))
                         {
-                            <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-primary rounded-md">
-                                <div class="flex items-center gap-3">
-                                    <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
-                                    <span class="text-sm text-text-primary">@evt.RuleType</span>
-                                    <span class="text-xs text-text-tertiary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="date"></span></span>
-                                </div>
-                                <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
+                            <div class="mt-4">
+                                <span class="text-sm text-text-secondary">Outcome recorded</span>
+                                <p class="text-text-primary break-words whitespace-pre-wrap" dir="auto">@evt.ActionTaken</p>
                             </div>
                         }
                     </div>
+                }
+            </div>
+        </section>
+
+        <section class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6" aria-labelledby="userInfoHeading">
+            <h2 id="userInfoHeading" class="text-lg font-semibold text-text-primary mb-4">User</h2>
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-bold text-lg flex-shrink-0" aria-hidden="true">
+                    @TextDisplay.Initials(evt.Username, 1)
                 </div>
-            }
-        </div>
-
-        <!-- Action Panel Column -->
-        <div class="lg:col-span-1">
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sticky top-6">
-                <h2 class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
-
-                @if (Model.Event.Status == FlaggedEventStatus.Pending)
+                <div class="min-w-0 flex-1">
+                    <div class="text-text-primary font-medium break-all">@evt.Username</div>
+                    <div class="text-sm text-text-secondary break-all">User ID <span class="font-mono">@evt.UserId</span></div>
+                </div>
+                @if (Model.UserIsMember)
                 {
-                    <div class="space-y-3">
-                        <button type="button" onclick="dismissEvent()" class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors">
-                            Dismiss
-                        </button>
-                        <button type="button" onclick="acknowledgeEvent()" class="w-full px-4 py-2 bg-accent-blue text-white font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
-                            Acknowledge
-                        </button>
-                        <div class="relative">
-                            <button type="button"
-                                    id="actionDropdownTrigger"
-                                    onclick="toggleActionDropdown()"
-                                    aria-haspopup="true"
-                                    aria-expanded="false"
-                                    aria-controls="actionDropdown"
-                                    class="w-full px-4 py-2 bg-warning text-white font-medium rounded-md hover:bg-warning/90 transition-colors flex items-center justify-between">
-                                <span>Record outcome</span>
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            <div id="actionDropdown"
-                                 role="menu"
-                                 aria-label="Outcome to record"
-                                 class="hidden absolute z-10 mt-2 w-full bg-bg-secondary border border-border-primary rounded-md shadow-lg">
-                                <div class="py-1">
-                                    <p class="px-4 py-2 text-xs text-text-secondary border-b border-border-primary">Records what you did in Discord. Nothing is sent to Discord.</p>
-                                    <button type="button" role="menuitem" onclick="takeAction('Warned user')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
-                                        Warned user
-                                    </button>
-                                    <button type="button" role="menuitem" onclick="takeAction('Muted user for 24 hours')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
-                                        Muted user (24 hours)
-                                    </button>
-                                    <button type="button" role="menuitem" onclick="takeAction('Kicked user from server')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
-                                        Kicked user
-                                    </button>
-                                    <button type="button" role="menuitem" onclick="takeAction('Banned user from server')" class="block w-full text-left px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
-                                        Banned user
-                                    </button>
-                                    <button type="button" role="menuitem" onclick="showCustomActionModal()" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors border-t border-border-primary">
-                                        Other outcome…
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <a asp-page="/Guilds/Members/Moderation" asp-route-guildId="@Model.GuildId" asp-route-userId="@evt.UserId" class="btn btn-secondary btn-sm">
+                        View moderation profile
+                    </a>
                 }
                 else
                 {
-                    <div class="text-center text-text-secondary">
-                        This event has been @Model.Event.Status.ToString().ToLower()
-                    </div>
+                    <span class="text-sm text-text-secondary">No longer a member of this server</span>
                 }
             </div>
-        </div>
+        </section>
+
+        <section class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6" aria-labelledby="evidenceHeading">
+            <details open>
+                <summary class="flex items-center justify-between cursor-pointer list-none">
+                    <h2 id="evidenceHeading" class="text-lg font-semibold text-text-primary">Evidence</h2>
+                    <span class="text-sm text-text-secondary">Show or hide</span>
+                </summary>
+                <pre class="mt-4 bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary whitespace-pre-wrap break-words">@evt.Evidence</pre>
+            </details>
+        </section>
+
+        @if (Model.UserHistory.Any())
+        {
+            <section class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6" aria-labelledby="historyHeading">
+                <h2 id="historyHeading" class="text-lg font-semibold text-text-primary mb-4">
+                    User history <span class="text-text-secondary font-normal">(@DisplayFormat.Plural(Model.UserHistory.Count(), "other event"))</span>
+                </h2>
+                <ul class="space-y-3">
+                    @foreach (var past in Model.UserHistory)
+                    {
+                        <li>
+                            <a asp-page="/Guilds/FlaggedEvents/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@past.Id"
+                               class="flex flex-wrap items-center justify-between gap-3 p-3 bg-bg-primary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                                <span class="flex flex-wrap items-center gap-3">
+                                    <partial name="Shared/Components/_SeverityBadge" model="past.Severity" />
+                                    <span class="text-sm text-text-primary">@past.RuleType</span>
+                                    <span class="text-xs text-text-secondary">@DisplayFormat.Time(past.CreatedAt, "date")</span>
+                                </span>
+                                <partial name="Shared/Components/_StatusBadge" model="past.Status" />
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+
+    <!-- Review actions -->
+    <div class="lg:col-span-1">
+        <section class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 lg:sticky lg:top-6" aria-labelledby="actionsHeading">
+            <h2 id="actionsHeading" class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
+
+            @if (canAcknowledge || canDismiss || canRecord)
+            {
+                <form id="eventActionForm" method="post" data-submit-guard data-event-action-form>
+                    <div class="space-y-3">
+                        @if (canAcknowledge)
+                        {
+                            <button type="submit" formaction="@HandlerUrl("Acknowledge")" class="btn btn-accent w-full"
+                                    data-loading-text="Acknowledging…"
+                                    data-confirm-title="Acknowledge event"
+                                    data-confirm-message="Mark this event as seen? It stays open for review."
+                                    data-confirm-text="Acknowledge">
+                                Acknowledge
+                            </button>
+                        }
+                        @if (canDismiss)
+                        {
+                            <button type="submit" formaction="@HandlerUrl("Dismiss")" class="btn btn-secondary w-full"
+                                    data-loading-text="Dismissing…"
+                                    data-confirm-title="Dismiss event"
+                                    data-confirm-message="Dismiss this event? It is closed as not needing action."
+                                    data-confirm-text="Dismiss">
+                                Dismiss
+                            </button>
+                        }
+                    </div>
+
+                    @if (canRecord)
+                    {
+                        <div class="mt-6 pt-6 border-t border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary mb-1">Record outcome</h3>
+                            <p class="text-xs text-text-secondary mb-3">Keeps a note of what you did in Discord. Nothing is sent to Discord.</p>
+                            <div class="space-y-2">
+                                @foreach (var preset in presetOutcomes)
+                                {
+                                    <button type="submit" name="outcome" value="@preset" formaction="@HandlerUrl("RecordOutcome")"
+                                            class="btn btn-secondary w-full justify-start"
+                                            data-loading-text="Recording…"
+                                            data-confirm-title="Record outcome"
+                                            data-confirm-message="Record &quot;{value}&quot; as the outcome of this event? This only updates the record. It does not warn, mute, kick or ban anyone in Discord."
+                                            data-confirm-text="Record outcome">
+                                        @preset
+                                    </button>
+                                }
+                                <button type="button" class="btn btn-secondary w-full justify-start" data-open-dialog="customOutcomeDialog">
+                                    Other outcome…
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </form>
+            }
+            else
+            {
+                <p class="text-sm text-text-secondary">
+                    This event has been @evt.Status.DisplayNameLower() and is closed.
+                </p>
+            }
+
+            <div class="mt-6 pt-6 border-t border-border-primary">
+                <a asp-page="/Guilds/FlaggedEvents/Index" asp-route-guildId="@Model.GuildId" class="btn btn-ghost w-full">
+                    Back to flagged events
+                </a>
+            </div>
+        </section>
     </div>
 </div>
 
-<!-- Custom Action Modal -->
-<div id="customActionModal"
-     role="dialog"
-     aria-modal="true"
-     aria-labelledby="customActionModalTitle"
-     class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-     onclick="if(event.target === this) hideCustomActionModal()">
-    <div class="bg-bg-secondary border border-border-primary rounded-lg max-w-md w-full p-6">
-        <h3 id="customActionModalTitle" class="text-lg font-semibold text-text-primary mb-4">Record another outcome</h3>
-        <textarea id="customActionText" rows="4" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Describe what you did in Discord..." aria-label="Outcome description"></textarea>
-        <div class="flex items-center justify-end gap-3 mt-4">
-            <button type="button" onclick="hideCustomActionModal()" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
-                Cancel
-            </button>
-            <button type="button" onclick="submitCustomAction()" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
-                Record outcome
-            </button>
+@if (canRecord)
+{
+    <!-- Custom outcome dialog -->
+    <div id="customOutcomeDialog"
+         class="hidden fixed inset-0 z-[var(--z-modal)]"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="customOutcomeTitle">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <form method="post" action="@HandlerUrl("RecordOutcome")" asp-antiforgery="true" data-submit-guard
+                  class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full qa-modal-panel pointer-events-auto">
+                <div class="p-6">
+                    <h2 id="customOutcomeTitle" class="text-lg font-semibold text-text-primary mb-1">Record another outcome</h2>
+                    <p class="text-sm text-text-secondary mb-4">Describe what you did in Discord. This only updates the record.</p>
+                    <label for="customOutcomeText" class="form-label block mb-1">Outcome</label>
+                    <textarea id="customOutcomeText" name="outcome" rows="4" required maxlength="@DetailsModel.MaxOutcomeLength" dir="auto"
+                              class="form-textarea" placeholder="For example: Timed out for 10 minutes and asked to stop." data-modal-initial-focus></textarea>
+                </div>
+                <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                    <button type="button" class="btn btn-secondary" data-modal-dismiss>Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-loading-text="Recording…">Record outcome</button>
+                </div>
+            </form>
         </div>
     </div>
-</div>
-
-@section Scripts {
-    <script>
-        const guildId = '@Model.GuildId';
-        const eventId = '@Model.Event.Id';
-
-        function toggleEvidence() {
-            const content = document.getElementById('evidenceContent');
-            const chevron = document.getElementById('evidenceChevron');
-
-            content.classList.toggle('hidden');
-            chevron.classList.toggle('rotate-180');
-        }
-
-        function toggleActionDropdown() {
-            const dropdown = document.getElementById('actionDropdown');
-            const trigger = document.getElementById('actionDropdownTrigger');
-            const isExpanded = !dropdown.classList.contains('hidden');
-
-            dropdown.classList.toggle('hidden');
-            trigger.setAttribute('aria-expanded', !isExpanded);
-
-            // Focus first menu item when opening
-            if (isExpanded === false) {
-                const firstItem = dropdown.querySelector('[role="menuitem"]');
-                if (firstItem) firstItem.focus();
-            }
-        }
-
-        function closeActionDropdown() {
-            const dropdown = document.getElementById('actionDropdown');
-            const trigger = document.getElementById('actionDropdownTrigger');
-            dropdown.classList.add('hidden');
-            trigger.setAttribute('aria-expanded', 'false');
-        }
-
-        // Focus trap state
-        let previousActiveElement = null;
-
-        function showCustomActionModal() {
-            closeActionDropdown();
-            previousActiveElement = document.activeElement;
-            const modal = document.getElementById('customActionModal');
-            modal.classList.remove('hidden');
-
-            // Focus the textarea
-            document.getElementById('customActionText').focus();
-
-            // Add keydown listener for focus trap and Escape
-            document.addEventListener('keydown', handleModalKeydown);
-        }
-
-        function hideCustomActionModal() {
-            document.getElementById('customActionModal').classList.add('hidden');
-            document.getElementById('customActionText').value = '';
-
-            // Remove keydown listener
-            document.removeEventListener('keydown', handleModalKeydown);
-
-            // Restore focus to previous element
-            if (previousActiveElement) {
-                previousActiveElement.focus();
-                previousActiveElement = null;
-            }
-        }
-
-        function handleModalKeydown(event) {
-            const modal = document.getElementById('customActionModal');
-
-            // Close on Escape
-            if (event.key === 'Escape') {
-                hideCustomActionModal();
-                return;
-            }
-
-            // Focus trap on Tab
-            if (event.key === 'Tab') {
-                const focusableElements = modal.querySelectorAll('textarea, button:not([disabled])');
-                const firstElement = focusableElements[0];
-                const lastElement = focusableElements[focusableElements.length - 1];
-
-                if (event.shiftKey) {
-                    if (document.activeElement === firstElement) {
-                        event.preventDefault();
-                        lastElement.focus();
-                    }
-                } else {
-                    if (document.activeElement === lastElement) {
-                        event.preventDefault();
-                        firstElement.focus();
-                    }
-                }
-            }
-        }
-
-        async function dismissEvent() {
-            const confirmed = await quickActions.confirm({
-                title: 'Dismiss Flagged Event',
-                message: 'Are you sure you want to dismiss this flagged event?',
-                variant: 'warning',
-                confirmText: 'Dismiss'
-            });
-            if (!confirmed) return;
-
-            try {
-                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/dismiss`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ reviewerId: '@User.FindFirst("DiscordId")?.Value' })
-                });
-
-                if (response.ok) {
-                    window.location.href = '/Guilds/FlaggedEvents/Index/' + guildId + '?successMessage=' + encodeURIComponent('Event dismissed successfully');
-                } else {
-                    const error = await response.json();
-                    quickActions.showToast('Error dismissing event: ' + error.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error dismissing event:', error);
-                quickActions.showToast('An error occurred while dismissing the event.', 'error');
-            }
-        }
-
-        async function acknowledgeEvent() {
-            const confirmed = await quickActions.confirm({
-                title: 'Acknowledge Flagged Event',
-                message: 'Are you sure you want to acknowledge this flagged event?',
-                variant: 'warning',
-                confirmText: 'Acknowledge'
-            });
-            if (!confirmed) return;
-
-            try {
-                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/acknowledge`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ reviewerId: '@User.FindFirst("DiscordId")?.Value' })
-                });
-
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    const error = await response.json();
-                    quickActions.showToast('Error acknowledging event: ' + error.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error acknowledging event:', error);
-                quickActions.showToast('An error occurred while acknowledging the event.', 'error');
-            }
-        }
-
-        async function takeAction(action) {
-            document.getElementById('actionDropdown').classList.add('hidden');
-
-            const confirmed = await quickActions.confirm({
-                title: 'Record outcome',
-                message: `Record "${action}" as the outcome of this event? This only updates the record; it does not warn, mute, kick or ban anyone in Discord.`,
-                variant: 'warning',
-                confirmText: 'Record outcome'
-            });
-            if (!confirmed) return;
-
-            try {
-                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/action`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: action,
-                        reviewerId: '@User.FindFirst("DiscordId")?.Value'
-                    })
-                });
-
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    const error = await response.json();
-                    quickActions.showToast('Could not record the outcome: ' + error.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error taking action:', error);
-                quickActions.showToast('An error occurred while recording the outcome.', 'error');
-            }
-        }
-
-        async function submitCustomAction() {
-            const actionText = document.getElementById('customActionText').value.trim();
-
-            if (!actionText) {
-                quickActions.showToast('Please enter an action description.', 'warning');
-                return;
-            }
-
-            hideCustomActionModal();
-
-            try {
-                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/action`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: actionText,
-                        reviewerId: '@User.FindFirst("DiscordId")?.Value'
-                    })
-                });
-
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    const error = await response.json();
-                    quickActions.showToast('Could not record the outcome: ' + error.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error taking action:', error);
-                quickActions.showToast('An error occurred while recording the outcome.', 'error');
-            }
-        }
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('actionDropdown');
-            const trigger = document.getElementById('actionDropdownTrigger');
-
-            // If click is outside both the trigger and dropdown, close it
-            if (!dropdown.contains(event.target) && !trigger.contains(event.target)) {
-                closeActionDropdown();
-            }
-        });
-
-        // Close dropdown on Escape key
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                const dropdown = document.getElementById('actionDropdown');
-                if (!dropdown.classList.contains('hidden')) {
-                    closeActionDropdown();
-                    document.getElementById('actionDropdownTrigger').focus();
-                }
-            }
-        });
-    </script>
 }

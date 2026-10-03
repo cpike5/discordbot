@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -72,11 +73,28 @@ public class PrivacyModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
-    /// Download link from a successful export, carried across the redirect and shown once
-    /// in a page alert so the user can use it (a toast would auto-dismiss).
+    /// Id of the export just created, carried across the redirect so the page can show its download button
+    /// once (a toast would auto-dismiss). It is an id, not a URL: the link is always built from it here.
     /// </summary>
     [TempData]
-    public string? ExportDownloadUrl { get; set; }
+    public string? ExportId { get; set; }
+
+    /// <summary>
+    /// The link to the authenticated download handler for the export just created, or null when there is none.
+    /// Built from the export id (a <see cref="Guid"/>), so it can only ever be a path on this site.
+    /// </summary>
+    public string? ExportDownloadPath =>
+        Guid.TryParse(ExportId, out var exportId) ? Url.Page("/Account/Privacy", "DownloadExport", new { id = exportId }) : null;
+
+    /// <summary>The id of the data-management card, the target of the redirect after an export.</summary>
+    private const string DataManagementFragment = "data-management";
+
+    /// <summary>
+    /// Redirects back to this page at the given element, so the page does not jump to the top
+    /// after a POST from far down the page.
+    /// </summary>
+    private IActionResult RedirectToFragment(string fragment) =>
+        RedirectToPage(pageName: null, pageHandler: null, routeValues: null, fragment: fragment);
 
     /// <summary>
     /// Handles GET requests to display the privacy and consent settings page.
@@ -151,7 +169,7 @@ public class PrivacyModel : PageModel
         {
             _logger.LogWarning("User {UserId} attempted to toggle consent without Discord account linked", user.Id);
             TempData.SetErrorToast("You must link your Discord account before managing consent preferences.");
-            return RedirectToPage();
+            return RedirectToFragment($"consent-{type}");
         }
 
         // Validate consent type
@@ -159,7 +177,7 @@ public class PrivacyModel : PageModel
         {
             _logger.LogWarning("User {UserId} attempted to toggle invalid consent type {Type}", user.Id, type);
             TempData.SetErrorToast("Invalid consent type.");
-            return RedirectToPage();
+            return RedirectToFragment($"consent-{type}");
         }
 
         var consentType = (ConsentType)type;
@@ -210,7 +228,32 @@ public class PrivacyModel : PageModel
             TempData.SetErrorToast("An error occurred while updating consent preferences.");
         }
 
-        return RedirectToPage();
+        return RedirectToFragment($"consent-{type}");
+    }
+
+    /// <summary>
+    /// Streams an export archive to the user who created it. The file is resolved only under the signed-in
+    /// user's own Discord id, so another user's export id (or an expired or unknown one) is a 404.
+    /// </summary>
+    /// <param name="id">The export id; anything that is not a GUID never binds and so is a 404 too.</param>
+    public async Task<IActionResult> OnGetDownloadExportAsync(Guid id)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user?.DiscordUserId is not { } discordUserId)
+        {
+            return NotFound();
+        }
+
+        var path = _exportService.GetExportFilePath(discordUserId, id);
+        if (path == null)
+        {
+            _logger.LogWarning("User {UserId} requested export {ExportId} that does not exist or is not theirs", user.Id, id);
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "no-store";
+        var fileName = $"discordbot-data-export-{System.IO.File.GetLastWriteTimeUtc(path):yyyy-MM-dd}.zip";
+        return PhysicalFile(path, "application/zip", fileName);
     }
 
     /// <summary>
@@ -231,7 +274,7 @@ public class PrivacyModel : PageModel
         {
             _logger.LogWarning("User {UserId} attempted to export data without Discord account linked", user.Id);
             TempData.SetErrorToast("You must link your Discord account before exporting data.");
-            return RedirectToPage();
+            return RedirectToFragment(DataManagementFragment);
         }
 
         var discordUserId = user.DiscordUserId.Value;
@@ -250,8 +293,8 @@ public class PrivacyModel : PageModel
                 _logger.LogInformation("Successfully exported data for user {UserId}. {RecordCount} records exported",
                     user.Id, totalRecords);
 
-                TempData.SetSuccessToast($"Your data has been exported successfully. {totalRecords} records were exported.");
-                ExportDownloadUrl = result.DownloadUrl;
+                TempData.SetSuccessToast($"Your data has been exported. It has {DisplayFormat.Plural(totalRecords, "record")}.");
+                ExportId = result.ExportId?.ToString();
             }
             else
             {
@@ -273,7 +316,7 @@ public class PrivacyModel : PageModel
             TempData.SetErrorToast("An error occurred while exporting your data. Please try again.");
         }
 
-        return RedirectToPage();
+        return RedirectToFragment(DataManagementFragment);
     }
 
     /// <summary>
@@ -341,7 +384,7 @@ public class PrivacyModel : PageModel
                 return new JsonResult(new
                 {
                     success = true,
-                    message = $"Your data has been permanently deleted. {totalDeleted} records were removed from the system.",
+                    message = $"Your data has been permanently deleted. {DisplayFormat.Plural(totalDeleted, "record")} removed.",
                     redirectUrl = Url.Page("/Account/Logout") ?? "/"
                 });
             }

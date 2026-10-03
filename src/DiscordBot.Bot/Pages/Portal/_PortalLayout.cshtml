@@ -1,23 +1,12 @@
-@inject DiscordBot.Core.Interfaces.IThemeService ThemeService
 <!DOCTYPE html>
-<html lang="en" class="portal-page" data-theme="@(await ThemeService.GetCurrentThemeKeyAsync())">
+<html lang="en" class="portal-page" theme-root>
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f1114">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <partial name="_ThemeHead" />
     <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
     <partial name="_PwaHead" />
     <title>@ViewData["Title"] - Discord Bot Portal</title>
-    <!-- Blocking theme application script - runs before first paint to prevent flash -->
-    <script>
-        (function() {
-            try {
-                var match = document.cookie.match(/theme-preference=([^;]+)/);
-                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
-                if (theme) document.documentElement.setAttribute('data-theme', theme);
-            } catch (e) {}
-        })();
-    </script>
     <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,8 +28,18 @@
     <script src="~/js/user-preferences.js" asp-append-version="true"></script>
     <!-- Shared Toast Notification Manager -->
     <script src="~/js/toast.js" asp-append-version="true"></script>
+    <!-- Shared dialogs: quickActions.confirm / typedConfirm / openDialog (no native confirm or prompt) -->
+    <script src="~/js/quick-actions.js" asp-append-version="true"></script>
+    <!-- Formatting: dates, relative time, plurals, numbers, durations -->
+    <script src="~/js/format.js" asp-append-version="true"></script>
+    <!-- Theme: header toggle, saved choice, OS preference -->
+    <script src="~/js/theme.js" asp-append-version="true"></script>
     <!-- Button pending states and the data-submit-guard double-submit guard -->
     <script src="~/js/loading-manager.js" asp-append-version="true"></script>
+    <!-- Interaction primitives: empty/loading states from script, unsaved-changes warning -->
+    <script src="~/js/empty-state.js" asp-append-version="true"></script>
+    <script src="~/js/skeleton.js" asp-append-version="true"></script>
+    <script src="~/js/unsaved-changes.js" asp-append-version="true"></script>
     <!-- Shared Keyboard Shortcut Manager -->
     <script src="~/js/shared/keyboard-shortcuts.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

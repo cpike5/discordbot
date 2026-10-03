@@ -2,29 +2,34 @@
 @model LoginModel
 @inject DiscordBot.Core.Interfaces.IVersionService VersionService
 @{
-    ViewData["Title"] = "Sign In";
+    ViewData["Title"] = "Sign in";
     Layout = null;
+
+    // Server-side validation state, so the fields can be flagged and focus can land on the first error
+    var emailErrors = ViewData.ModelState.TryGetValue("Input.Email", out var emailEntry) && emailEntry.Errors.Count > 0;
+    var passwordErrors = ViewData.ModelState.TryGetValue("Input.Password", out var passwordEntry) && passwordEntry.Errors.Count > 0;
+    var formErrors = ViewData.ModelState.TryGetValue(string.Empty, out var formEntry)
+        ? formEntry.Errors.Select(e => e.ErrorMessage).Where(m => !string.IsNullOrWhiteSpace(m)).ToList()
+        : new List<string>();
+    if (!string.IsNullOrEmpty(Model.ErrorMessage) && !formErrors.Contains(Model.ErrorMessage))
+    {
+        formErrors.Add(Model.ErrorMessage);
+    }
+    // Wrong credentials: the email is usually right, so the password is the field to retry
+    var credentialsRejected = Model.CredentialsRejected;
+    var emailInvalid = emailErrors;
+    var passwordInvalid = !emailErrors && (passwordErrors || credentialsRejected);
 }
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" theme-root>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0f1114">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <partial name="_ThemeHead" />
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
     <partial name="_PwaHead" />
-    <!-- Blocking theme application script - runs before first paint to prevent flash -->
-    <script>
-        (function() {
-            try {
-                var match = document.cookie.match(/theme-preference=([^;]+)/);
-                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
-                if (theme) document.documentElement.setAttribute('data-theme', theme);
-            } catch (e) {}
-        })();
-    </script>
     <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,7 +50,7 @@
 
                 <!-- Form Header -->
                 <header class="login-form-header">
-                    <h2>Welcome back</h2>
+                    <h1>Welcome back</h1>
                     <p>Sign in to open the console.</p>
                 </header>
 
@@ -85,10 +90,10 @@
                     </div>
                 }
 
-                <!-- Error Alert -->
-                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                <!-- Form-level errors (wrong credentials, deactivated account, failed external sign-in) -->
+                @if (formErrors.Count > 0)
                 {
-                    <div class="login-alert login-alert-error login-error-alert" role="alert" aria-live="polite">
+                    <div id="login-error" class="login-alert login-alert-error login-error-alert" role="alert">
                         <div class="login-alert-icon">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
@@ -96,13 +101,13 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="login-alert-title">Sign-in failed</p>
-                            <p class="login-alert-message">@Model.ErrorMessage</p>
+                            @foreach (var message in formErrors)
+                            {
+                                <p class="login-alert-message">@message</p>
+                            }
                         </div>
                     </div>
                 }
-
-                <!-- Validation Summary -->
-                <div asp-validation-summary="ModelOnly" class="login-error-alert" role="alert"></div>
 
                 @if (Model.IsDiscordOAuthConfigured)
                 {
@@ -124,7 +129,7 @@
                 }
 
                 <!-- Email/Password Form -->
-                <form method="post" id="login-form" novalidate data-submit-guard>
+                <form method="post" id="login-form" novalidate data-submit-guard data-focus-first-error>
                     <input type="hidden" asp-for="ReturnUrl" value="@Model.ReturnUrl" />
 
                     <!-- Email Field (Floating Label) -->
@@ -133,15 +138,18 @@
                             asp-for="Input.Email"
                             type="email"
                             id="email"
-                            class="form-input-floating"
+                            class="form-input-floating@(emailInvalid ? " error" : "")"
                             placeholder=" "
-                            autocomplete="email"
+                            autocomplete="username"
+                            autocapitalize="none"
+                            spellcheck="false"
                             required
                             aria-required="true"
-                            aria-describedby="email-error"
+                            aria-invalid="@(emailInvalid ? "true" : "false")"
+                            aria-describedby="email-message"
                         />
                         <label for="email" class="form-label-floating">Email address</label>
-                        <span id="email-error" class="form-error" role="alert" asp-validation-for="Input.Email"></span>
+                        <span id="email-message" class="form-error" role="alert" asp-validation-for="Input.Email"></span>
                     </div>
 
                     <!-- Password Field (Floating Label) -->
@@ -150,12 +158,13 @@
                             asp-for="Input.Password"
                             type="password"
                             id="password"
-                            class="form-input-floating pr-12"
+                            class="form-input-floating pr-12@(passwordInvalid ? " error" : "")"
                             placeholder=" "
                             autocomplete="current-password"
                             required
                             aria-required="true"
-                            aria-describedby="password-error"
+                            aria-invalid="@(passwordInvalid ? "true" : "false")"
+                            aria-describedby="password-message@(credentialsRejected ? " login-error" : "")"
                         />
                         <label for="password" class="form-label-floating">Password</label>
                         <button
@@ -172,7 +181,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                             </svg>
                         </button>
-                        <span id="password-error" class="form-error" role="alert" asp-validation-for="Input.Password"></span>
+                        <span id="password-message" class="form-error" role="alert" asp-validation-for="Input.Password"></span>
                     </div>
 
                     <!-- Remember Me -->
@@ -208,6 +217,7 @@
     </div>
 
     <script src="~/js/loading-manager.js" asp-append-version="true"></script>
+    <script src="~/js/form-focus.js" asp-append-version="true"></script>
     <script src="~/js/login.js" asp-append-version="true"></script>
     <partial name="_ValidationScriptsPartial" />
 

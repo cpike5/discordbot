@@ -40,21 +40,30 @@ public class GuildAccessHandler : AuthorizationHandler<GuildAccessRequirement>
             return;
         }
 
-        // Get the guild ID from route data
-        var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext == null)
+        // The guild comes from the route, or from the resource when a handler that has no guild in
+        // its route asks about a specific guild (AuthorizeAsync(user, guildId, requirement)). A
+        // query-string value is caller-controlled and can differ from the guild the page actually
+        // operates on, so it must never decide access.
+        ulong guildId;
+        if (context.Resource is ulong resourceGuildId)
         {
-            _logger.LogWarning("HttpContext is null, cannot verify guild access");
-            return;
+            guildId = resourceGuildId;
         }
-
-        var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
-            ?? httpContext.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
-
-        if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out var guildId))
+        else
         {
-            _logger.LogDebug("Guild ID not found in route, skipping guild access check");
-            return;
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null)
+            {
+                _logger.LogWarning("HttpContext is null, cannot verify guild access");
+                return;
+            }
+
+            var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString();
+            if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out guildId))
+            {
+                _logger.LogDebug("Guild ID not found in route, skipping guild access check");
+                return;
+            }
         }
 
         // Get the current user

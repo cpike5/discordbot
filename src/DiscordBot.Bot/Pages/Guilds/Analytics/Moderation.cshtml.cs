@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
@@ -229,7 +230,7 @@ public class ModerationModel : GuildPageModelBase
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found when resolving username for user {UserId}", guildId, userId);
-                return "Unknown User";
+                return UserDisplay.UnknownName;
             }
 
             var user = guild.GetUser(userId);
@@ -239,12 +240,12 @@ public class ModerationModel : GuildPageModelBase
             }
 
             _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to get username for user {UserId} in guild {GuildId}", userId, guildId);
-            return "Unknown User";
+            return UserDisplay.UnknownName;
         }
     }
 

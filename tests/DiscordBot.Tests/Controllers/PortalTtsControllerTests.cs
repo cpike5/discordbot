@@ -35,7 +35,7 @@ public class PortalTtsControllerTests
     private readonly Mock<IPlaybackService> _mockPlaybackService;
     private readonly Mock<ITtsPlaybackService> _mockTtsPlaybackService;
     private readonly Mock<ISettingsService> _mockSettingsService;
-    private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IPortalGuildDirectory> _mockGuildDirectory;
     private readonly Mock<IVoiceCapabilityProvider> _mockVoiceCapabilityProvider;
     private readonly Mock<IStylePresetProvider> _mockStylePresetProvider;
     private readonly Mock<ISsmlValidator> _mockSsmlValidator;
@@ -56,7 +56,7 @@ public class PortalTtsControllerTests
         _mockPlaybackService = new Mock<IPlaybackService>();
         _mockTtsPlaybackService = new Mock<ITtsPlaybackService>();
         _mockSettingsService = new Mock<ISettingsService>();
-        _mockDiscordClient = new Mock<DiscordSocketClient>(MockBehavior.Default, new DiscordSocketConfig());
+        _mockGuildDirectory = new Mock<IPortalGuildDirectory>();
         _mockVoiceCapabilityProvider = new Mock<IVoiceCapabilityProvider>();
         _mockStylePresetProvider = new Mock<IStylePresetProvider>();
         _mockSsmlValidator = new Mock<ISsmlValidator>();
@@ -96,7 +96,7 @@ public class PortalTtsControllerTests
             _sendPipeline,
             _mockAudioService.Object,
             _mockPlaybackService.Object,
-            _mockDiscordClient.Object,
+            _mockGuildDirectory.Object,
             azureSpeechOptions,
             _mockLogger.Object);
 
@@ -132,7 +132,7 @@ public class PortalTtsControllerTests
         _mockPlaybackService.Setup(s => s.IsPlaying(guildId)).Returns(false);
 
         // Note: Discord.NET classes are not mockable, controller handles null guild/channel gracefully
-        _mockDiscordClient.Setup(c => c.GetGuild(guildId)).Returns((SocketGuild?)null);
+        _mockGuildDirectory.Setup(d => d.IsGuildAvailableAsync(guildId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         // Act
         var result = _controller.GetStatus(guildId);
@@ -456,7 +456,7 @@ public class PortalTtsControllerTests
         var badRequestResult = result as BadRequestObjectResult;
         var error = badRequestResult!.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("TTS is not enabled for this guild");
+        error!.Message.Should().Be("TTS is not enabled for this server");
     }
 
     #endregion
@@ -464,34 +464,39 @@ public class PortalTtsControllerTests
     #region GetVoiceChannels Tests
 
     [Fact]
-    public void GetVoiceChannels_WithValidGuild_ReturnsChannelList()
+    public async Task GetVoiceChannels_WithValidGuild_ReturnsChannelList()
     {
         // Arrange
         const ulong guildId = 123456789UL;
 
-        // Note: Discord.NET classes (SocketGuild, SocketVoiceChannel) cannot be mocked properly
-        // Testing the error path instead (guild not found)
-        _mockDiscordClient.Setup(c => c.GetGuild(guildId)).Returns((SocketGuild?)null);
+        _mockGuildDirectory.Setup(d => d.IsGuildAvailableAsync(guildId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _mockGuildDirectory.Setup(d => d.GetVoiceChannels(guildId)).Returns(new[]
+        {
+            new PortalVoiceChannel(11UL, "General", 2),
+            new PortalVoiceChannel(12UL, "Gaming", 0)
+        });
 
         // Act
-        var result = _controller.GetVoiceChannels(guildId);
+        var result = await _controller.GetVoiceChannels(guildId);
 
         // Assert
-        result.Should().NotBeNull();
-        // When guild is not found, it returns 404
-        result.Should().BeOfType<NotFoundObjectResult>();
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var names = ((IEnumerable<object>)ok.Value!).Select(c => c.ToString()).ToList();
+        names.Should().HaveCount(2);
+        names[0].Should().Contain("General").And.Contain("11"); // ids stay strings for the browser
+        names[1].Should().Contain("Gaming");
     }
 
     [Fact]
-    public void GetVoiceChannels_WithInvalidGuild_Returns404()
+    public async Task GetVoiceChannels_WithInvalidGuild_Returns404()
     {
         // Arrange
         const ulong guildId = 999999999UL;
 
-        _mockDiscordClient.Setup(c => c.GetGuild(guildId)).Returns((SocketGuild?)null);
+        _mockGuildDirectory.Setup(d => d.IsGuildAvailableAsync(guildId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         // Act
-        var result = _controller.GetVoiceChannels(guildId);
+        var result = await _controller.GetVoiceChannels(guildId);
 
         // Assert
         result.Should().NotBeNull();
@@ -500,7 +505,7 @@ public class PortalTtsControllerTests
         var notFoundResult = result as NotFoundObjectResult;
         var error = notFoundResult!.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Guild not found");
+        error!.Message.Should().Be("Server not found");
     }
 
     #endregion

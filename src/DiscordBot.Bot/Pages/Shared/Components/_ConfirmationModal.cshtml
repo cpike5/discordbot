@@ -1,54 +1,43 @@
 @model DiscordBot.Bot.ViewModels.Components.ConfirmationModalViewModel
 @using DiscordBot.Bot.ViewModels.Components
+@{
+    // quick-actions.js owns open/close, motion, focus, scroll lock and the form submit.
+    // The handler goes in the URL because Razor Pages reads it from the query string.
+    var formAction = ConfirmationVariantExtensions.ResolveFormAction(
+        Model.FormAction, Model.FormHandler, Context.Request.Path + Context.Request.QueryString.Value);
+    var color = Model.Variant.ColorToken();
+}
 
-<!-- Confirmation Modal -->
-<div id="@Model.Id" class="hidden fixed inset-0 z-[var(--z-modal)]" role="alertdialog" aria-modal="true" aria-labelledby="@(Model.Id)Title" aria-describedby="@(Model.Id)Desc">
-    <!-- Backdrop - aria-hidden prevents screen readers from announcing this decorative element -->
-    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="window.quickActions?.hideConfirmationModal('@Model.Id')" aria-hidden="true"></div>
+<!-- Confirmation Modal: open with quickActions.showConfirmationModal('@Model.Id') -->
+<div id="@Model.Id" class="hidden fixed inset-0 z-[var(--z-modal)]" role="alertdialog" aria-modal="true" aria-labelledby="@(Model.Id)Title" aria-describedby="@(Model.Id)Desc" data-confirm-modal>
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
 
-    <!-- Modal Dialog -->
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
-            <!-- Modal Content -->
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full qa-modal-panel pointer-events-auto" role="document">
             <div class="p-6">
                 <div class="flex items-start gap-4">
-                    <!-- Icon -->
-                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-@GetVariantColorClass(Model.Variant)/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-@GetVariantColorClass(Model.Variant)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            @if (!string.IsNullOrEmpty(Model.CustomIconPath))
-                            {
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@Model.CustomIconPath" />
-                            }
-                            else
-                            {
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@GetDefaultIconPath(Model.Variant)" />
-                            }
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-@color/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-@color" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@(string.IsNullOrEmpty(Model.CustomIconPath) ? Model.Variant.DefaultIconPath() : Model.CustomIconPath)" />
                         </svg>
                     </div>
 
-                    <!-- Text Content -->
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <h3 id="@(Model.Id)Title" class="text-lg font-semibold text-text-primary">@Model.Title</h3>
                         <p id="@(Model.Id)Desc" class="mt-2 text-sm text-text-secondary">@Model.Message</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Modal Footer -->
             <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
-                <button type="button"
-                        onclick="window.quickActions?.hideConfirmationModal('@Model.Id')"
-                        class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
-                    @Model.CancelText
-                </button>
+                <button type="button" class="btn btn-secondary" data-modal-dismiss>@Model.CancelText</button>
 
-                <form method="post" action="@Model.FormAction" class="inline-block">
+                <form method="post" action="@formAction" class="inline-block">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="handler" value="@Model.FormHandler" />
-                    <button type="submit"
-                            class="px-4 py-2 @GetConfirmButtonClass(Model.Variant) text-white font-medium text-sm rounded-md transition-colors min-w-[100px] flex items-center justify-center gap-2">
+                    <button type="submit" class="@Model.Variant.ConfirmButtonClass() min-w-[100px]">
                         <span class="confirm-btn-text">@Model.ConfirmText</span>
-                        <svg class="hidden w-4 h-4 animate-spin confirm-btn-spinner" fill="none" viewBox="0 0 24 24">
+                        <svg class="hidden w-4 h-4 animate-spin confirm-btn-spinner" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -58,37 +47,3 @@
         </div>
     </div>
 </div>
-
-@functions {
-    private string GetVariantColorClass(ConfirmationVariant variant)
-    {
-        return variant switch
-        {
-            ConfirmationVariant.Info => "accent-blue",
-            ConfirmationVariant.Warning => "warning",
-            ConfirmationVariant.Danger => "error",
-            _ => "warning"
-        };
-    }
-
-    private string GetConfirmButtonClass(ConfirmationVariant variant)
-    {
-        return variant switch
-        {
-            ConfirmationVariant.Info => "bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active",
-            ConfirmationVariant.Warning => "bg-warning hover:bg-warning-hover active:bg-warning-active",
-            ConfirmationVariant.Danger => "bg-error hover:bg-error-hover active:bg-error-active",
-            _ => "bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active"
-        };
-    }
-
-    private string GetDefaultIconPath(ConfirmationVariant variant)
-    {
-        return variant switch
-        {
-            ConfirmationVariant.Info => "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-            ConfirmationVariant.Danger => "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
-            _ => "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-        };
-    }
-}

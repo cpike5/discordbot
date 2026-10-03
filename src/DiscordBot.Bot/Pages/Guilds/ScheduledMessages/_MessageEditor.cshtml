@@ -1,0 +1,275 @@
+@model DiscordBot.Bot.ViewModels.Pages.ScheduledMessageEditorViewModel
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Enums
+@{
+    // One form for create and edit, so the two cannot drift apart again.
+    var titleError = ViewData.ModelState.FieldError("Input.Title");
+    var contentError = ViewData.ModelState.FieldError("Input.Content");
+    var channelError = ViewData.ModelState.FieldError("Input.ChannelId");
+    var frequencyError = ViewData.ModelState.FieldError("Input.Frequency");
+    var cronError = ViewData.ModelState.FieldError("Input.CronExpression");
+    var nextError = ViewData.ModelState.FieldError("Input.NextExecutionAt");
+
+    var channelOptions = FormFieldState.ChannelOptions(
+        Model.AvailableChannels, Model.ChannelId, "Select a channel...", out var channelIsMissing);
+
+    static string FrequencyIcon(ScheduleFrequency freq) => freq switch
+    {
+        ScheduleFrequency.Once => "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+        ScheduleFrequency.Hourly => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+        ScheduleFrequency.Daily => "M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z",
+        ScheduleFrequency.Weekly => "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+        ScheduleFrequency.Monthly => "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+        ScheduleFrequency.Custom => "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+        _ => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+    };
+
+    var frequencyGroup = new RadioCardGroupViewModel
+    {
+        Name = "Input.Frequency",
+        Id = "Input_Frequency",
+        Legend = "Schedule type",
+        Columns = 3,
+        SelectedValue = ((int)Model.Frequency).ToString(),
+        ValidationMessage = frequencyError,
+        Options = Enum.GetValues<ScheduleFrequency>().Select(freq => new RadioCardViewModel
+        {
+            Value = ((int)freq).ToString(),
+            Title = freq.DisplayName(),
+            IconPath = FrequencyIcon(freq),
+            AdditionalAttributes = new Dictionary<string, string> { ["data-frequency-label"] = freq.DisplayName() }
+        }).ToList()
+    };
+
+    var cronHidden = Model.Frequency != ScheduleFrequency.Custom;
+}
+
+<form method="post" id="message-form"
+      data-submit-guard
+      data-focus-first-error
+      data-unsaved-changes
+      data-unsaved-dirty-on-load="@(Model.DirtyOnLoad ? "true" : "false")"
+      data-custom-frequency="@((int)ScheduleFrequency.Custom)"
+      novalidate>
+    <input type="hidden" name="Input.UserTimezone" id="Input_UserTimezone" value="" data-unsaved-ignore />
+    <div asp-validation-summary="ModelOnly" class="form-error mb-4"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+        <!-- Form Column -->
+        <div class="lg:col-span-2 space-y-6 min-w-0">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 space-y-5">
+                <h2 class="text-lg font-semibold text-text-primary">Message</h2>
+
+                <partial name="Shared/Components/_FormInput" model='new FormInputViewModel {
+                    Id = "Input_Title",
+                    Name = "Input.Title",
+                    Label = "Title",
+                    Placeholder = "Enter a descriptive title...",
+                    Value = Model.Title,
+                    MaxLength = 200,
+                    Autocomplete = "off",
+                    HelpText = "A short title to identify this scheduled message.",
+                    ValidationState = FormFieldState.StateOf(titleError),
+                    ValidationMessage = titleError
+                }' />
+
+                <div>
+                    <partial name="Shared/Components/_FormTextarea" model='new FormTextareaViewModel {
+                        Id = "Input_Content",
+                        Name = "Input.Content",
+                        Label = "Message",
+                        Placeholder = "Enter your message...",
+                        Value = Model.Content,
+                        Rows = 5,
+                        MaxLength = 2000,
+                        Dir = "auto",
+                        DescribedBy = "char-count-line",
+                        HelpText = "Supports Discord markdown.",
+                        ValidationState = FormFieldState.StateOf(contentError),
+                        ValidationMessage = contentError
+                    }' />
+                    <p id="char-count-line" class="text-xs text-text-secondary text-right mt-1">
+                        <span id="char-count">@(Model.Content?.Length ?? 0)</span> / 2000
+                    </p>
+                </div>
+
+                <div>
+                    <partial name="Shared/Components/_FormSelect" model='new FormSelectViewModel {
+                        Id = "Input_ChannelId",
+                        Name = "Input.ChannelId",
+                        Label = "Target channel",
+                        Placeholder = null,
+                        SelectedValue = Model.ChannelId?.ToString() ?? string.Empty,
+                        Options = channelOptions,
+                        HelpText = "The channel where this message is sent.",
+                        ValidationState = FormFieldState.StateOf(channelError),
+                        ValidationMessage = channelError
+                    }' />
+                    @if (channelIsMissing)
+                    {
+                        <div class="mt-2">
+                            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                                Variant = AlertVariant.Warning,
+                                Message = "The saved channel is not in the channel list for this server. It may have been deleted, or the bot cannot see it right now. It stays selected until you choose another channel."
+                            }' />
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 space-y-5">
+                <h2 class="text-lg font-semibold text-text-primary">Schedule</h2>
+
+                <partial name="Shared/Components/_RadioCardGroup" model="frequencyGroup" />
+
+                <div>
+                    <label for="Input_NextExecutionAt" class="form-label block mb-1.5">Next run</label>
+                    <input type="datetime-local"
+                           id="Input_NextExecutionAt"
+                           name="Input.NextExecutionAt"
+                           value="@Model.NextExecutionLocal"
+                           data-utc-value="@Model.NextExecutionUtcIso"
+                           aria-describedby="Input_NextExecutionAt-help @(nextError != null ? "Input_NextExecutionAt-error" : "")"
+                           class="form-input @(nextError != null ? "input-validation-error" : "")"
+                           @(nextError != null ? "aria-invalid=true" : "") />
+                    <p id="Input_NextExecutionAt-help" class="form-help mt-1.5">
+                        In your time zone: <span class="timezone-indicator font-medium">Detecting...</span>
+                    </p>
+                    @if (nextError != null)
+                    {
+                        <p id="Input_NextExecutionAt-error" class="form-error mt-1" role="alert">@nextError</p>
+                    }
+                </div>
+
+                <div id="cron-expression-container" class="@(cronHidden ? "hidden" : "")">
+                    <partial name="Shared/Components/_FormInput" model='new FormInputViewModel {
+                        Id = "Input_CronExpression",
+                        Name = "Input.CronExpression",
+                        Label = "Cron expression",
+                        Placeholder = "0 9 * * 1",
+                        Value = Model.CronExpression,
+                        MaxLength = 100,
+                        Autocomplete = "off",
+                        HelpText = "Standard cron format: minute hour day month weekday.",
+                        ValidationState = FormFieldState.StateOf(cronError),
+                        ValidationMessage = cronError,
+                        AdditionalAttributes = new Dictionary<string, string> { ["spellcheck"] = "false" }
+                    }' />
+                    <a href="https://crontab.guru/" target="_blank" rel="noopener noreferrer" class="text-xs text-accent-blue hover:underline mt-1 inline-block">Cron help (opens in a new tab)</a>
+                </div>
+            </div>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+                <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                    Id = "Input_IsEnabled",
+                    Name = "Input.IsEnabled",
+                    Label = "Active",
+                    Description = "Turn off to pause this message without deleting it.",
+                    IsChecked = Model.IsEnabled
+                }' />
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:items-center gap-3">
+                <button type="submit" class="btn btn-primary inline-flex items-center justify-center gap-2" data-loading-text="Saving...">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    @(Model.IsEdit ? "Save changes" : "Create message")
+                </button>
+                <a asp-page="Index" asp-route-guildId="@Model.GuildId" class="btn btn-secondary inline-flex items-center justify-center">Cancel</a>
+                <span data-unsaved-indicator class="hidden text-sm text-warning" role="status">Unsaved changes</span>
+                @if (Model.IsEdit)
+                {
+                    <button type="submit" form="delete-message-form"
+                            class="btn btn-error inline-flex items-center justify-center gap-2 sm:ml-auto">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete message
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Preview Column -->
+        <div class="lg:col-span-1 min-w-0">
+            <div class="lg:sticky lg:top-8 space-y-6">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 sm:px-6 py-4 border-b border-border-primary">
+                        <h2 class="text-sm font-semibold text-text-primary">Preview</h2>
+                        <p class="text-xs text-text-secondary mt-1">How the message will look in Discord.</p>
+                    </div>
+                    <div class="p-4">
+                        <div class="discord-preview">
+                            <div class="flex gap-3">
+                                <div class="flex-shrink-0" aria-hidden="true">
+                                    <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex flex-wrap items-center gap-x-1.5 mb-1">
+                                        <span class="discord-preview-name text-sm">Bot</span>
+                                        <span class="discord-bot-badge">Bot</span>
+                                        <span class="discord-preview-muted text-xs">Today at @DisplayFormat.Time(DateTime.UtcNow, "time")</span>
+                                    </div>
+                                    <div id="preview-message" class="text-sm leading-relaxed break-words"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 sm:px-6 py-4 border-b border-border-primary">
+                        <h2 class="text-sm font-semibold text-text-primary">Schedule summary</h2>
+                    </div>
+                    <dl class="p-4 space-y-3 text-sm">
+                        @if (Model.IsEdit)
+                        {
+                            <div>
+                                <dt class="text-xs text-text-secondary">Status</dt>
+                                <dd class="mt-0.5">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @(Model.StatusText == "Active" ? "bg-success/20 text-success" : Model.StatusText == "Paused" ? "bg-warning/20 text-warning" : "bg-bg-tertiary text-text-secondary")">
+                                        @Model.StatusText
+                                    </span>
+                                </dd>
+                            </div>
+                        }
+                        <div>
+                            <dt class="text-xs text-text-secondary">Frequency</dt>
+                            <dd id="schedule-frequency-display" class="text-text-primary font-medium">@Model.Frequency.DisplayName()</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs text-text-secondary">Next run</dt>
+                            <dd id="schedule-next-run" class="text-text-primary font-medium" data-utc="@Model.SummaryNextRunUtcIso" data-format="datetime-short">@(Model.SummaryNextRunUtcIso == null ? "Not set" : "")</dd>
+                        </div>
+                        @if (Model.IsEdit && Model.LastExecutedAt.HasValue)
+                        {
+                            <div>
+                                <dt class="text-xs text-text-secondary">Last sent</dt>
+                                <dd class="text-text-primary font-medium">@DisplayFormat.Time(Model.LastExecutedAt, "datetime-short")</dd>
+                            </div>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@if (Model.IsEdit && Model.MessageId.HasValue)
+{
+    <form method="post" id="delete-message-form"
+          asp-page="Edit" asp-page-handler="Delete" asp-route-guildId="@Model.GuildId" asp-route-id="@Model.MessageId"
+          data-submit-guard
+          data-confirm-title="Delete this scheduled message?"
+          data-confirm-message="@($"\"{Model.Title}\" will stop being sent and cannot be recovered.")"
+          data-confirm-text="Delete message"
+          data-confirm-variant="danger">
+    </form>
+}

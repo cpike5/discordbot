@@ -10,7 +10,7 @@
 
     // Collapsible voice settings toggle (mobile only)
     function toggleVoiceSettings() {
-        const header = document.querySelector('.voice-controls-collapsible-header');
+        const header = document.getElementById('voiceSettingsToggle');
         const content = document.getElementById('voiceSettingsContent');
         const chevron = document.getElementById('voiceSettingsChevron');
         const isExpanded = content.classList.contains('expanded');
@@ -26,6 +26,11 @@
         }
     }
     window.toggleVoiceSettings = toggleVoiceSettings;
+
+    const voiceSettingsToggle = document.getElementById('voiceSettingsToggle');
+    if (voiceSettingsToggle) {
+        voiceSettingsToggle.addEventListener('click', toggleVoiceSettings);
+    }
 
     // Connect to SignalR hub
     document.addEventListener('DOMContentLoaded', async function () {

@@ -198,7 +198,7 @@ public class CommandAnalyticsServiceTests
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(allStats);
 
         // Act
@@ -227,7 +227,7 @@ public class CommandAnalyticsServiceTests
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(allStats);
 
         // Act
@@ -241,6 +241,50 @@ public class CommandAnalyticsServiceTests
         result.Should().ContainKey("help", "help has third highest count");
         result.Should().NotContainKey("info", "info is below the limit");
         result.Should().NotContainKey("config", "config is below the limit");
+    }
+
+    [Fact]
+    public async Task GetTopCommandsAsync_WithAGuild_AsksTheRepositoryForThatGuildOnly()
+    {
+        var since = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        const ulong guildId = 42UL;
+        _mockCommandLogRepository
+            .Setup(r => r.GetCommandUsageStatsAsync(since, null, guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int> { ["ping"] = 3 });
+
+        var result = await _service.GetTopCommandsAsync(since, guildId);
+
+        result.Should().ContainKey("ping").WhoseValue.Should().Be(3);
+        _mockCommandLogRepository.Verify(
+            r => r.GetCommandUsageStatsAsync(since, null, guildId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetAnalyticsAsync_BoundsEveryQueryByTheSameEndDate()
+    {
+        var start = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = new DateTime(2023, 1, 8, 0, 0, 0, DateTimeKind.Utc);
+        _mockCommandLogRepository
+            .Setup(r => r.GetUsageOverTimeAsync(start, end, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<UsageOverTimeDto>());
+        _mockCommandLogRepository
+            .Setup(r => r.GetSuccessRateAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<ulong?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CommandSuccessRateDto());
+        _mockCommandLogRepository
+            .Setup(r => r.GetCommandPerformanceAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<ulong?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CommandPerformanceDto>());
+        _mockCommandLogRepository
+            .Setup(r => r.GetCommandUsageStatsAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<ulong?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int>());
+
+        await _service.GetAnalyticsAsync(start, end);
+
+        _mockCommandLogRepository.Verify(r => r.GetSuccessRateAsync(start, end, null, It.IsAny<CancellationToken>()), Times.Once);
+        _mockCommandLogRepository.Verify(r => r.GetCommandPerformanceAsync(start, end, null, 10, It.IsAny<CancellationToken>()), Times.Once);
+        _mockCommandLogRepository.Verify(r => r.GetCommandUsageStatsAsync(start, end, null, It.IsAny<CancellationToken>()), Times.Once);
+        // None of the old, open-ended (start only) overloads is used for the page
+        _mockCommandLogRepository.Verify(r => r.GetSuccessRateAsync(It.IsAny<DateTime?>(), It.IsAny<ulong?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockCommandLogRepository.Verify(r => r.GetCommandUsageStatsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -283,15 +327,15 @@ public class CommandAnalyticsServiceTests
             .ReturnsAsync(usageOverTime);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetSuccessRateAsync(start, guildId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetSuccessRateAsync(start, end, guildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(successRate);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandPerformanceAsync(start, guildId, 10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandPerformanceAsync(start, end, guildId, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(performance);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(start, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(start, end, guildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(topCommands);
 
         // Act
@@ -330,15 +374,15 @@ public class CommandAnalyticsServiceTests
             .ReturnsAsync(emptyUsageOverTime);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetSuccessRateAsync(start, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetSuccessRateAsync(start, end, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(emptySuccessRate);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandPerformanceAsync(start, null, 10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandPerformanceAsync(start, end, null, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(emptyPerformance);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(start, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(start, end, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(emptyTopCommands);
 
         // Act
@@ -372,15 +416,15 @@ public class CommandAnalyticsServiceTests
             .ReturnsAsync(usageOverTime);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetSuccessRateAsync(start, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetSuccessRateAsync(start, end, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(successRate);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandPerformanceAsync(start, null, 10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandPerformanceAsync(start, end, null, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(performance);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(start, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(start, end, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(topCommands);
 
         // Act
@@ -389,9 +433,9 @@ public class CommandAnalyticsServiceTests
         // Assert
         result.Should().NotBeNull();
         _mockCommandLogRepository.Verify(r => r.GetUsageOverTimeAsync(start, end, null, It.IsAny<CancellationToken>()), Times.Once);
-        _mockCommandLogRepository.Verify(r => r.GetSuccessRateAsync(start, null, It.IsAny<CancellationToken>()), Times.Once);
-        _mockCommandLogRepository.Verify(r => r.GetCommandPerformanceAsync(start, null, 10, It.IsAny<CancellationToken>()), Times.Once);
-        _mockCommandLogRepository.Verify(r => r.GetCommandUsageStatsAsync(start, It.IsAny<CancellationToken>()), Times.Once);
+        _mockCommandLogRepository.Verify(r => r.GetSuccessRateAsync(start, end, null, It.IsAny<CancellationToken>()), Times.Once);
+        _mockCommandLogRepository.Verify(r => r.GetCommandPerformanceAsync(start, end, null, 10, It.IsAny<CancellationToken>()), Times.Once);
+        _mockCommandLogRepository.Verify(r => r.GetCommandUsageStatsAsync(start, end, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -408,7 +452,7 @@ public class CommandAnalyticsServiceTests
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(allStats);
 
         // Act
@@ -502,7 +546,7 @@ public class CommandAnalyticsServiceTests
         var cancellationToken = cancellationTokenSource.Token;
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(since, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(since, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int>());
 
         // Act
@@ -510,7 +554,7 @@ public class CommandAnalyticsServiceTests
 
         // Assert
         _mockCommandLogRepository.Verify(
-            r => r.GetCommandUsageStatsAsync(since, cancellationToken),
+            r => r.GetCommandUsageStatsAsync(since, null, null, cancellationToken),
             Times.Once,
             "cancellation token should be passed to repository");
     }
@@ -529,15 +573,15 @@ public class CommandAnalyticsServiceTests
             .ReturnsAsync(new List<UsageOverTimeDto>());
 
         _mockCommandLogRepository
-            .Setup(r => r.GetSuccessRateAsync(start, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetSuccessRateAsync(start, end, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CommandSuccessRateDto());
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandPerformanceAsync(start, null, 10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandPerformanceAsync(start, end, null, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<CommandPerformanceDto>());
 
         _mockCommandLogRepository
-            .Setup(r => r.GetCommandUsageStatsAsync(start, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCommandUsageStatsAsync(start, end, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int>());
 
         // Act
@@ -550,17 +594,17 @@ public class CommandAnalyticsServiceTests
             "cancellation token should be passed to GetUsageOverTimeAsync");
 
         _mockCommandLogRepository.Verify(
-            r => r.GetSuccessRateAsync(start, null, cancellationToken),
+            r => r.GetSuccessRateAsync(start, end, null, cancellationToken),
             Times.Once,
             "cancellation token should be passed to GetSuccessRateAsync");
 
         _mockCommandLogRepository.Verify(
-            r => r.GetCommandPerformanceAsync(start, null, 10, cancellationToken),
+            r => r.GetCommandPerformanceAsync(start, end, null, 10, cancellationToken),
             Times.Once,
             "cancellation token should be passed to GetCommandPerformanceAsync");
 
         _mockCommandLogRepository.Verify(
-            r => r.GetCommandUsageStatsAsync(start, cancellationToken),
+            r => r.GetCommandUsageStatsAsync(start, end, null, cancellationToken),
             Times.Once,
             "cancellation token should be passed to GetCommandUsageStatsAsync");
     }

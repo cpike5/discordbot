@@ -330,7 +330,8 @@ public class SettingsService : ISettingsService
 
     public async Task<SettingsUpdateResultDto> ResetAllAsync(
         string userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool includeAppearance = true)
     {
         _logger.LogInformation("Resetting all settings to defaults for user {UserId}", userId);
 
@@ -342,10 +343,18 @@ public class SettingsService : ISettingsService
             // Delete all settings from all categories
             foreach (SettingCategory category in Enum.GetValues(typeof(SettingCategory)))
             {
+                if (!includeAppearance && category == SettingCategory.Appearance)
+                {
+                    continue;
+                }
+
                 await repository.DeleteByCategoryAsync(category, cancellationToken);
             }
 
-            var requiresRestart = SettingDefinitions.All.Any(d => d.RequiresRestart);
+            var resetDefinitions = SettingDefinitions.All
+                .Where(d => includeAppearance || d.Category != SettingCategory.Appearance)
+                .ToList();
+            var requiresRestart = resetDefinitions.Any(d => d.RequiresRestart);
 
             if (requiresRestart)
             {
@@ -355,7 +364,7 @@ public class SettingsService : ISettingsService
 
             _logger.LogInformation("Successfully reset all settings to defaults");
 
-            var updatedKeys = SettingDefinitions.All.Select(d => d.Key).ToList();
+            var updatedKeys = resetDefinitions.Select(d => d.Key).ToList();
 
             if (updatedKeys.Count > 0)
             {

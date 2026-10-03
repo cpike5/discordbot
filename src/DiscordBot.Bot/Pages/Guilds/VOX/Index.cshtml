@@ -58,7 +58,7 @@
     AriaLabel = "Audio sections"
 }' />
 
-<!-- Error Message -->
+<!-- Load failure -->
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
     <div class="mb-6">
@@ -67,98 +67,55 @@
             Message = Model.ErrorMessage,
             IsDismissible = false
         }" />
+        <a href="@(Model.Request.Path + Model.Request.QueryString)" class="btn btn-secondary mt-3">Try again</a>
     </div>
 }
+else
+{
+    var filtersActive = !string.IsNullOrWhiteSpace(Model.SearchQuery)
+        || (!Model.GroupFilter.Equals("all", StringComparison.OrdinalIgnoreCase)
+            && Enum.TryParse<VoxClipGroup>(Model.GroupFilter, true, out _));
+    string PageUrl(string groupFilter, int pageNumber) =>
+        Url.Page("/Guilds/VOX/Index", new { guildId = Model.GuildId, groupFilter, searchQuery = Model.SearchQuery, pageNumber }) ?? string.Empty;
+    var clearFiltersUrl = Url.Page("/Guilds/VOX/Index", new { guildId = Model.GuildId }) ?? string.Empty;
 
 <!-- VOX Page Content -->
 <div class="space-y-6">
     <!-- VOX Configuration Card -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-text-primary mb-4">VOX Configuration</h2>
-        <p class="text-sm text-text-secondary mb-6">
-            Configure VOX announcement system settings. These settings are currently global and apply to all guilds.
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-1">VOX settings</h2>
+        <p class="text-sm text-text-secondary mb-4">
+            These apply to every server. They are set in the bot's configuration (<code>Vox</code> section of <code>appsettings.json</code>) and cannot be changed here; per-server settings may come later.
         </p>
-
-        <!-- Settings Form Sections -->
-        <div class="space-y-6">
-            <!-- General Settings -->
-            <div class="border-b border-border-primary pb-6">
-                <h3 class="text-md font-semibold text-text-primary mb-4">General Settings</h3>
-                <div class="space-y-4">
-                    <!-- VOX Enabled (Note: Currently global, per-guild not implemented yet) -->
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <label class="text-sm font-medium text-text-primary">VOX Enabled</label>
-                            <p class="text-xs text-text-tertiary">Enable or disable VOX announcement commands</p>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="text-sm text-success font-medium">Enabled</span>
-                        </div>
-                    </div>
-                </div>
+        <dl class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-bg-tertiary rounded-lg p-4">
+                <dt class="text-xs font-medium uppercase tracking-wider text-text-secondary">Default word gap</dt>
+                <dd class="mt-1 text-lg font-semibold text-text-primary">@Model.Settings.DefaultWordGapMs ms</dd>
+                <dd class="text-xs text-text-tertiary">Silence between clips</dd>
             </div>
-
-            <!-- Word Gap Settings -->
-            <div class="border-b border-border-primary pb-6">
-                <h3 class="text-md font-semibold text-text-primary mb-4">Word Gap Settings</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-sm font-medium text-text-primary">Default Word Gap</label>
-                        <p class="text-xs text-text-tertiary mb-2">Silence between clips in milliseconds (20-200ms)</p>
-                        <div class="flex items-center gap-4">
-                            <input type="range" min="20" max="200" value="@Model.Settings.DefaultWordGapMs"
-                                   class="flex-1 h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer slider"
-                                   disabled readonly>
-                            <span class="text-sm font-semibold text-text-primary w-16 text-right">@Model.Settings.DefaultWordGapMs ms</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="bg-bg-tertiary rounded-lg p-4">
+                <dt class="text-xs font-medium uppercase tracking-wider text-text-secondary">Max words</dt>
+                <dd class="mt-1 text-lg font-semibold text-text-primary">@Model.Settings.MaxMessageWords</dd>
+                <dd class="text-xs text-text-tertiary">Per VOX message</dd>
             </div>
-
-            <!-- Limits -->
-            <div class="border-b border-border-primary pb-6">
-                <h3 class="text-md font-semibold text-text-primary mb-4">Message Limits</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-sm font-medium text-text-primary">Max Word Count</label>
-                        <p class="text-xs text-text-tertiary mb-2">Maximum words per VOX message</p>
-                        <input type="number" value="@Model.Settings.MaxMessageWords" min="1" max="200"
-                               class="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm"
-                               disabled readonly>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-text-primary">Max Message Length</label>
-                        <p class="text-xs text-text-tertiary mb-2">Maximum characters per VOX message</p>
-                        <input type="number" value="@Model.Settings.MaxMessageLength" min="1" max="1000"
-                               class="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm"
-                               disabled readonly>
-                    </div>
-                </div>
+            <div class="bg-bg-tertiary rounded-lg p-4">
+                <dt class="text-xs font-medium uppercase tracking-wider text-text-secondary">Max length</dt>
+                <dd class="mt-1 text-lg font-semibold text-text-primary">@Model.Settings.MaxMessageLength characters</dd>
+                <dd class="text-xs text-text-tertiary">Per VOX message</dd>
             </div>
-
-            <!-- Info Alert -->
-            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
-                Variant = AlertVariant.Info,
-                Title = "Global Settings",
-                Message = "VOX settings are currently configured globally in appsettings.json. Per-guild settings will be available in a future update.",
-                IsDismissible = false
-            }' />
-        </div>
+        </dl>
     </div>
 
-    <!-- Clip Library Section -->
     <!-- Info Banner -->
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
-            Variant = AlertVariant.Info,
-            Title = "Static Clip Library",
-            Message = "VOX clips are static audio files that ship with the bot. These clips cannot be edited or deleted. Use the search and filter to explore available clips.",
-            IsDismissible = false
-        }' />
-    </div>
+    <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+        Variant = AlertVariant.Info,
+        Title = "Static clip library",
+        Message = "VOX clips are audio files that ship with the bot. They cannot be edited or deleted here. Use the search and group filters to explore them, and Rescan after adding files to the folder.",
+        IsDismissible = false
+    }' />
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         @foreach (VoxClipGroup group in Enum.GetValues<VoxClipGroup>())
         {
             var count = Model.ClipCountsByGroup.ContainsKey(group) ? Model.ClipCountsByGroup[group] : 0;
@@ -167,7 +124,7 @@
             {
                 VoxClipGroup.Vox => ("bg-accent-blue/20", "text-accent-blue"),
                 VoxClipGroup.Fvox => ("bg-accent-orange/20", "text-accent-orange"),
-                VoxClipGroup.Hgrunt => ("bg-accent-green/20", "text-accent-green"),
+                VoxClipGroup.Hgrunt => ("bg-success/20", "text-success"),
                 _ => ("bg-accent-blue/20", "text-accent-blue")
             };
 
@@ -179,65 +136,69 @@
                         <p class="text-xs text-text-tertiary mt-1">@groupDescriptions[group]</p>
                     </div>
                     <div class="w-10 h-10 @bgClass rounded-lg flex items-center justify-center @textClass">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                         </svg>
                     </div>
                 </div>
-                <p class="text-xs text-text-tertiary">clips</p>
+                <p class="text-xs text-text-tertiary">@(count == 1 ? "clip" : "clips")</p>
             </div>
         }
     </div>
 
     <!-- Clip Browser Card -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
-        <!-- Group Filter Tabs -->
-        <div class="px-6 pt-4 pb-2 border-b border-border-primary">
+        <!-- Group Filter -->
+        <nav class="px-4 sm:px-6 pt-4 pb-3 border-b border-border-primary" aria-label="Clip group">
             <div class="flex items-center gap-2 flex-wrap">
-                <a href="?guildId=@Model.GuildId&groupFilter=all&searchQuery=@Model.SearchQuery&pageNumber=1"
-                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors @(Model.GroupFilter.Equals("all", StringComparison.OrdinalIgnoreCase) ? "bg-accent-blue text-white" : "bg-bg-tertiary text-text-secondary hover:bg-bg-hover")">
-                    All Groups
+                @{
+                    // An unknown group in the address shows every group, so "All groups" is the active tab then
+                    var allActive = Model.GroupFilter.Equals("all", StringComparison.OrdinalIgnoreCase)
+                        || !Enum.TryParse<VoxClipGroup>(Model.GroupFilter, true, out _);
+                }
+                <a href="@PageUrl("all", 1)"
+                   @(allActive ? "aria-current=page" : "")
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors @(allActive ? "bg-accent-blue text-white" : "bg-bg-tertiary text-text-secondary hover:bg-bg-hover")">
+                    All groups
                 </a>
                 @foreach (VoxClipGroup group in Enum.GetValues<VoxClipGroup>())
                 {
                     var groupName = group.ToString().ToUpperInvariant();
                     var isActive = Model.GroupFilter.Equals(group.ToString(), StringComparison.OrdinalIgnoreCase);
-                    <a href="?guildId=@Model.GuildId&groupFilter=@group&searchQuery=@Model.SearchQuery&pageNumber=1"
+                    <a href="@PageUrl(group.ToString(), 1)"
                        title="@groupDescriptions[group]"
+                       @(isActive ? "aria-current=page" : "")
                        class="px-4 py-2 rounded-full text-sm font-medium transition-colors @(isActive ? "bg-accent-blue text-white" : "bg-bg-tertiary text-text-secondary hover:bg-bg-hover")">
                         @groupName
                     </a>
                 }
             </div>
-        </div>
+        </nav>
 
         <!-- Toolbar -->
-        <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between gap-4">
-            <!-- Search -->
-            <form method="get" class="flex-1 max-w-md">
-                <input type="hidden" name="guildId" value="@Model.GuildId" />
+        <div class="px-4 sm:px-6 py-4 border-b border-border-primary flex flex-wrap items-center justify-between gap-3">
+            <!-- Search: GET, so the filter, the page and Back all live in the address -->
+            <form method="get" class="flex flex-1 min-w-[12rem] max-w-md gap-2" role="search">
                 <input type="hidden" name="groupFilter" value="@Model.GroupFilter" />
-                <input type="hidden" name="pageNumber" value="1" />
-                <div class="relative">
-                    <input type="text" name="searchQuery" value="@Model.SearchQuery" placeholder="Search clips..."
-                           aria-label="Search clips"
-                           class="w-full px-4 py-2 pl-10 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-blue">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="relative flex-1 min-w-0">
+                    <input type="search" name="searchQuery" value="@Model.SearchQuery" placeholder="Search clips…"
+                           aria-label="Search clips" autocomplete="off" enterkeyhint="search"
+                           class="form-input w-full pl-10">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                 </div>
+                <button type="submit" class="btn btn-secondary btn-sm shrink-0">Search</button>
             </form>
 
             <!-- Rescan Button -->
-            <form method="post" asp-page-handler="Rescan" asp-route-guildId="@Model.GuildId">
-                <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
-                {
-                    Text = "Rescan Clips",
-                    Variant = ButtonVariant.Secondary,
-                    Size = ButtonSize.Small,
-                    IconLeft = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
-                    Type = "submit"
-                })" />
+            <form method="post" asp-page-handler="Rescan" asp-route-guildId="@Model.GuildId" asp-route-groupFilter="@Model.GroupFilter" asp-route-searchQuery="@Model.SearchQuery" asp-route-pageNumber="@Model.PageNumber" data-submit-guard>
+                <button type="submit" class="btn btn-secondary btn-sm" data-loading-text="Rescanning…">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Rescan clips
+                </button>
             </form>
         </div>
 
@@ -249,11 +210,10 @@
                     <caption class="sr-only">VOX clip library</caption>
                     <thead class="bg-bg-tertiary border-b border-border-primary">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Clip Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Group</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Duration</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">File Size</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                            <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Clip name</th>
+                            <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Group</th>
+                            <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Duration</th>
+                            <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">File size</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border-primary">
@@ -263,36 +223,19 @@
                             {
                                 VoxClipGroup.Vox => "bg-accent-blue/20 text-accent-blue",
                                 VoxClipGroup.Fvox => "bg-accent-orange/20 text-accent-orange",
-                                VoxClipGroup.Hgrunt => "bg-accent-green/20 text-accent-green",
+                                VoxClipGroup.Hgrunt => "bg-success/20 text-success",
                                 _ => "bg-accent-blue/20 text-accent-blue"
                             };
 
                             <tr class="hover:bg-bg-hover transition-colors">
-                                <td class="px-6 py-4">
-                                    <span class="text-sm font-medium text-text-primary"
-                                          title="@clip.Group.ToString().ToUpperInvariant(): @groupDescriptions[clip.Group]&#10;Duration: @clip.DurationSeconds.ToString("F2")s&#10;Size: @FormatFileSize(clip.FileSizeBytes)">@clip.Name</span>
-                                </td>
-                                <td class="px-6 py-4">
+                                <td class="px-4 sm:px-6 py-3 text-sm font-medium text-text-primary break-all">@clip.Name</td>
+                                <td class="px-4 sm:px-6 py-3">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @groupBadgeColor">
                                         @clip.Group.ToString().ToUpperInvariant()
                                     </span>
                                 </td>
-                                <td class="px-6 py-4">
-                                    <span class="text-sm text-text-secondary">@clip.DurationSeconds.ToString("F2")s</span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="text-sm text-text-secondary">@FormatFileSize(clip.FileSizeBytes)</span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <button type="button" data-clip-group="@clip.Group" data-clip-name="@clip.Name"
-                                            onclick="playClip(this.dataset.clipGroup, this.dataset.clipName)"
-                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-orange hover:bg-accent-orange-hover text-white text-sm font-medium rounded-lg transition-colors">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z"/>
-                                        </svg>
-                                        Play
-                                    </button>
-                                </td>
+                                <td class="px-4 sm:px-6 py-3 text-sm text-text-secondary whitespace-nowrap">@clip.DurationSeconds.ToString("F2")s</td>
+                                <td class="px-4 sm:px-6 py-3 text-sm text-text-secondary whitespace-nowrap">@FormatFileSize(clip.FileSizeBytes)</td>
                             </tr>
                         }
                     </tbody>
@@ -302,64 +245,51 @@
             <!-- Pagination -->
             @if (Model.TotalPages > 1)
             {
-                <div class="px-6 py-4 border-t border-border-primary flex items-center justify-between">
-                    <div class="text-sm text-text-secondary">
-                        Showing @((Model.PageNumber - 1) * IndexModel.PageSize + 1) to @Math.Min(Model.PageNumber * IndexModel.PageSize, Model.TotalClipCount) of @Model.TotalClipCount clips
-                    </div>
-                    <div class="flex items-center gap-2">
-                        @if (Model.PageNumber > 1)
-                        {
-                            <a href="?guildId=@Model.GuildId&groupFilter=@Model.GroupFilter&searchQuery=@Model.SearchQuery&pageNumber=@(Model.PageNumber - 1)"
-                               class="px-3 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary rounded-lg text-sm font-medium transition-colors">
-                                Previous
-                            </a>
-                        }
-                        <span class="text-sm text-text-secondary">Page @Model.PageNumber of @Model.TotalPages</span>
-                        @if (Model.PageNumber < Model.TotalPages)
-                        {
-                            <a href="?guildId=@Model.GuildId&groupFilter=@Model.GroupFilter&searchQuery=@Model.SearchQuery&pageNumber=@(Model.PageNumber + 1)"
-                               class="px-3 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary rounded-lg text-sm font-medium transition-colors">
-                                Next
-                            </a>
-                        }
-                    </div>
+                <div class="px-4 sm:px-6 py-4 border-t border-border-primary">
+                    <partial name="Shared/Components/_Pagination" model='new PaginationViewModel {
+                        CurrentPage = Model.PageNumber,
+                        TotalPages = Model.TotalPages,
+                        TotalItems = Model.TotalClipCount,
+                        PageSize = IndexModel.PageSize,
+                        BaseUrl = PageUrl(Model.GroupFilter, 1),
+                        PageParameterName = "pageNumber",
+                        Style = PaginationStyle.Full,
+                        ShowItemCount = true,
+                        AriaLabel = "VOX clips pages"
+                    }' />
                 </div>
             }
         }
+        else if (filtersActive)
+        {
+            <div class="px-6 py-8">
+                <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                    Type = EmptyStateType.NoResults,
+                    Title = "No clips match your filters",
+                    Description = "Try a different search or group, or clear the filters to see every clip.",
+                    PrimaryActionText = "Clear filters",
+                    PrimaryActionUrl = clearFiltersUrl,
+                    Size = EmptyStateSize.Default
+                }' />
+            </div>
+        }
         else
         {
-            <div class="px-6 py-12 text-center">
-                <svg class="w-12 h-12 mx-auto mb-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p class="text-text-secondary text-sm">No clips found matching your search.</p>
+            <div class="px-6 py-8">
+                <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                    Type = EmptyStateType.NoData,
+                    Title = "No VOX clips found",
+                    Description = "The clip folders are empty or could not be read. Add clips to the VOX folder on the bot, then use Rescan clips.",
+                    Size = EmptyStateSize.Default
+                }' />
             </div>
         }
     </div>
-</div><!-- End Clip Library Section -->
-
 </div><!-- End VOX Page Content -->
+}
 
 @section Styles {
     <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
-}
-
-@section Scripts {
-    <script>
-        // Guild ID for API calls (as string to preserve precision)
-        window.guildId = '@Model.GuildId';
-
-        // Audio playback handling (simple browser playback for preview)
-        const audioPlayer = new Audio();
-
-        function playClip(group, clipName) {
-            // Note: This will require an API endpoint to serve clip audio
-            // For now, this is a placeholder
-            console.log(`[VOX] Playing clip: ${group}/${clipName}`);
-            // audioPlayer.src = `/api/vox/clips/${group}/${clipName}`;
-            // audioPlayer.play();
-        }
-    </script>
 }
 
 @functions {

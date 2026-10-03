@@ -39,7 +39,7 @@
     let isSending = false;                 // Track if a message is currently being sent
     let isPreviewing = false;              // Track if a preview is currently playing
     let selectedChannel = null;
-    let maxMessageLength = 500;            // Dynamic max length from server (default: 500)
+    let maxMessageLength = 500;            // The server's limit, read from the page in init() (500 only if that is missing)
 
     // SSML state
     let currentMode = 'standard';
@@ -76,6 +76,12 @@
             window.UserPreferences.init(guildId);
         }
 
+        // The limit is the server's (AzureSpeech:MaxTextLength), rendered into the textarea
+        const configuredMax = parseInt(document.getElementById('ttsMessage')?.dataset.maxLength, 10);
+        if (configuredMax > 0) {
+            maxMessageLength = configuredMax;
+        }
+
         isInitializing = true;
         setupEventHandlers();
         loadSavedVoice();
@@ -104,11 +110,15 @@
                 }
                 saveDraftDebounced();
             });
-            messageInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendTtsMessage();
-                }
+            // Enter sends on a keyboard. Not while an IME is composing (Enter then confirms the
+            // candidate), and not on a touch keyboard, where Enter is how you start a new line:
+            // the Send button is right there.
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey) return;
+                if (e.isComposing || e.keyCode === 229) return;
+                if (window.matchMedia('(pointer: coarse)').matches) return;
+                e.preventDefault();
+                sendTtsMessage();
             });
         }
 
@@ -310,6 +320,9 @@
         // Initial state
         updateCharacterCount();
 
+        // The panel announces every change of voice state, including ones the poll finds
+        document.addEventListener('voicepanel:change', updateCharacterCount);
+
         // Watch for data-connected attribute changes
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
@@ -405,7 +418,10 @@
             const audio = new Audio(url);
             audio.addEventListener('ended', () => URL.revokeObjectURL(url));
             audio.addEventListener('error', () => URL.revokeObjectURL(url));
-            audio.play();
+            await audio.play().catch(() => {
+                URL.revokeObjectURL(url);
+                showToast('warning', 'Your browser blocked the preview from playing. Tap Preview again.');
+            });
         } catch (error) {
             if (error instanceof ApiClient.ApiClientError && error.status === 429) {
                 const fallback = (error.data && error.data.message) || 'Rate limit exceeded. Please wait.';
@@ -533,20 +549,28 @@
             messageTextarea.setAttribute('maxlength', maxMessageLength);
         }
 
-        // Color coding
+        // Colour from the page's tokens (the char-counter[data-state] rules), not literals
         if (charCounter) {
-            if (count >= maxMessageLength) {
-                charCounter.style.color = '#ef4f4f'; // Red - over limit
-            } else if (count >= maxMessageLength * CONFIG.CHARACTER_WARNING_THRESHOLD) {
-                charCounter.style.color = '#fbbf24'; // Orange warning
-            } else {
-                charCounter.style.color = '#949ba4'; // Normal gray
-            }
+            charCounter.dataset.state = count >= maxMessageLength ? 'error'
+                : count >= maxMessageLength * CONFIG.CHARACTER_WARNING_THRESHOLD ? 'warning'
+                : '';
         }
 
         // Update send button state (disabled if empty, not connected, over limit, or currently sending)
+        const connected = checkIsConnected();
         if (sendBtn) {
-            sendBtn.disabled = count === 0 || !checkIsConnected() || count > maxMessageLength || isSending;
+            sendBtn.disabled = count === 0 || !connected || count > maxMessageLength || isSending;
+        }
+
+        // A disabled button without a reason is a dead end: say what is missing
+        const hint = document.getElementById('sendHint');
+        if (hint) {
+            hint.textContent = isSending ? ''
+                : count === 0 && !connected ? 'Type a message and join a voice channel to send it.'
+                : count === 0 ? 'Type a message to send it.'
+                : !connected ? 'Join a voice channel to send this message.'
+                : count > maxMessageLength ? `This message is over the ${maxMessageLength} character limit.`
+                : '';
         }
     }
 
@@ -570,24 +594,16 @@
         }
     }
 
+    /** The voice panel's picker is the answer to "join a voice channel first". */
     function highlightChannelSelector() {
-        const channelSelect = document.getElementById('channelSelect');
-        if (!channelSelect) return;
-
-        channelSelect.style.borderColor = '#fbbf24';
-        channelSelect.style.boxShadow = '0 0 0 2px rgba(251, 191, 36, 0.2)';
-
-        setTimeout(() => {
-            channelSelect.style.borderColor = '';
-            channelSelect.style.boxShadow = '';
-        }, 3000);
+        if (window.VoiceChannelPanel) VoiceChannelPanel.reveal();
     }
 
     // ========================================
     // Toast Notifications (delegates to shared ToastManager from toast.js)
     // ========================================
     function showToast(type, message) {
-        ToastManager.show(type, message);
+        toast.show(type, message);
     }
 
     // ========================================
@@ -656,7 +672,7 @@
      */
     function loadCustomPresets() {
         if (window.presetBar_loadCustomPresets) {
-            window.presetBar_loadCustomPresets('presetBar');
+            window.presetBar_loadCustomPresets('portalPresetBar');
         }
     }
 
@@ -875,7 +891,7 @@
 
         // Update count
         if (countEl) {
-            countEl.textContent = historyEntries.length > 0 ? historyEntries.length + ' messages' : '';
+            countEl.textContent = historyEntries.length > 0 ? Format.plural(historyEntries.length, 'message') : '';
         }
 
         // Show/hide empty state
@@ -920,11 +936,11 @@
 
         return `
             <div class="tts-history-entry${entry.isFavorite ? ' favorite' : ''}" data-entry-id="${entry.id}">
-                <div class="tts-history-message">${escapeHtml(truncatedMessage)}</div>
+                <div class="tts-history-message" dir="auto">${SafeHtml.escape(truncatedMessage)}</div>
                 <div class="tts-history-meta">
-                    <span class="tts-history-voice">${escapeHtml(voiceShort)}</span>
-                    ${settingsStr ? `<span class="tts-history-settings">${escapeHtml(settingsStr)}</span>` : ''}
-                    <span class="tts-history-time">${escapeHtml(timeAgo)}</span>
+                    <span class="tts-history-voice">${SafeHtml.escape(voiceShort)}</span>
+                    ${settingsStr ? `<span class="tts-history-settings">${SafeHtml.escape(settingsStr)}</span>` : ''}
+                    <span class="tts-history-time">${SafeHtml.escape(timeAgo)}</span>
                 </div>
                 <div class="tts-history-actions">
                     <button class="tts-history-btn replay-btn" data-action="replay" data-id="${entry.id}" title="Replay with original settings">
@@ -935,10 +951,10 @@
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         <span>Edit</span>
                     </button>
-                    <button class="tts-history-btn fav-btn${entry.isFavorite ? ' active' : ''}" data-action="favorite" data-id="${entry.id}" title="${entry.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+                    <button class="tts-history-btn fav-btn${entry.isFavorite ? ' active' : ''}" data-action="favorite" data-id="${entry.id}" title="${entry.isFavorite ? 'Remove from favorites' : 'Add to favorites'}" aria-label="${entry.isFavorite ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${entry.isFavorite ? 'true' : 'false'}">
                         <svg fill="${entry.isFavorite ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                     </button>
-                    <button class="tts-history-btn delete-btn" data-action="delete" data-id="${entry.id}" title="Delete">
+                    <button class="tts-history-btn delete-btn" data-action="delete" data-id="${entry.id}" title="Delete" aria-label="Delete this message">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
@@ -1052,7 +1068,7 @@
         // Scroll to form
         const formWrapper = document.querySelector('.tts-form-wrapper');
         if (formWrapper) {
-            formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            formWrapper.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
         }
 
         showToast('success', 'Message loaded into form');
@@ -1081,6 +1097,14 @@
      * Delete a history entry.
      */
     async function deleteHistoryEntry(id) {
+        const confirmed = await quickActions.confirm({
+            title: 'Delete this message?',
+            message: 'It will be removed from your history. Messages already played are not affected.',
+            confirmText: 'Delete message',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+
         try {
             await ApiClient.del(API.historyDelete(guildId, id), { errorMessage: 'Failed to delete entry' });
 
@@ -1123,15 +1147,6 @@
         if (diffHr < 24) return diffHr + 'h ago';
         if (diffDay < 7) return diffDay + 'd ago';
         return date.toLocaleDateString();
-    }
-
-    /**
-     * Escape HTML special characters to prevent XSS.
-     */
-    function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     // ========================================

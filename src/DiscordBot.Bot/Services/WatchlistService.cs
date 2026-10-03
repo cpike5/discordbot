@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -218,9 +219,9 @@ public class WatchlistService : IWatchlistService
             Id = entry.Id,
             GuildId = entry.GuildId,
             UserId = entry.UserId,
-            Username = username,
+            Username = UserDisplay.Name(username),
             AddedByUserId = entry.AddedByUserId,
-            AddedByUsername = addedByUsername,
+            AddedByUsername = UserDisplay.Name(addedByUsername),
             Reason = entry.Reason,
             AddedAt = entry.AddedAt
         };

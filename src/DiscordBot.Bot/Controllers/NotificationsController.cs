@@ -177,23 +177,72 @@ public class NotificationsController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes all notifications for the current user.
+    /// Deletes notifications for the current user that were created at or before <paramref name="before"/>.
+    /// With no other filter parameters it deletes all of them up to that moment; with any filter it
+    /// deletes only the notifications the notification list would show for the same filters, so
+    /// "Delete all" never removes anything unseen, including a notification that arrived after the
+    /// list was rendered.
     /// </summary>
+    /// <param name="before">Required. The moment the list was rendered (ISO 8601, UTC). A value in the future is treated as now.</param>
+    /// <param name="type">Optional notification type filter.</param>
+    /// <param name="isRead">Optional read status filter (true = read only, false = unread only).</param>
+    /// <param name="severity">Optional severity filter.</param>
+    /// <param name="startDate">Optional start of the date range (inclusive, from midnight).</param>
+    /// <param name="endDate">Optional end of the date range; the whole of that day is included.</param>
+    /// <param name="searchTerm">Optional search term for title/message.</param>
+    /// <param name="guildId">Optional guild ID filter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Number of notifications deleted.</returns>
     [HttpPost("delete-all")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<int>> DeleteAll(CancellationToken cancellationToken = default)
+    public async Task<ActionResult<int>> DeleteAll(
+        [FromQuery] DateTimeOffset? before = null,
+        [FromQuery] NotificationType? type = null,
+        [FromQuery] bool? isRead = null,
+        [FromQuery] AlertSeverity? severity = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] ulong? guildId = null,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
 
-        _logger.LogDebug("User {UserId} deleting all notifications", userId);
+        if (!before.HasValue)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "The 'before' parameter is required: the time the list was rendered, so notifications created since are not deleted.",
+                StatusCode = StatusCodes.Status400BadRequest
+            });
+        }
 
-        var deleted = await _notificationService.DeleteAllAsync(userId, cancellationToken);
-        return Ok(deleted);
+        // A client clock ahead of the server's must not reopen the window
+        var bound = before.Value.UtcDateTime;
+        var now = DateTime.UtcNow;
+        if (bound > now)
+            bound = now;
+
+        _logger.LogDebug("User {UserId} deleting notifications created before {Before}", userId, bound);
+
+        var query = new NotificationQueryDto
+        {
+            Before = bound,
+            Type = type,
+            IsRead = isRead,
+            Severity = severity,
+            StartDate = startDate,
+            // Same end-of-day rule as the notification list page
+            EndDate = endDate?.Date.AddDays(1).AddTicks(-1),
+            SearchTerm = searchTerm,
+            GuildId = guildId
+        };
+
+        return Ok(await _notificationService.DeleteMatchingAsync(userId, query, cancellationToken));
     }
 
     /// <summary>

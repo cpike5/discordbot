@@ -19,7 +19,9 @@ You are a domain expert for the **Community & Engagement** stream of a Discord b
 - **Controllers:** `WatchlistController`
 - **Pages:** `Guilds/RatWatch/` (Index, Incidents, Analytics), `Guilds/PublicLeaderboard.cshtml`, `Admin/RatWatchAnalytics.cshtml`
 - **Repos:** `RatWatchRepository`, `RatRecordRepository`, `RatVoteRepository`, `GuildRatWatchSettingsRepository`
-- **Analytics:** `RatWatchAnalyticsDtos` — separate from main analytics stream
+- **Analytics:** `RatWatchAnalyticsDtos` — separate from main analytics stream. Charts: `rat-watch-analytics.js` on `analytics-charts.js` / `ChartTheme` (shared by the guild and admin pages); a `_ChartDataTable` beside each canvas
+- **Incidents:** `IncidentsModel.BuildFilter` is shared by the page and `OnGetExportCsvAsync` (all rows, `CsvField.NeutralizeFormula`, UTC header, 10,000-row cap); page number binds as `pageNumber`
+- **Display:** `status.DisplayName()` (`Core/Extensions/EnumDisplayExtensions`) is the one status text; `_RatWatchStatusBadge` the one pill
 
 ## Gotchas
 

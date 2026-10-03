@@ -156,6 +156,19 @@ public class ThemeServiceTests : IDisposable
 
     #endregion
 
+    [Fact]
+    public async Task SeededThemes_SayWhetherTheyAreDarkOrLight()
+    {
+        // The migrations seed the two themes and label them (UX decision D5)
+        var names = await _dbContext.Set<Theme>()
+            .OrderBy(t => t.ThemeKey)
+            .Select(t => new { t.ThemeKey, t.DisplayName })
+            .ToListAsync();
+
+        names.Should().ContainEquivalentOf(new { ThemeKey = "discord-dark", DisplayName = "Graphite (dark)" });
+        names.Should().ContainEquivalentOf(new { ThemeKey = "purple-dusk", DisplayName = "Purple Dusk (light)" });
+    }
+
     #region GetThemeByKeyAsync Tests
 
     [Fact]
@@ -640,6 +653,57 @@ public class ThemeServiceTests : IDisposable
 
         // Assert
         result.Should().Be("discord-dark");
+    }
+
+    [Fact]
+    public async Task GetCurrentThemeAsync_ReportsSystemSource_WhenNothingIsSaved()
+    {
+        // Arrange - anonymous user with no cookie, so the page may follow the OS preference
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(new DefaultHttpContext());
+
+        // Act
+        var result = await _service.GetCurrentThemeAsync();
+
+        // Assert
+        result.Theme.ThemeKey.Should().Be("discord-dark");
+        result.Source.Should().Be(ThemeSource.System);
+    }
+
+    [Fact]
+    public async Task GetCurrentThemeAsync_ReportsUserSource_ForASavedCookieChoice()
+    {
+        // Arrange
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers["Cookie"] = "theme-preference=purple-dusk";
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        // Act
+        var result = await _service.GetCurrentThemeAsync();
+
+        // Assert
+        result.Theme.ThemeKey.Should().Be("purple-dusk");
+        result.Source.Should().Be(ThemeSource.User);
+    }
+
+    [Fact]
+    public async Task GetCurrentThemeAsync_UsesTheCookie_WhenAnAuthenticatedUserHasNoStoredPreference()
+    {
+        // Arrange - signed in, no PreferredThemeId, but a choice saved in the cookie
+        _dbContext.Set<ApplicationUser>().Add(new ApplicationUser { Id = "auth-user-2", Email = "two@example.com" });
+        await _dbContext.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, "auth-user-2") }, "TestAuth"));
+        var httpContext = new DefaultHttpContext { User = principal };
+        httpContext.Request.Headers["Cookie"] = "theme-preference=purple-dusk";
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        // Act
+        var result = await _service.GetCurrentThemeAsync();
+
+        // Assert
+        result.Theme.ThemeKey.Should().Be("purple-dusk");
+        result.Source.Should().Be(ThemeSource.User);
     }
 
     [Fact]

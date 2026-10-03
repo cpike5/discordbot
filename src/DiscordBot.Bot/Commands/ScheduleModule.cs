@@ -264,7 +264,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         // Verify the message belongs to this guild
         if (message.GuildId != Context.Guild.Id)
         {
-            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this guild."), ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this server."), ephemeral: true);
             _logger.LogWarning(
                 "Schedule delete failed: message {MessageId} belongs to guild {MessageGuildId}, not {CurrentGuildId}",
                 messageId,
@@ -338,7 +338,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         // Verify the message belongs to this guild
         if (message.GuildId != Context.Guild.Id)
         {
-            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this guild."), ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this server."), ephemeral: true);
             _logger.LogWarning(
                 "Schedule toggle failed: message {MessageId} belongs to guild {MessageGuildId}, not {CurrentGuildId}",
                 messageId,
@@ -426,7 +426,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         // Verify the message belongs to this guild
         if (message.GuildId != Context.Guild.Id)
         {
-            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this guild."), ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this server."), ephemeral: true);
             _logger.LogWarning(
                 "Schedule run failed: message {MessageId} belongs to guild {MessageGuildId}, not {CurrentGuildId}",
                 messageId,

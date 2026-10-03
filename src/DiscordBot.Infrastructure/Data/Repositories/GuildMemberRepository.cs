@@ -306,6 +306,7 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
         int page = 1,
         int pageSize = 25,
         List<ulong>? userIds = null,
+        bool neverActive = false,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug(
@@ -362,6 +363,12 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
         if (lastActiveAtEnd.HasValue)
         {
             query = query.Where(gm => gm.LastActiveAt != null && gm.LastActiveAt <= lastActiveAtEnd.Value);
+        }
+
+        // Members with no recorded activity at all ("never messaged")
+        if (neverActive)
+        {
+            query = query.Where(gm => gm.LastActiveAt == null);
         }
 
         // Apply user IDs filter (for exporting selected members)

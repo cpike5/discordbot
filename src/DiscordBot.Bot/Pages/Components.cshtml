@@ -11,20 +11,7 @@
 
 @section Scripts {
     <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
-    <script src="~/js/settings.js" asp-append-version="true"></script>
-    <script>
-        document.querySelectorAll('[data-demo-toast]').forEach(function (button) {
-            button.addEventListener('click', function () {
-                switch (button.dataset.demoToast) {
-                    case 'success': toast.success('Settings saved.'); break;
-                    case 'info': toast.info('Copied to clipboard.', { title: 'Clipboard' }); break;
-                    case 'warning': toast.warning('You are close to the rate limit.'); break;
-                    case 'error': toast.error('Could not save the settings.'); break;
-                    case 'action': toast.error('Could not reach the server.', { action: { label: 'Retry', onClick: function () { toast.success('Retried.'); } } }); break;
-                }
-            });
-        });
-    </script>
+    <script src="~/js/components-showcase.js" asp-append-version="true"></script>
 }
 
 <div class="space-y-8">
@@ -280,6 +267,118 @@
         </div>
     </section>
 
+    <!-- 5b. FORM INPUT ATTRIBUTES AND NATIVE VALIDATION -->
+    <section id="input-attributes" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Form Input Attributes</h3>
+            <p class="text-sm text-text-secondary mt-1"><code>Autocomplete</code>, <code>InputMode</code>, <code>Min</code>, <code>Max</code>, <code>Step</code>, <code>Pattern</code> and <code>DescribedBy</code> on <code>_FormInput</code>, plus the validation classes that ASP.NET tag helpers and jQuery validation add on their own</p>
+        </div>
+        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+            <div class="space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary">Typed and constrained fields</h4>
+                @foreach (var input in Model.InputAttributeExamples)
+                {
+                    @await Html.PartialAsync("Components/_FormInput", input)
+                    @if (input.Id == "attr-describedby")
+                    {
+                        <p id="attr-describedby-note" class="form-help -mt-2">A second description, joined to the field with <code>DescribedBy</code>.</p>
+                    }
+                }
+            </div>
+
+            <div class="space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary">Native validation classes</h4>
+                <p class="text-xs text-text-secondary">A field that carries utility borders still turns red: the selectors name the element. These are plain inputs, not the partial.</p>
+                <div class="space-y-1.5">
+                    <label for="native-error" class="form-label block">Plain <code>.form-input</code> marked invalid</label>
+                    <input id="native-error" name="native-error" type="text" class="form-input input-validation-error" value="not-an-email" aria-invalid="true" aria-describedby="native-error-msg" />
+                    <span id="native-error-msg" class="field-validation-error" role="alert">Enter a valid email address.</span>
+                </div>
+                <div class="space-y-1.5">
+                    <label for="native-utility" class="form-label block">Utility-styled input marked invalid (as <code>asp-for</code> renders)</label>
+                    <input id="native-utility" name="native-utility" type="text" value="utility borders" aria-invalid="true"
+                           class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue focus:outline-none input-validation-error" />
+                </div>
+                <div class="space-y-1.5">
+                    <label for="native-select" class="form-label block">Select marked invalid</label>
+                    <select id="native-select" name="native-select" class="form-select input-validation-error" aria-invalid="true">
+                        <option>Choose one</option>
+                    </select>
+                </div>
+                <div class="validation-summary-errors" role="alert">
+                    <ul>
+                        <li>The display name is required.</li>
+                        <li>The password must be at least 12 characters.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6b. TEXTAREA -->
+    <section id="textarea" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Form Textarea</h3>
+            <p class="text-sm text-text-secondary mt-1"><code>_FormTextarea</code>: label, help, validation states, rows, maxlength and <code>dir="auto"</code></p>
+        </div>
+        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
+            @foreach (var area in Model.TextareaStates)
+            {
+                @await Html.PartialAsync("Components/_FormTextarea", area)
+            }
+        </div>
+    </section>
+
+    <!-- 6c. RADIO CARDS -->
+    <section id="radio-cards" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Radio Cards</h3>
+            <p class="text-sm text-text-secondary mt-1"><code>_RadioCardGroup</code> and <code>_RadioCard</code>: real radios, visually hidden but focusable. Tab to the group, arrow keys to choose; the card shows focus, selection (with a dot, not colour alone) and disabled</p>
+        </div>
+        <div class="p-6 space-y-8">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Selected and disabled</h4>
+                <partial name="Components/_RadioCardGroup" model="Model.RadioCardsDefault" />
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">With icons, three columns, nothing selected</h4>
+                <partial name="Components/_RadioCardGroup" model="Model.RadioCardsIcons" />
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Invalid</h4>
+                <partial name="Components/_RadioCardGroup" model="Model.RadioCardsInvalid" />
+            </div>
+        </div>
+    </section>
+
+    <!-- 6d. TOGGLES -->
+    <section id="toggles" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Toggle Switch</h3>
+            <p class="text-sm text-text-secondary mt-1"><code>_FormToggle</code> on the <code>.toggle</code> classes: <code>role="switch"</code>, a described label, and a hidden <code>false</code> so an unchecked switch posts <code>false</code> instead of nothing</p>
+        </div>
+        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+            <div class="space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary">States</h4>
+                @foreach (var toggle in Model.ToggleStates)
+                {
+                    <partial name="Components/_FormToggle" model="toggle" />
+                }
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">What a form posts</h4>
+                <form id="toggle-demo" class="space-y-4" novalidate>
+                    @foreach (var toggle in Model.ToggleFormDemo)
+                    {
+                        <partial name="Components/_FormToggle" model="toggle" />
+                    }
+                    <button type="submit" class="btn btn-secondary">Show submitted values</button>
+                    <pre id="toggle-demo-output" class="bg-bg-tertiary p-3 rounded-lg text-xs overflow-x-auto" aria-live="polite">Submit to see the values.</pre>
+                </form>
+            </div>
+        </div>
+    </section>
+
     <!-- 7. ALERTS -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">
@@ -322,63 +421,79 @@
     </section>
 
     <!-- 8. CONFIRMATION DIALOGS -->
-    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+    <section id="modals" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">
-            <h3 class="text-lg font-semibold text-text-primary">Confirmation Dialogs</h3>
-            <p class="text-sm text-text-secondary mt-1">Modal dialogs for confirming destructive or important actions, available as server-rendered partials and a Promise-based JS API</p>
+            <h3 class="text-lg font-semibold text-text-primary">Modals</h3>
+            <p class="text-sm text-text-secondary mt-1">One layer, <code>quickActions</code>: enter and exit motion (none under reduced motion), scroll lock, the page behind marked <code>inert</code>, a focus trap, Escape, focus returned to the opener, and stacking. Server-rendered partials and a Promise-based API share it</p>
         </div>
-        <div class="p-6 space-y-6">
+        <div class="p-6 space-y-8">
             <!-- Server-Rendered Confirmation Modals -->
             <div>
-                <h4 class="text-sm font-semibold text-text-primary mb-3">Server-Rendered Confirmation Modals</h4>
-                <p class="text-xs text-text-tertiary mb-4">Pre-rendered on the server via <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">_ConfirmationModal</code> partial. Shown/hidden with <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">quickActions.showConfirmationModal(id)</code>.</p>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Server-rendered confirmation</h4>
+                <p class="text-xs text-text-secondary mb-3"><code>_ConfirmationModal</code>, opened with <code>quickActions.showConfirmationModal(id)</code>. Its form posts over fetch to <code>form.action</code> with the handler in the URL. Info, warning and danger variants:</p>
                 <div class="flex flex-wrap gap-3">
-                    <button type="button"
-                            onclick="window.quickActions.showConfirmationModal('showcase-info-modal')"
-                            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-md transition-colors">
-                        Info Confirmation
-                    </button>
-                    <button type="button"
-                            onclick="window.quickActions.showConfirmationModal('showcase-warning-modal')"
-                            class="px-4 py-2 bg-warning hover:bg-warning-hover text-white text-sm font-medium rounded-md transition-colors">
-                        Warning Confirmation
-                    </button>
-                    <button type="button"
-                            onclick="window.quickActions.showConfirmationModal('showcase-danger-modal')"
-                            class="px-4 py-2 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors">
-                        Danger Confirmation
-                    </button>
+                    <button type="button" data-show-modal="showcase-info-modal" class="btn btn-accent">Info confirmation</button>
+                    <button type="button" data-show-modal="showcase-warning-modal" class="btn btn-warning">Warning confirmation</button>
+                    <button type="button" data-show-modal="showcase-danger-modal" class="btn btn-danger">Danger confirmation</button>
                 </div>
                 @await Html.PartialAsync("Components/_ConfirmationModal", Model.InfoConfirmation)
                 @await Html.PartialAsync("Components/_ConfirmationModal", Model.WarningConfirmation)
                 @await Html.PartialAsync("Components/_ConfirmationModal", Model.DangerConfirmation)
             </div>
 
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Handler outcomes</h4>
+                <p class="text-xs text-text-secondary mb-3">A JSON answer closes the modal with a toast (the variants above). A <strong>redirect</strong> answer is not followed, so its TempData toast survives to the reloaded page. A <strong>failure</strong> keeps the modal open and re-enables the button.</p>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button" data-show-modal="showcase-redirect-modal" class="btn btn-secondary">Handler that redirects</button>
+                    <button type="button" data-show-modal="showcase-fail-modal" class="btn btn-secondary">Handler that fails</button>
+                </div>
+                @await Html.PartialAsync("Components/_ConfirmationModal", Model.RedirectConfirmation)
+                @await Html.PartialAsync("Components/_ConfirmationModal", Model.FailingConfirmation)
+            </div>
+
             <!-- Typed Confirmation Modal -->
             <div>
-                <h4 class="text-sm font-semibold text-text-primary mb-3">Typed Confirmation Modal</h4>
-                <p class="text-xs text-text-tertiary mb-4">Requires the user to type a specific phrase before the confirm button is enabled. Uses the <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">_TypedConfirmationModal</code> partial.</p>
-                <div>
-                    <button type="button"
-                            onclick="window.quickActions.showConfirmationModal('showcase-typed-modal')"
-                            class="px-4 py-2 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors">
-                        Typed Confirmation (type "DELETE")
-                    </button>
-                </div>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Typed confirmation</h4>
+                <p class="text-xs text-text-secondary mb-3"><code>_TypedConfirmationModal</code> for bulk or irreversible actions. It needs only <code>quick-actions.js</code>: this page does not load the Settings page script. The confirm button unlocks when the phrase matches.</p>
+                <button type="button" data-show-modal="showcase-typed-modal" class="btn btn-danger">Typed confirmation (type DELETE)</button>
                 @await Html.PartialAsync("Components/_TypedConfirmationModal", Model.TypedConfirmation)
+            </div>
+
+            <!-- Stacking -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Stacking and custom dialogs</h4>
+                <p class="text-xs text-text-secondary mb-3"><code>quickActions.openDialog(element)</code> gives any dialog element the same behaviour. A dialog opened from inside another sits on top; Escape closes the top one, and focus goes back to the button that opened it.</p>
+                <button type="button" data-show-dialog="stack-demo-dialog" class="btn btn-secondary">Open a dialog that opens another</button>
+
+                <div id="stack-demo-dialog" class="hidden fixed inset-0 z-[var(--z-modal)]" role="dialog" aria-modal="true" aria-labelledby="stack-demo-title">
+                    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
+                    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+                        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full qa-modal-panel pointer-events-auto" role="document">
+                            <div class="p-6 space-y-4">
+                                <h3 id="stack-demo-title" class="text-lg font-semibold text-text-primary">Base dialog</h3>
+                                <p class="text-sm text-text-secondary">Tab stays inside this dialog. The page behind is inert and cannot scroll.</p>
+                                <label for="stack-demo-input" class="form-label block">A field to focus</label>
+                                <input id="stack-demo-input" type="text" class="form-input" autocomplete="off" />
+                                <button type="button" id="stack-demo-open-second" class="btn btn-secondary">Open another dialog on top</button>
+                            </div>
+                            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                                <button type="button" class="btn btn-primary" data-modal-dismiss>Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- JS-Driven Confirm -->
             <div>
-                <h4 class="text-sm font-semibold text-text-primary mb-3">JS-Driven Confirm (Promise-based)</h4>
-                <p class="text-xs text-text-tertiary mb-4">Creates the modal entirely from JavaScript. Returns a <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">Promise&lt;boolean&gt;</code> that resolves when the user responds.</p>
-                <div class="flex items-center gap-4">
-                    <button type="button"
-                            onclick="quickActions.confirm({ title: 'Confirm Action', message: 'Do you want to proceed with this action?', variant: 'warning', confirmText: 'Yes, proceed', cancelText: 'No, cancel' }).then(function(result) { document.getElementById('js-confirm-result').textContent = result ? 'Confirmed' : 'Cancelled'; })"
-                            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-md transition-colors">
-                        Open JS Confirm
-                    </button>
-                    <span class="text-sm text-text-secondary">Result: <span id="js-confirm-result" class="font-medium text-text-primary">--</span></span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Promise-based dialogs</h4>
+                <p class="text-xs text-text-secondary mb-3">Built from script: <code>confirm</code> and <code>typedConfirm</code> resolve <code>true</code> or <code>false</code>, <code>alert</code> resolves when dismissed. Cancel is focused first on confirm.</p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button type="button" data-demo-dialog="confirm" class="btn btn-accent">confirm()</button>
+                    <button type="button" data-demo-dialog="alert" class="btn btn-secondary">alert()</button>
+                    <button type="button" data-demo-dialog="typed" class="btn btn-danger">typedConfirm()</button>
+                    <span class="text-sm text-text-secondary">Result: <span id="js-dialog-result" class="font-medium text-text-primary" role="status">--</span></span>
                 </div>
                 <pre class="bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto mt-3"><code>const confirmed = await quickActions.confirm({
     title: 'Confirm Action',
@@ -387,50 +502,15 @@
     confirmText: 'Yes, proceed',
     cancelText: 'No, cancel'
 });
-// confirmed === true or false</code></pre>
-            </div>
 
-            <!-- JS-Driven Alert -->
-            <div>
-                <h4 class="text-sm font-semibold text-text-primary mb-3">JS-Driven Alert (Promise-based)</h4>
-                <p class="text-xs text-text-tertiary mb-4">Displays an informational alert dialog with a single OK button. Returns a <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">Promise&lt;void&gt;</code>.</p>
-                <div>
-                    <button type="button"
-                            onclick="quickActions.alert({ title: 'Operation Complete', message: 'The export has finished successfully. Your file is ready for download.', variant: 'info', okText: 'Got it' })"
-                            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-md transition-colors">
-                        Open JS Alert
-                    </button>
-                </div>
-                <pre class="bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto mt-3"><code>await quickActions.alert({
-    title: 'Operation Complete',
-    message: 'The export has finished successfully.',
-    variant: 'info',    // 'info' | 'warning' | 'danger'
-    okText: 'Got it'
-});</code></pre>
-            </div>
+await quickActions.alert({ title: 'Export finished', message: 'Your file is ready.', variant: 'info' });
 
-            <!-- JS-Driven Typed Confirm -->
-            <div>
-                <h4 class="text-sm font-semibold text-text-primary mb-3">JS-Driven Typed Confirm (Promise-based)</h4>
-                <p class="text-xs text-text-tertiary mb-4">Like <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">confirm()</code> but requires typed input. Returns <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">Promise&lt;boolean&gt;</code>.</p>
-                <div class="flex items-center gap-4">
-                    <button type="button"
-                            onclick="quickActions.typedConfirm({ title: 'Delete Repository', message: 'This will permanently delete the repository and all its data.', requiredText: 'CONFIRM', inputLabel: 'Type CONFIRM to continue', variant: 'danger', confirmText: 'Delete', cancelText: 'Cancel' }).then(function(result) { document.getElementById('js-typed-confirm-result').textContent = result ? 'Confirmed' : 'Cancelled'; })"
-                            class="px-4 py-2 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors">
-                        Open JS Typed Confirm
-                    </button>
-                    <span class="text-sm text-text-secondary">Result: <span id="js-typed-confirm-result" class="font-medium text-text-primary">--</span></span>
-                </div>
-                <pre class="bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto mt-3"><code>const confirmed = await quickActions.typedConfirm({
-    title: 'Delete Repository',
-    message: 'This will permanently delete the repository.',
+const deleted = await quickActions.typedConfirm({
+    title: 'Delete repository',
+    message: 'This permanently deletes the repository.',
     requiredText: 'CONFIRM',
-    inputLabel: 'Type CONFIRM to continue',
-    variant: 'danger',
-    confirmText: 'Delete',
-    cancelText: 'Cancel'
-});
-// confirmed === true or false</code></pre>
+    variant: 'danger'
+});</code></pre>
             </div>
         </div>
     </section>
@@ -470,6 +550,30 @@
             {
                 @await Html.PartialAsync("Components/_EmptyState", empty)
             }
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Icon and action variants</h4>
+                <p class="text-xs text-text-secondary mb-4"><code>IconSvgPath</code>, <code>PrimaryActionIconPath</code> (an empty string for none), <code>PrimaryActionAttributes</code>, <code>HeadingLevel</code>, <code>Announce</code> and <code>Id</code>.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    @foreach (var (title, variant) in Model.EmptyStateVariants)
+                    {
+                        <div class="border border-border-primary rounded-lg p-4">
+                            <p class="text-xs font-semibold text-text-secondary mb-2">@title</p>
+                            @await Html.PartialAsync("Components/_EmptyState", variant)
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Script twin: <code>EmptyState</code></h4>
+                <p class="text-xs text-text-secondary mb-3"><code>wwwroot/js/empty-state.js</code> draws the same markup for regions a script fills. Text goes in as text, never as HTML.</p>
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button type="button" class="btn btn-secondary btn-sm" data-demo-empty="plain">EmptyState.render</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-demo-empty="filtered">EmptyState.filtered</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-demo-empty="error">EmptyState.error</button>
+                </div>
+                <div id="empty-js-demo" class="border border-border-primary rounded-lg p-4 min-h-[8rem]" aria-live="polite"></div>
+            </div>
         </div>
     </section>
 
@@ -507,6 +611,114 @@
                     @await Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[3])
                 </div>
             </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">States</h4>
+                <p class="text-xs text-text-secondary mb-4">Previous and Next are links, or <code>span</code>s with <code>aria-disabled</code> at either end. The current page has <code>aria-current="page"</code>. Each landmark has its own label.</p>
+                <div class="space-y-6">
+                    @foreach (var (title, note, state) in Model.PaginationStates)
+                    {
+                        <div class="border border-border-primary rounded-lg p-4">
+                            <p class="text-xs font-semibold text-text-primary">@title</p>
+                            <p class="text-xs text-text-secondary mb-3">@note</p>
+                            @await Html.PartialAsync("Components/_Pagination", state)
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SKELETONS -->
+    <section id="skeletons" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Skeletons</h3>
+            <p class="text-sm text-text-secondary mt-1">Placeholders for a region that loads after the page. <code>_Skeleton</code>, <code>_SkeletonCard</code>, <code>_SkeletonTable</code> and <code>_SkeletonLines</code> on the server; <code>Skeleton.show</code> from script, which waits 300ms so a fast load never flashes one</p>
+        </div>
+        <div class="p-6 space-y-8">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Shapes (<code>_Skeleton</code>)</h4>
+                <div class="flex flex-wrap items-center gap-4">
+                    <partial name="Components/_Skeleton" model='new SkeletonViewModel { Type = SkeletonType.AvatarSmall }' />
+                    <partial name="Components/_Skeleton" model='new SkeletonViewModel { Type = SkeletonType.Avatar }' />
+                    <partial name="Components/_Skeleton" model='new SkeletonViewModel { Type = SkeletonType.AvatarLarge }' />
+                    <partial name="Components/_Skeleton" model='new SkeletonViewModel { Type = SkeletonType.Button }' />
+                    <div class="w-48"><partial name="Components/_Skeleton" model='new SkeletonViewModel { Type = SkeletonType.Title }' /></div>
+                    <div class="w-48"><partial name="Components/_Skeleton" model='new SkeletonViewModel { Type = SkeletonType.Text, Animate = false }' /></div>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Cards (<code>_SkeletonCard</code>)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <partial name="Components/_SkeletonCard" model='new SkeletonCardViewModel { Type = SkeletonCardType.Stats, Label = "Loading statistics" }' />
+                    <partial name="Components/_SkeletonCard" model='new SkeletonCardViewModel { Type = SkeletonCardType.Server, ShowHeader = true }' />
+                    <partial name="Components/_SkeletonCard" model='new SkeletonCardViewModel { Type = SkeletonCardType.Activity }' />
+                    <partial name="Components/_SkeletonCard" model='new SkeletonCardViewModel { Type = SkeletonCardType.Table }' />
+                    <partial name="Components/_SkeletonCard" model='new SkeletonCardViewModel { Type = SkeletonCardType.List }' />
+                    <partial name="Components/_SkeletonCard" model='new SkeletonCardViewModel { Type = SkeletonCardType.Form }' />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="text-sm font-semibold text-text-primary mb-3">Table (<code>_SkeletonTable</code>)</h4>
+                    <partial name="Components/_SkeletonTable" model='new SkeletonTableViewModel { Rows = 4, Columns = 4, Label = "Loading users" }' />
+                </div>
+                <div>
+                    <h4 class="text-sm font-semibold text-text-primary mb-3">Lines (<code>_SkeletonLines</code>)</h4>
+                    <partial name="Components/_SkeletonLines" model='new SkeletonLinesViewModel { Lines = 4, Label = "Loading description" }' />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Delayed, from script (<code>Skeleton.show</code>)</h4>
+                <p class="text-xs text-text-secondary mb-3">The fast load finishes in 150ms and draws nothing. The slow load takes 1.5s, so the skeleton appears after 300ms, then the result replaces it. The region is <code>aria-busy</code> while loading.</p>
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button type="button" class="btn btn-secondary btn-sm" data-demo-skeleton="fast">Fast load (no flash)</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-demo-skeleton="slow">Slow load</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-demo-skeleton="fail">Slow load that fails</button>
+                </div>
+                <div id="skeleton-js-demo" class="border border-border-primary rounded-lg p-4 min-h-[8rem]">
+                    <p class="text-sm text-text-secondary">Content appears here.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- UNSAVED CHANGES -->
+    <section id="unsaved-changes" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Unsaved Changes</h3>
+            <p class="text-sm text-text-secondary mt-1"><code>data-unsaved-changes</code> on a form tracks it against how it loaded and warns before the page is left. Typing the old value back clears it; submitting is not a loss</p>
+        </div>
+        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <form id="unsaved-demo" method="post" action="#" data-unsaved-changes novalidate class="space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary">Tracked form</h4>
+                <partial name="Components/_FormInput" model='new FormInputViewModel { Id = "unsaved-name", Name = "DisplayName", Label = "Display name", Value = "Ada Lovelace", Autocomplete = "off" }' />
+                <partial name="Components/_FormToggle" model='new FormToggleViewModel { Id = "unsaved-toggle", Name = "Active", Label = "Active", IsChecked = true }' />
+                <div class="space-y-1.5">
+                    <label for="unsaved-ignored" class="form-label block">Not tracked (<code>data-unsaved-ignore</code>)</label>
+                    <input id="unsaved-ignored" type="search" name="q" class="form-input" data-unsaved-ignore placeholder="A filter beside the form" />
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="reset" class="btn btn-secondary">Reset</button>
+                    <span data-unsaved-indicator class="hidden text-sm font-medium text-warning" role="status">Unsaved changes</span>
+                </div>
+                <p class="text-xs text-text-secondary">Dirty: <code id="unsaved-state">false</code>. Save here marks the form clean, as a fetch-based save would.</p>
+            </form>
+
+            <form id="unsaved-dirty-demo" method="post" action="#" data-unsaved-changes data-unsaved-dirty-on-load novalidate class="space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary">Starts dirty (<code>data-unsaved-dirty-on-load</code>)</h4>
+                <p class="text-xs text-text-secondary">For a form the server drew again after a failed validation: the input on screen is not saved yet.</p>
+                <partial name="Components/_FormInput" model='new FormInputViewModel { Id = "unsaved-email", Name = "Email", Label = "Email", Type = "email", Value = "not-an-email", ValidationState = ValidationState.Error, ValidationMessage = "Enter a valid email address.", Autocomplete = "email" }' />
+                <div class="flex flex-wrap items-center gap-3">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <span data-unsaved-indicator class="text-sm font-medium text-warning" role="status">Unsaved changes</span>
+                </div>
+                <p class="text-xs"><a href="/" class="text-accent-blue hover:underline">Leave this page</a> to see the browser's prompt while a form is dirty.</p>
+            </form>
         </div>
     </section>
 
@@ -612,6 +824,35 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- Formatting and connection status -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Formatting and Connection Status</h3>
+            <p class="text-sm text-text-secondary mt-1">Dates in the viewer's zone and locale, relative time, plurals, and the connection pill</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <dl class="grid grid-cols-1 sm:grid-cols-[14rem_1fr] gap-x-6 gap-y-3 text-sm">
+                <dt class="text-text-secondary">Date and time</dt>
+                <dd class="text-text-primary">@DisplayFormat.Time(DateTime.UtcNow.AddHours(-30), "datetime")</dd>
+                <dt class="text-text-secondary">Date only</dt>
+                <dd class="text-text-primary">@DisplayFormat.Time(DateTime.UtcNow.AddDays(-9), "date")</dd>
+                <dt class="text-text-secondary">Relative (hover or focus for the exact time)</dt>
+                <dd class="text-text-primary">@DisplayFormat.Time(DateTime.UtcNow.AddMinutes(-5), relative: true)</dd>
+                <dt class="text-text-secondary">Plural, number, duration</dt>
+                <dd class="text-text-primary font-mono">@DisplayFormat.Plural(1, "server"), @DisplayFormat.Plural(1234, "server"), @DisplayFormat.Duration(TimeSpan.FromHours(53.5))</dd>
+            </dl>
+            <div class="flex flex-wrap gap-3">
+                @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Connected, null, "showcase-connection-connected", false))
+                @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Reconnecting, null, "showcase-connection-reconnecting", false))
+                @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Disconnected, null, "showcase-connection-disconnected", false))
+            </div>
+            <p class="text-xs text-text-tertiary">
+                The page-wide banner (<code>_ConnectionBanner</code>) appears under the top bar when the live connection drops;
+                <code>data-stale-badge</code> elements show "Stale" while it is down.
+            </p>
         </div>
     </section>
 

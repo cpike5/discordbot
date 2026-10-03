@@ -78,10 +78,15 @@ public interface ISettingsService
     /// </summary>
     /// <param name="userId">The ID of the user performing the reset.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="includeAppearance">
+    /// False leaves the <see cref="SettingCategory.Appearance"/> category (the default theme) alone, for callers
+    /// who are not allowed to change it.
+    /// </param>
     /// <returns>Result indicating success and restart requirement.</returns>
     Task<SettingsUpdateResultDto> ResetAllAsync(
         string userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool includeAppearance = true);
 
     /// <summary>
     /// Gets whether a restart is pending due to setting changes.

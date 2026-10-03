@@ -1,77 +1,80 @@
 @model DiscordBot.Bot.ViewModels.Pages.PerformanceOverviewViewModel
 @using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Bot.Services.Performance
 
-<div data-tab="overview">
+<div data-tab="overview" data-total-commands="@Model.CommandsInRange">
+
+@if (Model.LoadFailed)
+{
+    <div class="mb-6">
+        @await Html.PartialAsync("Components/_Alert", new DiscordBot.Bot.ViewModels.Components.AlertViewModel
+        {
+            Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error,
+            Title = "Overview data is unavailable",
+            Message = "The numbers below are placeholders. Use Refresh to try again; if it keeps failing, check the application log.",
+            IsDismissible = false
+        })
+    </div>
+}
+
 <!-- Quick Status Cards -->
 <div class="status-cards-grid mb-8">
     <!-- Bot Health -->
-    <a href="/Admin/Performance/HealthMetrics" class="status-card group" data-tab-link="health">
+    <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Health)" class="status-card group" data-tab-link="health">
         <div class="status-card-icon bg-success/10">
-            <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
         </div>
         <div class="status-card-content">
             <span class="status-card-label">Bot Health</span>
-            <span class="status-card-value @Model.BotHealthStatusClass">@Model.BotHealthStatusText</span>
+            <span class="status-card-value @Model.BotHealthStatusClass" id="overviewBotHealth">@Model.BotHealthStatusText</span>
         </div>
-        <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
     </a>
 
     <!-- Command Performance -->
-    <a href="/Admin/Performance/Commands" class="status-card group" data-tab-link="commands">
+    <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Commands)" class="status-card group" data-tab-link="commands">
         <div class="status-card-icon bg-accent-blue/10">
-            <svg class="text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
         </div>
         <div class="status-card-content">
             <span class="status-card-label">Avg Response</span>
-            <span class="status-card-value">@Model.AvgCommandResponseMs.ToString("F0")ms</span>
+            <span class="status-card-value">@(Model.CommandsInRange > 0 ? $"{Model.AvgCommandResponseMs:F0} ms" : "No data")</span>
         </div>
-        <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
     </a>
 
     <!-- API Health -->
-    <a href="/Admin/Performance/ApiMetrics" class="status-card group" data-tab-link="api">
+    <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Api)" class="status-card group" data-tab-link="api">
         <div class="status-card-icon bg-success/10">
-            <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
         </div>
         <div class="status-card-content">
             <span class="status-card-label">API Status</span>
-            <span class="status-card-value text-success">@Model.ApiRateLimitFormatted</span>
+            <span class="status-card-value @Model.ApiStatusClass">@Model.ApiRateLimitFormatted</span>
         </div>
-        <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
     </a>
 
     <!-- System Health -->
-    <a href="/Admin/Performance/SystemHealth" class="status-card group" data-tab-link="system">
+    <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.System)" class="status-card group" data-tab-link="system">
         <div class="status-card-icon bg-success/10">
-            <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
             </svg>
         </div>
         <div class="status-card-content">
             <span class="status-card-label">System</span>
-            <span class="status-card-value text-success">Normal</span>
+            <span class="status-card-value @Model.SystemStatusClass" id="overviewSystemStatus">@Model.SystemStatusText</span>
         </div>
-        <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
     </a>
 
     <!-- Active Alerts -->
-    <a href="/Admin/Performance/Alerts" class="status-card group" data-tab-link="alerts">
+    <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Alerts)" class="status-card group" data-tab-link="alerts">
         <div class="status-card-icon @(Model.ActiveAlertCount > 0 ? "bg-warning/10" : "bg-success/10")">
-            <svg class="@(Model.ActiveAlertCount > 0 ? "text-warning" : "text-success")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="@(Model.ActiveAlertCount > 0 ? "text-warning" : "text-success")" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
         </div>
@@ -79,112 +82,86 @@
             <span class="status-card-label">Active Alerts</span>
             <span class="status-card-value @(Model.ActiveAlertCount > 0 ? "text-warning" : "text-success")">@Model.ActiveAlertCount</span>
         </div>
-        <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
     </a>
 </div>
 
-<!-- Key Metrics Row -->
+<!-- Key Metrics Row: plain captions; there is no previous period to compare against, so no trend arrows -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
     <!-- Uptime -->
     <div class="metric-card">
         <div class="metric-header">
             <span class="metric-label">Uptime</span>
-            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </div>
         <div class="metric-value">@Model.Uptime30DaysPercent.ToString("F1")<span class="metric-unit">%</span></div>
-        <div class="metric-trend metric-trend-up">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-            Last 30 days
-        </div>
+        <div class="metric-caption">Last 30 days</div>
     </div>
 
     <!-- Latency -->
     <div class="metric-card">
         <div class="metric-header">
-            <span class="metric-label">Avg Latency</span>
-            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span class="metric-label">Gateway Latency</span>
+            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
         </div>
-        <div class="metric-value">@Model.AvgLatencyMs<span class="metric-unit">ms</span></div>
-        <div class="metric-trend metric-trend-up">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-            Gateway heartbeat
-        </div>
+        @if (string.Equals(Model.BotHealth.ConnectionState, "Connected", StringComparison.OrdinalIgnoreCase))
+        {
+            <div class="metric-value"><span id="overviewLatency">@Model.AvgLatencyMs</span><span class="metric-unit">ms</span></div>
+            <div class="metric-caption">Current heartbeat</div>
+        }
+        else
+        {
+            <div class="metric-value metric-value-empty"><span id="overviewLatency">&mdash;</span></div>
+            <div class="metric-caption">Bot is not connected</div>
+        }
     </div>
 
-    <!-- Commands Today -->
+    <!-- Commands -->
     <div class="metric-card">
         <div class="metric-header">
-            <span class="metric-label">Commands Today</span>
-            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span class="metric-label">Commands</span>
+            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
         </div>
-        <div class="metric-value">@Model.CommandsToday.ToString("N0")</div>
-        <div class="metric-trend metric-trend-up">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-            Last 24 hours
-        </div>
+        <div class="metric-value">@DisplayFormat.Number(Model.CommandsInRange)</div>
+        <div class="metric-caption">@Model.TimeRangeCaption</div>
     </div>
 
     <!-- Error Rate -->
     <div class="metric-card">
         <div class="metric-header">
             <span class="metric-label">Error Rate</span>
-            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </div>
-        <div class="metric-value">@Model.ErrorRate.ToString("F1")<span class="metric-unit">%</span></div>
-        <div class="metric-trend metric-trend-up">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-            Last 24 hours
-        </div>
+        @if (Model.CommandsInRange > 0)
+        {
+            <div class="metric-value">@Model.ErrorRate.ToString("F1")<span class="metric-unit">%</span></div>
+        }
+        else
+        {
+            <div class="metric-value metric-value-empty">&mdash;</div>
+        }
+        <div class="metric-caption">@(Model.CommandsInRange > 0 ? Model.TimeRangeCaption : "No commands yet")</div>
     </div>
 </div>
 
 <!-- Charts Row -->
-<div class="performance-grid-2 mb-6">
-    <!-- Response Time Trend -->
-    <div class="chart-card">
-        <div class="chart-card-header">
-            <div>
-                <h2 class="chart-card-title">Response Time Trend</h2>
-                <p class="chart-card-subtitle" id="overviewResponseTimeSubtitle">Average command response time (last 24 hours)</p>
-            </div>
-        </div>
-        <div class="chart-card-body">
-            <div class="chart-container">
-                <canvas id="overviewResponseTimeChart"></canvas>
-            </div>
+<div class="chart-card mb-6">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Command Throughput</h2>
+            <p class="chart-card-subtitle" id="overviewThroughputSubtitle">Commands per hour (@Model.TimeRangeCaption.ToLowerInvariant())</p>
         </div>
     </div>
-
-    <!-- Command Throughput -->
-    <div class="chart-card">
-        <div class="chart-card-header">
-            <div>
-                <h2 class="chart-card-title">Command Throughput</h2>
-                <p class="chart-card-subtitle" id="overviewThroughputSubtitle">Commands per hour (last 24 hours)</p>
-            </div>
-        </div>
-        <div class="chart-card-body">
-            <div class="chart-container">
-                <canvas id="overviewThroughputChart"></canvas>
-            </div>
+    <div class="chart-card-body">
+        <div class="chart-container" id="overviewThroughputContainer">
+            <canvas id="overviewThroughputChart"></canvas>
         </div>
     </div>
 </div>
@@ -198,7 +175,7 @@
                 <h2 class="chart-card-title">Resource Usage</h2>
                 <p class="chart-card-subtitle">Current system resource utilization</p>
             </div>
-            <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" data-tab-link="system">
+            <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.System)" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" data-tab-link="system">
                 View Details
             </a>
         </div>
@@ -207,10 +184,10 @@
             <div class="progress-labeled">
                 <div class="progress-header">
                     <span class="progress-label">Memory</span>
-                    <span class="progress-value">@Model.MemoryUsageFormatted</span>
+                    <span class="progress-value" id="overviewMemoryText">@Model.MemoryUsageFormatted</span>
                 </div>
                 <div class="progress-bar-container">
-                    <div class="progress-bar-fill @Model.MemoryUsageProgressClass" style="width: @Model.MemoryUsagePercent.ToString("F0")%;"></div>
+                    <div class="progress-bar-fill @Model.MemoryUsageProgressClass" id="overviewMemoryBar" style="width: @Model.MemoryUsagePercent.ToString("F0")%;"></div>
                 </div>
             </div>
 
@@ -245,7 +222,7 @@
                 <h2 class="chart-card-title">Recent Alerts</h2>
                 <p class="chart-card-subtitle">Active and recent system alerts</p>
             </div>
-            <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" data-tab-link="alerts">
+            <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Alerts)" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" data-tab-link="alerts">
                 View All
             </a>
         </div>
@@ -287,7 +264,7 @@
                                 }
                                 <div class="alert-meta">
                                     <span class="@severityBadgeClass">@alert.Severity</span>
-                                    <span data-utc-time="@alert.TriggeredAt.ToString("o")" data-format="relative">@((DateTime.UtcNow - alert.TriggeredAt).TotalMinutes < 60 ? $"{(int)(DateTime.UtcNow - alert.TriggeredAt).TotalMinutes} minutes ago" : $"{(int)(DateTime.UtcNow - alert.TriggeredAt).TotalHours} hours ago")</span>
+                                    @DisplayFormat.Time(alert.TriggeredAt, relative: true)
                                 </div>
                             </div>
                         </div>
@@ -308,42 +285,14 @@
     </div>
 </div>
 
-<!-- Quick Actions -->
+<!-- Configure alerts -->
 <div class="chart-card">
     <div class="chart-card-header">
         <div>
-            <h2 class="chart-card-title">Quick Actions</h2>
-            <p class="chart-card-subtitle">Common performance management tasks</p>
+            <h2 class="chart-card-title">Alert thresholds</h2>
+            <p class="chart-card-subtitle">Choose when the bot raises warning and critical alerts</p>
         </div>
-    </div>
-    <div class="chart-card-body">
-        <div class="flex flex-wrap gap-3">
-            <button class="btn btn-secondary" onclick="quickActions.showToast('Bot restart functionality coming soon', 'info')">
-                <svg class="btn-svg-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Restart Bot
-            </button>
-            <button class="btn btn-secondary" onclick="quickActions.showToast('Clear cache functionality coming soon', 'info')">
-                <svg class="btn-svg-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Clear Cache
-            </button>
-            <button class="btn btn-secondary" onclick="quickActions.showToast('Export metrics functionality coming soon', 'info')">
-                <svg class="btn-svg-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export Metrics
-            </button>
-            <a href="#" class="btn btn-secondary" data-tab-link="alerts">
-                <svg class="btn-svg-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Configure Alerts
-            </a>
-        </div>
+        <a href="@PerformanceDashboardTabs.TabUrl(PerformanceDashboardTabs.Alerts)" class="btn btn-secondary" data-tab-link="alerts">Configure alerts</a>
     </div>
 </div>
 </div>

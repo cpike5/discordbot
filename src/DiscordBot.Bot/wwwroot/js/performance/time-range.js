@@ -39,6 +39,15 @@
         },
 
         /**
+         * Use a range for this page view without remembering it (the address asked for it).
+         */
+        apply: function(hours) {
+            if (VALID_RANGES.includes(hours)) {
+                this._currentHours = hours;
+            }
+        },
+
+        /**
          * Set time range and persist
          */
         set: function(hours) {
@@ -76,7 +85,7 @@
                 case 24: return 'last 24 hours';
                 case 168: return 'last 7 days';
                 case 720: return 'last 30 days';
-                default: return `last ${this._currentHours} hours`;
+                default: return `last ${this._currentHours} ${this._currentHours === 1 ? 'hour' : 'hours'}`;
             }
         }
     };

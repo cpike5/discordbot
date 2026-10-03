@@ -34,6 +34,13 @@ public class NotificationQueryDto
     public DateTime? EndDate { get; set; }
 
     /// <summary>
+    /// Upper time bound (UTC, inclusive) on <c>CreatedAt</c>. The filtered delete always sets it to
+    /// the moment the list was rendered, so a notification that arrives afterwards is never
+    /// deleted unseen. Null means no bound.
+    /// </summary>
+    public DateTime? Before { get; set; }
+
+    /// <summary>
     /// Free-text search across Title and Message fields.
     /// </summary>
     public string? SearchTerm { get; set; }

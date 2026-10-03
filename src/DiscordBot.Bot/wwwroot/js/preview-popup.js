@@ -152,7 +152,7 @@ const PreviewPopup = (() => {
 
         const response = await fetch(API.guildPreview(guildId));
         if (!response.ok) {
-            throw new Error(response.status === 404 ? 'Guild not found' : 'Failed to fetch guild preview');
+            throw new Error(response.status === 404 ? 'Server not found' : 'Failed to fetch server preview');
         }
 
         const data = await response.json();
@@ -170,7 +170,7 @@ const PreviewPopup = (() => {
         const width = type === 'user' ? 'w-72' : 'w-80';
         popup.className = `preview-popup-container fixed z-[1100] bg-bg-tertiary border border-border-primary rounded-lg ${width} shadow-xl overflow-hidden opacity-0 transform -translate-y-1 scale-[0.98] transition-all duration-150 ease-out`;
         popup.setAttribute('role', 'dialog');
-        popup.setAttribute('aria-label', type === 'user' ? 'User preview' : 'Guild preview');
+        popup.setAttribute('aria-label', type === 'user' ? 'User preview' : 'Server preview');
         return popup;
     }
 
@@ -240,13 +240,13 @@ const PreviewPopup = (() => {
      */
     function renderUserContent(popup, data) {
         const avatarHtml = data.avatarUrl
-            ? `<img src="${escapeHtml(data.avatarUrl)}" alt="${escapeHtml(data.username)}" class="w-12 h-12 rounded-full object-cover" />`
+            ? `<img src="${SafeHtml.escape(data.avatarUrl)}" alt="${SafeHtml.escape(data.username)}" class="w-12 h-12 rounded-full object-cover" />`
             : `<div class="w-12 h-12 rounded-full bg-accent-blue-muted flex items-center justify-center">
-                   <span class="text-lg font-semibold text-accent-blue">${escapeHtml(data.username.charAt(0).toUpperCase())}</span>
+                   <span class="text-lg font-semibold text-accent-blue">${SafeHtml.escape(Format.initials(data.username, 1))}</span>
                </div>`;
 
         const displayNameHtml = data.displayName && data.displayName !== data.username
-            ? `<span class="block text-xs text-text-secondary truncate">${escapeHtml(data.displayName)}</span>`
+            ? `<span class="block text-xs text-text-secondary truncate">${SafeHtml.escape(data.displayName)}</span>`
             : '';
 
         const verifiedBadge = data.isVerified
@@ -272,7 +272,7 @@ const PreviewPopup = (() => {
             metaItems += `
                 <div class="flex justify-between items-start">
                     <span class="text-text-tertiary">Roles</span>
-                    <span class="text-text-secondary text-right max-w-[140px] truncate">${escapeHtml(rolesDisplay)}</span>
+                    <span class="text-text-secondary text-right max-w-[140px] truncate">${SafeHtml.escape(rolesDisplay)}</span>
                 </div>`;
         }
         if (data.lastActive) {
@@ -302,7 +302,7 @@ const PreviewPopup = (() => {
             <div class="preview-header flex items-center gap-3 p-4 border-b border-border-secondary bg-bg-secondary">
                 ${avatarHtml}
                 <div class="flex-1 min-w-0">
-                    <span class="block text-sm font-semibold text-text-primary truncate">${escapeHtml(data.username)}</span>
+                    <span class="block text-sm font-semibold text-text-primary truncate">${SafeHtml.escape(data.username)}</span>
                     ${displayNameHtml}
                 </div>
                 ${verifiedBadge}
@@ -326,9 +326,9 @@ const PreviewPopup = (() => {
      */
     function renderGuildContent(popup, data) {
         const iconHtml = data.iconUrl
-            ? `<img src="${escapeHtml(data.iconUrl)}" alt="${escapeHtml(data.name)}" class="w-14 h-14 rounded-lg object-cover" />`
+            ? `<img src="${SafeHtml.escape(data.iconUrl)}" alt="${SafeHtml.escape(data.name)}" class="w-14 h-14 rounded-lg object-cover" />`
             : `<div class="w-14 h-14 rounded-lg bg-accent-blue-muted flex items-center justify-center">
-                   <span class="text-xl font-semibold text-accent-blue">${escapeHtml(data.name.charAt(0).toUpperCase())}</span>
+                   <span class="text-xl font-semibold text-accent-blue">${SafeHtml.escape(Format.initials(data.name, 1))}</span>
                </div>`;
 
         const onlineCount = data.onlineMemberCount
@@ -343,7 +343,7 @@ const PreviewPopup = (() => {
         let metaItems = `
             <div class="flex justify-between">
                 <span class="text-text-tertiary">Owner</span>
-                <span class="text-accent-blue">${escapeHtml(data.ownerUsername)}</span>
+                <span class="text-accent-blue">${SafeHtml.escape(data.ownerUsername)}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-text-tertiary">Bot joined</span>
@@ -353,7 +353,7 @@ const PreviewPopup = (() => {
         if (data.activeFeatures && data.activeFeatures.length > 0) {
             const featureBadges = data.activeFeatures.slice(0, 4).map(feature => {
                 const badgeClass = getFeatureBadgeClass(feature);
-                return `<span class="px-1.5 py-0.5 text-[10px] font-medium rounded ${badgeClass}">${escapeHtml(feature)}</span>`;
+                return `<span class="px-1.5 py-0.5 text-[10px] font-medium rounded ${badgeClass}">${SafeHtml.escape(feature)}</span>`;
             }).join('');
             const extraBadge = data.activeFeatures.length > 4
                 ? `<span class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-bg-hover text-text-tertiary">+${data.activeFeatures.length - 4}</span>`
@@ -372,9 +372,9 @@ const PreviewPopup = (() => {
             <div class="preview-header flex items-center gap-3 p-4 border-b border-border-secondary bg-bg-secondary">
                 ${iconHtml}
                 <div class="flex-1 min-w-0">
-                    <span class="block text-sm font-semibold text-text-primary truncate">${escapeHtml(data.name)}</span>
+                    <span class="block text-sm font-semibold text-text-primary truncate">${SafeHtml.escape(data.name)}</span>
                     <span class="block text-xs text-text-secondary">
-                        ${data.memberCount.toLocaleString()} members${onlineCount}
+                        ${Format.plural(data.memberCount, 'member')}${onlineCount}
                     </span>
                 </div>
                 ${inactiveBadge}
@@ -399,7 +399,7 @@ const PreviewPopup = (() => {
      * Render error state
      */
     function renderError(popup, type) {
-        const errorTitle = type === 'guild' ? 'Guild Unavailable' : 'User Not Found';
+        const errorTitle = type === 'guild' ? 'Server unavailable' : 'User Not Found';
         const errorDescription = type === 'guild'
             ? 'The bot may have been removed from this server or the server was deleted.'
             : 'This user may have been deleted or is unavailable.';
@@ -455,16 +455,6 @@ const PreviewPopup = (() => {
         if (diffHour < 24) return `${diffHour} hour${diffHour !== 1 ? 's' : ''} ago`;
         if (diffDay < 7) return `${diffDay} day${diffDay !== 1 ? 's' : ''} ago`;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    /**
-     * Escape HTML to prevent XSS
-     */
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     /**
@@ -602,7 +592,7 @@ const PreviewPopup = (() => {
             announcement = `User preview for ${data.username}`;
             if (data.isVerified) announcement += ', verified user';
         } else {
-            announcement = `Guild preview for ${data.name}, ${data.memberCount} members`;
+            announcement = `Server preview for ${data.name}, ${Format.plural(data.memberCount, 'member')}`;
         }
 
         // Use existing toast live region or create temporary one

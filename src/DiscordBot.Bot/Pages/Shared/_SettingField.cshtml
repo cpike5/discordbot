@@ -20,7 +20,11 @@
                     Label = Model.DisplayName,
                     Description = Model.Description,
                     IsChecked = Model.Value?.ToLower() == "true",
-                    IsDisabled = false
+                    IsDisabled = false,
+                    // settings.js reads each toggle's checked state itself and posts JSON-style
+                    // true/false, so no hidden false input is wanted here
+                    PostsFalseWhenOff = false,
+                    AdditionalAttributes = new Dictionary<string, string> { ["data-setting-toggle"] = "true" }
                 };
             }
             <partial name="Components/_FormToggle" model="toggleViewModel" />

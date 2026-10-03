@@ -531,7 +531,7 @@ public class LoginModelTests
         result.Should().BeOfType<PageResult>();
         loginModel.ModelState.IsValid.Should().BeFalse();
         loginModel.ModelState[string.Empty]!.Errors.Should().ContainSingle()
-            .Which.ErrorMessage.Should().Contain("Discord login is not available");
+            .Which.ErrorMessage.Should().Contain("Discord sign-in is not available");
     }
 
     // Note: Full Discord OAuth flow tests are skipped due to complexity of mocking IUrlHelper extension methods.

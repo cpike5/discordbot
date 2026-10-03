@@ -83,7 +83,7 @@ public class CommandsSearchProvider : ISearchProvider
             Items = items,
             TotalCount = items.Count,
             HasMore = matchingCount > maxResults,
-            ViewAllUrl = $"/Commands?search={Uri.EscapeDataString(searchTerm)}"
+            ViewAllUrl = $"/Commands?q={Uri.EscapeDataString(searchTerm)}"
         };
     }
 }

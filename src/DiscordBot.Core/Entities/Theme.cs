@@ -17,7 +17,7 @@ public class Theme
     public string ThemeKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Human-readable display name for the theme (e.g., "Discord Dark").
+    /// Human-readable display name for the theme (e.g., "Graphite (dark)").
     /// </summary>
     public string DisplayName { get; set; } = string.Empty;
 

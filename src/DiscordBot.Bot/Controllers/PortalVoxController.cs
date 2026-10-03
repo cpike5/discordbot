@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
@@ -28,7 +27,7 @@ public class PortalVoxController : ControllerBase
     private readonly IAudioService _audioService;
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ISettingsService _settingsService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IPortalGuildDirectory _guildDirectory;
     private readonly IVoxMessageHistoryRepository _historyRepository;
     private readonly IAudioModerationLogService _audioModerationLogService;
     private readonly ILogger<PortalVoxController> _logger;
@@ -57,7 +56,7 @@ public class PortalVoxController : ControllerBase
         IAudioService audioService,
         IGuildAudioSettingsService audioSettingsService,
         ISettingsService settingsService,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
         IVoxMessageHistoryRepository historyRepository,
         IAudioModerationLogService audioModerationLogService,
         ILogger<PortalVoxController> logger)
@@ -68,7 +67,7 @@ public class PortalVoxController : ControllerBase
         _audioService = audioService;
         _audioSettingsService = audioSettingsService;
         _settingsService = settingsService;
-        _discordClient = discordClient;
+        _guildDirectory = guildDirectory;
         _historyRepository = historyRepository;
         _audioModerationLogService = audioModerationLogService;
         _logger = logger;
@@ -94,20 +93,23 @@ public class PortalVoxController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
-    public IActionResult GetClips(ulong guildId, [FromQuery] string group = "vox", [FromQuery] string? search = null)
+    public async Task<IActionResult> GetClips(
+        ulong guildId,
+        [FromQuery] string group = "vox",
+        [FromQuery] string? search = null,
+        CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Get VOX clips request for guild {GuildId}, group {Group}, search {Search}",
             guildId, group, search ?? "(none)");
 
         // Validate guild exists
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId, cancellationToken))
         {
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
-                Detail = "The requested guild was not found or the bot is not a member.",
+                Message = "Server not found",
+                Detail = "That server was not found, or the bot is not in it.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "guild_not_found"
@@ -169,20 +171,23 @@ public class PortalVoxController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
-    public IActionResult GetPreview(ulong guildId, [FromQuery] string message, [FromQuery] string group = "vox")
+    public async Task<IActionResult> GetPreview(
+        ulong guildId,
+        [FromQuery] string message,
+        [FromQuery] string group = "vox",
+        CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Get VOX preview request for guild {GuildId}, message length {Length}, group {Group}",
             guildId, message?.Length ?? 0, group);
 
         // Validate guild exists
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId, cancellationToken))
         {
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
-                Detail = "The requested guild was not found or the bot is not a member.",
+                Message = "Server not found",
+                Detail = "That server was not found, or the bot is not in it.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "guild_not_found"
@@ -273,8 +278,8 @@ public class PortalVoxController : ControllerBase
             _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
             return BadRequest(new ApiErrorDto
             {
-                Message = "Audio is not enabled for this guild",
-                Detail = "Enable audio in the guild settings before using VOX features.",
+                Message = "Audio is not enabled for this server",
+                Detail = "Ask a server admin to turn on audio before using VOX features.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "audio_not_enabled"
@@ -282,14 +287,13 @@ public class PortalVoxController : ControllerBase
         }
 
         // Validate guild exists
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId, cancellationToken))
         {
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
-                Detail = "The requested guild was not found or the bot is not a member.",
+                Message = "Server not found",
+                Detail = "That server was not found, or the bot is not in it.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "guild_not_found"
@@ -394,7 +398,8 @@ public class PortalVoxController : ControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "VOX playback failed",
-                Detail = ex.Message,
+                // The exception text names files and tools; it belongs in the log, not on the page
+                Detail = "The announcement could not be played. Try again in a moment.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "vox_validation_failed"
@@ -477,14 +482,13 @@ public class PortalVoxController : ControllerBase
         _logger.LogInformation("Stop VOX playback request for guild {GuildId}", guildId);
 
         // Validate guild exists
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId, cancellationToken))
         {
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
-                Detail = "The requested guild was not found or the bot is not a member.",
+                Message = "Server not found",
+                Detail = "That server was not found, or the bot is not in it.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "guild_not_found"
@@ -498,7 +502,7 @@ public class PortalVoxController : ControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice channel",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not in a voice channel right now. Join one first.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "not_connected"

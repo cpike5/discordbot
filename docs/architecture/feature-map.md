@@ -27,6 +27,7 @@ The soundboard system allows guild members to play pre-uploaded audio files in v
 | **Discord Commands** | `/play`, `/sounds`, `/stop` (SoundboardModule) |
 | **Services** | `IAudioService`, `IPlaybackService`, `ISoundService`, `ISoundboardOrchestrationService`, `IGuildAudioSettingsService`, `IAudioNotifier` |
 | **UI Pages** | Portal: Soundboard player page; Admin: Sounds management (`SoundsController`) |
+| **Member portal access** | `IPortalGuildDirectory` (Discord-backed `DiscordPortalGuildDirectory`; database-backed `DevelopmentPortalGuildDirectory` only in Development + `Discord:OfflineMode`), `PortalGuildMemberAuthorizationHandler` (requires `EnableMemberPortal`, independent of `AudioEnabled`), `PortalPageModelBase`, `Portal/Shared/_PortalDisabled.cshtml`. Portal voice controls use `/api/portal/soundboard/{guildId}/status|channel|stop` |
 | **Database Entities** | `Sound`, `SoundPlayLog`, `GuildAudioSettings`, `AudioPlaybackLog` |
 | **Storage** | Audio files on disk (configurable path) |
 | **Key Features** | Queue management, audio filtering (distortion, echo, pitch shift), silent playback mode, auto-leave voice channels, optional per-sound pricing through the currency charge seam |
@@ -92,11 +93,12 @@ Converts text messages to speech using Azure Cognitive Services and plays them i
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | `/tts <message> [voice]` (TtsModule) |
-| **Services** | `IAudioService`, `ITtsService`, `ITtsSettingsService`, `ITtsPlaybackService`, `IAzureTtsService`, `ISsmlBuilder`, `IStylePresetProvider` |
+| **Services** | `IAudioService`, `ITtsService`, `ITtsSettingsService`, `ITtsPlaybackService`, `IAzureTtsService`, `ISsmlBuilder`, `IStylePresetProvider`, `CustomTtsPresetService` (Bot/Services/Tts; saved custom presets, shared by the portal and admin endpoints) |
+| **REST Controllers** | `PortalTtsPresetsController` (member portal presets), `GuildTtsPresetsController` (`api/guilds/{guildId}/tts/presets/custom`, admin page preset bar) |
 | **UI Pages** | Portal: TTS player; Admin: TTS settings configuration |
 | **Database Entities** | `TtsMessage`, `GuildTtsSettings` |
 | **External Services** | Azure Cognitive Services (Speech API) |
-| **Key Features** | Voice presets (male/female), SSML support for emotion/style control, guild-level enable/disable, user consent tracking |
+| **Key Features** | Voice presets (male/female), SSML support for emotion/style control, guild-level enable/disable, user consent tracking; Pro-mode SSML is checked against the guild's limits by `SsmlLimits` (`Bot/Helpers`), shared by the portal API and the admin page so they cannot disagree |
 | **Rate Limiting** | 5 commands per 10 seconds |
 
 **Preconditions**: `[RequireGuildActive]`, `[RequireTtsEnabled]`, `[RequireVoiceChannel]`
@@ -280,7 +282,7 @@ Community-driven accountability system where users flag suspicious messages for 
 |--------|------------|
 | **Discord Commands** | `Rat Watch` (context menu), `/rat-clear`, `/rat-stats`, `/rat-settings`, `/rat-leaderboard` (RatWatchModule, RatWatchComponentModule) |
 | **Services** | `IRatWatchService`, `IRatWatchStatusService`, `IDashboardUpdateService` |
-| **UI Pages** | Portal: Rat Watch analytics and leaderboard; Admin: Rat Watch analytics (`RatWatchAnalytics.cshtml`) |
+| **UI Pages** | Guild: Rat Watch Settings (`Index`), Analytics and Incidents (incident dialog, CSV export of all filtered rows via `?handler=ExportCsv`); Portal: leaderboard; Admin: Rat Watch analytics (`RatWatchAnalytics.cshtml`, shares `rat-watch-analytics.js`) |
 | **Database Entities** | `RatWatch`, `RatRecord`, `RatVote`, `GuildRatWatchSettings` |
 | **Configuration** | Timezone support, voting duration, max advance hours, feature enable/disable |
 | **Key Features** | Modal-based watch creation, "I'm Here!" check-in button, voting system, record keeping, leaderboard, timezone-aware scheduling |
@@ -425,9 +427,9 @@ Dashboard for managing guild-wide settings, enabling/disabling features, member 
 | Aspect | Components |
 |--------|------------|
 | **UI Pages** | Admin: Guild settings, feature flags, member directory |
-| **Services** | `IGuildService`, `IUserDiscordGuildService`, `IPermissionService` |
+| **Services** | `IGuildService`, `IUserDiscordGuildService`, `IPermissionService`, `IGuildDetailsAggregator` (`Bot/Services/Guilds`) |
 | **Database Entities** | `Guild`, `UserDiscordGuild`, `GuildMember` |
-| **Key Features** | Feature toggles, member sync, role-based access control |
+| **Key Features** | Feature toggles, member sync, role-based access control. `Guilds/Details` is thin: `GuildDetailsAggregator` loads the guild and each widget section separately, so one failing section shows a retry widget and the rest still render; `Guilds/Edit` saves audio settings only when they loaded (`AudioSettingsLoaded`) |
 
 ---
 
@@ -559,8 +561,8 @@ In-app and real-time notifications for important events.
 
 | Aspect | Components |
 |--------|------------|
-| **Services** | `INotificationService`, `AlertMonitoringService`, `NotificationRetentionService` |
-| **UI Pages** | Admin: Notifications inbox |
+| **Services** | `INotificationService`, `INotificationWriter` (`DeleteMatchingAsync` deletes what a filtered list shows, only rows created before the page rendered), `AlertMonitoringService`, `NotificationRetentionService` |
+| **UI Pages** | Admin: Notifications inbox (in-place actions, typed-confirm Delete all that respects the filters); the bell in the top bar is a disclosure |
 | **Database Entities** | `UserNotification` |
 | **Controllers** | `NotificationsController` (API for querying, marking read) |
 | **Real-time** | SignalR for live notification push |
@@ -574,12 +576,44 @@ Real-time monitoring of bot performance, API usage, system health.
 
 | Aspect | Components |
 |--------|------------|
-| **Services** | `MetricsCollectionService`, `PerformanceMetricsBroadcastService`, `AlertMonitoringService`, `PerformanceAlertService`, `CpuSamplingService` |
-| **UI Pages** | Admin: Performance dashboard with multiple tabs (System Health, API Metrics, Commands, Alerts) |
+| **Services** | `MetricsCollectionService`, `PerformanceMetricsBroadcastService`, `AlertMonitoringService`, `PerformanceAlertService` (`ValidateThresholds`: warning below critical), `CpuSamplingService`, `IPerformanceDashboardAggregator` (the only place tab view models are built), `IPerformanceMetricsQueryService` (historical statistics behind `PerformanceMetricsController`), `PerformanceDashboardTabs` (tab ids and `TabUrl`) |
+| **UI Pages** | Admin: one Performance dashboard shell with six tabs (Overview, Health, Commands, API, System, Alerts); the old standalone pages are `PerformanceTabRedirectModel` stubs that redirect (302) to its `?tab=` addresses. "Live" appears only on tabs that join a hub group (`performance/live.js`); the others show how old their data is |
 | **Database Entities** | `MetricSnapshot`, `PerformanceIncident`, `PerformanceAlertConfig` |
-| **Controllers** | `PerformanceMetricsController`, `PerformanceTabsController`, `AlertsController` |
+| **Controllers** | `PerformanceMetricsController`, `AlertsController` |
 | **External Services** | Prometheus metrics, Elastic Stack integration |
 | **Key Features** | Real-time latency tracking, API call metrics, CPU/memory sampling, alert configuration and threshold management |
+
+---
+
+### Dashboard & Live Stats
+
+The authenticated home page: hero numbers that update without a reload, an activity timeline, and (by role) connected servers, audit log and quick actions.
+
+| Aspect | Components |
+|--------|------------|
+| **Services** | `IDashboardStatsProvider` (one definition of the hero numbers, `DashboardStatsDto`), `IDashboardStatsBroadcaster` (`NotifyChanged()` coalesces a burst into one `StatsUpdated` push), `DashboardUpdateService`, `IConnectionStateService` |
+| **UI Pages** | `Pages/Index` (`?handler=Stats`, `ConnectedServers`, `RestartBot`, `SyncAllGuilds`) |
+| **Scripts** | `dashboard-stats.js` (field mapping, pinned to the DTO by a test), `dashboard-realtime.js` (feed and stats on `reconnected`), `dashboard-actions.js` (confirm follow-ups, server rows) |
+| **Key Features** | Role-gated cards are left out of the page model (a Viewer's grid closes up); Restart shows "restarting, back online" through `BotStatus.watchRestart()`; the layout's connection banner reports the hub and the sidebar footer reports the bot |
+
+---
+
+### Web UI Platform
+
+Shared front-end behaviour that every page builds on. Details: [UI Inventory](ui-inventory.md), [Design System](../articles/design-system.md), [Component API](../articles/component-api.md).
+
+| Aspect | Components |
+|--------|------------|
+| **Feedback** | `toast.js`, `TempData.Set*Toast` (`Extensions/TempDataExtensions`), `_ToastContainer`, `_Alert`; script requests through `ApiClient`, which gets 401/403 problem JSON (`HttpRequestExtensions.IsScriptRequest`) instead of redirects |
+| **Dialogs** | `quick-actions.js` is the only modal layer; `_ConfirmationModal`, `_TypedConfirmationModal`, `confirm-forms.js` |
+| **Forms** | `_FormInput`, `_FormTextarea`, `_FormSelect`, `_FormToggle`, `_RadioCardGroup`; `data-submit-guard` (`loading-manager.js`), `unsaved-changes.js`, `form-focus.js`; `FormFieldState` glues ModelState to the partials |
+| **Formatting** | `format.js` and `Helpers/DisplayFormat` (one formatter for dates, plurals, numbers, durations, currency); `timezone.js`; `DateRangeFilter.presetRange` |
+| **Display names** | `EnumDisplayExtensions` (`status.DisplayName()`), `PurgeDisplay`, `UserDisplay` (`Unknown#id` becomes "Unknown user"), `FlaggedEventReviewRules`; never `ToString()` on an enum in copy |
+| **Safety** | `SafeHtml.escape` (`safe-html.js`), `ReturnUrlHelper.Sanitize` (local return URLs only), `CsvField.NeutralizeFormula` (CSV exports) |
+| **Theme and PWA** | `ThemeRootTagHelper` + `_ThemeHead` + `_ThemeToggle` (follows the OS until a choice is saved), `chart-theme.js`; `_PwaHead`, `sw.js` |
+| **Live connection** | `dashboard-hub.js` states `connecting`, `connected`, `reconnecting`, `disconnected` with unlimited retry; pages rejoin groups on `reconnected` |
+| **Member portal** | `IPortalGuildDirectory`, `PortalGuildMemberAuthorizationHandler`, `_PortalDisabled` when `EnableMemberPortal` is off; development-only seeded member (`DevelopmentPortal`, requires Development and `Discord:OfflineMode`) |
+| **Personal data export** | `UserDataExportService` writes archives outside `wwwroot`, served only by the authenticated `Account/Privacy?handler=DownloadExport`; `UserDataExportCleanupService` deletes expired ones hourly |
 
 ---
 
@@ -672,7 +706,7 @@ gates which models the assistant, DM assistant, and feature-request modes may us
 
 | Aspect | Components |
 |--------|------------|
-| **Web Page** | `/admin/settings` "AI Models" tab (`Pages/Admin/Settings.cshtml`, `ai-models-settings` panel), rendered by `wwwroot/js/llm-models.js` |
+| **Web Page** | `/Admin/Settings` "AI Models" tab (`Pages/Admin/Settings.cshtml`, `settingsTabs-panel-AiModels` panel), rendered by `wwwroot/js/llm-models.js` |
 | **Controller** | `LlmModelsController` (`api/admin/llm-models`, `RequireAdmin`) — list/filter, refresh, enable/disable, per-mode defaults (`GetDefaults` delegates to `ILlmModelResolver`) |
 | **Services** | `ILlmModelCatalogService` / `LlmModelCatalogService` (refresh, filtered listing, allowlist), `IOpenRouterModelCatalogClient` / `OpenRouterModelCatalogClient` (second typed `HttpClient` against OpenRouter `GET /models`), `ILlmModelResolver` / `LlmModelResolver` (per-mode default resolution, see below) |
 | **Repository** | `ILlmModelRepository` / `LlmModelRepository` |
@@ -716,7 +750,7 @@ breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-p
 | **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` and `FeatureRequestConversationService` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
 | **Repository** | `ILlmUsageRepository` / `LlmUsageRepository` (`Infrastructure/Data/Repositories`) — `GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync` (all grouped over `LlmUsageQuery`: date range + optional guild/mode/user), `GetRecordsAsync` (paged raw rows), plus `AddRangeAsync`/`DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` for the write, retention, and GDPR paths. Grouped queries sum `CostUsd` as `double` and cast back to `decimal` — SQLite's EF provider cannot translate `Sum(decimal)` — so the same query shape works on both providers. |
 | **Controller** | `LlmUsageController` (`api/admin/llm-usage`, `RequireAdmin`) — `GET summary` (totals + by-user/model/mode/day over a validated range, default last 30 days, max 366 days), `GET records` (paged rows, `pageSize` capped at 200). Resolves Discord display names via `IDiscordUserResolver` and emits every ID as a string. |
-| **Web Pages** | `/admin/llm-usage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/guild/{guildId}/assistant-metrics` (`Pages/Guilds/AssistantMetrics.cshtml`) gains a "Cost by User" table sourced from the same repository, injected directly into `AssistantMetricsModel` and filtered by guild. |
+| **Web Pages** | `/Admin/LlmUsage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/Guilds/AssistantMetrics/{guildId}` (`Pages/Guilds/AssistantMetrics.cshtml`) gains a "Cost by User" table sourced from the same repository, injected directly into `AssistantMetricsModel` and filtered by guild. |
 | **Retention** | `AssistantInteractionLogRetentionService` sweeps `LlmUsageRecords` (via `DeleteOlderThanAsync`) on the same `Assistant:Privacy:InteractionLogRetentionDays` cadence as the interaction logs — no new retention option. |
 | **GDPR** | `UserPurgeService` and `UserDataExportService` include `LlmUsageRecords` (`DeleteByUserAsync` / `CountByUserAsync` + export) alongside the interaction logs. |
 | **Key Rule** | Granularity is one row per user message (`LlmCalls` counts calls across the agentic loop), not one row per LLM call — keeps the table small and matches what the breakdowns need. |
@@ -735,7 +769,7 @@ whether the model actually uses them well. Design in
 | **Prompt-surface measurement** | `PromptSurface` / `PromptSurfaceMeasurement` / `PromptSurfaceTool` (`DiscordBot.Agents`) — per-tool characters through the real wire serialization (`OpenRouterMessageMapper` + `OpenRouterJson.Options`), the array total, and tokens as characters ÷ 4 |
 | **Reporter** | `IPromptSurfaceReporter` (`Infrastructure/Abstractions/LLM`) / `PromptSurfaceReporter` (`Infrastructure/Services/LLM`) — rebuilds a surface as a run sees it (allow-list decorator, skill session, `SkillToolSet.Compose`), so it counts the per-request prefix rather than everything the registry holds. Registered ungated; returns null when no API key is configured |
 | **Startup report** | `PromptSurfaceReportService` (`Bot/Services/LLM`) — one Information line per surface: tools advertised of tools registered, schema characters, estimated tokens, characters held back by skills, and the three largest tools |
-| **Web page** | `/guild/{guildId}/assistant-metrics` gains a **Prompt Surface** panel: four summary tiles and a per-tool table with each tool's share of the prefix, marking the ones this guild turned off and the ones a skill is holding back |
+| **Web page** | `/Guilds/AssistantMetrics/{guildId}` gains a **Prompt Surface** panel: four summary tiles and a per-tool table with each tool's share of the prefix, marking the ones this guild turned off and the ones a skill is holding back |
 | **Per-tool specs** | `docs/tools/<tool_name>.md` — status, surfaces, purpose, dependencies, the verbatim model-facing description, an input table, and every result shape with its `failed_result` marker. Template and index in [`docs/tools/README.md`](../tools/README.md). Written when a tool is touched; the original `assistant-tool-catalog.md` is archived under `docs/specs/archive/` |
 | **Contract test** | `ToolContractTests` (`tests/DiscordBot.Tests/Services/LLM/`) over every registered tool, found by reflection (`TestHelpers/RegisteredAgentTools`): name shape and uniqueness, description length, object schema with described properties and resolvable `required` names, a `ToolCatalog` entry both ways, the `Mutation` refusal through the real `AgentToolProvider`, and a missing argument classified `failed_result`. `SkillContractTests` checks every skill file's named tools resolve on its own surface |
 | **Evals** | `tests/DiscordBot.Evals` — a dozen cases through the real loop, the real OpenRouter client and the real tools over throwaway SQLite. Asserts only machine-checkable facts (which tools were called, which skills activated, what rows exist), never what the reply says. Skipped when `OpenRouter:ApiKey` is absent, so CI stays free and green |
@@ -764,6 +798,7 @@ Application settings management with environment-based configuration.
 | **Configuration** | `appsettings.json`, `appsettings.{Environment}.json`, User Secrets |
 | **Options Pattern** | `IOptions<T>` dependency injection |
 | **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
+| **Admin Settings page** | `Pages/Admin/Settings` is request routing only: `ISettingsSectionService` (load, per-tab save and reset, command modules, audit log), `IAppearanceSettingsService` (Appearance tab, SuperAdmin only) and `IBotControlService` (restart and shutdown with audit log), all in `Bot/Services/Settings`. A save posts one tab and the server keeps only that category's keys |
 | **Key Features** | Environment-specific settings, feature flags, service configuration |
 
 ---

@@ -89,9 +89,20 @@ public class IndexModel : GuildPageModelBase
     public bool IsAudioGloballyDisabled { get; set; }
 
     /// <summary>
+    /// Whether the bot could read this server's roles. When it cannot (not connected, or not in the
+    /// server) the role pickers are empty and the page says why.
+    /// </summary>
+    public bool RolesAvailable { get; set; }
+
+    /// <summary>
     /// The soundboard commands that can have role restrictions.
     /// </summary>
     public static readonly string[] SoundboardCommands = { "join", "leave", "play", "sounds", "stop" };
+
+    /// <summary>
+    /// The speaking styles the default-style select offers; anything else is refused on save.
+    /// </summary>
+    public static readonly string[] DefaultStyles = { "cheerful", "excited", "friendly", "sad", "angry", "whispering", "shouting", "newscast" };
 
     /// <summary>
     /// Handles GET requests for the Audio Settings page.
@@ -141,6 +152,7 @@ public class IndexModel : GuildPageModelBase
 
         // Load guild roles from Discord
         var discordGuild = _discordClient.GetGuild(GuildId);
+        RolesAvailable = discordGuild != null;
         if (discordGuild != null)
         {
             AvailableRoles = discordGuild.Roles
@@ -165,169 +177,156 @@ public class IndexModel : GuildPageModelBase
     }
 
     /// <summary>
-    /// Handles POST requests to save general settings.
+    /// Handles POST requests to save every setting on the page at once. All values are checked
+    /// first; a refusal names each bad field (<c>errors</c>, keyed by the control's id) and saves nothing.
     /// </summary>
-    public async Task<IActionResult> OnPostSaveGeneralAsync(
-        [FromBody] GeneralSettingsDto request,
+    public async Task<IActionResult> OnPostSaveAllAsync(
+        [FromBody] SaveAllDto request,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Saving general audio settings for guild {GuildId}", GuildId);
+        _logger.LogInformation("Saving audio settings for guild {GuildId}", GuildId);
 
+        var errors = Validate(request);
+        if (errors.Count > 0)
+        {
+            return new JsonResult(new
+            {
+                success = false,
+                message = errors.Count == 1 ? errors.Values.First() : "Some settings are not valid. Fix the fields marked below and save again.",
+                errors
+            })
+            { StatusCode = StatusCodes.Status400BadRequest };
+        }
+
+        var audioSaved = false;
         try
         {
             await _audioSettingsService.UpdateSettingsAsync(GuildId, settings =>
             {
                 settings.AudioEnabled = request.AudioEnabled;
-                settings.AutoLeaveTimeoutMinutes = request.AutoLeaveTimeoutMinutes;
+                settings.AutoLeaveTimeoutMinutes = request.AutoLeaveTimeoutMinutes!.Value;
                 settings.QueueEnabled = request.QueueEnabled;
                 settings.EnableMemberPortal = request.EnableMemberPortal;
                 settings.SilentPlayback = request.SilentPlayback;
+                settings.MaxDurationSeconds = request.MaxDurationSeconds!.Value;
+                settings.MaxFileSizeBytes = request.MaxFileSizeMB!.Value * 1024L * 1024L;
+                settings.MaxSoundsPerGuild = request.MaxSoundsPerGuild!.Value;
+                ApplyCommandRoles(settings, request.CommandRoles);
             }, cancellationToken);
+            audioSaved = true;
 
-            _logger.LogInformation("General audio settings saved for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = true, message = "General settings saved successfully." });
+            var tts = await _ttsSettingsService.GetOrCreateSettingsAsync(GuildId, cancellationToken);
+            tts.SsmlEnabled = request.SsmlEnabled;
+            tts.StrictSsmlValidation = request.StrictSsmlValidation;
+            tts.MaxSsmlComplexity = request.MaxSsmlComplexity!.Value;
+            tts.DefaultStyle = string.IsNullOrWhiteSpace(request.DefaultStyle) ? null : request.DefaultStyle;
+            tts.UpdatedAt = DateTime.UtcNow;
+            await _ttsSettingsService.UpdateSettingsAsync(tts, cancellationToken);
+
+            _logger.LogInformation("Audio settings saved for guild {GuildId}", GuildId);
+            return new JsonResult(new { success = true, message = "Audio settings saved." });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save general audio settings for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = false, message = "Failed to save settings." }) { StatusCode = 500 };
+            _logger.LogError(ex, "Failed to save audio settings for guild {GuildId} (audio part saved: {AudioSaved})", GuildId, audioSaved);
+            return new JsonResult(new
+            {
+                success = false,
+                message = audioSaved
+                    ? "The audio settings were saved, but the text-to-speech settings were not. Save again to retry."
+                    : "The settings could not be saved. Nothing was changed. Try again."
+            })
+            { StatusCode = StatusCodes.Status500InternalServerError };
         }
     }
 
     /// <summary>
-    /// Handles POST requests to save limit settings.
+    /// Checks a save request. Returns the problems keyed by control id; empty means it can be saved.
     /// </summary>
-    public async Task<IActionResult> OnPostSaveLimitsAsync(
-        [FromBody] LimitSettingsDto request,
-        CancellationToken cancellationToken)
+    internal static Dictionary<string, string> Validate(SaveAllDto? request)
     {
-        _logger.LogInformation("Saving limit settings for guild {GuildId}", GuildId);
-
-        try
+        var errors = new Dictionary<string, string>();
+        if (request == null)
         {
-            // Validate inputs
-            if (request.MaxDurationSeconds < 1 || request.MaxDurationSeconds > 300)
-            {
-                return new JsonResult(new { success = false, message = "Max duration must be between 1 and 300 seconds." }) { StatusCode = 400 };
-            }
-            if (request.MaxFileSizeMB < 1 || request.MaxFileSizeMB > 50)
-            {
-                return new JsonResult(new { success = false, message = "Max file size must be between 1 and 50 MB." }) { StatusCode = 400 };
-            }
-            if (request.MaxSoundsPerGuild < 1 || request.MaxSoundsPerGuild > 500)
-            {
-                return new JsonResult(new { success = false, message = "Max sounds must be between 1 and 500." }) { StatusCode = 400 };
-            }
-
-            await _audioSettingsService.UpdateSettingsAsync(GuildId, settings =>
-            {
-                settings.MaxDurationSeconds = request.MaxDurationSeconds;
-                settings.MaxFileSizeBytes = request.MaxFileSizeMB * 1024 * 1024; // Convert MB to bytes
-                settings.MaxSoundsPerGuild = request.MaxSoundsPerGuild;
-            }, cancellationToken);
-
-            _logger.LogInformation("Limit settings saved for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = true, message = "Limit settings saved successfully." });
+            errors["form"] = "The settings could not be read. Reload the page and try again.";
+            return errors;
         }
-        catch (Exception ex)
+
+        void Range(int? value, string id, int min, int max, string what, string unit)
         {
-            _logger.LogError(ex, "Failed to save limit settings for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = false, message = "Failed to save settings." }) { StatusCode = 500 };
+            if (value == null)
+            {
+                errors[id] = $"Enter {what} as a whole number.";
+            }
+            else if (value < min || value > max)
+            {
+                var suffix = unit.Length == 0 ? string.Empty : " " + unit;
+                errors[id] = $"{char.ToUpperInvariant(what[0])}{what[1..]} must be from {min} to {max}{suffix}.";
+            }
         }
+
+        Range(request.AutoLeaveTimeoutMinutes, "autoLeaveTimeout", 0, GuildAudioSettings.MaxAutoLeaveTimeoutMinutes, "the auto-leave timeout", "minutes");
+        Range(request.MaxDurationSeconds, "maxDuration", 1, 300, "the maximum duration", "seconds");
+        Range(request.MaxFileSizeMB, "maxFileSize", 1, 50, "the maximum file size", "MB");
+        Range(request.MaxSoundsPerGuild, "maxSounds", 1, 500, "the maximum number of sounds", "sounds");
+        Range(request.MaxSsmlComplexity, "maxSsmlComplexity", 10, 200, "the SSML complexity limit", "");
+
+        if (!string.IsNullOrWhiteSpace(request.DefaultStyle)
+            && !DefaultStyles.Contains(request.DefaultStyle, StringComparer.OrdinalIgnoreCase))
+        {
+            errors["defaultStyle"] = "Choose one of the listed styles.";
+        }
+
+        foreach (var (command, roleIds) in request.CommandRoles ?? new Dictionary<string, List<ulong>>())
+        {
+            if (!SoundboardCommands.Contains(command, StringComparer.OrdinalIgnoreCase))
+            {
+                errors["form"] = "A command in the permissions is not recognised. Reload the page and try again.";
+            }
+            else if (roleIds == null)
+            {
+                // {"commandRoles": {"play": null}}: a missing list is a bad request, not a crash
+                errors["form"] = "The permissions for a command could not be read. Reload the page and try again.";
+            }
+        }
+
+        return errors;
     }
 
-    /// <summary>
-    /// Handles POST requests to save TTS settings.
-    /// </summary>
-    public async Task<IActionResult> OnPostSaveTtsSettingsAsync(
-        [FromBody] TtsSettingsDto request,
-        CancellationToken cancellationToken)
+    private static void ApplyCommandRoles(GuildAudioSettings settings, Dictionary<string, List<ulong>>? commandRoles)
     {
-        _logger.LogInformation("Saving TTS settings for guild {GuildId}", GuildId);
-
-        try
+        if (commandRoles == null)
         {
-            // Validate inputs
-            if (request.MaxSsmlComplexity < 10 || request.MaxSsmlComplexity > 200)
-            {
-                return new JsonResult(new { success = false, message = "Max SSML complexity must be between 10 and 200." }) { StatusCode = 400 };
-            }
-
-            // Load current settings and update them
-            var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(GuildId, cancellationToken);
-            settings.SsmlEnabled = request.SsmlEnabled;
-            settings.StrictSsmlValidation = request.StrictSsmlValidation;
-            settings.MaxSsmlComplexity = request.MaxSsmlComplexity;
-            settings.DefaultStyle = string.IsNullOrWhiteSpace(request.DefaultStyle) ? null : request.DefaultStyle;
-            settings.UpdatedAt = DateTime.UtcNow;
-
-            await _ttsSettingsService.UpdateSettingsAsync(settings, cancellationToken);
-
-            _logger.LogInformation("TTS settings saved for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = true, message = "TTS settings saved successfully." });
+            return;
         }
-        catch (Exception ex)
+
+        foreach (var (command, roleIds) in commandRoles)
         {
-            _logger.LogError(ex, "Failed to save TTS settings for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = false, message = "Failed to save settings." }) { StatusCode = 500 };
-        }
-    }
-
-    /// <summary>
-    /// Handles POST requests to update command role restrictions.
-    /// </summary>
-    public async Task<IActionResult> OnPostUpdateCommandRolesAsync(
-        [FromBody] CommandRolesDto request,
-        CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Updating command roles for '{CommandName}' in guild {GuildId}",
-            request.CommandName, GuildId);
-
-        try
-        {
-            // Validate command name
-            if (!SoundboardCommands.Contains(request.CommandName, StringComparer.OrdinalIgnoreCase))
-            {
-                return new JsonResult(new { success = false, message = "Invalid command name." }) { StatusCode = 400 };
-            }
-
-            // Get current settings to update restrictions
-            var settings = await _audioSettingsService.GetSettingsAsync(GuildId, cancellationToken);
-
-            // Find existing restriction or create new one
+            var name = SoundboardCommands.First(c => c.Equals(command, StringComparison.OrdinalIgnoreCase));
             var restriction = settings.CommandRoleRestrictions
-                .FirstOrDefault(r => r.CommandName.Equals(request.CommandName, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(r => r.CommandName.Equals(name, StringComparison.OrdinalIgnoreCase));
+            var ids = roleIds.Distinct().ToList();
 
             if (restriction != null)
             {
-                // Clear existing roles first by removing all
-                foreach (var roleId in restriction.AllowedRoleIds.ToList())
-                {
-                    await _audioSettingsService.RemoveCommandRestrictionAsync(GuildId, request.CommandName, roleId, cancellationToken);
-                }
+                restriction.AllowedRoleIds = ids;
             }
-
-            // Add new roles
-            foreach (var roleId in request.RoleIds)
+            else if (ids.Count > 0)
             {
-                await _audioSettingsService.AddCommandRestrictionAsync(GuildId, request.CommandName, roleId, cancellationToken);
+                settings.CommandRoleRestrictions.Add(new CommandRoleRestriction
+                {
+                    GuildId = settings.GuildId,
+                    CommandName = name,
+                    AllowedRoleIds = ids
+                });
             }
-
-            _logger.LogInformation("Command roles updated for '{CommandName}' in guild {GuildId}: {RoleCount} roles",
-                request.CommandName, GuildId, request.RoleIds.Count);
-
-            return new JsonResult(new { success = true, message = "Command permissions updated successfully." });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to update command roles for '{CommandName}' in guild {GuildId}",
-                request.CommandName, GuildId);
-            return new JsonResult(new { success = false, message = "Failed to update command permissions." }) { StatusCode = 500 };
         }
     }
 
     /// <summary>
-    /// Handles POST requests to reset all settings to defaults.
+    /// Handles POST requests to reset general settings, limits and command permissions to their
+    /// defaults. The reply carries the new values so the page can show them without reloading.
+    /// TTS settings are left alone.
     /// </summary>
     public async Task<IActionResult> OnPostResetToDefaultsAsync(CancellationToken cancellationToken)
     {
@@ -349,55 +348,51 @@ public class IndexModel : GuildPageModelBase
             }, cancellationToken);
 
             _logger.LogInformation("Audio settings reset to defaults for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = true, message = "Settings reset to defaults." });
+            return new JsonResult(new
+            {
+                success = true,
+                message = "General settings, limits and command permissions are back to their defaults.",
+                settings = new
+                {
+                    audioEnabled = true,
+                    autoLeaveTimeoutMinutes = 5,
+                    queueEnabled = true,
+                    enableMemberPortal = false,
+                    silentPlayback = false,
+                    maxDurationSeconds = 30,
+                    maxFileSizeMB = 5,
+                    maxSoundsPerGuild = 50
+                }
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to reset audio settings for guild {GuildId}", GuildId);
-            return new JsonResult(new { success = false, message = "Failed to reset settings." }) { StatusCode = 500 };
+            return new JsonResult(new { success = false, message = "The settings could not be reset. Try again." }) { StatusCode = 500 };
         }
     }
 
     /// <summary>
-    /// DTO for general settings update.
+    /// Everything the Save button sends. The numbers are nullable so an empty or garbled field
+    /// arrives as a refusal, never as a quiet 0.
     /// </summary>
-    public class GeneralSettingsDto
+    public class SaveAllDto
     {
         public bool AudioEnabled { get; set; }
-        public int AutoLeaveTimeoutMinutes { get; set; }
+        public int? AutoLeaveTimeoutMinutes { get; set; }
         public bool QueueEnabled { get; set; }
         public bool EnableMemberPortal { get; set; }
         public bool SilentPlayback { get; set; }
-    }
-
-    /// <summary>
-    /// DTO for limit settings update.
-    /// </summary>
-    public class LimitSettingsDto
-    {
-        public int MaxDurationSeconds { get; set; }
-        public int MaxFileSizeMB { get; set; }
-        public int MaxSoundsPerGuild { get; set; }
-    }
-
-    /// <summary>
-    /// DTO for command role restrictions update.
-    /// </summary>
-    public class CommandRolesDto
-    {
-        public string CommandName { get; set; } = string.Empty;
-        public List<ulong> RoleIds { get; set; } = new();
-    }
-
-    /// <summary>
-    /// DTO for TTS settings update.
-    /// </summary>
-    public class TtsSettingsDto
-    {
+        public int? MaxDurationSeconds { get; set; }
+        public int? MaxFileSizeMB { get; set; }
+        public int? MaxSoundsPerGuild { get; set; }
         public bool SsmlEnabled { get; set; }
         public bool StrictSsmlValidation { get; set; }
-        public int MaxSsmlComplexity { get; set; }
+        public int? MaxSsmlComplexity { get; set; }
         public string? DefaultStyle { get; set; }
+
+        /// <summary>The allowed role ids per command; an empty list means everyone.</summary>
+        public Dictionary<string, List<ulong>>? CommandRoles { get; set; }
     }
 
     /// <summary>

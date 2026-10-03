@@ -8,14 +8,18 @@
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="mb-6">
-        <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+        <nav aria-label="Breadcrumb" class="flex flex-wrap items-center gap-2 text-sm text-text-secondary mb-2">
             <a asp-page="Index" class="hover:text-text-primary">Users</a>
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
-            <span class="text-text-primary">Edit</span>
-        </div>
-        <h1 class="text-2xl font-bold text-text-primary">Edit User</h1>
+            <a asp-page="Details" asp-route-id="@Model.Input.UserId" class="hover:text-text-primary break-all">@(string.IsNullOrEmpty(Model.UserEmail) ? "User" : Model.UserEmail)</a>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-text-primary" aria-current="page">Edit</span>
+        </nav>
+        <h1 class="text-2xl font-bold text-text-primary">Edit user</h1>
         <p class="mt-1 text-sm text-text-secondary">Update user information and permissions</p>
     </div>
 
@@ -37,27 +41,35 @@
     <!-- Generated Password (shown once after a reset; a toast would dismiss before it can be copied) -->
     @if (!string.IsNullOrEmpty(Model.GeneratedPassword))
     {
-        <div class="mb-6">
-            @{
-                var passwordAlert = new AlertViewModel {
-                    Variant = AlertVariant.Success,
-                    Title = "Temporary password",
-                    Message = $"New temporary password: {Model.GeneratedPassword}",
-                    IsDismissible = true
-                };
-            }
-            <partial name="Shared/Components/_Alert" model="passwordAlert" />
+        <div class="mb-6 space-y-3" data-generated-password-panel>
+            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Title = "Temporary password created",
+                Message = "Give this to the user now. It is shown once and leaves this page when you do, so copy it first.",
+                IsDismissible = false
+            }' />
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3 bg-bg-secondary border border-border-primary rounded-lg p-3">
+                <code id="generated-password" class="flex-1 min-w-0 break-all font-mono text-sm text-text-primary select-all" tabindex="0" aria-label="Temporary password">@Model.GeneratedPassword</code>
+                <div class="flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-copy-password>Copy password</button>
+                    <button type="button" class="btn btn-secondary" data-hide-password>Done</button>
+                </div>
+            </div>
         </div>
     }
 
     <!-- User Information Form -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
         <div class="px-6 py-4 border-b border-border-primary">
-            <h2 class="text-lg font-semibold text-text-primary">User Information</h2>
+            <h2 class="text-lg font-semibold text-text-primary">User information</h2>
         </div>
-        <form method="post" class="p-6 space-y-6">
+        <form method="post" class="p-6 space-y-6" data-submit-guard data-focus-first-error data-unsaved-changes
+              data-unsaved-dirty-on-load="@(!ViewData.ModelState.IsValid ? "true" : null)">
             <input type="hidden" name="Input.UserId" value="@Model.Input.UserId" />
-            <div asp-validation-summary="ModelOnly" class="text-error text-sm"></div>
+            @foreach (var message in ViewData.ModelState[string.Empty]?.Errors.Select(e => e.ErrorMessage) ?? Enumerable.Empty<string>())
+            {
+                <partial name="Shared/Components/_Alert" model="new AlertViewModel { Variant = AlertVariant.Error, Message = message }" />
+            }
 
             <!-- Email -->
             <div>
@@ -69,7 +81,9 @@
                     var emailInputModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
                         Id = "Input_Email",
                         Name = "Input.Email",
-                        Label = "Email Address",
+                        Label = "Email address",
+                        Autocomplete = "off",
+                        InputMode = "email",
                         Type = "email",
                         Value = Model.Input.Email,
                         IsRequired = true,
@@ -86,7 +100,8 @@
                     var displayNameModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
                         Id = "Input_DisplayName",
                         Name = "Input.DisplayName",
-                        Label = "Display Name",
+                        Label = "Display name",
+                        Autocomplete = "off",
                         Type = "text",
                         Value = Model.Input.DisplayName,
                         Placeholder = "Optional friendly name"
@@ -114,7 +129,9 @@
                         SelectedValue = selectedRole,
                         IsRequired = true,
                         IsDisabled = !Model.ViewModel.CanChangeRole,
-                        HelpText = roleHelpText
+                        HelpText = roleHelpText,
+                        ValidationState = ViewData.ModelState["Input.Role"]?.Errors.Count > 0 ? DiscordBot.Bot.ViewModels.Components.ValidationState.Error : DiscordBot.Bot.ViewModels.Components.ValidationState.None,
+                        ValidationMessage = ViewData.ModelState["Input.Role"]?.Errors.FirstOrDefault()?.ErrorMessage
                     };
                 }
                 <partial name="Shared/Components/_FormSelect" model="roleModel" />
@@ -145,7 +162,7 @@
                 }
                 else
                 {
-                    <p class="mt-1 text-xs text-text-secondary">Inactive users cannot log in</p>
+                    <p class="mt-1 text-xs text-text-secondary">Inactive users cannot sign in</p>
                 }
             </div>
 
@@ -154,11 +171,11 @@
                 <a asp-page="Index" class="btn btn-secondary">
                     Cancel
                 </a>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" data-loading-text="Saving...">
                     <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
-                    Save Changes
+                    Save changes
                 </button>
             </div>
         </form>
@@ -172,7 +189,7 @@
                 <h2 class="text-lg font-semibold text-text-primary">Discord Account</h2>
             </div>
             <div class="p-6">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-4">
                         @if (!string.IsNullOrEmpty(Model.ViewModel.DiscordAvatarUrl))
                         {
@@ -200,29 +217,29 @@
     <!-- Actions Section -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg">
         <div class="px-6 py-4 border-b border-border-primary">
-            <h2 class="text-lg font-semibold text-text-primary">Additional Actions</h2>
+            <h2 class="text-lg font-semibold text-text-primary">Other actions</h2>
         </div>
         <div class="p-6 space-y-4">
             <!-- Reset Password -->
-            <div class="flex items-center justify-between py-3 border-b border-border-primary last:border-0">
+            <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-border-primary last:border-0">
                 <div>
-                    <h3 class="text-sm font-medium text-text-primary">Reset Password</h3>
+                    <h3 class="text-sm font-medium text-text-primary">Reset password</h3>
                     <p class="text-xs text-text-secondary mt-1">Generate a new temporary password for this user</p>
                 </div>
                 <button type="button" class="btn btn-secondary"
                         onclick="quickActions.showConfirmationModal('resetPasswordModal')">
-                    Reset Password
+                    Reset password
                 </button>
             </div>
 
             <!-- View Details -->
-            <div class="flex items-center justify-between py-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
-                    <h3 class="text-sm font-medium text-text-primary">View Activity Log</h3>
+                    <h3 class="text-sm font-medium text-text-primary">View activity log</h3>
                     <p class="text-xs text-text-secondary mt-1">See detailed user activity and management history</p>
                 </div>
                 <a asp-page="Details" asp-route-id="@Model.Input.UserId" class="btn btn-secondary">
-                    View Details
+                    View details
                 </a>
             </div>
         </div>
@@ -256,4 +273,6 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/form-focus.js" asp-append-version="true"></script>
+    <script src="~/js/user-edit.js" asp-append-version="true"></script>
 }

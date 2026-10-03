@@ -4,6 +4,7 @@ using DiscordBot.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
+using System.Runtime.ExceptionServices;
 
 namespace DiscordBot.Infrastructure.Data.Repositories;
 
@@ -44,23 +45,28 @@ public class LedgerRepository : ILedgerRepository
             return new LedgerAppendResult(alreadyWritten, true);
         }
 
-        var owned = await BeginTransactionAsync(cancellationToken);
-        try
-        {
-            var result = await AppendCoreAsync(row, cancellationToken);
-            await CommitAsync(owned, cancellationToken);
-            return result;
-        }
-        catch (DbUpdateException ex)
-        {
-            var duplicate = await RecoverFromFailedWriteAsync(ex, owned, new[] { row }, cancellationToken);
-            return new LedgerAppendResult(duplicate.Single(), true);
-        }
-        catch
-        {
-            await RollbackAsync(owned, cancellationToken);
-            throw;
-        }
+        return await ExecuteAtomicallyAsync(
+            new[] { row },
+            async (owned, isRetry, ct) =>
+            {
+                try
+                {
+                    var written = await AppendCoreAsync(row, ct);
+                    await CommitAsync(owned, ct);
+                    return new LedgerAppendResult(written.Transaction, written.Existed && !isRetry);
+                }
+                catch (DbUpdateException ex)
+                {
+                    var duplicate = await RecoverFromFailedWriteAsync(ex, owned, new[] { row }, ct);
+                    return new LedgerAppendResult(duplicate.Single(), true);
+                }
+                catch
+                {
+                    await RollbackAsync(owned, ct);
+                    throw;
+                }
+            },
+            cancellationToken);
     }
 
     /// <inheritdoc />
@@ -81,51 +87,56 @@ public class LedgerRepository : ILedgerRepository
             return new LedgerAppendPairResult(existingDebit, existingCredit, true);
         }
 
-        var owned = await BeginTransactionAsync(cancellationToken);
-        try
-        {
-            // Lock both wallets up front, lowest id first. Two transfers running in opposite
-            // directions between the same pair would otherwise be able to deadlock on Postgres.
-            foreach (var walletId in new[] { debit.WalletId, credit.WalletId }.Distinct().OrderBy(id => id))
+        return await ExecuteAtomicallyAsync(
+            new[] { debit, credit },
+            async (owned, isRetry, ct) =>
             {
-                await LockWalletAsync(walletId, cancellationToken);
-            }
+                try
+                {
+                    // Lock both wallets up front, lowest id first. Two transfers running in opposite
+                    // directions between the same pair would otherwise be able to deadlock on Postgres.
+                    foreach (var walletId in new[] { debit.WalletId, credit.WalletId }.Distinct().OrderBy(id => id))
+                    {
+                        await LockWalletAsync(walletId, ct);
+                    }
 
-            var debitResult = await AppendCoreAsync(debit, cancellationToken);
+                    var debitResult = await AppendCoreAsync(debit, ct);
 
-            // Link forward now that the debit has an id, then back once the credit has one. Both
-            // writes happen before the transaction commits, so no reader ever sees a half-linked
-            // pair and the "rows are never updated" rule holds for everything outside it.
-            if (!debitResult.WasDuplicate)
-            {
-                credit.ReferenceTransactionId = debitResult.Transaction.Id;
-            }
+                    // Link forward now that the debit has an id, then back once the credit has one. Both
+                    // writes happen before the transaction commits, so no reader ever sees a half-linked
+                    // pair and the "rows are never updated" rule holds for everything outside it.
+                    if (!debitResult.Existed)
+                    {
+                        credit.ReferenceTransactionId = debitResult.Transaction.Id;
+                    }
 
-            var creditResult = await AppendCoreAsync(credit, cancellationToken);
+                    var creditResult = await AppendCoreAsync(credit, ct);
 
-            if (!debitResult.WasDuplicate)
-            {
-                debitResult.Transaction.ReferenceTransactionId = creditResult.Transaction.Id;
-                await _context.SaveChangesAsync(cancellationToken);
-            }
+                    if (!debitResult.Existed)
+                    {
+                        debitResult.Transaction.ReferenceTransactionId = creditResult.Transaction.Id;
+                        await _context.SaveChangesAsync(ct);
+                    }
 
-            await CommitAsync(owned, cancellationToken);
+                    await CommitAsync(owned, ct);
 
-            return new LedgerAppendPairResult(
-                debitResult.Transaction,
-                creditResult.Transaction,
-                debitResult.WasDuplicate && creditResult.WasDuplicate);
-        }
-        catch (DbUpdateException ex)
-        {
-            var recovered = await RecoverFromFailedWriteAsync(ex, owned, new[] { debit, credit }, cancellationToken);
-            return new LedgerAppendPairResult(recovered[0], recovered[1], true);
-        }
-        catch
-        {
-            await RollbackAsync(owned, cancellationToken);
-            throw;
-        }
+                    return new LedgerAppendPairResult(
+                        debitResult.Transaction,
+                        creditResult.Transaction,
+                        !isRetry && debitResult.Existed && creditResult.Existed);
+                }
+                catch (DbUpdateException ex)
+                {
+                    var recovered = await RecoverFromFailedWriteAsync(ex, owned, new[] { debit, credit }, ct);
+                    return new LedgerAppendPairResult(recovered[0], recovered[1], true);
+                }
+                catch
+                {
+                    await RollbackAsync(owned, ct);
+                    throw;
+                }
+            },
+            cancellationToken);
     }
 
     /// <inheritdoc />
@@ -196,9 +207,11 @@ public class LedgerRepository : ILedgerRepository
 
     /// <summary>
     /// Writes one row inside an already-open transaction: idempotency check, wallet lock, balance
-    /// bookkeeping, insert.
+    /// bookkeeping, insert. <c>Existed</c> is true when the idempotency key was already written and
+    /// nothing was inserted; whether that counts as a duplicate is the caller's call, because on a
+    /// retry the rows found are this call's own earlier write.
     /// </summary>
-    private async Task<LedgerAppendResult> AppendCoreAsync(LedgerTransaction row, CancellationToken cancellationToken)
+    private async Task<(LedgerTransaction Transaction, bool Existed)> AppendCoreAsync(LedgerTransaction row, CancellationToken cancellationToken)
     {
         var existing = await GetByIdempotencyKeyAsync(row.IdempotencyKey, cancellationToken);
         if (existing != null)
@@ -206,7 +219,7 @@ public class LedgerRepository : ILedgerRepository
             _logger.LogDebug(
                 "Ledger append skipped: idempotency key {Key} already written as transaction {TransactionId}",
                 row.IdempotencyKey, existing.Id);
-            return new LedgerAppendResult(existing, true);
+            return (existing, true);
         }
 
         await LockWalletAsync(row.WalletId, cancellationToken);
@@ -229,7 +242,7 @@ public class LedgerRepository : ILedgerRepository
             "Appended {Type} of {Amount} to wallet {WalletId}; balance now {Balance}",
             row.Type, row.Amount, row.WalletId, row.BalanceAfter);
 
-        return new LedgerAppendResult(row, false);
+        return (row, false);
     }
 
     /// <summary>
@@ -281,10 +294,11 @@ public class LedgerRepository : ILedgerRepository
             var existing = await GetByIdempotencyKeyAsync(row.IdempotencyKey, cancellationToken);
             if (existing == null)
             {
-                throw exception;
+                // Rethrow with the original stack trace
+                ExceptionDispatchInfo.Capture(exception).Throw();
             }
 
-            recovered.Add(existing);
+            recovered.Add(existing!);
         }
 
         _logger.LogDebug(
@@ -303,14 +317,63 @@ public class LedgerRepository : ILedgerRepository
     }
 
     /// <summary>
-    /// Starts a transaction unless one is already running, in which case the caller above us owns
-    /// it and this returns null.
+    /// Runs one append unit (begin, work, commit) so that a retrying execution strategy can repeat it
+    /// as a whole.
+    /// <para>
+    /// The application configures Npgsql with <c>EnableRetryOnFailure</c>, and a retrying strategy
+    /// refuses a transaction the caller opens itself unless the whole transaction runs inside
+    /// <see cref="IExecutionStrategy.ExecuteAsync{TResult}(Func{CancellationToken, Task{TResult}}, CancellationToken)"/>.
+    /// Providers that do not retry (SQLite) get a pass-through strategy, so this costs them nothing.
+    /// </para>
+    /// <para>
+    /// Every attempt after the first starts clean: the change tracker is cleared (it still holds the
+    /// failed attempt's wallet change and inserted rows) and the caller's rows are put back as they
+    /// arrived (no generated id, no stamped balance, no wallet navigation, original reference). The idempotency check inside <see cref="AppendCoreAsync"/> then makes the retry safe
+    /// even when the failure was a commit whose outcome was unknown: if the first attempt did
+    /// commit, the retry finds its rows and returns them instead of writing twice. Those rows are
+    /// this call's own write, so a retry reports <c>WasDuplicate = false</c>; reporting a duplicate
+    /// would tell a refund that it had already happened although this call is what moved the money.
+    /// </para>
+    /// <para>
+    /// When a transaction is already running the caller above us owns it, and the strategy that
+    /// wraps it, so the unit runs as-is with a null transaction handle.
+    /// </para>
     /// </summary>
-    private async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken cancellationToken)
+    private async Task<T> ExecuteAtomicallyAsync<T>(
+        IReadOnlyList<LedgerTransaction> rows,
+        Func<IDbContextTransaction?, bool, CancellationToken, Task<T>> unit,
+        CancellationToken cancellationToken)
     {
-        return _context.Database.CurrentTransaction != null
-            ? null
-            : await _context.Database.BeginTransactionAsync(cancellationToken);
+        if (_context.Database.CurrentTransaction != null)
+        {
+            return await unit(null, false, cancellationToken);
+        }
+
+        var originalReferences = rows.Select(r => r.ReferenceTransactionId).ToArray();
+        var attempt = 0;
+
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async ct =>
+        {
+            var isRetry = attempt++ > 0;
+            if (isRetry)
+            {
+                _context.ChangeTracker.Clear();
+                for (var i = 0; i < rows.Count; i++)
+                {
+                    rows[i].Id = 0;
+                    rows[i].BalanceAfter = 0;
+
+                    // Fix-up pointed this at the wallet instance the failed attempt tracked, with
+                    // its balance already moved. Re-adding the row would attach that stale copy.
+                    rows[i].Wallet = null;
+                    rows[i].ReferenceTransactionId = originalReferences[i];
+                }
+            }
+
+            var owned = await _context.Database.BeginTransactionAsync(ct);
+            return await unit(owned, isRetry, ct);
+        }, cancellationToken);
     }
 
     private static async Task CommitAsync(IDbContextTransaction? owned, CancellationToken cancellationToken)
@@ -329,7 +392,20 @@ public class LedgerRepository : ILedgerRepository
             return;
         }
 
-        await owned.RollbackAsync(cancellationToken);
-        await owned.DisposeAsync();
+        try
+        {
+            await owned.RollbackAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Data.Common.DbException)
+        {
+            // The caller is already handling the failure that sent us here. A transaction that is
+            // already complete (a commit that landed but whose outcome was lost) or whose connection
+            // is gone cannot be rolled back, and that must not replace the original exception: the
+            // retrying execution strategy has to see it to decide whether to run the unit again.
+        }
+        finally
+        {
+            await owned.DisposeAsync();
+        }
     }
 }

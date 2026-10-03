@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Dashboard;
 using DiscordBot.Bot.Services.Guilds;
 using DiscordBot.Bot.Services.Settings;
 using DiscordBot.Bot.Services.Search;
@@ -43,11 +44,13 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<IDashboardNotifier, DashboardNotifier>();
         services.AddSingleton<IAudioNotifier, AudioNotifier>();
         services.AddSingleton<IDashboardUpdateService, DashboardUpdateService>();
+        services.AddSingleton<IDashboardStatsBroadcaster, DashboardStatsBroadcaster>();
         services.AddSingleton<IPageMetadataService, PageMetadataService>();
         services.AddSingleton<IBotStatusService, BotStatusService>();
 
         // Scoped services (per-request)
         services.AddScoped<IBotService, BotService>();
+        services.AddScoped<IDashboardStatsProvider, DashboardStatsProvider>();
         services.AddScoped<IGuildService, GuildService>();
         services.AddScoped<ICommandLogService, CommandLogService>();
         services.AddScoped<ICommandAnalyticsService, CommandAnalyticsService>();
@@ -94,6 +97,9 @@ public static class ApplicationServiceExtensions
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();
         services.AddHostedService<BusinessMetricsUpdateService>();
+
+        // Deletes expired personal-data export archives (hourly, and once at startup)
+        services.AddHostedService<UserDataExportCleanupService>();
 
         return services;
     }

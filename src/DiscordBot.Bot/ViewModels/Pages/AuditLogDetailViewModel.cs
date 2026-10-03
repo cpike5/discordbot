@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Helpers;
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using System.Text.Json;
@@ -34,6 +36,12 @@ public record AuditLogDetailViewModel
     /// Gets the action name for display.
     /// </summary>
     public string Action { get; init; } = string.Empty;
+
+    /// <summary>The stable action name ("PermissionChanged"), for the JSON export.</summary>
+    public string ActionKey { get; init; } = string.Empty;
+
+    /// <summary>The stable category name ("Security"), for the JSON export.</summary>
+    public string CategoryKey { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the CSS class for the action badge.
@@ -177,8 +185,10 @@ public record AuditLogDetailViewModel
             Id = dto.Id,
             Timestamp = dto.Timestamp,
             TimestampUtcIso = DateTime.SpecifyKind(dto.Timestamp, DateTimeKind.Utc).ToString("o"),
-            Category = dto.CategoryName,
-            Action = dto.ActionName,
+            Category = EnumDisplayExtensions.DisplayNameFor<AuditLogCategory>(dto.CategoryName),
+            CategoryKey = dto.CategoryName,
+            Action = EnumDisplayExtensions.DisplayNameFor<AuditLogAction>(dto.ActionName),
+            ActionKey = dto.ActionName,
             ActionBadgeClass = actionBadgeClass,
             ActorId = actorId,
             ActorName = actorName,
@@ -206,11 +216,7 @@ public record AuditLogDetailViewModel
         if (string.IsNullOrWhiteSpace(name))
             return "?";
 
-        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 2)
-            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
-
-        return name.Length >= 2 ? name.Substring(0, 2).ToUpper() : name.ToUpper();
+        return TextDisplay.WordInitials(name);
     }
 
     /// <summary>

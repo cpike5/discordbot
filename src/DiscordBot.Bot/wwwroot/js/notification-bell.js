@@ -2,6 +2,12 @@
  * Notification Bell Module
  * Manages the notification bell dropdown in the global navbar.
  * Integrates with DashboardHub for real-time notification updates.
+ *
+ * The dropdown is a disclosure, not a menu: the bell button carries aria-expanded and
+ * aria-controls, the panel is a labelled region, and everything inside it is reached with Tab.
+ * Escape closes it and returns focus to the bell. A notification with a link renders its title
+ * as a real link (stretched over the whole item with CSS), so keyboard and screen reader users
+ * get the same target a mouse user clicks.
  */
 const NotificationBell = (function () {
     'use strict';
@@ -55,7 +61,6 @@ const NotificationBell = (function () {
     function init() {
         // Prevent double initialization
         if (isInitialized) {
-            console.log('[NotificationBell] Already initialized, skipping');
             return;
         }
 
@@ -72,6 +77,14 @@ const NotificationBell = (function () {
         }
 
         isInitialized = true;
+
+        // The bell and the two header buttons (no inline handlers in the markup)
+        bellButton.addEventListener('click', toggle);
+        dropdown.querySelector('[data-notification-mark-all]')?.addEventListener('click', markAllAsRead);
+        dropdown.querySelector('[data-notification-close]')?.addEventListener('click', () => {
+            close();
+            bellButton.focus();
+        });
 
         // Register SignalR event handlers
         registerSignalRHandlers();
@@ -93,7 +106,12 @@ const NotificationBell = (function () {
             DashboardHub.on('connected', fetchInitialSummary);
         }
 
-        console.log('[NotificationBell] Initialized');
+        // A new connection missed whatever happened while it was down: take the count again, and
+        // the list too if it has been opened before
+        DashboardHub.on('reconnected', () => {
+            fetchInitialSummary();
+            if (hasLoaded) loadNotifications();
+        });
     }
 
     /**
@@ -114,21 +132,13 @@ const NotificationBell = (function () {
     }
 
     /**
-     * Sets up keyboard handlers for accessibility.
+     * Sets up keyboard handlers: Escape closes the panel and returns focus to the bell.
      */
     function setupKeyboardHandlers() {
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && isOpen) {
                 close();
                 bellButton?.focus();
-            }
-        });
-
-        // Arrow key navigation within dropdown
-        dropdown?.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                navigateItems(event.key === 'ArrowDown' ? 1 : -1);
             }
         });
     }
@@ -166,49 +176,23 @@ const NotificationBell = (function () {
                 return;
             }
 
-            // Check for notification item click
+            // The title link: mark the notification read, then follow the link
+            const titleLink = target.closest('.notification-title-link');
+            if (titleLink) {
+                event.preventDefault();
+                const item = titleLink.closest('.notification-item');
+                if (item?.dataset.notificationId) {
+                    handleItemClick(item.dataset.notificationId, titleLink.getAttribute('href'));
+                }
+                return;
+            }
+
+            // A click anywhere else on an item (mouse convenience): mark it read
             const item = target.closest('.notification-item');
-            if (item) {
-                const notificationId = item.dataset.notificationId;
-                const linkUrl = item.dataset.linkUrl;
-                if (notificationId) {
-                    handleItemClick(notificationId, linkUrl);
-                }
+            if (item?.dataset.notificationId && item.dataset.read === 'false') {
+                markAsRead(item.dataset.notificationId);
             }
         });
-
-        // Handle keyboard events on notification items
-        notificationList.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                const item = event.target.closest('.notification-item');
-                if (item && event.target === item) {
-                    event.preventDefault();
-                    const notificationId = item.dataset.notificationId;
-                    const linkUrl = item.dataset.linkUrl;
-                    if (notificationId) {
-                        handleItemClick(notificationId, linkUrl);
-                    }
-                }
-            }
-        });
-    }
-
-    /**
-     * Navigates between notification items using arrow keys.
-     * @param {number} direction - 1 for down, -1 for up
-     */
-    function navigateItems(direction) {
-        const items = notificationList?.querySelectorAll('.notification-item');
-        if (!items || items.length === 0) return;
-
-        const focused = document.activeElement;
-        const currentIndex = Array.from(items).indexOf(focused);
-        let nextIndex = currentIndex + direction;
-
-        if (nextIndex < 0) nextIndex = items.length - 1;
-        if (nextIndex >= items.length) nextIndex = 0;
-
-        items[nextIndex]?.focus();
     }
 
     /**
@@ -264,7 +248,7 @@ const NotificationBell = (function () {
 
         // Focus first interactive element
         setTimeout(() => {
-            const firstAction = dropdown?.querySelector('button, a, [tabindex="0"]');
+            const firstAction = dropdown?.querySelector('button, a[href]');
             firstAction?.focus();
         }, 100);
     }
@@ -303,7 +287,9 @@ const NotificationBell = (function () {
         } catch (error) {
             console.error('[NotificationBell] Failed to load notifications:', error);
             if (notificationList) {
-                notificationList.innerHTML = '<div class="notification-empty"><p class="notification-empty-title">Unable to load notifications</p><p class="notification-empty-message">Please try again later</p></div>';
+                notificationList.innerHTML = '<div class="notification-empty" role="alert"><p class="notification-empty-title">Could not load notifications</p>' +
+                    '<button type="button" class="btn btn-secondary btn-sm" data-notification-retry>Try again</button></div>';
+                notificationList.querySelector('[data-notification-retry]')?.addEventListener('click', loadNotifications);
             }
         } finally {
             isLoading = false;
@@ -311,15 +297,12 @@ const NotificationBell = (function () {
     }
 
     /**
-     * Shows a toast notification for errors.
+     * Shows an error toast.
      * @param {string} message - The error message
      */
     function showErrorToast(message) {
-        // Use the global Toast module if available
-        if (typeof Toast !== 'undefined' && Toast.show) {
-            Toast.show(message, 'error');
-        } else {
-            console.error('[NotificationBell]', message);
+        if (typeof toast !== 'undefined' && toast.error) {
+            toast.error(message);
         }
     }
 
@@ -336,6 +319,7 @@ const NotificationBell = (function () {
             notification.isRead = true;
             render();
             updateBadgeFromLocal();
+            announce('Notification marked as read');
         }
 
         try {
@@ -365,6 +349,7 @@ const NotificationBell = (function () {
         notifications.forEach(n => n.isRead = true);
         render();
         updateBadge(0);
+        announce('All notifications marked as read');
 
         try {
             await DashboardHub.invoke('MarkAllNotificationsRead');
@@ -399,6 +384,7 @@ const NotificationBell = (function () {
         if (wasUnread) {
             updateBadgeFromLocal();
         }
+        announce('Notification dismissed');
 
         try {
             await DashboardHub.invoke('DismissNotification', notificationId);
@@ -424,12 +410,28 @@ const NotificationBell = (function () {
     function render() {
         if (!notificationList) return;
 
+        // Re-rendering replaces every node, which would drop the focus of a keyboard user who
+        // just pressed a button in the list: remember where it was and put it back
+        const active = document.activeElement;
+        const hadFocus = !!active && notificationList.contains(active);
+        const focusId = hadFocus ? active.closest('.notification-item')?.dataset.notificationId : null;
+        const focusAction = hadFocus ? active.dataset?.action : null;
+
         if (notifications.length === 0) {
             notificationList.innerHTML = renderEmptyState();
-            return;
+        } else {
+            notificationList.innerHTML = notifications.map(n => renderItem(n)).join('');
         }
 
-        notificationList.innerHTML = notifications.map(n => renderItem(n)).join('');
+        if (hadFocus) {
+            const item = focusId
+                ? notificationList.querySelector(`[data-notification-id="${CSS.escape(focusId)}"]`)
+                : null;
+            const target = item
+                ? (item.querySelector(`[data-action="${focusAction}"]:not([hidden])`) || item.querySelector('a[href], button:not([hidden])'))
+                : (notificationList.querySelector('a[href], button:not([hidden])') || dropdown?.querySelector('button'));
+            target?.focus();
+        }
     }
 
     /**
@@ -444,44 +446,55 @@ const NotificationBell = (function () {
         const isRead = notification.isRead;
 
         // Escape HTML in user-provided content
-        const title = escapeHtml(notification.title || '');
-        const message = escapeHtml(notification.message || '');
-        const typeDisplay = escapeHtml(notification.typeDisplay || '');
-        const timeAgo = escapeHtml(notification.timeAgo || '');
-        const escapedLinkUrl = escapeAttr(notification.linkUrl || '');
+        const title = SafeHtml.escape(notification.title || '');
+        const message = SafeHtml.escape(notification.message || '');
+        const typeDisplay = SafeHtml.escape(notification.typeDisplay || '');
+        const timeAgo = SafeHtml.escape(notification.timeAgo || '');
+
+        // The title is the link when there is one; CSS stretches it over the whole item
+        const linkUrl = notification.linkUrl && notification.linkUrl !== '#' ? notification.linkUrl : '';
+        const titleHtml = linkUrl
+            ? `<a href="${SafeHtml.escape(linkUrl)}" class="notification-title-link">${title}</a>`
+            : title;
+
+        // The age as relative time; tabindex="-1" keeps it from becoming a Tab stop per item
+        const createdAt = notification.createdAt || '';
+        const ageHtml = createdAt
+            ? `<span class="notification-timestamp" data-relative-time="${SafeHtml.escape(createdAt)}" tabindex="-1">${timeAgo}</span>`
+            : `<span class="notification-timestamp">${timeAgo}</span>`;
 
         return `
             <div class="notification-item"
                  role="listitem"
-                 data-notification-id="${notification.id}"
-                 data-link-url="${escapedLinkUrl}"
-                 data-read="${isRead}"
-                 tabindex="0">
+                 data-notification-id="${SafeHtml.escape(notification.id)}"
+                 data-read="${isRead}">
                 <div class="notification-icon ${iconClass}">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         ${iconSvg}
                     </svg>
                 </div>
                 <div class="notification-content">
-                    <p class="notification-title">${title}</p>
+                    <p class="notification-title">${titleHtml}</p>
                     <p class="notification-message">${message}</p>
                     <div class="notification-meta">
-                        <span class="notification-timestamp" title="${escapeAttr(notification.createdAt || '')}">${timeAgo}</span>
+                        ${ageHtml}
                         <span class="notification-type-badge">${typeDisplay}</span>
                     </div>
                 </div>
                 <div class="notification-actions">
                     <button
+                        type="button"
                         data-action="mark-read"
                         class="notification-action-btn"
                         aria-label="Mark as read"
                         title="Mark as read"
-                        ${isRead ? 'style="display: none;"' : ''}>
+                        ${isRead ? 'hidden' : ''}>
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                     </button>
                     <button
+                        type="button"
                         data-action="dismiss"
                         class="notification-action-btn"
                         aria-label="Dismiss notification"
@@ -580,33 +593,6 @@ const NotificationBell = (function () {
         return typeIcons[type] || typeIcons[1]; // Default to alert icon
     }
 
-    /**
-     * Escapes HTML special characters in text content.
-     * @param {string} str - The string to escape
-     * @returns {string} The escaped string
-     */
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
-    /**
-     * Escapes special characters for use in HTML attributes.
-     * @param {string} str - The string to escape
-     * @returns {string} The escaped string
-     */
-    function escapeAttr(str) {
-        if (!str) return '';
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-    }
-
     // =========================================================================
     // SignalR Event Handlers
     // =========================================================================
@@ -616,7 +602,6 @@ const NotificationBell = (function () {
      * @param {Object} notification - The new notification
      */
     function onNotificationReceived(notification) {
-        console.log('[NotificationBell] New notification received:', notification);
 
         // Add to beginning of list
         notifications.unshift(notification);
@@ -643,7 +628,6 @@ const NotificationBell = (function () {
      * @param {Object} summary - The notification summary
      */
     function onNotificationCountChanged(summary) {
-        console.log('[NotificationBell] Notification count changed:', summary);
         updateBadge(summary.totalUnread);
     }
 
@@ -674,16 +658,16 @@ const NotificationBell = (function () {
     // =========================================================================
 
     /**
-     * Handles click on a notification item.
+     * Handles a click on a notification's link: mark it read, then follow the link. The mark is
+     * given a moment to reach the server before the page unloads; a slow hub does not hold the
+     * navigation back.
      * @param {string} notificationId - The notification ID
      * @param {string} linkUrl - The link URL
      */
-    function handleItemClick(notificationId, linkUrl) {
-        // Mark as read
-        markAsRead(notificationId);
-
-        // Navigate if link exists
-        if (linkUrl && linkUrl !== '#' && linkUrl !== '') {
+    async function handleItemClick(notificationId, linkUrl) {
+        const pending = markAsRead(notificationId);
+        if (linkUrl && linkUrl !== '#') {
+            await Promise.race([pending, new Promise((resolve) => setTimeout(resolve, 800))]);
             window.location.href = linkUrl;
         }
     }

@@ -22,12 +22,13 @@ You are a domain expert for the **Guild & Configuration Management** stream of a
 - **Entity:** `WelcomeConfiguration`
 - **Services:** `WelcomeService`; **Handler:** `WelcomeHandler` (listens for `UserJoined`)
 - **Commands:** `WelcomeModule`; **Controller:** `WelcomeController`
+- **Page:** form posts re-render through `GuildPageModelBase.PopulateGuildLayout`; the preview is `wwwroot/js/discord-markdown.js` (escape first), the master switch uses `data-section-gate` (`section-gate.js`); a saved channel the bot cannot list stays selected (`FormFieldState.ChannelOptions`)
 
 ### Command Module Configuration
 - `CommandModuleConfigurationService` — Per-guild enable/disable of command modules, role-based restrictions
 
 ### Pages
-- `Guilds/` (Index, Details, Edit), `Guilds/ModerationSettings/Index.cshtml`, `Guilds/AudioSettings/Index.cshtml`, `Guilds/Welcome.cshtml`, `Admin/Settings.cshtml`
+- `Guilds/` (Index, Details, Edit; Details widgets are `_DashboardWidget` + body partials in `Pages/Guilds/Widgets/`, each section loaded separately by `GuildDetailsAggregator` so one failure shows a retry state, not a 500), `Guilds/ModerationSettings/Index.cshtml`, `Guilds/AudioSettings/Index.cshtml`, `Guilds/Welcome.cshtml`, `Admin/Settings.cshtml`
 
 ### Configuration Infrastructure
 - 32 IOptions<T> classes in `Core/Configuration/`

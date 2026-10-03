@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.Interfaces;
@@ -143,8 +144,8 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
             _logger.LogWarning("SSML not enabled for guild {GuildId}", guildId);
             return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorDto
             {
-                Message = "SSML is not enabled for this guild",
-                Detail = "Contact a server administrator to enable SSML features in guild TTS settings.",
+                Message = "SSML is not enabled for this server",
+                Detail = "Contact a server administrator to enable SSML features in server TTS settings.",
                 StatusCode = StatusCodes.Status403Forbidden,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "ssml_not_enabled"
@@ -200,7 +201,7 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "SSML complexity exceeds limit",
-                Detail = $"The SSML complexity ({complexity}) exceeds the guild limit ({settings.MaxSsmlComplexity}). Simplify the markup or contact an administrator to increase the limit.",
+                Detail = $"The SSML complexity ({complexity}) exceeds the server limit ({settings.MaxSsmlComplexity}). Simplify the markup or contact an administrator to increase the limit.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "ssml_complexity_exceeded"
@@ -255,7 +256,8 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Invalid SSML",
-                Detail = ex.Message,
+                // The exception text is for the log; the person gets what to do about it
+                Detail = "The voice markup could not be used. Check the formatting and try again.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "invalid_request"
@@ -520,7 +522,7 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Failed to build SSML",
-                Detail = ex.Message,
+                Detail = "The voice markup could not be built. Check the formatting and try again.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "invalid_request"
@@ -533,11 +535,7 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
     /// </summary>
     /// <param name="ssml">SSML markup to analyze.</param>
     /// <returns>Complexity score.</returns>
-    private static int CalculateSsmlComplexity(string ssml)
-    {
-        // Count opening tags as a rough approximation of complexity
-        return ssml.Split('<').Length - 1;
-    }
+    private static int CalculateSsmlComplexity(string ssml) => SsmlLimits.Complexity(ssml);
 
     /// <summary>
     /// Gets the capabilities of a specific TTS voice.

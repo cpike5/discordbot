@@ -22,19 +22,15 @@ public interface ISettingsSectionService
     Task<SettingsSectionResult> SaveCategoryAsync(string category, Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Saves all settings across all categories.
-    /// </summary>
-    Task<SettingsSectionResult> SaveAllAsync(Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Resets one category to its default values.
     /// </summary>
     Task<SettingsSectionResult> ResetCategoryAsync(string category, string userId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Resets all settings to their default values.
+    /// Resets all settings to their default values. <paramref name="includeAppearance"/> false leaves the
+    /// SuperAdmin-only Appearance category (the default theme) as it is.
     /// </summary>
-    Task<SettingsSectionResult> ResetAllAsync(string userId, CancellationToken cancellationToken = default);
+    Task<SettingsSectionResult> ResetAllAsync(string userId, CancellationToken cancellationToken = default, bool includeAppearance = true);
 
     /// <summary>
     /// Saves command module enabled/disabled states.
@@ -52,6 +48,12 @@ public sealed record SettingsSectionResult
     public required string Message { get; init; }
     public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
     public bool RestartRequired { get; init; }
+
+    /// <summary>
+    /// How many settings (or command modules) a save actually changed. Zero means the values
+    /// sent were already the saved ones, which the page reports as "nothing changed", not as a save.
+    /// </summary>
+    public int ChangeCount { get; init; }
 
     /// <summary>Optional extra field name for a themed save (e.g. the new theme's display name).</summary>
     public string? ThemeName { get; init; }

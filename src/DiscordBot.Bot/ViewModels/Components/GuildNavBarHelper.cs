@@ -37,7 +37,7 @@ public static class GuildNavBarHelper
             StyleVariant = TabStyleVariant.Pills,
             NavigationMode = TabNavigationMode.PageNavigation,
             PersistenceMode = TabPersistenceMode.None,
-            AriaLabel = "Guild sections"
+            AriaLabel = "Server sections"
         };
     }
 }

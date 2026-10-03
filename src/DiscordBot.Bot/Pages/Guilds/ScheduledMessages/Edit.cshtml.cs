@@ -1,5 +1,5 @@
-using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -8,17 +8,16 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.ComponentModel.DataAnnotations;
 
 namespace DiscordBot.Bot.Pages.Guilds.ScheduledMessages;
 
 /// <summary>
-/// Page model for editing an existing scheduled message.
+/// Page model for editing (and deleting) an existing scheduled message.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class EditModel : PageModel
+public class EditModel : GuildPageModelBase
 {
     private readonly IScheduledMessageService _scheduledMessageService;
     private readonly IGuildService _guildService;
@@ -37,78 +36,17 @@ public class EditModel : PageModel
         _logger = logger;
     }
 
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
-
     [BindProperty]
     public InputModel Input { get; set; } = new();
 
-    /// <summary>
-    /// View model for display-only properties (guild info, available channels).
-    /// </summary>
-    public ScheduledMessageFormViewModel ViewModel { get; set; } = new();
-
-    /// <summary>
-    /// List of available text channels in the guild.
-    /// </summary>
-    public List<ChannelSelectItem> AvailableChannels { get; set; } = new();
-
-    /// <summary>
-    /// The ID of the scheduled message being edited.
-    /// </summary>
-    public Guid MessageId { get; set; }
-
-    /// <summary>
-    /// Created date for display.
-    /// </summary>
-    public DateTime CreatedAt { get; set; }
-
-    /// <summary>
-    /// Created date in ISO format for client-side timezone conversion.
-    /// </summary>
-    public string CreatedAtUtcIso => DateTime.SpecifyKind(CreatedAt, DateTimeKind.Utc).ToString("o");
-
-    /// <summary>
-    /// Updated date for display.
-    /// </summary>
-    public DateTime UpdatedAt { get; set; }
-
-    /// <summary>
-    /// Updated date in ISO format for client-side timezone conversion.
-    /// </summary>
-    public string UpdatedAtUtcIso => DateTime.SpecifyKind(UpdatedAt, DateTimeKind.Utc).ToString("o");
-
-    /// <summary>
-    /// Last executed date for display.
-    /// </summary>
-    public DateTime? LastExecutedAt { get; set; }
-
-    /// <summary>
-    /// Last executed date in ISO format for client-side timezone conversion.
-    /// </summary>
-    public string? LastExecutedAtUtcIso => LastExecutedAt.HasValue
-        ? DateTime.SpecifyKind(LastExecutedAt.Value, DateTimeKind.Utc).ToString("o")
-        : null;
+    /// <summary>What the shared message form renders.</summary>
+    public ScheduledMessageEditorViewModel Editor { get; set; } = new();
 
     /// <summary>
     /// Input model for form binding with validation attributes.
     /// </summary>
     public class InputModel
     {
-        public ulong GuildId { get; set; }
-
         [Required(ErrorMessage = "Title is required.")]
         [StringLength(200, ErrorMessage = "Title cannot exceed 200 characters.")]
         [Display(Name = "Title")]
@@ -119,7 +57,7 @@ public class EditModel : PageModel
         [Display(Name = "Message Content")]
         public string Content { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Channel is required.")]
+        [Required(ErrorMessage = "Choose the channel to send this message to.")]
         [Display(Name = "Target Channel")]
         public ulong? ChannelId { get; set; }
 
@@ -134,16 +72,10 @@ public class EditModel : PageModel
         [Display(Name = "Active")]
         public bool IsEnabled { get; set; } = true;
 
-        [Required(ErrorMessage = "Next execution time is required.")]
+        /// <summary>The time the user typed, in their own time zone (no zone information).</summary>
+        [Required(ErrorMessage = "Choose when the message should next run.")]
         [Display(Name = "Next Execution Time")]
         public DateTime? NextExecutionAt { get; set; }
-
-        /// <summary>
-        /// Gets the next execution time in ISO 8601 format for client-side timezone conversion.
-        /// </summary>
-        public string? NextExecutionAtUtcIso => NextExecutionAt.HasValue
-            ? DateTime.SpecifyKind(NextExecutionAt.Value, DateTimeKind.Utc).ToString("o")
-            : null;
 
         [Display(Name = "User Timezone")]
         public string? UserTimezone { get; set; }
@@ -153,27 +85,13 @@ public class EditModel : PageModel
     {
         _logger.LogInformation("User accessing scheduled message edit page for message {MessageId} in guild {GuildId}", id, guildId);
 
-        // Get the scheduled message
         var message = await _scheduledMessageService.GetByIdAsync(id, cancellationToken);
-        if (message == null)
+        if (message == null || message.GuildId != guildId)
         {
-            _logger.LogWarning("Scheduled message {MessageId} not found", id);
+            _logger.LogWarning("Scheduled message {MessageId} not found in guild {GuildId}", id, guildId);
             return NotFound();
         }
 
-        // Validate that the message belongs to the specified guild
-        if (message.GuildId != guildId)
-        {
-            _logger.LogWarning("Scheduled message {MessageId} does not belong to guild {GuildId}", id, guildId);
-            return NotFound();
-        }
-
-        MessageId = id;
-        CreatedAt = message.CreatedAt;
-        UpdatedAt = message.UpdatedAt;
-        LastExecutedAt = message.LastExecutedAt;
-
-        // Get guild info from service
         var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild == null)
         {
@@ -181,35 +99,8 @@ public class EditModel : PageModel
             return NotFound();
         }
 
-        // Get available text channels from Discord
-        AvailableChannels = _channelResolver.GetTextChannels(guildId)
-            .Select(ChannelSelectItem.FromChannelInfo).ToList();
-
-        _logger.LogDebug("Found {ChannelCount} text-capable channels for guild {GuildId}",
-            AvailableChannels.Count, guildId);
-
-        // Populate view model with message data
-        ViewModel = new ScheduledMessageFormViewModel
-        {
-            GuildId = guildId,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            AvailableChannels = AvailableChannels,
-            IsEditMode = true,
-            Title = message.Title,
-            Content = message.Content,
-            ChannelId = message.ChannelId,
-            Frequency = message.Frequency,
-            CronExpression = message.CronExpression,
-            IsEnabled = message.IsEnabled,
-            NextExecutionAt = message.NextExecutionAt
-        };
-
-        // Populate form input model with existing values
-        // Keep NextExecutionAt in UTC - JavaScript will convert it to local for display
         Input = new InputModel
         {
-            GuildId = guildId,
             Title = message.Title,
             Content = message.Content,
             ChannelId = message.ChannelId,
@@ -219,35 +110,7 @@ public class EditModel : PageModel
             NextExecutionAt = message.NextExecutionAt
         };
 
-        // Populate guild layout ViewModels
-        Breadcrumb = new GuildBreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
-                new() { Label = "Messages", Url = $"/Guilds/ScheduledMessages/{guildId}" },
-                new() { Label = "Edit", IsCurrent = true }
-            }
-        };
-
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "Edit Scheduled Message",
-            PageDescription = $"Edit scheduled message for {guild.Name}"
-        };
-
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "messages",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
-
+        LoadPage(guild, message, postedBack: false);
         return Page();
     }
 
@@ -263,68 +126,56 @@ public class EditModel : PageModel
             return NotFound();
         }
 
-        if (!ModelState.IsValid)
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+        if (guild == null)
         {
-            _logger.LogWarning("ModelState is invalid for message {MessageId}. Errors: {Errors}",
-                id,
-                string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-
-            await PopulateLayoutViewModelsAsync(guildId, id, cancellationToken);
-            await LoadViewModelAsync(guildId, id, cancellationToken);
-            return Page();
+            return NotFound();
         }
 
-        // Validate that a channel is selected
-        if (!Input.ChannelId.HasValue)
-        {
-            ModelState.AddModelError("Input.ChannelId", "A channel must be selected.");
-            await PopulateLayoutViewModelsAsync(guildId, id, cancellationToken);
-            await LoadViewModelAsync(guildId, id, cancellationToken);
-            return Page();
-        }
-
-        // Validate cron expression for custom frequency
-        if (Input.Frequency == ScheduleFrequency.Custom)
+        if (Input.Frequency == ScheduleFrequency.Custom && ModelState.FieldError("Input.CronExpression") == null)
         {
             if (string.IsNullOrWhiteSpace(Input.CronExpression))
             {
                 ModelState.AddModelError("Input.CronExpression", "Cron expression is required for custom schedules.");
-                await PopulateLayoutViewModelsAsync(guildId, id, cancellationToken);
-                await LoadViewModelAsync(guildId, id, cancellationToken);
-                return Page();
             }
-
-            var (isValid, errorMessage) = await _scheduledMessageService.ValidateCronExpressionAsync(Input.CronExpression);
-            if (!isValid)
+            else
             {
-                ModelState.AddModelError("Input.CronExpression", errorMessage ?? "Invalid cron expression.");
-                await PopulateLayoutViewModelsAsync(guildId, id, cancellationToken);
-                await LoadViewModelAsync(guildId, id, cancellationToken);
-                return Page();
+                var (isValid, errorMessage) = await _scheduledMessageService.ValidateCronExpressionAsync(Input.CronExpression);
+                if (!isValid)
+                {
+                    ModelState.AddModelError("Input.CronExpression", errorMessage ?? "Invalid cron expression.");
+                }
             }
         }
 
-        // Validate next execution time
-        if (!Input.NextExecutionAt.HasValue)
+        // A wall-clock time inside a spring-forward gap does not exist, so it has no UTC instant
+        if (Input.NextExecutionAt.HasValue
+            && TimezoneHelper.IsNonexistentLocalTime(Input.NextExecutionAt.Value, Input.UserTimezone))
         {
-            ModelState.AddModelError("Input.NextExecutionAt", "Next execution time is required.");
-            await PopulateLayoutViewModelsAsync(guildId, id, cancellationToken);
-            await LoadViewModelAsync(guildId, id, cancellationToken);
+            ModelState.AddModelError(
+                "Input.NextExecutionAt",
+                $"That time doesn't exist in {Input.UserTimezone} because of a daylight-saving change. Pick a time before or after it.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Scheduled message {MessageId} is invalid. Errors: {Errors}",
+                id,
+                string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+
+            LoadPage(guild, existing, postedBack: true);
             return Page();
         }
 
-        // Convert the NextExecutionAt from user's local time to UTC
-        // The datetime-local input sends time without timezone info
-        // Use the submitted UserTimezone to perform the correct conversion
-        var nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt.Value, Input.UserTimezone);
+        // The datetime-local input sends a time without a zone; the submitted zone says which one it is
+        var nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt!.Value, Input.UserTimezone);
 
         _logger.LogInformation("Updating scheduled message {MessageId} with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution} UTC (from user input: {LocalTime} in {Timezone})",
             id, Input.Title, Input.Frequency, nextExecutionUtc, Input.NextExecutionAt, Input.UserTimezone ?? "UTC");
 
-        // Create the update DTO
         var updateDto = new ScheduledMessageUpdateDto
         {
-            ChannelId = Input.ChannelId.Value,
+            ChannelId = Input.ChannelId!.Value,
             Title = Input.Title,
             Content = Input.Content,
             Frequency = Input.Frequency,
@@ -343,57 +194,18 @@ public class EditModel : PageModel
                 return NotFound();
             }
 
-            _logger.LogInformation("Successfully updated scheduled message {MessageId} for guild {GuildId}",
-                id, guildId);
+            _logger.LogInformation("Successfully updated scheduled message {MessageId} for guild {GuildId}", id, guildId);
 
-            TempData.SetSuccessToast("Scheduled message updated successfully.");
+            TempData.SetSuccessToast("Scheduled message updated.");
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update scheduled message {MessageId} for guild {GuildId}", id, guildId);
-            TempData.SetErrorToast("An error occurred while updating the scheduled message. Please try again.");
-            await PopulateLayoutViewModelsAsync(guildId, id, cancellationToken);
-            await LoadViewModelAsync(guildId, id, cancellationToken);
+            TempData.SetErrorToast("The message could not be saved. Check the details and try again.");
+            LoadPage(guild, existing, postedBack: true);
             return Page();
         }
-    }
-
-    /// <summary>
-    /// Helper method to populate layout ViewModels for OnPostAsync.
-    /// </summary>
-    private async Task PopulateLayoutViewModelsAsync(ulong guildId, Guid id, CancellationToken cancellationToken)
-    {
-        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-        if (guild == null) return;
-
-        Breadcrumb = new GuildBreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
-                new() { Label = "Messages", Url = $"/Guilds/ScheduledMessages/{guildId}" },
-                new() { Label = "Edit", IsCurrent = true }
-            }
-        };
-
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "Edit Scheduled Message",
-            PageDescription = $"Edit scheduled message for {guild.Name}"
-        };
-
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "messages",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(ulong guildId, Guid id, CancellationToken cancellationToken)
@@ -404,15 +216,9 @@ public class EditModel : PageModel
         {
             // Verify the message exists and belongs to this guild
             var message = await _scheduledMessageService.GetByIdAsync(id, cancellationToken);
-            if (message == null)
+            if (message == null || message.GuildId != guildId)
             {
-                _logger.LogWarning("Scheduled message {MessageId} not found during delete", id);
-                return NotFound();
-            }
-
-            if (message.GuildId != guildId)
-            {
-                _logger.LogWarning("Scheduled message {MessageId} does not belong to guild {GuildId}", id, guildId);
+                _logger.LogWarning("Scheduled message {MessageId} not found in guild {GuildId} during delete", id, guildId);
                 return NotFound();
             }
 
@@ -421,107 +227,79 @@ public class EditModel : PageModel
             if (!deleted)
             {
                 _logger.LogWarning("Failed to delete scheduled message {MessageId}", id);
-                TempData.SetErrorToast("Failed to delete the scheduled message.");
+                TempData.SetErrorToast("The message could not be deleted. It may already be gone.");
                 return RedirectToPage("Index", new { guildId });
             }
 
             _logger.LogInformation("Successfully deleted scheduled message {MessageId} for guild {GuildId}", id, guildId);
 
-            TempData.SetSuccessToast("Scheduled message deleted successfully.");
+            TempData.SetSuccessToast("Scheduled message deleted.");
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete scheduled message {MessageId} for guild {GuildId}", id, guildId);
-            TempData.SetErrorToast("An error occurred while deleting the scheduled message. Please try again.");
+            TempData.SetErrorToast("The message could not be deleted. Try again.");
             return RedirectToPage("Index", new { guildId });
         }
     }
 
     /// <summary>
-    /// Loads the view model for redisplay after validation error.
+    /// Everything the view needs besides <see cref="Input"/>. Shared by GET and every failed POST, so
+    /// a re-rendered form keeps its header, navigation and breadcrumb.
     /// </summary>
-    /// <param name="guildId">The guild's Discord snowflake ID.</param>
-    /// <param name="id">The scheduled message ID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task LoadViewModelAsync(ulong guildId, Guid id, CancellationToken cancellationToken)
+    /// <param name="postedBack">
+    /// True after a failed POST. <see cref="Input"/> then holds what the user typed, in their own
+    /// time zone, and the date field must show it as typed; on GET it holds the stored UTC time,
+    /// which a script converts into the viewer's zone.
+    /// </param>
+    private void LoadPage(GuildDto guild, ScheduledMessageDto message, bool postedBack)
     {
-        var message = await _scheduledMessageService.GetByIdAsync(id, cancellationToken);
-        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-
-        if (message != null && guild != null)
-        {
-            MessageId = id;
-            CreatedAt = message.CreatedAt;
-            UpdatedAt = message.UpdatedAt;
-            LastExecutedAt = message.LastExecutedAt;
-
-            AvailableChannels = _channelResolver.GetTextChannels(guildId)
+        var channels = _channelResolver.GetTextChannels(guild.Id)
             .Select(ChannelSelectItem.FromChannelInfo).ToList();
 
-            ViewModel = new ScheduledMessageFormViewModel
+        Editor = new ScheduledMessageEditorViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            IsEdit = true,
+            MessageId = message.Id,
+            Title = Input.Title,
+            Content = Input.Content,
+            ChannelId = Input.ChannelId,
+            Frequency = Input.Frequency,
+            CronExpression = Input.CronExpression,
+            IsEnabled = Input.IsEnabled,
+            LastExecutedAt = message.LastExecutedAt,
+            AvailableChannels = channels,
+            DirtyOnLoad = postedBack
+        };
+
+        if (postedBack)
+        {
+            Editor.NextExecutionLocal = Input.NextExecutionAt?.ToString(ScheduledMessageEditorViewModel.LocalFormat);
+            Editor.SummaryNextRunUtcIso = ScheduledMessageEditorViewModel.ToUtcIso(Input.NextExecutionAt, Input.UserTimezone);
+        }
+        else
+        {
+            var utc = Input.NextExecutionAt.HasValue ? DisplayFormat.Iso(Input.NextExecutionAt.Value) : null;
+            Editor.NextExecutionUtcIso = utc;
+            Editor.SummaryNextRunUtcIso = utc;
+        }
+
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
             {
-                GuildId = guildId,
-                GuildName = guild.Name,
-                GuildIconUrl = guild.IconUrl,
-                AvailableChannels = AvailableChannels,
-                IsEditMode = true,
-                Title = Input.Title,
-                Content = Input.Content,
-                ChannelId = Input.ChannelId,
-                Frequency = Input.Frequency,
-                CronExpression = Input.CronExpression,
-                IsEnabled = Input.IsEnabled,
-                NextExecutionAt = Input.NextExecutionAt
-            };
-        }
-    }
-
-    /// <summary>
-    /// Computes the status display text based on the message state.
-    /// </summary>
-    public string GetStatusDisplay()
-    {
-        if (!Input.IsEnabled)
-        {
-            return "Paused";
-        }
-
-        if (Input.Frequency == ScheduleFrequency.Once && LastExecutedAt.HasValue)
-        {
-            return "Expired";
-        }
-
-        return "Active";
-    }
-
-    /// <summary>
-    /// Gets the status badge variant class based on the status.
-    /// </summary>
-    public string GetStatusBadgeClass()
-    {
-        var status = GetStatusDisplay();
-        return status switch
-        {
-            "Active" => "bg-success/20 text-success",
-            "Paused" => "bg-warning/20 text-warning",
-            "Expired" => "bg-bg-tertiary text-text-tertiary",
-            _ => "bg-bg-tertiary text-text-tertiary"
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                new() { Label = "Scheduled Messages", Url = $"/Guilds/ScheduledMessages/{guild.Id}" },
+                new() { Label = "Edit", IsCurrent = true }
+            }
         };
-    }
-
-    /// <summary>
-    /// Gets the status dot color class.
-    /// </summary>
-    public string GetStatusDotClass()
-    {
-        var status = GetStatusDisplay();
-        return status switch
-        {
-            "Active" => "bg-success",
-            "Paused" => "bg-warning",
-            "Expired" => "bg-text-tertiary",
-            _ => "bg-text-tertiary"
-        };
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            "Edit Scheduled Message", $"Edit scheduled message for {guild.Name}");
+        Navigation = BuildNavigation(guild.Id, "messages");
     }
 }

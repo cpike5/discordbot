@@ -28,7 +28,7 @@ cp /var/lib/discordbot/discordbot.db /var/lib/discordbot/discordbot.db.backup
 
 # Create Docker directory and new data dirs
 mkdir -p /opt/discordbot-docker
-mkdir -p /var/lib/discordbot/{postgres,cache,logs,exports,backups,data}
+mkdir -p /var/lib/discordbot/{postgres,cache,logs,backups,data}
 
 # Copy the SQLite DB into the data subdir (bind mount target)
 cp /var/lib/discordbot/discordbot.db /var/lib/discordbot/data/discordbot.db
@@ -178,6 +178,6 @@ All data lives at `/var/lib/discordbot/postgres/` on the host. Set up a daily `p
 ├── postgres/            # PostgreSQL data
 ├── cache/               # Audio PCM cache
 ├── logs/                # Serilog file output
-├── exports/             # User data export ZIPs
+├── data/exports/        # User data export ZIPs (private; downloaded only through the signed-in Privacy page)
 └── backups/             # pg_dump output
 ```

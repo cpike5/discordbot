@@ -2,6 +2,8 @@
 @* Loaded via AJAX into the modal body *@
 @model DiscordBot.Bot.ViewModels.Components.CommandLogDetailsModalViewModel
 @using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService AuthService
 
 <!-- Command Information -->
 <div class="mb-6">
@@ -78,7 +80,7 @@
             </svg>
             <span class="text-sm text-text-tertiary font-medium">User</span>
         </div>
-        <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="user" data-user-id="'@Model.UserId'" data-context-guild-id="'@Model.GuildId'">
+        <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="user" data-user-id="@Model.UserId" data-context-guild-id="@Model.GuildId">
             <p class="text-base font-semibold text-text-primary">@Model.Username</p>
             <p class="text-xs text-text-tertiary font-mono mt-1">ID: @Model.UserId</p>
         </div>
@@ -97,7 +99,7 @@
         </div>
         @if (Model.GuildId.HasValue)
         {
-            <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="guild" data-guild-id="'@Model.GuildId'">
+            <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="guild" data-guild-id="@Model.GuildId">
                 <p class="text-base font-semibold text-text-primary">@Model.GuildName</p>
                 <p class="text-xs text-text-tertiary font-mono mt-1">ID: @Model.GuildId</p>
             </div>
@@ -164,19 +166,10 @@
     </div>
 }
 
-<script>
-    // Copy correlation ID to clipboard (CSP-compliant)
-    function copyCorrelationId(text) {
-        navigator.clipboard.writeText(text).then(function() {
-            // Show success feedback if ToastManager is available
-            if (window.ToastManager) {
-                window.ToastManager.show('success', 'Correlation ID copied to clipboard');
-            }
-        }).catch(function(err) {
-            console.error('Failed to copy correlation ID:', err);
-            if (window.ToastManager) {
-                window.ToastManager.show('error', 'Failed to copy to clipboard');
-            }
-        });
-    }
-</script>
+@if ((await AuthService.AuthorizeAsync(User, "RequireModerator")).Succeeded)
+{
+    @* commands-page.js adds returnUrl, so the full page's Back link returns to this view *@
+    <p class="text-sm">
+        <a asp-page="/CommandLogs/Details" asp-route-id="@Model.Id" data-log-details-link class="text-accent-blue hover:text-accent-blue-hover underline">Open the full page</a>
+    </p>
+}

@@ -15,7 +15,7 @@ You are a domain expert for the **Scheduling & Notifications** stream of a Disco
 - **Services:** `ScheduledMessageService` (702 lines), `ScheduledMessageExecutionService`
 - **Commands:** `ScheduleModule`, `ScheduleComponentModule`
 - **Controller:** `ScheduledMessagesController`
-- **Pages:** `Guilds/ScheduledMessages/` (Index, Create, Edit)
+- **Pages:** `Guilds/ScheduledMessages/` (Index, Create, Edit); Create and Edit share `_MessageEditor.cshtml`. The next-run field carries `data-utc-value` only on the first render of Edit; after a failed POST it holds the user's own local time and is never converted again (that was the UTC-offset shift). Delete and Reminders cancel are `confirm-forms.js` forms
 
 ### Reminders
 - **Entity:** `Reminder`; **Enum:** `ReminderStatus`; **Config:** `ReminderOptions`

@@ -1,5 +1,5 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -10,25 +10,32 @@ namespace DiscordBot.Bot.Authorization;
 /// <summary>
 /// Handles authorization for portal pages by verifying Discord OAuth authentication
 /// and guild membership. This is a lighter-weight check than admin authorization
-/// - it only requires being a member of the guild, no role checks.
+/// - it only requires being a member of the guild, no role checks. The guild must also have
+/// switched its member portal on (<c>EnableMemberPortal</c>).
 /// </summary>
 public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<PortalGuildMemberRequirement>
 {
+    /// <summary>The <c>HttpContext.Items</c> key a refusal's reason is left under.</summary>
+    public const string FailureReasonKey = "AuthorizationFailureReason";
+
+    /// <summary>The reason left when the guild has switched its member portal off.</summary>
+    public const string PortalDisabledReason = "PortalDisabled";
+
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IPortalGuildDirectory _guildDirectory;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<PortalGuildMemberAuthorizationHandler> _logger;
 
     public PortalGuildMemberAuthorizationHandler(
         UserManager<ApplicationUser> userManager,
-        DiscordSocketClient discordClient,
+        IPortalGuildDirectory guildDirectory,
         IGuildAudioSettingsRepository audioSettingsRepository,
         IHttpContextAccessor httpContextAccessor,
         ILogger<PortalGuildMemberAuthorizationHandler> logger)
     {
         _userManager = userManager;
-        _discordClient = discordClient;
+        _guildDirectory = guildDirectory;
         _audioSettingsRepository = audioSettingsRepository;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
@@ -38,15 +45,8 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
         AuthorizationHandlerContext context,
         PortalGuildMemberRequirement requirement)
     {
-        // SuperAdmins and Admins bypass portal guild membership checks
-        // They need access to manage any guild's portal
-        if (context.User.IsInRole(IdentitySeeder.Roles.SuperAdmin) ||
-            context.User.IsInRole(IdentitySeeder.Roles.Admin))
-        {
-            _logger.LogDebug("PortalGuildMember: Admin user granted portal access");
-            context.Succeed(requirement);
-            return;
-        }
+        var isAdmin = context.User.IsInRole(IdentitySeeder.Roles.SuperAdmin) ||
+                      context.User.IsInRole(IdentitySeeder.Roles.Admin);
 
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext == null)
@@ -61,6 +61,13 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
 
         if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out var guildId))
         {
+            // Nothing to gate: admins may reach any portal, everyone else needs a guild
+            if (isAdmin)
+            {
+                context.Succeed(requirement);
+                return;
+            }
+
             _logger.LogDebug("PortalGuildMember: No valid guildId found in route or query");
             return;
         }
@@ -70,6 +77,26 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
         {
             _logger.LogDebug("PortalGuildMember: User not authenticated, will redirect to login");
             // Let this fail - the auth middleware will redirect to login
+            return;
+        }
+
+        // The member portal is its own switch (GuildAudioSettings.EnableMemberPortal, issue #947),
+        // independent of AudioEnabled, and it is checked before the admin bypass: a portal that is
+        // switched off is off for everyone, so the API agrees with the page.
+        var audioSettings = await _audioSettingsRepository.GetByGuildIdAsync(guildId);
+        if (audioSettings == null || !audioSettings.EnableMemberPortal)
+        {
+            _logger.LogDebug("PortalGuildMember: Member portal is not enabled for guild {GuildId}", guildId);
+            httpContext.Items[FailureReasonKey] = PortalDisabledReason;
+            return;
+        }
+
+        // SuperAdmins and Admins bypass portal guild membership checks
+        // They need access to manage any guild's portal
+        if (isAdmin)
+        {
+            _logger.LogDebug("PortalGuildMember: Admin user granted portal access");
+            context.Succeed(requirement);
             return;
         }
 
@@ -89,52 +116,20 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
             return;
         }
 
-        // Check if portal is enabled for this guild
-        var audioSettings = await _audioSettingsRepository.GetByGuildIdAsync(guildId);
-
-        // TODO: Issue #947 will add EnableMemberPortal property
-        // For now, we check AudioEnabled as a proxy
-        // Once #947 is merged, change this to: !audioSettings.EnableMemberPortal
-        if (audioSettings == null || !audioSettings.AudioEnabled)
-        {
-            _logger.LogDebug("PortalGuildMember: Portal not enabled for guild {GuildId}", guildId);
-            SetNotFoundResult(httpContext);
-            return;
-        }
-
-        // Check if user is a member of the guild via Discord API
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
+        if (!await _guildDirectory.IsGuildAvailableAsync(guildId))
         {
             _logger.LogWarning("PortalGuildMember: Guild {GuildId} not found in Discord client", guildId);
             SetNotFoundResult(httpContext);
             return;
         }
 
-        var guildUser = guild.GetUser(user.DiscordUserId.Value);
-        if (guildUser == null)
+        if (!await _guildDirectory.IsMemberAsync(guildId, user.DiscordUserId.Value))
         {
-            // Cache miss - try REST API (AlwaysDownloadUsers is false, so cache may be incomplete)
-            try
-            {
-                var restUser = await _discordClient.Rest.GetGuildUserAsync(guildId, user.DiscordUserId.Value);
-                if (restUser == null)
-                {
-                    _logger.LogDebug(
-                        "PortalGuildMember: User {DiscordUserId} is not a member of guild {GuildId}",
-                        user.DiscordUserId.Value, guildId);
-                    SetForbiddenResult(httpContext);
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "PortalGuildMember: Failed to verify guild membership via REST for user {DiscordUserId} in guild {GuildId}",
-                    user.DiscordUserId.Value, guildId);
-                SetForbiddenResult(httpContext);
-                return;
-            }
+            _logger.LogDebug(
+                "PortalGuildMember: User {DiscordUserId} is not a member of guild {GuildId}",
+                user.DiscordUserId.Value, guildId);
+            SetForbiddenResult(httpContext);
+            return;
         }
 
         _logger.LogDebug(
@@ -148,7 +143,7 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
     /// </summary>
     private static void SetForbiddenResult(HttpContext httpContext)
     {
-        httpContext.Items["AuthorizationFailureReason"] = "Forbidden";
+        httpContext.Items[FailureReasonKey] = "Forbidden";
     }
 
     /// <summary>
@@ -156,6 +151,6 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
     /// </summary>
     private static void SetNotFoundResult(HttpContext httpContext)
     {
-        httpContext.Items["AuthorizationFailureReason"] = "NotFound";
+        httpContext.Items[FailureReasonKey] = "NotFound";
     }
 }

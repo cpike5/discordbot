@@ -399,18 +399,7 @@ formatLocalTime: function(utcIsoString, options)
 
 - Formatted local time string
 
-**Default Options:**
-
-```javascript
-{
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-}
-```
+**Default Options:** `Format.DATE_STYLES.datetime` (see `format.js`): numeric year, short month, numeric day, numeric hour, 2-digit minute. No locale and no `hour12` are set, so the browser's language and its 12/24-hour preference apply ("Dec 27, 2025, 10:30 AM" for en-US, "27 Dec 2025, 10:30" for en-GB). A timestamp with no zone designator is read as UTC.
 
 **Usage Examples:**
 
@@ -431,10 +420,9 @@ local = timezoneUtils.formatLocalTime(utc, {
 // Custom format (time only)
 local = timezoneUtils.formatLocalTime(utc, {
     hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
+    minute: '2-digit'
 });
-// Output: "10:30 AM"
+// Output: "10:30 AM" (en-US), "10:30" (en-GB)
 ```
 
 ### initTimezoneFields()
@@ -483,7 +471,7 @@ Converts all elements with `data-utc` attribute to local time for display.
 **Signature:**
 
 ```javascript
-convertDisplayTimes: function()
+convertDisplayTimes: function(root)   // root optional: a subtree, default the document
 ```
 
 **Behavior:**
@@ -493,7 +481,7 @@ convertDisplayTimes: function()
 - Converts to local time based on `data-format` attribute
 - Updates element's `textContent` with formatted local time
 
-**Auto-execution:** This function runs automatically on page load.
+**Auto-execution:** This function runs automatically on page load, and a `MutationObserver` converts elements inserted afterwards (AJAX tabs, row templates) before they are painted. `timezoneUtils.scan(root)` converts one subtree on demand. An element is converted once per timestamp and format.
 
 **Supported Formats (via `data-format` attribute):**
 
@@ -502,6 +490,10 @@ convertDisplayTimes: function()
 | `datetime` (default) | "Dec 27, 2025, 10:30 AM" |
 | `date` | "Dec 27, 2025" |
 | `time` | "10:30 AM" |
+| `date-short`, `datetime-short`, `datetime-seconds` | "Dec 27", "Dec 27, 10:30 AM", "Dec 27, 2025, 10:30:00 AM" |
+| `relative` | "5 minutes ago" (auto-refreshing; absolute time on hover and focus) |
+
+Formatting is done by `format.js` (`Format.formatDate`, `Format.relativeTime`); see [Component API](component-api.md) § Formatting.
 
 **Usage Example:**
 

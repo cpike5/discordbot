@@ -111,4 +111,22 @@ public class FeatureRequestService : IFeatureRequestService
 
         await _repo.UpdateAsync(entity);
     }
+
+    /// <inheritdoc/>
+    public async Task<bool> RequeueDocGenAsync(Guid id)
+    {
+        var entity = await _repo.GetByIdAsync(id);
+        if (entity == null || entity.Status != FeatureRequestStatus.DocGenFailed)
+        {
+            return false;
+        }
+
+        entity.Status = FeatureRequestStatus.Submitted;
+        entity.DocGenError = null;
+
+        await _repo.UpdateAsync(entity);
+
+        _logger.LogInformation("FeatureRequest {FeatureRequestId} queued for another documentation run.", id);
+        return true;
+    }
 }

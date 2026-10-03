@@ -1,28 +1,12 @@
 @page "{guildId:long}/{id:guid}"
 @model DiscordBot.Bot.Pages.Guilds.FeatureRequests.DetailsModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Core.Enums
 @using System.Text.Json
 @{
     ViewData["Title"] = $"Feature Request Details - {Model.GuildName}";
     Layout = "_GuildLayout";
-
-    string badgeColor = "bg-text-tertiary/10 text-text-tertiary";
-    string badgeLabel = "Unknown";
-
-    if (Model.Item != null)
-    {
-        (badgeColor, badgeLabel) = Model.Item.Status switch
-        {
-            FeatureRequestStatus.Submitted => ("bg-accent-blue/10 text-accent-blue", "Submitted"),
-            FeatureRequestStatus.GeneratingDocs => ("bg-warning/10 text-warning", "Generating Docs"),
-            FeatureRequestStatus.DocsGenerated => ("bg-success/10 text-success", "Docs Generated"),
-            FeatureRequestStatus.DocGenFailed => ("bg-error/10 text-error", "Doc Gen Failed"),
-            FeatureRequestStatus.Approved => ("bg-success/10 text-success", "Approved"),
-            FeatureRequestStatus.Rejected => ("bg-text-tertiary/10 text-text-tertiary", "Rejected"),
-            _ => ("bg-text-tertiary/10 text-text-tertiary", Model.Item.Status.ToString())
-        };
-    }
 }
 
 @if (Model.Item == null)
@@ -31,138 +15,146 @@
 }
 else
 {
-    var shortId = Model.Item.Id.ToString("N")[..8].ToUpperInvariant();
+    var item = Model.Item;
+    // GUID hex digits (ASCII), safe to slice
+    var shortId = item.Id.ToString("N")[..8].ToUpperInvariant();
+    var canReview = item.Status is FeatureRequestStatus.Submitted
+        or FeatureRequestStatus.GeneratingDocs
+        or FeatureRequestStatus.DocsGenerated
+        or FeatureRequestStatus.DocGenFailed;
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Main Content Column -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="lg:col-span-2 space-y-6 min-w-0">
 
             <!-- Summary Card -->
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                <div class="flex items-start justify-between mb-4">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-mono text-text-tertiary">#@shortId</span>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @badgeColor">
-                            @badgeLabel
-                        </span>
+                        <span class="text-xs font-mono text-text-secondary">#@shortId</span>
+                        <partial name="Shared/Components/_Badge" model="FeatureRequestDisplay.Badge(item.Status)" />
                     </div>
-                    <div class="text-sm text-text-tertiary">
-                        <span data-utc="@Model.Item.CreatedAt.ToString("o")" data-format="datetime"></span>
-                    </div>
+                    <div class="text-sm text-text-secondary">@DisplayFormat.Time(item.CreatedAt, "datetime")</div>
                 </div>
 
-                <div class="space-y-4">
+                <dl class="space-y-4">
                     <div>
-                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
-                        <p class="text-text-primary whitespace-pre-wrap">@Model.Item.Description</p>
+                        <dt class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</dt>
+                        <dd class="text-text-primary whitespace-pre-wrap break-words">@item.Description</dd>
                     </div>
-
                     <div>
-                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Submitter</h3>
-                        <p class="text-text-primary text-sm">User ID: <span class="font-mono">@Model.Item.SubmittedByUserId</span></p>
+                        <dt class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Submitted by</dt>
+                        <dd class="text-text-primary text-sm">@Model.SubmitterName</dd>
                     </div>
-                </div>
+                </dl>
             </div>
 
             <!-- Gathered Requirements Card -->
-            @if (!string.IsNullOrEmpty(Model.Item.GatheredRequirements))
+            @if (!string.IsNullOrEmpty(item.GatheredRequirements))
             {
-                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                    <h2 class="text-lg font-semibold text-text-primary mb-4">Gathered Requirements</h2>
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Gathered requirements</h2>
                     @{
                         Core.Models.FeatureRequests.GatheredRequirements? gathered = null;
                         try
                         {
-                            gathered = JsonSerializer.Deserialize<Core.Models.FeatureRequests.GatheredRequirements>(Model.Item.GatheredRequirements);
+                            gathered = JsonSerializer.Deserialize<Core.Models.FeatureRequests.GatheredRequirements>(item.GatheredRequirements);
                         }
-                        catch { }
+                        catch (JsonException) { }
                     }
                     @if (gathered != null)
                     {
-                        <div class="space-y-4">
+                        <dl class="space-y-4">
                             @if (!string.IsNullOrEmpty(gathered.ProblemStatement))
                             {
                                 <div>
-                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Problem Statement</h3>
-                                    <p class="text-text-primary">@gathered.ProblemStatement</p>
+                                    <dt class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Problem statement</dt>
+                                    <dd class="text-text-primary break-words">@gathered.ProblemStatement</dd>
                                 </div>
                             }
                             @if (!string.IsNullOrEmpty(gathered.SuccessCriteria))
                             {
                                 <div>
-                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Success Criteria</h3>
-                                    <p class="text-text-primary">@gathered.SuccessCriteria</p>
+                                    <dt class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Success criteria</dt>
+                                    <dd class="text-text-primary break-words">@gathered.SuccessCriteria</dd>
                                 </div>
                             }
                             @if (!string.IsNullOrEmpty(gathered.Priority))
                             {
                                 <div>
-                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Priority</h3>
-                                    <p class="text-text-primary">@gathered.Priority</p>
+                                    <dt class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Priority</dt>
+                                    <dd class="text-text-primary">@gathered.Priority</dd>
                                 </div>
                             }
-                        </div>
+                        </dl>
                     }
                     else
                     {
-                        <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto">@Model.Item.GatheredRequirements</pre>
+                        <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto whitespace-pre-wrap break-words">@item.GatheredRequirements</pre>
                     }
                 </div>
             }
 
-            <!-- Doc Generation Card -->
-            @if (!string.IsNullOrEmpty(Model.Item.DocBranchName) || !string.IsNullOrEmpty(Model.Item.DocGenError))
+            <!-- Documentation Card -->
+            @if (!string.IsNullOrEmpty(item.DocBranchName) || item.Status == FeatureRequestStatus.DocGenFailed)
             {
-                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                    <h2 class="text-lg font-semibold text-text-primary mb-4">Documentation Generation</h2>
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Documentation</h2>
 
-                    @if (!string.IsNullOrEmpty(Model.Item.DocBranchName))
+                    @if (!string.IsNullOrEmpty(item.DocBranchName))
                     {
-                        <div class="space-y-3">
+                        <dl class="space-y-3">
                             <div>
-                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Branch</h3>
-                                <p class="text-accent-blue font-mono text-sm">@Model.Item.DocBranchName</p>
+                                <dt class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Branch</dt>
+                                <dd class="text-accent-blue font-mono text-sm break-all">@item.DocBranchName</dd>
                             </div>
-                            @if (!string.IsNullOrEmpty(Model.Item.DocPath))
+                            @if (!string.IsNullOrEmpty(item.DocPath))
                             {
                                 <div>
-                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Doc Path</h3>
-                                    <p class="text-text-primary font-mono text-sm">@Model.Item.DocPath</p>
+                                    <dt class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">File</dt>
+                                    <dd class="text-text-primary font-mono text-sm break-all">@item.DocPath</dd>
                                 </div>
                             }
-                        </div>
+                        </dl>
                     }
 
-                    @if (!string.IsNullOrEmpty(Model.Item.DocGenError))
+                    @if (item.Status == FeatureRequestStatus.DocGenFailed)
                     {
-                        <div class="mt-4">
-                            <h3 class="text-sm font-semibold text-error uppercase tracking-wider mb-1">Error</h3>
-                            <pre class="bg-bg-primary border border-error/30 rounded-md p-3 text-sm text-error overflow-x-auto">@Model.Item.DocGenError</pre>
+                        <div class="@(string.IsNullOrEmpty(item.DocBranchName) ? "" : "mt-4")">
+                            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                                Variant = AlertVariant.Error,
+                                Title = "The documentation could not be written",
+                                Message = "The last documentation run for this request failed. You can queue it again: the next run of the documentation generator will pick it up. The cause is in the application log."
+                            }' />
+                            <form method="post" asp-page-handler="RetryDocGen" asp-route-guildId="@Model.GuildId" asp-route-id="@item.Id"
+                                  data-submit-guard class="mt-3">
+                                <button type="submit" class="btn btn-secondary" data-loading-text="Queuing...">Queue documentation again</button>
+                            </form>
                         </div>
                     }
                 </div>
             }
 
             <!-- Review Information Card -->
-            @if (Model.Item.ReviewedAt.HasValue)
+            @if (item.ReviewedAt.HasValue)
             {
-                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
-                    <h2 class="text-lg font-semibold text-text-primary mb-4">Review Information</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Review</h2>
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <span class="text-sm text-text-secondary">Reviewed by:</span>
-                            <p class="text-text-primary text-sm font-mono">@(Model.Item.ReviewedByUserId?.ToString() ?? "Unknown")</p>
+                            <dt class="text-sm text-text-secondary">Reviewed by</dt>
+                            <dd class="text-text-primary text-sm">@(Model.ReviewerName ?? UserDisplay.UnknownName)</dd>
                         </div>
                         <div>
-                            <span class="text-sm text-text-secondary">Reviewed at:</span>
-                            <p class="text-text-primary"><span data-utc="@Model.Item.ReviewedAt.Value.ToString("o")" data-format="datetime"></span></p>
+                            <dt class="text-sm text-text-secondary">Reviewed</dt>
+                            <dd class="text-text-primary text-sm">@DisplayFormat.Time(item.ReviewedAt, "datetime")</dd>
                         </div>
-                    </div>
-                    @if (!string.IsNullOrEmpty(Model.Item.ReviewNotes))
+                    </dl>
+                    @if (!string.IsNullOrEmpty(item.ReviewNotes))
                     {
                         <div class="mt-4">
-                            <span class="text-sm text-text-secondary">Notes:</span>
-                            <p class="text-text-primary mt-1">@Model.Item.ReviewNotes</p>
+                            <p class="text-sm text-text-secondary">Notes</p>
+                            <p class="text-text-primary mt-1 whitespace-pre-wrap break-words">@item.ReviewNotes</p>
                         </div>
                     }
                 </div>
@@ -170,83 +162,75 @@ else
         </div>
 
         <!-- Action Panel Column -->
-        <div class="lg:col-span-1">
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sticky top-6">
+        <div class="lg:col-span-1 min-w-0">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 lg:sticky lg:top-6">
                 <h2 class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
 
-                @if (Model.Item.Status == FeatureRequestStatus.Submitted
-                    || Model.Item.Status == FeatureRequestStatus.DocsGenerated
-                    || Model.Item.Status == FeatureRequestStatus.GeneratingDocs)
+                @if (canReview)
                 {
-                    <!-- Review Notes -->
+                    <!-- The notes field belongs to the Approve form through its form attribute, so nothing has to be copied on submit -->
                     <div class="mb-4">
-                        <label for="reviewNotes" class="block text-sm font-medium text-text-secondary mb-1">Review Notes (optional)</label>
-                        <textarea id="reviewNotes" rows="3" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Add notes for the record..."></textarea>
+                        <label for="reviewNotes" class="form-label block mb-1.5">Review notes (optional)</label>
+                        <textarea id="reviewNotes" name="ReviewNotes" form="approve-form" rows="3" maxlength="2000"
+                                  class="form-textarea" placeholder="Add notes for the record..."></textarea>
                     </div>
 
                     <div class="space-y-3">
-                        <!-- Approve -->
-                        <form method="post" asp-page-handler="Approve" asp-route-guildId="@Model.GuildId" asp-route-id="@Model.Item.Id">
-                            <input type="hidden" name="ReviewNotes" id="reviewNotesApprove" />
-                            <button type="submit"
-                                onclick="document.getElementById('reviewNotesApprove').value=document.getElementById('reviewNotes').value"
-                                class="w-full px-4 py-2 bg-success text-white font-medium rounded-md hover:bg-success-hover transition-colors">
-                                Approve
+                        <form id="approve-form" method="post" asp-page-handler="Approve" asp-route-guildId="@Model.GuildId" asp-route-id="@item.Id" data-submit-guard>
+                            <button type="submit" class="btn btn-primary w-full justify-center" data-loading-text="Approving...">
+                                @(item.Status == FeatureRequestStatus.DocGenFailed ? "Approve without documentation" : "Approve")
                             </button>
                         </form>
 
-                        <!-- Reject -->
-                        <form method="post" asp-page-handler="Reject" asp-route-guildId="@Model.GuildId" asp-route-id="@Model.Item.Id">
-                            <input type="hidden" name="ReviewNotes" id="reviewNotesReject" />
-                            <button type="submit"
-                                onclick="document.getElementById('reviewNotesReject').value=document.getElementById('reviewNotes').value"
-                                class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors">
-                                Reject
-                            </button>
-                        </form>
-                    </div>
-                }
-                else if (Model.Item.Status == FeatureRequestStatus.DocGenFailed)
-                {
-                    <!-- Approve / Reject available after DocGenFailed -->
-                    <div class="mb-4">
-                        <label for="reviewNotesFailed" class="block text-sm font-medium text-text-secondary mb-1">Review Notes (optional)</label>
-                        <textarea id="reviewNotesFailed" rows="3" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Add notes for the record..."></textarea>
-                    </div>
-
-                    <div class="space-y-3">
-                        <form method="post" asp-page-handler="Approve" asp-route-guildId="@Model.GuildId" asp-route-id="@Model.Item.Id">
-                            <input type="hidden" name="ReviewNotes" id="reviewNotesApprove2" />
-                            <button type="submit"
-                                onclick="document.getElementById('reviewNotesApprove2').value=document.getElementById('reviewNotesFailed').value"
-                                class="w-full px-4 py-2 bg-success text-white font-medium rounded-md hover:bg-success-hover transition-colors">
-                                Approve Anyway
-                            </button>
-                        </form>
-
-                        <form method="post" asp-page-handler="Reject" asp-route-guildId="@Model.GuildId" asp-route-id="@Model.Item.Id">
-                            <input type="hidden" name="ReviewNotes" id="reviewNotesReject2" />
-                            <button type="submit"
-                                onclick="document.getElementById('reviewNotesReject2').value=document.getElementById('reviewNotesFailed').value"
-                                class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors">
-                                Reject
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-secondary w-full justify-center" data-open-dialog="reject-dialog">Reject...</button>
                     </div>
                 }
                 else
                 {
-                    <div class="text-center text-sm text-text-secondary">
-                        This request has been <span class="font-medium">@badgeLabel.ToLower()</span>.
-                    </div>
+                    <p class="text-sm text-text-secondary">
+                        This request has been <span class="font-medium text-text-primary">@FeatureRequestDisplay.Label(item.Status).ToLowerInvariant()</span>.
+                    </p>
                 }
 
                 <div class="mt-6 pt-4 border-t border-border-primary">
-                    <a href="/Guilds/@Model.GuildId/FeatureRequests" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
-                        &larr; Back to Feature Requests
-                    </a>
+                    <a asp-page="Index" asp-route-guildId="@Model.GuildId" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">&larr; Back to feature requests</a>
                 </div>
             </div>
         </div>
     </div>
+
+    @if (canReview)
+    {
+        <!-- Reject: confirm, with the reason -->
+        <div id="reject-dialog" class="hidden fixed inset-0 z-[var(--z-modal)]" role="dialog" aria-modal="true" aria-labelledby="reject-dialog-title">
+            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
+            <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+                <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl w-full max-w-md qa-modal-panel pointer-events-auto" role="document">
+                    <form method="post" asp-page-handler="Reject" asp-route-guildId="@Model.GuildId" asp-route-id="@item.Id" data-submit-guard id="reject-form" novalidate>
+                        <div class="p-5">
+                            <h2 id="reject-dialog-title" class="text-lg font-semibold text-text-primary">Reject this request?</h2>
+                            <p class="mt-2 text-sm text-text-secondary">
+                                Rejecting closes request #@shortId. Say why, so the record explains the decision.
+                            </p>
+                            <div class="mt-4">
+                                <label for="reject-reason" class="form-label block mb-1.5">Reason</label>
+                                <textarea id="reject-reason" name="ReviewNotes" rows="4" maxlength="2000" required
+                                          data-modal-initial-focus aria-describedby="reject-reason-error"
+                                          class="form-textarea" placeholder="Why is this being rejected?"></textarea>
+                                <p id="reject-reason-error" class="form-error mt-1 hidden" role="alert">Give a reason to reject this request.</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3 px-5 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                            <button type="button" class="btn btn-secondary" data-modal-dismiss>Keep request</button>
+                            <button type="submit" class="btn btn-error" data-loading-text="Rejecting...">Reject request</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    <script src="~/js/feature-request-details.js" asp-append-version="true"></script>
 }

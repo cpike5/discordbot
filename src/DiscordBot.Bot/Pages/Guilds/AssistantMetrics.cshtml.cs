@@ -1,13 +1,17 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Agents.Configuration;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Core.Models.Llm;
 using DiscordBot.Infrastructure.Abstractions.LLM;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Bot.Pages.Guilds;
@@ -22,7 +26,8 @@ public class AssistantMetricsModel : GuildPageModelBase
     /// <summary>How many top-cost users the "Cost by User" table shows.</summary>
     private const int CostByUserTake = 20;
 
-    private readonly IAssistantService _assistantService;
+    private readonly IAssistantTelemetryReader _telemetryReader;
+    private readonly IOptions<OpenRouterOptions> _openRouterOptions;
     private readonly IGuildService _guildService;
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly ILlmUsageRepository _usageRepository;
@@ -31,7 +36,8 @@ public class AssistantMetricsModel : GuildPageModelBase
     private readonly ILogger<AssistantMetricsModel> _logger;
 
     public AssistantMetricsModel(
-        IAssistantService assistantService,
+        IAssistantTelemetryReader telemetryReader,
+        IOptions<OpenRouterOptions> openRouterOptions,
         IGuildService guildService,
         IAssistantInteractionLogRepository interactionLogRepository,
         ILlmUsageRepository usageRepository,
@@ -39,7 +45,8 @@ public class AssistantMetricsModel : GuildPageModelBase
         IPromptSurfaceReporter promptSurface,
         ILogger<AssistantMetricsModel> logger)
     {
-        _assistantService = assistantService;
+        _telemetryReader = telemetryReader;
+        _openRouterOptions = openRouterOptions;
         _guildService = guildService;
         _interactionLogRepository = interactionLogRepository;
         _usageRepository = usageRepository;
@@ -142,6 +149,18 @@ public class AssistantMetricsModel : GuildPageModelBase
     /// </remarks>
     public PromptSurfaceReport? PromptSurface { get; set; }
 
+    /// <summary>
+    /// Whether an OpenRouter API key is configured. Without one the assistant is not registered and
+    /// nothing is ever recorded, so the page says so instead of showing a wall of zeros.
+    /// </summary>
+    public bool IsAssistantConfigured { get; set; }
+
+    /// <summary>
+    /// Whether any usage was recorded in the window. False renders "no data yet" rather than
+    /// red zeros (a 0% success rate on a server that was never asked a question).
+    /// </summary>
+    public bool HasUsageData => Metrics.Count > 0;
+
     /// <summary>One row of the per-tool usage table.</summary>
     public class ToolUsageRow
     {
@@ -183,11 +202,49 @@ public class AssistantMetricsModel : GuildPageModelBase
             IconUrl = guild.IconUrl
         };
 
+        IsAssistantConfigured = !string.IsNullOrWhiteSpace(_openRouterOptions.Value.ApiKey);
+
+        // Populate guild layout ViewModels first so a failed load still renders the page chrome
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildId}" },
+                new() { Label = "Assistant", Url = $"/Guilds/AssistantSettings/{GuildId}" },
+                new() { Label = "Metrics", IsCurrent = true }
+            }
+        };
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            "Assistant Usage Metrics", $"AI assistant usage statistics for {guild.Name}");
+        Navigation = BuildNavigation(guild.Id, "assistant");
+
+        try
+        {
+            await LoadMetricsAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load assistant metrics for guild {GuildId}", GuildId);
+            Metrics = new List<AssistantUsageMetrics>();
+            ErrorMessage = "The usage metrics could not be loaded. Try again in a moment.";
+        }
+
+        return Page();
+    }
+
+    private async Task LoadMetricsAsync(CancellationToken cancellationToken)
+    {
         // Get metrics for last 30 days
         var endDate = DateTime.UtcNow.Date;
         var startDate = endDate.AddDays(-30);
 
-        Metrics = (await _assistantService.GetUsageMetricsRangeAsync(
+        Metrics = (await _telemetryReader.GetUsageMetricsRangeAsync(
             GuildId, startDate, endDate, cancellationToken)).ToList();
 
         var toolUsage = await _interactionLogRepository.GetToolUsageAsync(
@@ -207,7 +264,8 @@ public class AssistantMetricsModel : GuildPageModelBase
         var names = await _userResolver.ResolveUsersAsync(costByUser.Select(u => u.UserId));
         CostByUser = costByUser.Select(u =>
         {
-            var (username, avatarUrl) = names.TryGetValue(u.UserId, out var resolved) ? resolved : ($"Unknown#{u.UserId}", null);
+            var (username, avatarUrl) = names.TryGetValue(u.UserId, out var resolved) ? resolved : (UserDisplay.UnknownName, null);
+            username = UserDisplay.Name(username);
             return new LlmUsageByUserDto
             {
                 UserId = u.UserId.ToString(),
@@ -244,26 +302,6 @@ public class AssistantMetricsModel : GuildPageModelBase
             var totalRequests = TotalQuestions + TotalFailedRequests;
             SuccessRate = totalRequests > 0 ? (double)TotalQuestions / totalRequests * 100 : 100;
         }
-
-        // Populate guild layout ViewModels
-        Breadcrumb = new GuildBreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildId}" },
-                new() { Label = "Assistant", Url = $"/Guilds/AssistantSettings/{GuildId}" },
-                new() { Label = "Metrics", IsCurrent = true }
-            }
-        };
-
-        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
-            "Assistant Usage Metrics", $"AI assistant usage statistics for {guild.Name}");
-
-        Navigation = BuildNavigation(guild.Id, "assistant");
-
-        return Page();
     }
 
     /// <summary>

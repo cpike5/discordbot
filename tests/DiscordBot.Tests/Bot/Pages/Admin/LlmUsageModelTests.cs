@@ -135,4 +135,44 @@ public class LlmUsageModelTests
 
         _model.Guilds.Should().ContainSingle(g => g.Name == "Test Guild");
     }
+
+    [Fact]
+    public async Task OnGetAsync_ShouldQueryTheViewersCalendarDays_WhenATimeZoneIsGiven()
+    {
+        _model.StartDate = new DateTime(2026, 9, 1);
+        _model.EndDate = new DateTime(2026, 9, 10);
+        _model.UserTimezone = "America/Los_Angeles";
+
+        LlmUsageQuery? captured = null;
+        _mockUsageRepository
+            .Setup(r => r.GetTotalsAsync(It.IsAny<LlmUsageQuery>(), It.IsAny<CancellationToken>()))
+            .Callback<LlmUsageQuery, CancellationToken>((q, _) => captured = q)
+            .ReturnsAsync(new LlmUsageTotals());
+
+        await _model.OnGetAsync(CancellationToken.None);
+
+        // Los Angeles is UTC-7 in September: the first day starts at 07:00Z and the last ends at 06:59:59.999Z the day after
+        captured!.From.Should().Be(new DateTime(2026, 9, 1, 7, 0, 0, DateTimeKind.Utc));
+        captured.To.Should().Be(new DateTime(2026, 9, 11, 7, 0, 0, DateTimeKind.Utc).AddTicks(-1));
+        _model.RangeFromUtc.Should().Be(captured.From);
+        _model.RangeToUtc.Should().Be(captured.To);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShouldQueryUtcDays_WhenNoTimeZoneIsGiven()
+    {
+        _model.StartDate = new DateTime(2026, 9, 1);
+        _model.EndDate = new DateTime(2026, 9, 10);
+
+        LlmUsageQuery? captured = null;
+        _mockUsageRepository
+            .Setup(r => r.GetTotalsAsync(It.IsAny<LlmUsageQuery>(), It.IsAny<CancellationToken>()))
+            .Callback<LlmUsageQuery, CancellationToken>((q, _) => captured = q)
+            .ReturnsAsync(new LlmUsageTotals());
+
+        await _model.OnGetAsync(CancellationToken.None);
+
+        captured!.From.Should().Be(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc));
+        captured.To.Should().Be(new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc).AddTicks(-1));
+    }
 }

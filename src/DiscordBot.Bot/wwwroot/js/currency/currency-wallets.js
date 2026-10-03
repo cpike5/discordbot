@@ -7,9 +7,24 @@
  * viewer is allowed to do.
  *
  * Every Discord snowflake stays a string: user IDs are larger than Number.MAX_SAFE_INTEGER, so
- * parsing one as a number rounds the last digits and every lookup fails.
+ * parsing one as a number rounds the last digits and every lookup fails. The member for mint and
+ * fine is chosen with the user picker (an autocomplete); its hidden input holds the ID string.
+ * The pure helpers at the top are exported for __tests__/currency-wallets.test.js.
  */
-(function () {
+(function (root, factory) {
+    'use strict';
+    const api = factory();
+    if (typeof module === 'object' && module.exports) {
+        module.exports = api;
+    }
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () { api.init(); });
+        } else {
+            api.init();
+        }
+    }
+})(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
 
     const TYPE_LABELS = {
@@ -18,6 +33,54 @@
     };
 
     const PAGE_SIZE = 20;
+    const SNOWFLAKE = /^\d{1,20}$/;
+    const WHOLE_NUMBER = /^-?\d+$/;
+
+    // ---- pure helpers ------------------------------------------------------
+
+    /**
+     * Checks a balance action's inputs and builds its request body.
+     * @param {'mint'|'fine'|'adjust'} action
+     * @param {{userId: string, amount: string, reason: string, openCase?: boolean}} input raw field values
+     * @returns {{error: string|null, field?: string, body?: object}}
+     */
+    function validateAction(action, input) {
+        const reason = (input.reason || '').trim();
+        const rawAmount = String(input.amount === undefined || input.amount === null ? '' : input.amount).trim();
+
+        if (action !== 'adjust' && !SNOWFLAKE.test(input.userId || '')) {
+            return { error: 'Search for the member and pick them from the list.', field: 'wallet-action-user-search' };
+        }
+
+        if (!WHOLE_NUMBER.test(rawAmount)) {
+            return { error: 'The amount must be a whole number.', field: 'wallet-action-amount' };
+        }
+        const amount = Number(rawAmount);
+        if (!Number.isSafeInteger(amount) || amount === 0) {
+            return { error: 'Enter an amount other than zero.', field: 'wallet-action-amount' };
+        }
+        if (action !== 'adjust' && amount < 0) {
+            return { error: 'The amount must be greater than zero.', field: 'wallet-action-amount' };
+        }
+
+        if (!reason) return { error: 'A reason is required.', field: 'wallet-action-reason' };
+
+        if (action === 'mint') return { error: null, body: { userId: input.userId, amount: amount, reason: reason } };
+        if (action === 'fine') {
+            return { error: null, body: { userId: input.userId, amount: amount, reason: reason, openCase: !!input.openCase } };
+        }
+        return { error: null, body: { amount: amount, reason: reason } };
+    }
+
+    /** Holders matching the search box: by name or by ID. */
+    function filterWallets(wallets, term) {
+        const needle = (term || '').trim().toLowerCase();
+        if (!needle) return wallets;
+        return wallets.filter((w) =>
+            (w.username || '').toLowerCase().includes(needle) || String(w.userId).includes(needle));
+    }
+
+    // ---- browser -----------------------------------------------------------
 
     const state = {
         currencyId: null,
@@ -30,65 +93,74 @@
         ledgerPage: 1,
         ledgerTotalPages: 1,
         action: null,
-        adjustTransactionId: null
+        adjustTransactionId: null,
+        // Each load takes a number; only the latest may draw
+        walletSeq: 0,
+        ledgerSeq: 0
     };
 
     function el(id) {
         return document.getElementById(id);
     }
 
-    function panel() {
-        return el('currency-wallet-panel');
-    }
-
-    function toast(message, type) {
-        if (window.quickActions && typeof window.quickActions.showToast === 'function') {
-            window.quickActions.showToast(message, type);
-        }
-    }
-
-    function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value === null || value === undefined ? '' : String(value);
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    function esc(value) {
+        return SafeHtml.escape(value);
     }
 
     function formatAmount(amount) {
-        return `${Number(amount).toLocaleString()} ${state.symbol}`.trim();
+        return Format.currency(Number(amount), state.symbol);
     }
 
-    /**
-     * Server timestamps are UTC but carry no offset, so they are marked as UTC before being
-     * rendered in the reader's own timezone.
-     */
     function formatTimestamp(value) {
-        if (!value) return '';
-        const normalized = /[Zz]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`;
-        const date = new Date(normalized);
-        return isNaN(date.getTime()) ? value : date.toLocaleString();
+        return value ? Format.formatDate(value, 'datetime') : '';
+    }
+
+    function setMintEnabled() {
+        const mint = document.querySelector('[data-wallet-action="mint"]');
+        if (!mint) return;
+        mint.disabled = !state.currencyId;
+        mint.title = state.currencyId ? 'Mint units' : 'Pick a currency first';
+    }
+
+    function setFineEnabled(enabled) {
+        const fine = document.querySelector('[data-wallet-action="fine"]');
+        if (!fine) return;
+        fine.disabled = !enabled;
+        fine.title = enabled ? 'Fine this holder' : 'Select a holder first';
     }
 
     // ---- holders -----------------------------------------------------------
 
-    function visibleWallets() {
-        const term = (el('wallet-search').value || '').trim().toLowerCase();
-        if (!term) return state.wallets;
-
-        return state.wallets.filter(w =>
-            (w.username || '').toLowerCase().includes(term) || String(w.userId).includes(term));
-    }
-
     function renderWallets() {
         const list = el('wallet-list');
-        const wallets = visibleWallets();
 
         if (!state.currencyId) {
             list.innerHTML = '<p class="px-4 py-6 text-sm text-text-secondary">Select a currency to see its holders.</p>';
             return;
         }
 
+        const wallets = filterWallets(state.wallets, el('wallet-search').value);
+
+        if (!state.wallets.length) {
+            list.innerHTML = '';
+            EmptyState.render(list, {
+                type: 'noData',
+                title: el('wallet-debtors-only').checked ? 'No one is in debt' : 'No holders yet',
+                description: el('wallet-debtors-only').checked
+                    ? 'Every wallet is at zero or above.'
+                    : 'Wallets appear here after the first mint or payment.',
+                size: 'compact'
+            });
+            return;
+        }
+
         if (!wallets.length) {
-            list.innerHTML = '<p class="px-4 py-6 text-sm text-text-secondary">No holders match.</p>';
+            list.innerHTML = '';
+            EmptyState.filtered(list, {
+                noun: 'holders',
+                size: 'compact',
+                onClear: () => { el('wallet-search').value = ''; renderWallets(); }
+            });
             return;
         }
 
@@ -96,14 +168,14 @@
             const selected = state.selected && state.selected.walletId === wallet.walletId;
 
             return `
-                <button type="button" data-wallet-select="${escapeHtml(wallet.walletId)}"
+                <button type="button" data-wallet-select="${esc(wallet.walletId)}" aria-pressed="${selected ? 'true' : 'false'}"
                         class="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-bg-hover transition-colors ${selected ? 'bg-bg-hover' : ''}">
                     <span class="min-w-0">
-                        <span class="block text-sm text-text-primary truncate">${escapeHtml(wallet.username)}</span>
-                        <span class="block text-xs text-text-tertiary font-mono truncate">${escapeHtml(wallet.userId)}</span>
+                        <span class="block text-sm text-text-primary truncate">${esc(wallet.username)}</span>
+                        <span class="block text-xs text-text-tertiary font-mono truncate">${esc(wallet.userId)}</span>
                     </span>
                     <span class="text-sm font-medium whitespace-nowrap ${wallet.isInDebt ? 'text-error' : 'text-text-primary'}">
-                        ${escapeHtml(formatAmount(wallet.balance))}
+                        ${esc(formatAmount(wallet.balance))}${wallet.isInDebt ? ' <span class="sr-only">(in debt)</span>' : ''}
                     </span>
                 </button>`;
         }).join('');
@@ -116,17 +188,28 @@
         }
 
         const list = el('wallet-list');
-        list.innerHTML = '<p class="px-4 py-6 text-sm text-text-secondary">Loading holders…</p>';
-
-        const debtorsOnly = el('wallet-debtors-only').checked;
+        const mine = ++state.walletSeq;
+        list.replaceChildren();
+        const loading = Skeleton.show(list, { kind: 'list', rows: 4, delay: 200 });
 
         try {
-            state.wallets = await window.ApiClient.get(
-                `/api/currencies/${state.currencyId}/wallets?debtorsOnly=${debtorsOnly}`,
-                { errorMessage: 'Failed to load holders' }) || [];
+            const wallets = await ApiClient.get(
+                '/api/currencies/' + state.currencyId + '/wallets?debtorsOnly=' + el('wallet-debtors-only').checked,
+                { errorMessage: 'The holders could not be loaded.' });
+            if (mine !== state.walletSeq) return;
+
+            loading.hide();
+            state.wallets = wallets || [];
             renderWallets();
         } catch (error) {
-            list.innerHTML = `<p class="px-4 py-6 text-sm text-error">${escapeHtml(error.message || 'Failed to load holders.')}</p>`;
+            if (mine !== state.walletSeq) return;
+            loading.hide();
+            EmptyState.error(list, {
+                title: 'Could not load the holders',
+                description: 'Check your connection and try again.',
+                size: 'compact',
+                onRetry: loadWallets
+            });
         }
     }
 
@@ -137,7 +220,8 @@
         const items = (result && result.items) || [];
 
         if (!items.length) {
-            rows.innerHTML = '<p class="px-4 py-6 text-sm text-text-secondary">No transactions yet.</p>';
+            rows.replaceChildren();
+            EmptyState.render(rows, { type: 'noData', title: 'No transactions yet', description: 'This wallet has no history.', size: 'compact' });
             el('ledger-pager').classList.add('hidden');
             return;
         }
@@ -147,8 +231,7 @@
             const detail = row.reason || row.featureKey || '';
 
             const adjust = state.canAdminister
-                ? `<button type="button" data-ledger-adjust="${escapeHtml(row.id)}"
-                           class="px-2 py-1 text-xs font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">Adjust</button>`
+                ? `<button type="button" data-ledger-adjust="${esc(row.id)}" class="btn btn-secondary btn-sm shrink-0">Adjust</button>`
                 : '';
 
             return `
@@ -156,15 +239,13 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-sm font-medium ${positive ? 'text-success' : 'text-error'}">
-                                ${positive ? '+' : '−'}${escapeHtml(formatAmount(Math.abs(row.amount)))}
+                                ${positive ? '+' : '−'}${esc(formatAmount(Math.abs(row.amount)))}
                             </span>
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-bg-tertiary text-text-secondary border border-border-primary">
-                                ${escapeHtml(TYPE_LABELS[row.type] || 'Entry')}
-                            </span>
+                            <span class="badge badge-gray">${esc(TYPE_LABELS[row.type] || 'Entry')}</span>
                         </div>
-                        ${detail ? `<p class="text-sm text-text-secondary mt-1 break-words">${escapeHtml(detail)}</p>` : ''}
+                        ${detail ? `<p class="text-sm text-text-secondary mt-1 break-words">${esc(detail)}</p>` : ''}
                         <p class="text-xs text-text-tertiary mt-1">
-                            ${escapeHtml(formatTimestamp(row.createdAt))} • balance ${escapeHtml(formatAmount(row.balanceAfter))}
+                            ${esc(formatTimestamp(row.createdAt))} • balance ${esc(formatAmount(row.balanceAfter))}
                         </p>
                     </div>
                     ${adjust}
@@ -173,48 +254,81 @@
 
         state.ledgerTotalPages = Math.max(1, result.totalPages || 1);
         el('ledger-page-label').textContent =
-            `Page ${result.page} of ${state.ledgerTotalPages} • ${result.totalCount} entries`;
+            'Page ' + result.page + ' of ' + state.ledgerTotalPages + ' • ' + Format.plural(result.totalCount, 'entry', 'entries');
         el('ledger-pager').classList.remove('hidden');
+
+        const prev = document.querySelector('[data-wallet-action="ledger-prev"]');
+        const next = document.querySelector('[data-wallet-action="ledger-next"]');
+        if (prev) prev.disabled = state.ledgerPage <= 1;
+        if (next) next.disabled = state.ledgerPage >= state.ledgerTotalPages;
     }
 
     async function loadLedger() {
         if (!state.selected) return;
 
         const rows = el('ledger-rows');
-        rows.innerHTML = '<p class="px-4 py-6 text-sm text-text-secondary">Loading history…</p>';
+        const mine = ++state.ledgerSeq;
+        rows.replaceChildren();
+        el('ledger-pager').classList.add('hidden');
+        const loading = Skeleton.show(rows, { kind: 'list', rows: 4, delay: 200 });
 
         try {
-            const result = await window.ApiClient.get(
-                `/api/wallets/${state.selected.walletId}/ledger?page=${state.ledgerPage}&pageSize=${PAGE_SIZE}`,
-                { errorMessage: 'Failed to load the ledger' });
+            const result = await ApiClient.get(
+                '/api/wallets/' + state.selected.walletId + '/ledger?page=' + state.ledgerPage + '&pageSize=' + PAGE_SIZE,
+                { errorMessage: 'The ledger could not be loaded.' });
+            if (mine !== state.ledgerSeq) return;
+
+            loading.hide();
             renderLedger(result);
         } catch (error) {
-            rows.innerHTML = `<p class="px-4 py-6 text-sm text-error">${escapeHtml(error.message || 'Failed to load the ledger.')}</p>`;
-            el('ledger-pager').classList.add('hidden');
+            if (mine !== state.ledgerSeq) return;
+            loading.hide();
+            EmptyState.error(rows, {
+                title: 'Could not load the ledger',
+                description: 'Check your connection and try again.',
+                size: 'compact',
+                onRetry: loadLedger
+            });
         }
     }
 
     function selectWallet(walletId) {
-        const wallet = state.wallets.find(w => w.walletId === walletId);
+        const wallet = state.wallets.find((w) => w.walletId === walletId);
         if (!wallet) return;
 
         state.selected = wallet;
         state.ledgerPage = 1;
 
-        el('ledger-subject').textContent = `${wallet.username} • ${formatAmount(wallet.balance)}`;
-
-        const fineButton = document.querySelector('[data-wallet-action="fine"]');
-        if (fineButton) fineButton.disabled = false;
+        el('ledger-subject').textContent = wallet.username + ' • ' + formatAmount(wallet.balance);
+        setFineEnabled(state.canFine);
 
         renderWallets();
         loadLedger();
+
+        // Below the wide layout the ledger sits under the holder list, often off screen
+        const heading = el('ledger-heading');
+        const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (heading && heading.getBoundingClientRect().top > window.innerHeight * 0.6) {
+            heading.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+            heading.focus({ preventScroll: true });
+        }
     }
 
     // ---- balance actions ---------------------------------------------------
 
+    function picker() {
+        // AutocompleteManager is a top-level const of autocomplete.js, so it is not on window
+        return typeof AutocompleteManager !== 'undefined' ? AutocompleteManager.get('wallet-action-user-search') : null;
+    }
+
     function openAction(action) {
+        if (action !== 'adjust' && !state.currencyId) {
+            toast.warning('Pick a currency first.');
+            return;
+        }
+
         state.action = action;
-        state.adjustTransactionId = action === 'adjust' ? state.adjustTransactionId : null;
+        if (action !== 'adjust') state.adjustTransactionId = null;
 
         const titles = { mint: 'Mint units', fine: 'Issue a fine', adjust: 'Adjust a transaction' };
         const help = {
@@ -233,128 +347,120 @@
         el('wallet-action-amount-help').textContent = amountHelp[action];
         el('wallet-action-error').classList.add('hidden');
         el('wallet-action-amount').value = '';
+        el('wallet-action-amount').min = action === 'adjust' ? '' : '1';
         el('wallet-action-reason').value = '';
         el('wallet-action-case').checked = false;
 
-        const userRow = el('wallet-action-user-row');
-        userRow.classList.toggle('hidden', action === 'adjust');
-        el('wallet-action-user').value = action !== 'adjust' && state.selected ? state.selected.userId : '';
+        el('wallet-action-user-row').classList.toggle('hidden', action === 'adjust');
+
+        // Mint and fine start on the selected holder, by name
+        const instance = picker();
+        if (instance) {
+            if (action !== 'adjust' && state.selected) instance.setValue(String(state.selected.userId), state.selected.username);
+            else instance.clear();
+        }
 
         const caseRow = el('wallet-action-case-row');
         caseRow.classList.toggle('hidden', action !== 'fine');
         caseRow.classList.toggle('flex', action === 'fine');
 
-        el('wallet-action-modal').classList.remove('hidden');
-        (action === 'adjust' ? el('wallet-action-amount') : el('wallet-action-user')).focus();
+        quickActions.openDialog(el('wallet-action-modal'), {
+            initialFocus: action === 'adjust' || state.selected ? '#wallet-action-amount' : '#wallet-action-user-search'
+        });
     }
 
-    function closeAction() {
-        el('wallet-action-modal').classList.add('hidden');
-        state.action = null;
-        state.adjustTransactionId = null;
-    }
-
-    function actionError(message) {
+    function actionError(message, fieldId) {
         const box = el('wallet-action-error');
         box.textContent = message;
         box.classList.remove('hidden');
+        const field = fieldId ? el(fieldId) : null;
+        if (field) field.focus();
     }
 
     async function submitAction(event) {
         event.preventDefault();
 
-        const amount = Number(el('wallet-action-amount').value);
-        const reason = el('wallet-action-reason').value.trim();
-        const userId = el('wallet-action-user').value.trim();
+        const checked = validateAction(state.action, {
+            userId: el('wallet-action-user').value.trim(),
+            amount: el('wallet-action-amount').value,
+            reason: el('wallet-action-reason').value,
+            openCase: el('wallet-action-case').checked
+        });
 
-        if (!reason) {
-            actionError('A reason is required.');
+        if (checked.error) {
+            actionError(checked.error, checked.field);
             return;
         }
 
-        if (!Number.isFinite(amount) || amount === 0) {
-            actionError('Enter an amount.');
-            return;
-        }
-
-        if (state.action !== 'adjust') {
-            if (amount <= 0) {
-                actionError('The amount must be greater than zero.');
-                return;
-            }
-            if (!/^\d{1,20}$/.test(userId)) {
-                actionError('Enter the Discord ID of the member.');
-                return;
-            }
-        }
-
+        el('wallet-action-error').classList.add('hidden');
         const submit = el('wallet-action-submit');
-        submit.disabled = true;
+        if (typeof LoadingManager !== 'undefined') LoadingManager.setButtonLoading(submit, true);
+        else submit.disabled = true;
 
         try {
             if (state.action === 'mint') {
-                await window.ApiClient.post(`/api/currencies/${state.currencyId}/mint`,
-                    { userId: userId, amount: amount, reason: reason },
-                    { errorMessage: 'Failed to mint' });
-                toast('Minted.', 'success');
+                await ApiClient.post('/api/currencies/' + state.currencyId + '/mint', checked.body,
+                    { errorMessage: 'The mint could not be completed.' });
+                toast.success('Minted.');
             } else if (state.action === 'fine') {
-                const result = await window.ApiClient.post(`/api/currencies/${state.currencyId}/fine`,
-                    { userId: userId, amount: amount, reason: reason, openCase: el('wallet-action-case').checked },
-                    { errorMessage: 'Failed to issue the fine' });
+                const result = await ApiClient.post('/api/currencies/' + state.currencyId + '/fine', checked.body,
+                    { errorMessage: 'The fine could not be issued.' });
 
-                toast(result && result.clampedAmount !== null && result.clampedAmount !== undefined
-                    ? `Fine applied, clamped to ${formatAmount(result.clampedAmount)}.`
-                    : 'Fine applied.', 'success');
+                toast.success(result && result.clampedAmount !== null && result.clampedAmount !== undefined
+                    ? 'Fine applied, clamped to ' + formatAmount(result.clampedAmount) + '.'
+                    : 'Fine applied.');
             } else {
-                await window.ApiClient.post(`/api/ledger/${state.adjustTransactionId}/adjust`,
-                    { amount: amount, reason: reason },
-                    { errorMessage: 'Failed to adjust the transaction' });
-                toast('Adjustment written.', 'success');
+                await ApiClient.post('/api/ledger/' + state.adjustTransactionId + '/adjust', checked.body,
+                    { errorMessage: 'The adjustment could not be written.' });
+                toast.success('Adjustment written.');
             }
 
-            closeAction();
+            quickActions.closeDialog(el('wallet-action-modal'));
             await loadWallets();
 
             if (state.selected) {
-                const refreshed = state.wallets.find(w => w.walletId === state.selected.walletId);
+                const refreshed = state.wallets.find((w) => w.walletId === state.selected.walletId);
                 if (refreshed) {
                     state.selected = refreshed;
-                    el('ledger-subject').textContent = `${refreshed.username} • ${formatAmount(refreshed.balance)}`;
+                    el('ledger-subject').textContent = refreshed.username + ' • ' + formatAmount(refreshed.balance);
                 }
                 await loadLedger();
             }
         } catch (error) {
             actionError(error.message || 'The request could not be completed.');
         } finally {
-            submit.disabled = false;
+            if (typeof LoadingManager !== 'undefined') LoadingManager.setButtonLoading(submit, false);
+            else submit.disabled = false;
         }
     }
 
     // ---- wiring ------------------------------------------------------------
 
     function onClick(event) {
-        const walletButton = event.target.closest('[data-wallet-select]');
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const walletButton = target.closest('[data-wallet-select]');
         if (walletButton) {
             selectWallet(walletButton.getAttribute('data-wallet-select'));
             return;
         }
 
-        const adjustButton = event.target.closest('[data-ledger-adjust]');
+        const adjustButton = target.closest('[data-ledger-adjust]');
         if (adjustButton) {
             state.adjustTransactionId = adjustButton.getAttribute('data-ledger-adjust');
             openAction('adjust');
             return;
         }
 
-        const actionButton = event.target.closest('[data-wallet-action]');
-        if (!actionButton) return;
+        const actionButton = target.closest('[data-wallet-action]');
+        if (!actionButton || actionButton.disabled) return;
 
         const action = actionButton.getAttribute('data-wallet-action');
 
         if (action === 'refresh') loadWallets();
         if (action === 'mint') openAction('mint');
         if (action === 'fine') openAction('fine');
-        if (action === 'close-modal') closeAction();
 
         if (action === 'ledger-prev' && state.ledgerPage > 1) {
             state.ledgerPage -= 1;
@@ -367,25 +473,26 @@
         }
     }
 
-    function init() {
-        const root = panel();
-        if (!root) return;
+    let initialized = false;
 
-        state.currencyId = root.getAttribute('data-currency-id') || null;
-        state.symbol = root.getAttribute('data-currency-symbol') || '';
-        state.canMint = root.getAttribute('data-can-mint') === 'true';
-        state.canFine = root.getAttribute('data-can-fine') === 'true';
-        state.canAdminister = root.getAttribute('data-can-administer') === 'true';
+    function init() {
+        if (initialized || typeof document === 'undefined') return;
+        const panel = el('currency-wallet-panel');
+        if (!panel) return;
+        initialized = true;
+
+        state.currencyId = panel.getAttribute('data-currency-id') || null;
+        state.symbol = panel.getAttribute('data-currency-symbol') || '';
+        state.canMint = panel.getAttribute('data-can-mint') === 'true';
+        state.canFine = panel.getAttribute('data-can-fine') === 'true';
+        state.canAdminister = panel.getAttribute('data-can-administer') === 'true';
 
         document.addEventListener('click', onClick);
         el('wallet-action-form').addEventListener('submit', submitAction);
         el('wallet-search').addEventListener('input', renderWallets);
         el('wallet-debtors-only').addEventListener('change', loadWallets);
 
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') closeAction();
-        });
-
+        setMintEnabled();
         loadWallets();
     }
 
@@ -399,22 +506,18 @@
         state.selected = null;
         state.wallets = [];
         state.ledgerPage = 1;
+        state.ledgerSeq += 1;
 
         el('ledger-subject').textContent = 'Select a holder to read their history.';
         el('ledger-rows').innerHTML = '<p class="px-4 py-6 text-sm text-text-secondary">No holder selected.</p>';
         el('ledger-pager').classList.add('hidden');
 
-        const fineButton = document.querySelector('[data-wallet-action="fine"]');
-        if (fineButton) fineButton.disabled = true;
-
+        setFineEnabled(false);
+        setMintEnabled();
         loadWallets();
     }
 
-    window.CurrencyWallets = { setCurrency: setCurrency };
+    if (typeof window !== 'undefined') window.CurrencyWallets = { setCurrency: setCurrency };
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
+    return { init, setCurrency, validateAction, filterWallets };
+});

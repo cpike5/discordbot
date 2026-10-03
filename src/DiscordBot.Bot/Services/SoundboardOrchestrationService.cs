@@ -122,7 +122,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 return new SoundUploadResult
                 {
                     Success = false,
-                    ErrorMessage = "Audio is not enabled for this guild. Enable audio in the guild settings before uploading sounds."
+                    ErrorMessage = "Audio is not enabled for this server. Enable audio in the guild settings before uploading sounds."
                 };
             }
 
@@ -299,7 +299,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 return new SoundPlayResult
                 {
                     Success = false,
-                    ErrorMessage = "Audio is not enabled for this guild. Enable audio in the guild settings before playing sounds."
+                    ErrorMessage = "Audio is not enabled for this server. Enable audio in the guild settings before playing sounds."
                 };
             }
 
@@ -345,7 +345,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 return new SoundPlayResult
                 {
                     Success = false,
-                    ErrorMessage = "The requested sound does not exist or does not belong to this guild."
+                    ErrorMessage = "The requested sound does not exist or does not belong to this server."
                 };
             }
 

@@ -1,140 +1,99 @@
 @model DiscordBot.Bot.ViewModels.Components.ConnectedServersWidgetViewModel
+@using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Bot.ViewModels.Components.Enums
+@*
+    One row layout for every width: a grid at md and up (with a header row), a stacked card below
+    it. The rows are also drawn from script after "Sync All" (wwwroot/js/dashboard-actions.js
+    clones #connected-server-template), so a change to the row markup belongs in both. The caller
+    decides who sees the card; there is no role check in here.
+*@
+@functions {
+    private static (string Badge, string Title) StatusStyle(ServerConnectionStatus status) => status switch
+    {
+        ServerConnectionStatus.Online => ("badge-success", "Ran commands today"),
+        ServerConnectionStatus.Idle => ("badge-warning", "Active, no commands today"),
+        _ => ("badge-gray", "The bot is no longer in this server")
+    };
+}
 
-<authorize policy="RequireModerator">
-<div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden h-full flex flex-col">
-    <!-- Card Header -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
-        <h2 class="text-lg font-semibold text-text-primary">@Model.Title</h2>
-        @if (Model.ShowViewAll)
+<template id="connected-server-template">
+    <li class="connected-server" data-row>
+        <div class="connected-server-main">
+            <span class="connected-server-avatar" data-field="avatar" aria-hidden="true"></span>
+            <a class="connected-server-link" data-field="link" href="#"><span data-field="name"></span></a>
+        </div>
+        <div class="connected-server-meta">
+            <span class="connected-server-cell"><span class="connected-server-label">Members</span><span data-field="members"></span></span>
+            <span class="connected-server-cell"><span class="connected-server-label">Status</span><span class="badge" data-field="status"></span></span>
+            <span class="connected-server-cell"><span class="connected-server-label">Commands today</span><span data-field="commands"></span></span>
+        </div>
+        <div class="connected-server-actions row-actions">
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-copy-server-id data-field="copy">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+            </button>
+        </div>
+    </li>
+</template>
+
+<section class="card connected-servers h-full flex flex-col overflow-hidden" id="connected-servers" aria-labelledby="connected-servers-title">
+    <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-border-primary">
+        <h2 id="connected-servers-title" class="text-lg font-semibold text-text-primary">@Model.Title</h2>
+        <a href="@Model.ViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" id="connected-servers-view-all">
+            @(Model.ShowViewAll ? $"View all {DisplayFormat.Number(Model.TotalServerCount)}" : "View all")
+        </a>
+    </div>
+
+    <div class="connected-servers-head" id="connected-servers-head" aria-hidden="true" @(Model.Servers.Any() ? "" : "hidden")>
+        <span>Server</span>
+        <span>Members</span>
+        <span>Status</span>
+        <span>Commands today</span>
+        <span></span>
+    </div>
+
+    <ul class="connected-servers-list flex-grow" id="connected-servers-list" role="list" @(Model.Servers.Any() ? "" : "hidden")>
+        @foreach (var server in Model.Servers)
         {
-            <a href="@Model.ViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
-                View All
-            </a>
-        }
-    </div>
-
-    <!-- Table Container -->
-    <div class="overflow-x-auto flex-grow">
-        <table class="w-full">
-            <thead class="bg-bg-primary/50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Members</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Commands</th>
-                    <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-border-primary">
-                @if (Model.Servers.Any())
-                {
-                    @foreach (var server in Model.Servers)
+            var (badge, statusTitle) = StatusStyle(server.Status);
+            <li class="connected-server" data-row data-server-id="@server.Id">
+                <div class="connected-server-main">
+                    @if (!string.IsNullOrEmpty(server.IconUrl))
                     {
-                        <tr class="hover:bg-bg-hover transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
-                            onclick="if (!event.target.closest('button')) window.location.href='@server.DetailUrl'"
-                            tabindex="0"
-                            role="link"
-                            aria-label="View details for @server.Name"
-                            onkeydown="if (event.key === 'Enter' && !event.target.closest('button')) window.location.href='@server.DetailUrl'">
-                            <td class="px-6 py-4">
-                                <a href="@server.DetailUrl" class="flex items-center gap-3 focus:outline-none" tabindex="-1">
-                                    @if (!string.IsNullOrEmpty(server.IconUrl))
-                                    {
-                                        <img src="@server.IconUrl" alt="@server.Name icon" class="w-10 h-10 rounded-full" />
-                                    }
-                                    else
-                                    {
-                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br @server.AvatarGradient flex items-center justify-center text-white font-bold text-sm">
-                                            @server.Initials
-                                        </div>
-                                    }
-                                    <div>
-                                        <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors">@server.Name</p>
-                                        <p class="text-xs text-text-tertiary font-mono">ID: @server.Id</p>
-                                    </div>
-                                </a>
-                            </td>
-                            <td class="px-6 py-4 text-text-secondary">@server.MemberCount.ToString("N0")</td>
-                            <td class="px-6 py-4">
-                                @{
-                                    var statusText = server.Status.ToString();
-                                    var statusColor = server.Status switch
-                                    {
-                                        ServerConnectionStatus.Online => "success",
-                                        ServerConnectionStatus.Idle => "warning",
-                                        ServerConnectionStatus.Offline => "text-tertiary",
-                                        _ => "text-tertiary"
-                                    };
-                                    var statusBgColor = server.Status switch
-                                    {
-                                        ServerConnectionStatus.Online => "success/10",
-                                        ServerConnectionStatus.Idle => "warning/10",
-                                        ServerConnectionStatus.Offline => "border-primary/50",
-                                        _ => "border-primary/50"
-                                    };
-                                    var statusDotColor = server.Status switch
-                                    {
-                                        ServerConnectionStatus.Online => "bg-success",
-                                        ServerConnectionStatus.Idle => "bg-warning",
-                                        ServerConnectionStatus.Offline => "bg-text-tertiary",
-                                        _ => "bg-text-tertiary"
-                                    };
-                                }
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-@statusColor bg-@statusBgColor rounded-full">
-                                    <span class="w-1.5 h-1.5 @statusDotColor rounded-full"></span>
-                                    @statusText
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-text-secondary">@server.CommandsToday.ToString("N0")</td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="relative inline-block">
-                                    <button
-                                        class="server-action-btn p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
-                                        aria-label="Server actions for @server.Name"
-                                        aria-expanded="false"
-                                        aria-haspopup="menu"
-                                        onclick="toggleServerActionMenu(this, event)">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                                        </svg>
-                                    </button>
-                                    <div class="server-action-dropdown" role="menu" aria-label="Server actions">
-                                        <a href="@server.DetailUrl" role="menuitem" class="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                            View Details
-                                        </a>
-                                        <button type="button" role="menuitem" class="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors" onclick="copyServerId('@server.Id', event)">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                            </svg>
-                                            <span class="copy-text">Copy Server ID</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
+                        <span class="connected-server-avatar" data-field="avatar" aria-hidden="true"><img src="@server.IconUrl" alt="" loading="lazy" /></span>
                     }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="5" class="px-6 py-12 text-center">
-                            <div class="flex flex-col items-center justify-center">
-                                <svg class="w-12 h-12 text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                                </svg>
-                                <p class="text-sm text-text-secondary">No connected servers</p>
-                                <p class="text-xs text-text-tertiary mt-1">Servers will appear here when the bot joins them</p>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        <span class="connected-server-avatar text-white @server.AvatarClass" data-field="avatar" aria-hidden="true">@server.Initials</span>
+                    }
+                    <a class="connected-server-link" data-field="link" href="@server.DetailUrl"><span data-field="name">@server.Name</span></a>
+                </div>
+                <div class="connected-server-meta">
+                    <span class="connected-server-cell"><span class="connected-server-label">Members</span><span data-field="members">@DisplayFormat.Number(server.MemberCount)</span></span>
+                    <span class="connected-server-cell"><span class="connected-server-label">Status</span><span class="badge @badge" data-field="status" title="@statusTitle">@server.Status</span></span>
+                    <span class="connected-server-cell"><span class="connected-server-label">Commands today</span><span data-field="commands">@DisplayFormat.Number(server.CommandsToday)</span></span>
+                </div>
+                <div class="connected-server-actions row-actions">
+                    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-copy-server-id="@server.Id" data-field="copy" aria-label="Copy server ID for @server.Name" title="Copy server ID">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                </div>
+            </li>
+        }
+    </ul>
+
+    <div id="connected-servers-empty" class="flex-grow flex items-center" @(Model.Servers.Any() ? "hidden" : "")>
+        <partial name="Shared/Components/_EmptyState" model="@(new EmptyStateViewModel
+        {
+            Type = EmptyStateType.NoData,
+            Title = "No servers yet",
+            Description = "Servers appear here once the bot joins them.",
+            IconSvgPath = "M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01",
+            Size = EmptyStateSize.Compact,
+            HeadingLevel = 3
+        })" />
     </div>
-</div>
-</authorize>
+</section>

@@ -125,6 +125,14 @@ Identity__DefaultAdmin__Password='Change-me-123!' \
 dotnet run
 ```
 
+**Member portal in offline mode.** With `ASPNETCORE_ENVIRONMENT=Development` **and** `Discord:OfflineMode=true` (both; either alone does nothing) the member portal works without Discord, so it can be tested and screenshotted:
+
+- every guild in the database counts as available, with three made-up voice channels ("General", "Gaming", "Music Lounge") and the bot shown as Offline; joining one fails in the audio layer, which is a real error state to test
+- the default admin is linked to a fake Discord ID, and a second user, `portal-member@example.com`, is created with **no role** and the same password as the default admin; that is the account to sign in with to see what a portal member sees. The two fake IDs are the only identities treated as guild members
+- the guild still needs `GuildAudioSettings.EnableMemberPortal` on, like any other
+
+In any other environment, or when the bot is connected to Discord, none of this is registered and nothing is seeded (`DevelopmentPortal.IsEnabled`, covered by `DevelopmentPortalTests`).
+
 #### Setting Secrets
 
 ```bash
@@ -245,6 +253,20 @@ from `dotnet run` in the repository root.
 | `PerformanceAlertOptions` | `PerformanceAlerts` | `PerformanceMetricsServiceExtensions` | `CheckIntervalSeconds`, `ConsecutiveBreachesRequired` |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | `PerformanceMetricsServiceExtensions` | Per-metric-category SignalR broadcast intervals |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | `OpenTelemetryExtensions` | `DefaultRate` (0.1), `ErrorRate` (1.0), `SlowThresholdMs` |
+
+#### Performance alert thresholds
+
+The warning and critical thresholds themselves are not in `appsettings.json`: they are rows in the
+`PerformanceAlertConfigs` table, seeded by migration and edited on the Performance Alerts tab
+(`/Admin/Performance`). `PerformanceAlerts:*` above only controls how often they are checked and
+how many readings it takes to open or close an incident. Seeded defaults:
+
+| Metric | Warning | Critical | Notes |
+|--------|---------|----------|-------|
+| `memory_usage` | 1024 MB | 1536 MB | Working-set size of the whole process. The bot idles at about 620 MB, so these leave headroom; raise them further for a bot in many large guilds. Earlier installs had 400/480 MB: migration `RaiseMemoryAlertDefaults` moves a row to the new values only if it is still at the old defaults and has never been edited. |
+| `bot_disconnected` | none | event | Not evaluated when `Discord:OfflineMode` is true, because the gateway is never connected there. |
+
+Alert notifications carry the metric's display name ("Memory Usage Alert"), not its key.
 
 #### Infrastructure / Database
 

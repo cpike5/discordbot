@@ -30,17 +30,6 @@ const AutocompleteManager = (function() {
     };
 
     /**
-     * Escape HTML to prevent XSS
-     * @param {string} text - Text to escape
-     * @returns {string} Escaped text
-     */
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
-    /**
      * Debounce function to limit API calls
      * @param {Function} func - Function to debounce
      * @param {number} wait - Wait time in ms
@@ -297,7 +286,7 @@ const AutocompleteManager = (function() {
             if (this.results.length === 0) {
                 this.dropdown.innerHTML = `
                     <div class="autocomplete-no-results">
-                        ${escapeHtml(this.config.noResultsMessage)}
+                        ${SafeHtml.escape(this.config.noResultsMessage)}
                     </div>
                 `;
             } else {
@@ -338,8 +327,8 @@ const AutocompleteManager = (function() {
                     <span class="autocomplete-item-icon autocomplete-icon-channel">
                         ${this.getChannelIcon(item.channelType)}
                     </span>
-                    <span class="autocomplete-item-text">${escapeHtml(item.displayText)}</span>
-                    <span class="autocomplete-item-meta">${escapeHtml(item.channelType)}</span>
+                    <span class="autocomplete-item-text">${SafeHtml.escape(item.displayText)}</span>
+                    <span class="autocomplete-item-meta">${SafeHtml.escape(item.channelType)}</span>
                 `;
             }
 
@@ -347,7 +336,7 @@ const AutocompleteManager = (function() {
                 <span class="autocomplete-item-icon autocomplete-icon-default">
                     ${this.getDefaultIcon()}
                 </span>
-                <span class="autocomplete-item-text">${escapeHtml(item.displayText)}</span>
+                <span class="autocomplete-item-text">${SafeHtml.escape(item.displayText)}</span>
             `;
         }
 

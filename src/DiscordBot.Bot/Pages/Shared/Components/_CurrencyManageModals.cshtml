@@ -1,0 +1,177 @@
+@model DiscordBot.Bot.ViewModels.Components.CurrencyManageModalsViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+@*
+    The currency editor and the mint authority dialogs, shared by /Guilds/{guildId}/Currency and
+    /Admin/Currency. Both are quickActions dialogs: currency-manage.js opens and closes them with
+    quickActions.openDialog / closeDialog, so focus, Escape, scroll lock and stacking come from there.
+    The backdrop and every Cancel/close control carry data-modal-dismiss.
+*@
+@{
+    var userPicker = new AutocompleteInputViewModel
+    {
+        Id = "authority-user",
+        Name = "authority-user",
+        Label = "User",
+        Placeholder = "Search by username...",
+        Endpoint = "/api/autocomplete/users",
+        GuildIdSourceElement = Model.GuildId.HasValue ? "authority-guild-source" : null,
+        NoResultsMessage = "No users found",
+        HelpText = "Only people the bot has seen in a logged message can be found by name."
+    };
+}
+
+<!-- Currency editor -->
+<div id="currency-modal" class="hidden fixed inset-0 z-[var(--z-modal)]" role="dialog" aria-modal="true" aria-labelledby="currency-modal-title">
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto qa-modal-panel pointer-events-auto" role="document">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+                <h2 id="currency-modal-title" class="text-base font-semibold text-text-primary">New currency</h2>
+                <button type="button" data-modal-dismiss class="btn btn-ghost btn-icon" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="currency-form" class="px-5 py-4 space-y-4" novalidate>
+                <div id="currency-form-error" class="hidden text-sm text-error bg-error/10 border border-error/40 rounded-md px-3 py-2" role="alert"></div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="sm:col-span-2">
+                        <label for="currency-name" class="block text-sm font-medium text-text-secondary mb-1">Name</label>
+                        <input type="text" id="currency-name" maxlength="64" required autocomplete="off" data-modal-initial-focus class="form-input w-full" />
+                    </div>
+                    <div>
+                        <label for="currency-symbol" class="block text-sm font-medium text-text-secondary mb-1">Symbol</label>
+                        <input type="text" id="currency-symbol" maxlength="16" required autocomplete="off" placeholder="@(Model.IsGlobal ? "💳" : "🪙")" class="form-input w-full" />
+                    </div>
+                </div>
+
+                <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="currency-transferable" class="mt-1 w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" @(Model.IsGlobal ? null : "checked") />
+                    <span>
+                        <span class="block text-sm text-text-primary">Members can pay each other</span>
+                        <span class="block text-xs text-text-tertiary">
+                            @if (Model.IsGlobal)
+                            {
+                                @:Leave off for credit: transfers are how a mint mistake spreads.
+                            }
+                            else
+                            {
+                                <text>Turns <code>/wallet pay</code> on for this currency.</text>
+                            }
+                        </span>
+                    </span>
+                </label>
+
+                <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="currency-allow-negative" class="mt-1 w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" />
+                    <span>
+                        <span class="block text-sm text-text-primary">Fines can push a balance into debt</span>
+                        <span class="block text-xs text-text-tertiary">
+                            @if (Model.IsGlobal)
+                            {
+                                @:Fines are a server action and never apply to a bot-wide currency, so this normally stays off.
+                            }
+                            else
+                            {
+                                @:Only fines can cross zero. Spending never creates debt, and priced features are locked while a balance is below it.
+                            }
+                        </span>
+                    </span>
+                </label>
+
+                <div id="currency-debt-floor-row" class="hidden">
+                    <label for="currency-debt-floor" class="block text-sm font-medium text-text-secondary mb-1">Debt floor</label>
+                    <input type="number" id="currency-debt-floor" max="-1" step="1" inputmode="numeric" class="form-input w-full" />
+                    <p class="text-xs text-text-tertiary mt-1">The most negative balance a fine may reach, as a whole number below zero. For example -100.</p>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" data-modal-dismiss class="btn btn-secondary">Cancel</button>
+                    <button type="submit" id="currency-save" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Mint authorities -->
+<div id="authorities-modal" class="hidden fixed inset-0 z-[var(--z-modal)]" role="dialog" aria-modal="true" aria-labelledby="authorities-modal-title">
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm qa-modal-backdrop" data-modal-dismiss aria-hidden="true"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto qa-modal-panel pointer-events-auto" role="document">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+                <h2 id="authorities-modal-title" class="text-base font-semibold text-text-primary break-words min-w-0">Mint authorities</h2>
+                <button type="button" data-modal-dismiss class="btn btn-ghost btn-icon" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="px-5 py-4 space-y-4">
+                <p class="text-sm text-text-secondary">
+                    @if (Model.IsGlobal)
+                    {
+                        @:Minting is the only way units are created. A bot-wide currency has no roles, so grants here are users, or the system principal a background job mints as.
+                    }
+                    else
+                    {
+                        @:Minting is the only way units are created, so it is the only action with its own list. Add a member, a role, or the system principal that background jobs mint as.
+                    }
+                </p>
+                <div id="authorities-error" class="hidden text-sm text-error bg-error/10 border border-error/40 rounded-md px-3 py-2" role="alert"></div>
+                <div id="authorities-list" class="space-y-2 text-sm text-text-secondary" aria-live="polite"></div>
+
+                <form id="authority-form" class="space-y-3 pt-3 border-t border-border-primary" novalidate>
+                    @if (Model.GuildId.HasValue)
+                    {
+                        <input type="hidden" id="authority-guild-source" value="@Model.GuildId" />
+                    }
+                    <div>
+                        <label for="authority-type" class="block text-sm font-medium text-text-secondary mb-1">Grant minting to</label>
+                        <select id="authority-type" class="form-select w-full">
+                            <option value="@((int)MintPrincipalType.User)">A user</option>
+                            @if (!Model.IsGlobal)
+                            {
+                                <option value="@((int)MintPrincipalType.Role)">A role</option>
+                            }
+                            <option value="@((int)MintPrincipalType.System)">The system (background jobs)</option>
+                        </select>
+                    </div>
+
+                    <div id="authority-user-row">
+                        <partial name="Shared/Components/_AutocompleteInput" model="userPicker" />
+                    </div>
+
+                    @if (!Model.IsGlobal)
+                    {
+                        <div id="authority-role-row" class="hidden">
+                            <label for="authority-role" class="block text-sm font-medium text-text-secondary mb-1">Role</label>
+                            @if (Model.Roles.Count == 0)
+                            {
+                                <p class="text-sm text-text-tertiary">No roles are available for this server right now.</p>
+                                <select id="authority-role" class="hidden" disabled></select>
+                            }
+                            else
+                            {
+                                <select id="authority-role" class="form-select w-full">
+                                    <option value="">Choose a role...</option>
+                                    @foreach (var role in Model.Roles)
+                                    {
+                                        <option value="@role.Id">@role.Name</option>
+                                    }
+                                </select>
+                            }
+                        </div>
+                    }
+
+                    <div class="flex justify-end">
+                        <button type="submit" id="authority-grant" class="btn btn-primary">Grant</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

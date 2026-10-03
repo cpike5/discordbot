@@ -19,7 +19,7 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### User Management
 - **Entities:** `User` (domain entity), `UserConsent`, `UserDiscordGuild`, `VerificationCode`
-- **Services:** `UserManagementService` (995 lines), `ConsentService` (567 lines), `VerificationService`, `VerificationCleanupService`, `UserPurgeService`, `UserDataExportService` (762 lines), `DiscordUserInfoService`, `UserDiscordGuildService`
+- **Services:** `UserManagementService` (995 lines), `ConsentService` (567 lines), `VerificationService`, `VerificationCleanupService`, `UserPurgeService`, `UserDataExportService` (762 lines), `UserDataExportCleanupService`, `DiscordUserInfoService`, `UserDiscordGuildService`
 - **Commands:** `PrivacyModule`, `VerifyAccountModule`, `ConsentModule`
 - **Repos:** `UserRepository`, `UserConsentRepository`
 
@@ -30,14 +30,15 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### Pages
 - **Account:** Login, ExternalLogin, Profile, Privacy, LinkDiscord, Logout, Lockout, AccessDenied
-- **Admin:** `Admin/Users/` (Index, Create, Edit, Details), `Admin/UserPurge.cshtml`
+  - Lockout reads its duration from the Identity lockout options (`Identity:LockoutTimeSpanMinutes`) and says the lock "clears within" it (the remaining time is not known on that anonymous page); LinkDiscord reads the code length from `Verification:CodeLength`; Privacy exports live in `{ContentRoot}/data/exports/{discordUserId}/` (never wwwroot) and are served only by the authenticated `Privacy` `OnGetDownloadExportAsync(Guid id)` handler, which resolves the file under the signed-in user's own `DiscordUserId` (TempData carries the export id, the page builds the link from it) and consent switches post `grant` and redirect to `#consent-{type}`; Profile saves no theme as "Match my system" (clears the saved choice and cookie).
+- **Admin:** `Admin/Users/` (Index, Create, Edit, Details), `Admin/UserPurge.cshtml` (preview is a GET; the purge redirects, so a refresh never re-runs it; counts named by `Helpers/PurgeDisplay`). `UserManagementService` has no delete or unlock operation; the Users list offers disable/enable via `SetUserActiveStatusAsync`.
 - **Guild:** `Guilds/Members/` (Index, Moderation)
 
 ### Key Flows
 - **Discord OAuth:** External login → callback → account linking → token storage
 - **Verification:** Discord ↔ web account linking via `VerificationCode`
-- **Data export:** `UserDataExportService` generates GDPR-compliant data packages
-- **User purge:** `UserPurgeService` removes all user data across ALL tables — cascading delete
+- **Data export:** `UserDataExportService` generates GDPR-compliant data packages (private `data/exports`, 7-day expiry by last-write time via `UserDataExportCleanupService`)
+- **User purge:** `UserPurgeService` removes all user data across ALL tables — cascading delete — and the user's export directory
 
 ## Gotchas
 

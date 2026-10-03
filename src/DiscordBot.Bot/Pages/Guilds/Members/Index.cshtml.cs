@@ -1,5 +1,6 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -75,6 +76,12 @@ public class IndexModel : PaginatedGuildPageModel
     public string? ActivityFilter { get; set; }
 
     /// <summary>
+    /// Specific members to export (set by "Export selected"). Ignored by the list itself.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public List<ulong>? UserIds { get; set; }
+
+    /// <summary>
     /// The view model containing member list data.
     /// </summary>
     public MemberDirectoryViewModel ViewModel { get; set; } = new();
@@ -123,6 +130,9 @@ public class IndexModel : PaginatedGuildPageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        if (CurrentPage < 1) CurrentPage = 1;
+        if (PageSize < 1 || PageSize > 100) PageSize = 25;
+
         _logger.LogInformation(
             "User accessing member directory for guild {GuildId}. Search={Search}, Sort={Sort}, Page={Page}",
             GuildId, SearchTerm, SortBy, CurrentPage);
@@ -159,7 +169,7 @@ public class IndexModel : PaginatedGuildPageModel
                 new()
                 {
                     Label = "Export CSV",
-                    Url = $"/Guilds/{Guild.Id}/Members?handler=Export",
+                    Url = ExportUrl(),
                     Icon = "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
                     Style = HeaderActionStyle.Secondary
                 }
@@ -191,46 +201,9 @@ public class IndexModel : PaginatedGuildPageModel
         }
 
         // Build the query
-        var query = new GuildMemberQueryDto
-        {
-            SearchTerm = SearchTerm,
-            RoleIds = RoleFilter,
-            JoinedAtStart = JoinedAfter,
-            JoinedAtEnd = JoinedBefore?.AddDays(1).AddSeconds(-1), // Include entire end day
-            SortBy = SortBy,
-            SortDescending = SortDescending,
-            Page = CurrentPage,
-            PageSize = PageSize,
-            IsActive = true
-        };
-
-        // Apply activity filter
-        if (!string.IsNullOrWhiteSpace(ActivityFilter))
-        {
-            var now = DateTime.UtcNow;
-            switch (ActivityFilter)
-            {
-                case "active-today":
-                    query.LastActiveAtStart = now.Date;
-                    break;
-                case "active-week":
-                    query.LastActiveAtStart = now.AddDays(-7);
-                    break;
-                case "active-month":
-                    query.LastActiveAtStart = now.AddDays(-30);
-                    break;
-                case "inactive-week":
-                    query.LastActiveAtEnd = now.AddDays(-7);
-                    break;
-                case "inactive-month":
-                    query.LastActiveAtEnd = now.AddDays(-30);
-                    break;
-                case "never-messaged":
-                    query.LastActiveAtEnd = null;
-                    // Need to indicate "never messaged" - we'll handle this specially
-                    break;
-            }
-        }
+        var query = BuildQuery();
+        query.Page = CurrentPage;
+        query.PageSize = PageSize;
 
         var result = await _memberService.GetMembersAsync(GuildId, query, cancellationToken);
 
@@ -264,6 +237,90 @@ public class IndexModel : PaginatedGuildPageModel
         };
 
         return Page();
+    }
+
+    /// <summary>
+    /// Builds the member query from the filters on the page. Shared by the list and the CSV export
+    /// so both show the same members.
+    /// </summary>
+    private GuildMemberQueryDto BuildQuery()
+    {
+        var query = new GuildMemberQueryDto
+        {
+            SearchTerm = SearchTerm,
+            RoleIds = RoleFilter,
+            JoinedAtStart = JoinedAfter,
+            JoinedAtEnd = JoinedBefore?.AddDays(1).AddSeconds(-1), // Include entire end day
+            SortBy = SortBy,
+            SortDescending = SortDescending,
+            IsActive = true
+        };
+
+        var now = DateTime.UtcNow;
+        switch (ActivityFilter)
+        {
+            case "active-today":
+                query.LastActiveAtStart = now.Date;
+                break;
+            case "active-week":
+                query.LastActiveAtStart = now.AddDays(-7);
+                break;
+            case "active-month":
+                query.LastActiveAtStart = now.AddDays(-30);
+                break;
+            case "inactive-week":
+                query.LastActiveAtEnd = now.AddDays(-7);
+                break;
+            case "inactive-month":
+                query.LastActiveAtEnd = now.AddDays(-30);
+                break;
+            case "never-messaged":
+                query.NeverActive = true;
+                break;
+        }
+
+        return query;
+    }
+
+    /// <summary>
+    /// The CSV export link for the current filters.
+    /// </summary>
+    private string ExportUrl() => Url.Page(null, "Export", FilterRouteValues()) ?? $"/Guilds/{GuildId}/Members?handler=Export";
+
+    /// <summary>
+    /// The filter values as route values, for links that must keep the current filters.
+    /// </summary>
+    private object FilterRouteValues() => new
+    {
+        guildId = GuildId,
+        SearchTerm,
+        RoleFilter,
+        JoinedAfter = JoinedAfter?.ToString("yyyy-MM-dd"),
+        JoinedBefore = JoinedBefore?.ToString("yyyy-MM-dd"),
+        ActivityFilter,
+        SortBy,
+        SortDescending
+    };
+
+    /// <summary>
+    /// Downloads the members matching the current filters (or just the selected ones) as CSV.
+    /// </summary>
+    public async Task<IActionResult> OnGetExportAsync(CancellationToken cancellationToken)
+    {
+        var query = BuildQuery();
+        query.UserIds = UserIds?.Distinct().ToList();
+
+        try
+        {
+            var csv = await _memberService.ExportMembersToCsvAsync(GuildId, query, cancellationToken: cancellationToken);
+            var fileName = $"members-{GuildId}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+            return File(csv, "text/csv", fileName);
+        }
+        catch (InvalidOperationException)
+        {
+            TempData.SetErrorToast("No members match these filters, so there is nothing to export.");
+            return RedirectToPage(null, null, FilterRouteValues());
+        }
     }
 
     /// <summary>

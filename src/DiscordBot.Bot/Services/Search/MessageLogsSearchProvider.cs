@@ -2,6 +2,7 @@ using System.Security.Claims;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Services.Search;
@@ -63,7 +64,7 @@ public class MessageLogsSearchProvider : ISearchProvider
                 Title = SearchDisplayHelper.Truncate(x.Log.Content, 60),
                 Subtitle = $"{x.Log.AuthorUsername} in #{x.Log.ChannelName}",
                 Description = $"Guild: {x.Log.GuildName ?? "DM"} | {x.Log.Timestamp:MMM d, yyyy h:mm tt}",
-                BadgeText = x.Log.Source.ToString(),
+                BadgeText = x.Log.Source.DisplayName(),
                 BadgeVariant = x.Log.Source == MessageSource.ServerChannel ? "primary" : "secondary",
                 Url = $"/Admin/MessageLogs/Details/{x.Log.Id}",
                 RelevanceScore = SearchScoringHelper.Clamp(x.Score),

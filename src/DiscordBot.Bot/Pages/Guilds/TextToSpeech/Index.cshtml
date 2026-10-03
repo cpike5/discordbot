@@ -61,7 +61,20 @@
         </div>
     }
 
-    <!-- Error Message -->
+    <!-- Azure Speech not set up: say so before the first failed Send -->
+    @if (!Model.IsTtsConfigured)
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                Variant = AlertVariant.Warning,
+                Title = "Text-to-speech is not set up",
+                Message = "The bot has no Azure Speech key, so messages cannot be spoken or previewed. Add the Azure Speech settings, then reload this page.",
+                IsDismissible = false
+            }' />
+        </div>
+    }
+
+    <!-- Load failure -->
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="mb-6">
@@ -70,11 +83,13 @@
                 Message = Model.ErrorMessage,
                 IsDismissible = false
             }" />
+            <a href="@(Model.Request.Path + Model.Request.QueryString)" class="btn btn-secondary mt-3">Try again</a>
         </div>
     }
-
+    else
+    {
     <!-- Stats Cards Section -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <!-- Messages Today Card -->
         <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
             <div class="flex items-start justify-between mb-4">
@@ -83,7 +98,7 @@
                     <p id="statsMessagesToday" class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.MessagesToday</p>
                 </div>
                 <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
                     </svg>
                 </div>
@@ -99,28 +114,12 @@
                     <p id="statsTotalPlayback" class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.TotalPlaybackFormatted</p>
                 </div>
                 <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
                     </svg>
                 </div>
             </div>
             <p class="text-xs text-text-tertiary">All time audio duration</p>
-        </div>
-
-        <!-- Avg Latency Card - Hidden until real data available -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors opacity-50">
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <p class="text-text-secondary text-sm mb-1">Avg Latency</p>
-                    <p class="text-3xl font-bold text-text-primary">-</p>
-                </div>
-                <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                    </svg>
-                </div>
-            </div>
-            <p class="text-xs text-text-tertiary">Not yet available</p>
         </div>
 
         <!-- Active Voices Card -->
@@ -131,23 +130,23 @@
                     <p id="statsActiveVoices" class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.UniqueUsers</p>
                 </div>
                 <div class="w-10 h-10 bg-accent-orange/30 rounded-lg flex items-center justify-center text-accent-orange">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm0-11c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V4c0-.55.45-1 1-1zm0 13c-2.67 0-5.19.78-7.3 2.1l1.42 1.41C6.86 17.59 9.34 17 12 17s5.14.59 7.3 1.51l1.42-1.41C17.19 16.78 14.67 16 12 16z"/>
                     </svg>
                 </div>
             </div>
-            <p class="text-xs text-text-tertiary">Voices used today</p>
+            <p class="text-xs text-text-tertiary">People who sent a message today</p>
         </div>
     </div>
 
-    <!-- Main Content Layout: TTS Controls (70%) + Sidebar (30%) -->
+    <!-- Main Content Layout: TTS Controls + Sidebar -->
     <div class="grid grid-cols-1 lg:grid-cols-7 gap-6">
 
-        <!-- Left Panel: TTS Controls (70%) -->
-        <div class="lg:col-span-4">
+        <!-- Left Panel: TTS Controls -->
+        <div class="lg:col-span-4 min-w-0">
 
             <!-- Message Input Section -->
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
                 <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">Send Message</h2>
 
                 <!-- Mode Switcher -->
@@ -160,59 +159,55 @@
                     <partial name="Shared/Components/_PresetBar" model="Model.PresetBar" />
                 </div>
 
-                <form method="post" asp-page-handler="SendMessage" asp-route-guildId="@Model.ViewModel.GuildId"
-                      id="ttsForm" onsubmit="event.preventDefault(); window.ttsPage?.sendMessage(this);">
-                    <!-- Hidden inputs for SSML UI form data -->
-                    <input type="hidden" name="style" id="hiddenStyle" value="" />
-                    <input type="hidden" name="styleIntensity" id="hiddenStyleIntensity" value="1.0" />
-                    <input type="hidden" name="ssml" id="hiddenSsml" value="" />
+                <form method="post" asp-page-handler="SendMessage" asp-route-guildId="@Model.ViewModel.GuildId" id="ttsForm" novalidate>
+                    <input type="hidden" id="hiddenStyle" value="" />
+                    <input type="hidden" id="hiddenStyleIntensity" value="1.0" />
 
-                    <div class="relative mb-4">
+                    <label for="messageInput" class="block text-xs font-medium uppercase tracking-wider text-text-secondary mb-2">Message</label>
+                    <div class="relative mb-1">
                         <textarea id="messageInput"
                                   name="message"
-                                  class="w-full min-h-[120px] p-4 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm resize-vertical focus:outline-none focus:border-border-focus"
-                                  placeholder="Type your message here..."
+                                  dir="auto"
+                                  class="form-textarea w-full min-h-[120px] pb-7"
+                                  placeholder="Type what the bot should say…"
+                                  aria-describedby="messageHelp charCounter messageError"
                                   maxlength="@Model.ViewModel.MaxMessageLength"></textarea>
                         <div id="charCounter" class="absolute bottom-2 right-3 text-xs text-text-tertiary pointer-events-none">
                             0/@Model.ViewModel.MaxMessageLength
                         </div>
                     </div>
+                    <p id="messageError" class="mb-3 text-xs text-error hidden" role="alert"></p>
+                    <p id="messageHelp" class="mb-4 text-xs text-text-tertiary">Sent with the voice settings below. The bot must be in a voice channel.</p>
 
                     <!-- Action Buttons -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button type="submit"
-                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-accent-orange text-white font-semibold text-sm rounded-lg hover:bg-accent-orange-hover transition-colors">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <button type="submit" id="sendBtn" class="btn btn-primary" data-loading-text="Sending…" @(Model.IsTtsConfigured ? "" : "disabled")>
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                             </svg>
                             Play in Channel
                         </button>
-                        <button type="button"
-                                disabled
-                                title="Preview functionality coming soon"
-                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-bg-tertiary border border-border-primary text-text-tertiary font-semibold text-sm rounded-lg cursor-not-allowed opacity-50">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <button type="button" id="previewBtn" class="btn btn-secondary" data-loading-text="Making preview…" @(Model.IsTtsConfigured ? "" : "disabled")>
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M8 5v14l11-7z"/>
                             </svg>
-                            Preview
+                            Preview in browser
                         </button>
                     </div>
                 </form>
             </div>
 
-            <!-- Voice Settings Section -->
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
-                <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">Voice Settings</h2>
-                <form method="post" asp-page-handler="UpdateSettings" asp-route-guildId="@Model.ViewModel.GuildId"
-                      id="settingsForm" onsubmit="event.preventDefault(); window.ttsPage?.updateSettings(this);">
+            <!-- Voice Settings: these apply to the next message; Save makes them the server defaults -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-1">Voice Settings</h2>
+                <p class="text-xs text-text-tertiary mb-4">What you set here is used for the next message you send. <strong class="font-semibold text-text-secondary">Save as server defaults</strong> makes it what <code>/tts</code> uses for everyone.</p>
+
+                <form method="post" asp-page-handler="UpdateSettings" asp-route-guildId="@Model.ViewModel.GuildId" id="settingsForm" novalidate>
 
                     <!-- Voice Selection -->
                     <div class="mb-5">
-                        <label class="block text-xs font-medium uppercase tracking-wider text-text-secondary mb-2">Voice</label>
-                        <select id="voiceSelect"
-                                name="defaultVoice"
-                                class="w-full px-3 py-2.5 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm cursor-pointer focus:outline-none focus:border-border-focus"
-                                style="appearance: none; background-image: url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%23a8a5a3\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.25rem; padding-right: 2.5rem;">
+                        <label for="voiceSelect" class="block text-xs font-medium uppercase tracking-wider text-text-secondary mb-2">Voice</label>
+                        <select id="voiceSelect" name="defaultVoice" class="form-select w-full">
                             <optgroup label="English (US)">
                                 <option value="en-US-JennyNeural" selected="@(Model.ViewModel.Settings.DefaultVoice == "en-US-JennyNeural")">Jenny (Female)</option>
                                 <option value="en-US-GuyNeural" selected="@(Model.ViewModel.Settings.DefaultVoice == "en-US-GuyNeural")">Guy (Male)</option>
@@ -276,7 +271,7 @@
                         </select>
                     </div>
 
-                    <!-- Style Selector (visible in Standard and Pro modes) -->
+                    <!-- Style Selector (visible in Standard and Pro modes). It styles the next message only, so it is not a saved default. -->
                     <div id="styleSelectorContainer" class="mb-5">
                         <partial name="Shared/Components/_StyleSelector" model="Model.StyleSelector" />
                     </div>
@@ -285,103 +280,69 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-5">
                         <div>
                             <div class="flex justify-between items-center mb-2 text-sm font-medium">
-                                <span class="text-text-primary">Speed</span>
-                                <span id="speedValue" class="text-accent-blue font-semibold">@Model.ViewModel.Settings.DefaultSpeed.ToString("F1")x</span>
+                                <label for="speedSlider" class="text-text-primary">Speed</label>
+                                <span id="speedValue" class="text-accent-blue font-semibold" aria-hidden="true">@Model.ViewModel.Settings.DefaultSpeed.ToString("F1")x</span>
                             </div>
-                            <input type="range"
-                                   id="speedSlider"
-                                   name="defaultSpeed"
-                                   class="w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
-                                   min="0.5"
-                                   max="2.0"
-                                   step="0.1"
-                                   value="@Model.ViewModel.Settings.DefaultSpeed"
-                                   aria-label="Speech speed multiplier"
-                                   oninput="updateSliderValue('speed')" />
+                            <input type="range" id="speedSlider" name="defaultSpeed" data-slider="speed"
+                                   class="tts-range w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
+                                   min="0.5" max="2.0" step="0.1"
+                                   value="@Model.ViewModel.Settings.DefaultSpeed.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"
+                                   aria-label="Speech speed multiplier" />
                         </div>
                         <div>
                             <div class="flex justify-between items-center mb-2 text-sm font-medium">
-                                <span class="text-text-primary">Pitch</span>
-                                <span id="pitchValue" class="text-accent-blue font-semibold">@Model.ViewModel.Settings.DefaultPitch.ToString("F1")x</span>
+                                <label for="pitchSlider" class="text-text-primary">Pitch</label>
+                                <span id="pitchValue" class="text-accent-blue font-semibold" aria-hidden="true">@Model.ViewModel.Settings.DefaultPitch.ToString("F1")x</span>
                             </div>
-                            <input type="range"
-                                   id="pitchSlider"
-                                   name="defaultPitch"
-                                   class="w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
-                                   min="0.5"
-                                   max="2.0"
-                                   step="0.1"
-                                   value="@Model.ViewModel.Settings.DefaultPitch"
-                                   aria-label="Voice pitch adjustment"
-                                   oninput="updateSliderValue('pitch')" />
+                            <input type="range" id="pitchSlider" name="defaultPitch" data-slider="pitch"
+                                   class="tts-range w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
+                                   min="0.5" max="2.0" step="0.1"
+                                   value="@Model.ViewModel.Settings.DefaultPitch.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"
+                                   aria-label="Voice pitch adjustment" />
                         </div>
                         <div>
                             <div class="flex justify-between items-center mb-2 text-sm font-medium">
-                                <span class="text-text-primary">Volume</span>
-                                <span id="volumeValue" class="text-accent-blue font-semibold">@((int)(Model.ViewModel.Settings.DefaultVolume * 100))%</span>
+                                <label for="volumeSlider" class="text-text-primary">Volume</label>
+                                <span id="volumeValue" class="text-accent-blue font-semibold" aria-hidden="true">@((int)(Model.ViewModel.Settings.DefaultVolume * 100))%</span>
                             </div>
-                            <input type="range"
-                                   id="volumeSlider"
-                                   name="defaultVolume"
-                                   class="w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
-                                   min="0"
-                                   max="1"
-                                   step="0.01"
+                            <input type="range" id="volumeSlider" name="defaultVolume" data-slider="volume"
+                                   class="tts-range w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
+                                   min="0" max="1" step="0.01"
                                    value="@Model.ViewModel.Settings.DefaultVolume.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
-                                   aria-label="Volume level"
-                                   oninput="updateSliderValue('volume')" />
+                                   aria-label="Volume level" />
                         </div>
                     </div>
 
                     <!-- Rate Limit -->
                     <div class="mb-5 pt-4 border-t border-border-primary">
-                        <label class="block text-xs font-medium uppercase tracking-wider text-text-secondary mb-2">
-                            Rate Limit (messages/min)
+                        <label for="rateLimitInput" class="block text-xs font-medium uppercase tracking-wider text-text-secondary mb-2">
+                            Rate limit (messages per minute)
                         </label>
-                        <input type="number"
-                               name="rateLimitPerMinute"
-                               min="1"
-                               max="60"
+                        <input type="number" id="rateLimitInput" name="rateLimitPerMinute"
+                               min="1" max="60" step="1" inputmode="numeric" autocomplete="off"
                                value="@Model.ViewModel.Settings.RateLimitPerMinute"
-                               class="w-full px-3 py-2.5 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm focus:outline-none focus:border-border-focus" />
-                        <p class="mt-1 text-xs text-text-tertiary">Maximum TTS messages each user can send per minute. Prevents spam while allowing normal conversation.</p>
+                               aria-describedby="rateLimitHelp rateLimitError"
+                               class="form-input w-full" />
+                        <p id="rateLimitHelp" class="mt-1 text-xs text-text-tertiary">The most TTS messages each person can send per minute, from 1 to 60. Keeps one person from flooding the channel.</p>
+                        <p id="rateLimitError" class="mt-1 text-xs text-error hidden" role="alert"></p>
                     </div>
 
                     <!-- Toggle Switches -->
-                    <div class="pt-4 border-t border-border-primary">
-                        <div class="flex items-center gap-3 py-3 border-b border-border-secondary">
-                            <div class="flex-1">
-                                <span class="text-sm font-medium text-text-primary">Auto-play on send</span>
-                            </div>
-                            <label class="relative inline-block w-11 h-6">
-                                <input type="checkbox"
-                                       name="autoPlayOnSend"
-                                       class="peer sr-only"
-                                       @(Model.ViewModel.Settings.AutoPlayOnSend ? "checked" : "") />
-                                <span class="block w-11 h-6 bg-border-primary rounded-full peer-checked:bg-success transition-colors cursor-pointer"></span>
-                                <span class="dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></span>
-                            </label>
-                        </div>
-                        <div class="flex items-center gap-3 py-3">
-                            <div class="flex-1">
-                                <span class="text-sm font-medium text-text-primary">Announce joins/leaves</span>
-                            </div>
-                            <label class="relative inline-block w-11 h-6">
-                                <input type="checkbox"
-                                       name="announceJoinsLeaves"
-                                       class="peer sr-only"
-                                       @(Model.ViewModel.Settings.AnnounceJoinsLeaves ? "checked" : "") />
-                                <span class="block w-11 h-6 bg-border-primary rounded-full peer-checked:bg-success transition-colors cursor-pointer"></span>
-                                <span class="dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></span>
-                            </label>
-                        </div>
+                    <div class="pt-4 border-t border-border-primary space-y-4">
+                        <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                            Id = "autoPlayOnSend", Name = "autoPlayOnSend", Label = "Auto-play on send",
+                            Description = "Play each message in the voice channel as soon as it is sent.",
+                            IsChecked = Model.ViewModel.Settings.AutoPlayOnSend, PostsFalseWhenOff = false }' />
+                        <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                            Id = "announceJoinsLeaves", Name = "announceJoinsLeaves", Label = "Announce joins and leaves",
+                            Description = "Speak a short line when someone joins or leaves the voice channel.",
+                            IsChecked = Model.ViewModel.Settings.AnnounceJoinsLeaves, PostsFalseWhenOff = false }' />
                     </div>
 
                     <!-- Save Button -->
-                    <div class="mt-4">
-                        <button type="submit"
-                                class="w-full px-4 py-2.5 bg-accent-blue text-white font-semibold text-sm rounded-lg hover:bg-accent-blue-hover transition-colors">
-                            Save Settings
+                    <div class="mt-5">
+                        <button type="submit" id="saveSettingsBtn" class="btn btn-primary w-full" data-loading-text="Saving…">
+                            Save as server defaults
                         </button>
                     </div>
                 </form>
@@ -400,72 +361,65 @@
             <!-- Recent Messages Section -->
             <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
                 <div class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Recent Messages</h3>
-                    <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-white bg-accent-blue rounded-full">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Recent Messages</h2>
+                    <span id="recentMessagesCount" class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-white bg-accent-blue rounded-full">
                         @Model.ViewModel.RecentMessages.Count
                     </span>
                 </div>
 
-                @if (Model.ViewModel.RecentMessages.Any())
-                {
-                    <div id="recentMessagesList" class="divide-y divide-border-secondary">
-                        @foreach (var message in Model.ViewModel.RecentMessages)
-                        {
-                            <div class="flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors group" data-message-id="@message.Id">
-                                <div class="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                    @message.Username.Substring(0, Math.Min(2, message.Username.Length)).ToUpper()
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm text-text-primary truncate">@message.Message</div>
-                                    <div class="flex items-center gap-2 mt-1 text-xs text-text-tertiary">
-                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@message.UserId" data-context-guild-id="@Model.ViewModel.GuildId">@message.Username</span>
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue-muted text-accent-blue rounded font-medium text-[0.65rem]">
-                                            @message.Voice
-                                        </span>
-                                        <span>@message.DurationFormatted</span>
+                <div id="recentMessagesList">
+                    @if (Model.ViewModel.RecentMessages.Any())
+                    {
+                        <ul class="divide-y divide-border-secondary" data-recent-messages>
+                            @foreach (var message in Model.ViewModel.RecentMessages)
+                            {
+                                <li class="flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors" data-row data-message-id="@message.Id">
+                                    <div class="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">
+                                        @TextDisplay.Initials(message.Username)
                                     </div>
-                                </div>
-                                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button type="button"
-                                            disabled
-                                            title="Replay functionality coming soon"
-                                            class="p-2 rounded text-text-tertiary cursor-not-allowed opacity-50">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z"/>
-                                        </svg>
-                                    </button>
-                                    <button type="button"
-                                            data-message="@message.Message"
-                                            onclick="showDeleteModal('@message.Id', this.dataset.message)"
-                                            class="p-2 rounded text-error hover:bg-error/10 transition-colors"
-                                            title="Delete">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <div id="recentMessagesList" class="p-8">
-                        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
-                            Type = EmptyStateType.FirstTime,
-                            Title = "No Messages Yet",
-                            Description = "Send your first TTS message using the form above.",
-                            Size = EmptyStateSize.Default,
-                            IconSvgPath = "M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"
-                        }' />
-                    </div>
-                }
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-text-primary break-words line-clamp-2" dir="auto">@message.Message</div>
+                                        <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-text-tertiary">
+                                            <span class="preview-trigger" data-preview-type="user" data-user-id="@message.UserId" data-context-guild-id="@Model.ViewModel.GuildId">@message.Username</span>
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue-muted text-accent-blue rounded font-medium text-[0.65rem]">@message.Voice</span>
+                                            <span>@message.DurationFormatted</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1 row-actions">
+                                        <button type="button"
+                                                data-message-delete="@message.Id"
+                                                data-message-text="@message.Message"
+                                                class="p-2 rounded text-error hover:bg-error/10 transition-colors"
+                                                aria-label="Delete the message from @message.Username"
+                                                title="Delete this message from the history">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="p-8">
+                            <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                                Type = EmptyStateType.FirstTime,
+                                Title = "No messages yet",
+                                Description = "Send your first TTS message using the form above.",
+                                Size = EmptyStateSize.Default,
+                                IconSvgPath = "M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"
+                            }' />
+                        </div>
+                    }
+                </div>
             </div>
 
         </div>
 
-        <!-- Right Sidebar (30%) -->
-        <div class="lg:col-span-3 space-y-6">
+        <!-- Right Sidebar -->
+        <div class="lg:col-span-3 space-y-6 min-w-0">
 
             <!-- Voice Channel Control Panel -->
             @if (Model.VoiceChannelPanel != null)
@@ -476,115 +430,28 @@
         </div>
 
     </div>
-
-<!-- Delete Confirmation Modal -->
-<input type="hidden" id="delete-message-id" value="" />
-<div id="delete-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="delete-modal-title">
-    <!-- Backdrop -->
-    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideDeleteModal()" aria-hidden="true"></div>
-    <!-- Modal Dialog -->
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
-            <!-- Modal Content -->
-            <div class="p-6">
-                <div class="flex items-start gap-4">
-                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <div class="flex-1">
-                        <h3 id="delete-modal-title" class="text-lg font-semibold text-text-primary">Delete Message</h3>
-                        <p class="mt-2 text-sm text-text-secondary">
-                            Are you sure you want to delete this message? This action cannot be undone.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <!-- Modal Footer -->
-            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
-                <button type="button" onclick="hideDeleteModal()"
-                        class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
-                    Cancel
-                </button>
-                <button type="button"
-                        id="confirm-delete-btn"
-                        onclick="const messageId = document.getElementById('delete-message-id').value; window.ttsPage?.deleteMessage(messageId);"
-                        class="px-4 py-2 bg-error hover:bg-error-hover active:bg-error-active text-white font-medium text-sm rounded-md transition-colors">
-                    Delete Message
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+    }
 
 @section Styles {
     <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
 }
 
 @section Scripts {
+    @if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+    <script>
+        // Snowflakes go in as strings: a number loses its last digits
+        window.guildId = '@Model.ViewModel.GuildId';
+        window.ttsPageConfig = {
+            guildId: '@Model.ViewModel.GuildId',
+            maxMessageLength: @Model.ViewModel.MaxMessageLength,
+            configured: @(Model.IsTtsConfigured ? "true" : "false")
+        };
+    </script>
     <!-- Voice Channel Panel script (SignalR and DashboardHub are loaded in _Layout.cshtml) -->
     <script src="~/js/voice-channel-panel.js"></script>
-    <!-- TTS Page AJAX handlers -->
+    <script src="~/js/ssml-markers.js" asp-append-version="true"></script>
+    <!-- TTS page: send, preview, defaults, history -->
     <script src="~/js/tts-page.js" asp-append-version="true"></script>
-
-    <style>
-        /* Gradient card style */
-        .gradient-card-orange {
-            background: linear-gradient(135deg, var(--color-bg-secondary) 0%, rgba(249, 115, 22, 0.1) 100%);
-        }
-
-        /* Slider styles */
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--color-accent-blue);
-            cursor: pointer;
-            transition: all var(--transition-normal);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--color-accent-blue);
-            cursor: pointer;
-            transition: all var(--transition-normal);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            border: none;
-        }
-
-        input[type="range"]::-moz-range-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-        }
-
-        input[type="range"]::-moz-range-track {
-            background: transparent;
-            border: none;
-        }
-
-        /* Character counter warning/error states */
-        #charCounter.warning {
-            color: var(--color-warning);
-        }
-
-        #charCounter.error {
-            color: var(--color-error);
-        }
-    </style>
-
-    <script>
-        // Razor model data — must remain inline for server-side rendering
-        window.guildId = '@Model.ViewModel.GuildId';
-    </script>
+    }
 }

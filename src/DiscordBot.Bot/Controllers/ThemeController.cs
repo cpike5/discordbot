@@ -105,13 +105,7 @@ public class ThemeController : ControllerBase
                 themeKey = theme?.ThemeKey ?? "discord-dark";
 
                 // Set cookie for SSR on next page load
-                Response.Cookies.Append(IThemeService.ThemePreferenceCookieName, themeKey, new CookieOptions
-                {
-                    Path = "/",
-                    MaxAge = TimeSpan.FromDays(365),
-                    SameSite = SameSiteMode.Lax,
-                    IsEssential = true // Functional cookie, not subject to consent
-                });
+                AppendThemeCookie(themeKey);
 
                 _logger.LogDebug("Set theme preference cookie: {ThemeKey}", themeKey);
             }
@@ -137,6 +131,84 @@ public class ThemeController : ControllerBase
                 ? "Theme not found or not available"
                 : "Failed to clear theme preference"
         });
+    }
+
+    /// <summary>
+    /// Saves the current user's theme by key. Used by the header theme toggle (wwwroot/js/theme.js),
+    /// which knows theme keys rather than ids. Also sets the cookie the server renders from.
+    /// </summary>
+    /// <param name="request">The theme key to save.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The saved theme key.</returns>
+    [HttpPut("preference")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SetPreference(
+        [FromBody] SetThemePreferenceDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var theme = string.IsNullOrWhiteSpace(request.ThemeKey)
+            ? null
+            : await _themeService.GetThemeByKeyAsync(request.ThemeKey, cancellationToken);
+        if (theme == null || !theme.IsActive)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                StatusCode = 400,
+                Message = "Theme not found or not available"
+            });
+        }
+
+        if (!await _themeService.SetUserThemeAsync(userId, theme.Id, cancellationToken))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                StatusCode = 400,
+                Message = "Failed to save theme preference"
+            });
+        }
+
+        AppendThemeCookie(theme.ThemeKey);
+        _logger.LogDebug("User {UserId} saved theme {ThemeKey}", userId, theme.ThemeKey);
+
+        return Ok(new { themeKey = theme.ThemeKey });
+    }
+
+    /// <summary>
+    /// Clears the current user's saved theme, so pages follow the browser's colour-scheme preference again.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content on success.</returns>
+    [HttpDelete("preference")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ClearPreference(CancellationToken cancellationToken = default)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        if (!await _themeService.SetUserThemeAsync(userId, null, cancellationToken))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                StatusCode = 400,
+                Message = "Failed to clear theme preference"
+            });
+        }
+
+        Response.Cookies.Delete(IThemeService.ThemePreferenceCookieName);
+        return NoContent();
     }
 
     /// <summary>
@@ -169,6 +241,17 @@ public class ThemeController : ControllerBase
         {
             StatusCode = 400,
             Message = "Theme not found or not available"
+        });
+    }
+
+    private void AppendThemeCookie(string themeKey)
+    {
+        Response.Cookies.Append(IThemeService.ThemePreferenceCookieName, themeKey, new CookieOptions
+        {
+            Path = "/",
+            MaxAge = TimeSpan.FromDays(365),
+            SameSite = SameSiteMode.Lax,
+            IsEssential = true // Functional cookie, not subject to consent
         });
     }
 }

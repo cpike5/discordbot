@@ -49,6 +49,17 @@ public record SetUserThemeDto
 }
 
 /// <summary>
+/// DTO for setting a user's theme preference by key, as the header theme toggle does.
+/// </summary>
+public record SetThemePreferenceDto
+{
+    /// <summary>
+    /// The key of the theme to save (e.g., "purple-dusk").
+    /// </summary>
+    public string ThemeKey { get; init; } = string.Empty;
+}
+
+/// <summary>
 /// DTO for setting the system default theme.
 /// </summary>
 public record SetDefaultThemeDto

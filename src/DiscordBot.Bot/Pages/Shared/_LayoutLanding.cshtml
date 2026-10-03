@@ -1,12 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" theme-root>
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f1114" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <partial name="_ThemeHead" />
+    @if (ViewData["Description"] is string description && !string.IsNullOrWhiteSpace(description))
+    {
+        <meta name="description" content="@description" />
+    }
     <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
     <partial name="_PwaHead" />
-    <title>@ViewData["Title"] - Discord Bot</title>
+    @* The page sets the whole title; the layout does not append a suffix (UX N-5). *@
+    <title>@ViewData["Title"]</title>
     <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +22,8 @@
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
     @RenderBody()
+    @* Follows the OS colour scheme while open and powers the nav's theme toggle (UX D5). *@
+    <script src="~/js/theme.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

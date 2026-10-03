@@ -294,10 +294,10 @@ public class DashboardUpdateServiceTests
         // Arrange
         var stats = new DashboardStatsDto
         {
-            CommandsToday = 150,
+            CommandsLast24Hours = 150,
             TotalMembers = 5000,
-            ActiveUsersLastHour = 42,
-            MessagesToday = 12000,
+            TotalServers = 3,
+            UptimePercent24Hours = 99.5,
             Timestamp = DateTime.UtcNow
         };
 
@@ -318,7 +318,7 @@ public class DashboardUpdateServiceTests
     public async Task BroadcastStatsUpdateAsync_WithCancellationToken_ShouldPassToken()
     {
         // Arrange
-        var stats = new DashboardStatsDto { CommandsToday = 100 };
+        var stats = new DashboardStatsDto { CommandsLast24Hours = 100 };
         var cancellationTokenSource = new CancellationTokenSource();
         var token = cancellationTokenSource.Token;
 
@@ -339,7 +339,7 @@ public class DashboardUpdateServiceTests
     public async Task BroadcastStatsUpdateAsync_WhenExceptionThrown_ShouldNotRethrow()
     {
         // Arrange
-        var stats = new DashboardStatsDto { CommandsToday = 50 };
+        var stats = new DashboardStatsDto { CommandsLast24Hours = 50 };
         _mockAllClientsProxy
             .Setup(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("SignalR error"));
@@ -550,7 +550,7 @@ public class DashboardUpdateServiceTests
         // Arrange
         var stats = new DashboardStatsDto
         {
-            CommandsToday = 200,
+            CommandsLast24Hours = 200,
             TotalMembers = 10000
         };
 
@@ -564,7 +564,7 @@ public class DashboardUpdateServiceTests
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) =>
                     v.ToString()!.Contains("Broadcasting stats update") &&
-                    v.ToString()!.Contains(stats.CommandsToday.ToString()) &&
+                    v.ToString()!.Contains(stats.CommandsLast24Hours.ToString()) &&
                     v.ToString()!.Contains(stats.TotalMembers.ToString())),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
