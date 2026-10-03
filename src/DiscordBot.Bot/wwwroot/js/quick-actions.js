@@ -477,25 +477,35 @@
     }
 
     try {
-      var response = await fetch('?handler=' + handler, {
+      // Same path as the confirmation forms: the handler goes in the URL (Razor Pages reads it
+      // from the query string), a redirect answer is not followed as data, and the answer is
+      // never assumed to be JSON.
+      var url = new URL(window.location.href);
+      url.searchParams.set('handler', handler);
+      var result = await window.ApiClient.requestRaw(url.pathname + url.search, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'RequestVerificationToken': token
-        },
-        body: '__RequestVerificationToken=' + encodeURIComponent(token)
+        token: false,
+        headers: { RequestVerificationToken: token },
+        redirect: 'manual'
       });
 
-      var data = await response.json();
+      if (result.redirected) {
+        // The handler finished and wants the page drawn again (TempData toasts travel with it).
+        // assign, not reload: after a failed save the history entry can be a POST.
+        window.location.assign(window.location.pathname + window.location.search);
+        return;
+      }
 
-      if (response.ok && data.success) {
-        showToast(data.message || 'Action completed successfully', 'success');
-      } else {
-        showToast(data.message || 'Action failed. Please try again.', 'error');
+      var data = result.data && typeof result.data === 'object' ? result.data : null;
+      if (result.ok && (!data || data.success !== false)) {
+        showToast((data && data.message) || 'Action completed successfully', 'success');
+      } else if (!result.sessionExpired) {
+        var fallback = window.ApiClient.statusMessage(result.status);
+        showToast(window.ApiClient.extractErrorMessage(result.data, fallback, result.status), 'error');
       }
     } catch (error) {
       console.error('Quick action error:', error);
-      showToast('An error occurred. Please try again.', 'error');
+      showToast(error && error.message ? error.message : 'Something went wrong. Try again.', 'error');
     } finally {
       // Reset button state
       if (useLoadingManager) {

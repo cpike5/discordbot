@@ -21,7 +21,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | Route | File | Purpose |
 |-------|------|---------|
 | `/` | `Pages/Landing.cshtml` | Unauthenticated landing page |
-| `/index` | `Pages/Index.cshtml` | Authenticated home/dashboard |
+| `/index` | `Pages/Index.cshtml` | Authenticated home/dashboard. Hero cards (`data-stat-*`) follow the `StatsUpdated` hub event and `?handler=Stats`; Connected Servers is Moderator+, Audit Log and Quick Actions are Admin (a Viewer's grid closes up: the timeline takes the full row and an empty Quick Actions card is not rendered); Restart and Sync All ask first (`restartBotModal`, `syncGuildsModal`) and `dashboard-actions.js` follows up (restart: banner reads "Restarting" until the bot is back; sync: servers and numbers refresh). Handlers: `Stats` (GET JSON), `ConnectedServers` (GET JSON, Moderator+), `RestartBot` and `SyncAllGuilds` (POST, Admin) |
 
 ### Account Pages
 
@@ -204,11 +204,11 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Rule Type Icon** | `_RuleTypeIcon.cshtml` | Rule type visual indicator | `RuleTypeIconViewModel` |
 | **Pagination** | `_Pagination.cshtml` | Page navigation; disabled ends are spans, empty and single-page states handled | `PaginationViewModel` |
 | **Activity Feed** | `_ActivityFeed.cshtml` | List of activity/event items | `ActivityFeedViewModel` |
-| **Activity Feed Timeline** | `_ActivityFeedTimeline.cshtml` | Vertical timeline of activities | `ActivityFeedTimelineViewModel` |
+| **Activity Feed Timeline** | `_ActivityFeedTimeline.cshtml` | Vertical timeline of activities; each time is a refreshing `<time data-relative-time>`; `dashboard-realtime.js` prepends live events from the `#activity-item-template` | `ActivityFeedTimelineViewModel` |
 | **Audit Log Card** | `_AuditLogCard.cshtml` | Audit log entry display card | `AuditLogCardViewModel` |
 | **Recent Activity Card** | `_RecentActivityCard.cshtml` | Recent activity summary widget | `RecentActivityCardViewModel` |
 | **Command Stats Card** | `_CommandStatsCard.cshtml` | Command execution statistics | `CommandStatsCardViewModel` |
-| **Connected Servers Widget** | `_ConnectedServersWidget.cshtml` | List of connected Discord servers | `ConnectedServersWidgetViewModel` |
+| **Connected Servers Widget** | `_ConnectedServersWidget.cshtml` | Rows of servers: a header-and-columns grid when the card is 40rem wide or more, a stacked card per server below that (container query). No role check inside; the page decides who sees it (Moderator and up). Rows are redrawn from `?handler=ConnectedServers` JSON by `dashboard-actions.js`, cloning `#connected-server-template`: change the two together. The copy-ID button is a `.row-actions` button | `ConnectedServersWidgetViewModel` |
 
 ### Feedback Components
 

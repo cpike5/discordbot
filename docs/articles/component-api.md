@@ -1262,9 +1262,9 @@ Any element with `data-stale-badge` and the `hidden` attribute is shown while li
 <h2>Recent Activity <span class="badge badge-warning" data-stale-badge hidden>Stale</span></h2>
 ```
 
-`<partial name="Components/_ConnectionStatus" />` takes `ConnectionStatusViewModel(State, CustomText, Id = "connection-status", Live = true)`. Pass a different `Id` when the default is already on the page (`dashboard-realtime.js` looks it up), and `Live = false` when something else announces the change.
+`<partial name="Components/_ConnectionStatus" />` takes `ConnectionStatusViewModel(State, CustomText, Id = "connection-status", Live = true)`. Pass a different `Id` when the default is already on the page, and `Live = false` when something else announces the change. No page script reads the element: connection state belongs to the layout's `_ConnectionBanner`, which `dashboard-realtime.js` no longer duplicates.
 
-**Sidebar bot status.** The sidebar footer shows the bot's own state: "Bot online", "Bot connecting…", "Bot offline" (with "Offline mode" in the detail line under `Discord:OfflineMode`) or "Status unknown" when `/api/bot/status` does not answer. It is rendered by the server from `IBotService`, then kept current by `bot-status-refresh.js` from the `BotStatusUpdated` hub event and a 30-second poll. `BotStatus.apply({ connectionState: 'Connected' })` applies a payload by hand (handy in a browser test: an offline-mode bot cannot be switched on).
+**Sidebar bot status.** The sidebar footer shows the bot's own state: "Bot online", "Bot connecting…", "Bot offline" (with "Offline mode" in the detail line under `Discord:OfflineMode`) or "Status unknown" when `/api/bot/status` does not answer. It is rendered by the server from `IBotService`, then kept current by `bot-status-refresh.js` from the `BotStatusUpdated` hub event and a 30-second poll. `BotStatus.apply({ connectionState: 'Connected' })` applies a payload by hand (handy in a browser test: an offline-mode bot cannot be switched on); on the dashboard it redraws the status banner too. `BotStatus.watchRestart()` marks the banner "Restarting" and resolves `true` once the bot reports Connected (polling `/api/bot/status`), or `false` after 90 seconds.
 
 ---
 

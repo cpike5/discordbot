@@ -29,10 +29,9 @@ public record ConnectedServerItemViewModel
     public string Initials { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the gradient CSS classes for the avatar background.
-    /// Example: "from-purple-500 to-pink-500"
+    /// Gets the background class for the initials avatar, a theme token such as "bg-accent-orange".
     /// </summary>
-    public string AvatarGradient { get; init; } = string.Empty;
+    public string AvatarClass { get; init; } = "bg-accent-blue";
 
     /// <summary>
     /// Gets the number of members in the server.
@@ -51,7 +50,7 @@ public record ConnectedServerItemViewModel
 
     /// <summary>
     /// Gets the URL to the server detail page.
-    /// Example: "/Guilds/Details?id=123456789"
+    /// Example: "/Guilds/Details/123456789"
     /// </summary>
     public string DetailUrl { get; init; } = string.Empty;
 }
