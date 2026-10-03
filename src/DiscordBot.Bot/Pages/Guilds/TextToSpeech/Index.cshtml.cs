@@ -714,7 +714,10 @@ public class IndexModel : GuildPageModelBase
             ContainerId = "presetBar",
             OnPresetApply = "handlePresetApply",
             // The member portal's endpoint refuses everyone while EnableMemberPortal is off
-            CustomPresetsUrl = $"/api/guilds/{guildId}/tts/presets/custom"
+            CustomPresetsUrl = $"/api/guilds/{guildId}/tts/presets/custom",
+            // This page's controls are plain inputs, not the portal's VoiceSelector widget
+            VoiceInputId = "voiceSelect",
+            StyleInputId = "styleSelector-select"
         };
 
         // Build style selector with default styles

@@ -39,7 +39,9 @@
      role="group"
      aria-label="Voice preset selection"
      data-callback="@Model.OnPresetApply"
-     data-custom-presets-url="@Model.CustomPresetsUrl">
+     data-custom-presets-url="@Model.CustomPresetsUrl"
+     data-voice-input="@Model.VoiceInputId"
+     data-style-input="@Model.StyleInputId">
 
     @{
         var anyActive = Model.Presets.Any(p => p.IsActive);
@@ -394,6 +396,7 @@
     }
 </style>
 
+<script src="~/js/preset-bar.js" asp-append-version="true"></script>
 <script>
     (function() {
         const containerId = '@Model.ContainerId';
@@ -527,10 +530,8 @@
 
         window.presetBar_saveCustomPreset = async function(containerId) {
             // The voice is checked before the dialog, so nobody types a name for nothing
-            const voice = window.VoiceSelector && window.VoiceSelector.getValue
-                ? window.VoiceSelector.getValue('portalVoiceSelector')
-                : null;
-            if (!voice) {
+            const settings = window.PresetBar.readSettings(document.getElementById(containerId));
+            if (!settings.voice) {
                 toast.warning('Choose a voice first, then save it as a preset.');
                 return;
             }
@@ -538,22 +539,13 @@
             const trimmedName = await askPresetName(containerId);
             if (!trimmedName) return;
 
-            const speedSlider = document.getElementById('speedSlider');
-            const pitchSlider = document.getElementById('pitchSlider');
-            const speed = parseFloat(speedSlider?.value) || 1.0;
-            const pitch = parseFloat(pitchSlider?.value) || 1.0;
-
-            // Get current style from the style selector
-            const styleSelect = document.getElementById('portalStyleSelector-select');
-            const style = styleSelect?.value || null;
-
             try {
                 const preset = await ApiClient.post(presetBar_customPresetsUrl(containerId), {
                     name: trimmedName,
-                    voiceName: voice,
-                    style: style,
-                    speed: speed,
-                    pitch: pitch
+                    voiceName: settings.voice,
+                    style: settings.style,
+                    speed: settings.speed,
+                    pitch: settings.pitch
                 }, { errorMessage: 'Could not save the preset. Try again.' });
                 presetBar_addCustomPresetButton(containerId, preset);
                 toast.success('Saved preset "' + preset.name + '"');
