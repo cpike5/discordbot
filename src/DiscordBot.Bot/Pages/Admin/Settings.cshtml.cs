@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -19,6 +20,10 @@ namespace DiscordBot.Bot.Pages.Admin;
 [Authorize(Policy = "RequireAdmin")]
 public class SettingsModel : PageModel
 {
+    /// <summary>The tabs, in display order, by the id used in <c>?category=</c>.</summary>
+    public static readonly IReadOnlyList<string> Tabs =
+        new[] { "General", "Features", "Commands", "Advanced", "BotControl", "AiModels", "Appearance" };
+
     private readonly ISettingsSectionService _settingsSectionService;
     private readonly IAppearanceSettingsService _appearanceSettingsService;
     private readonly IBotControlService _botControlService;
@@ -33,16 +38,6 @@ public class SettingsModel : PageModel
     /// Gets the bot control view model for the Bot Control tab.
     /// </summary>
     public BotControlViewModel BotControlViewModel { get; private set; } = new();
-
-    /// <summary>
-    /// Gets the reset category confirmation modal configuration.
-    /// </summary>
-    public ConfirmationModalViewModel ResetCategoryModal { get; private set; } = null!;
-
-    /// <summary>
-    /// Gets the reset all confirmation modal configuration.
-    /// </summary>
-    public ConfirmationModalViewModel ResetAllModal { get; private set; } = null!;
 
     /// <summary>
     /// Gets the restart confirmation modal configuration.
@@ -118,16 +113,9 @@ public class SettingsModel : PageModel
 
         IsSuperAdmin = await _appearanceSettingsService.IsSuperAdminAsync(User);
 
-        ActiveCategory = category ?? "General";
-
-        // If user requested Appearance tab but isn't SuperAdmin, redirect to General
-        if (ActiveCategory == "Appearance" && !IsSuperAdmin)
-        {
-            ActiveCategory = "General";
-        }
+        ActiveCategory = ResolveTab(category, IsSuperAdmin);
 
         ViewModel = await _settingsSectionService.LoadViewModelAsync(ActiveCategory);
-        BuildResetModals();
 
         if (IsSuperAdmin)
         {
@@ -165,7 +153,9 @@ public class SettingsModel : PageModel
     }
 
     /// <summary>
-    /// Handles POST requests to reset a category to default values.
+    /// Handles POST requests to reset a category to default values. The values on the page
+    /// change, so this redirects (the confirm dialog reloads the page once) and reports the
+    /// outcome as a toast that survives the reload.
     /// </summary>
     /// <param name="category">The category to reset.</param>
     public async Task<IActionResult> OnPostResetCategoryAsync(string category)
@@ -173,18 +163,18 @@ public class SettingsModel : PageModel
         _logger.LogWarning("Reset category {Category} requested by user {UserId}", category, User.Identity?.Name);
         var userId = User.Identity?.Name ?? "Unknown";
         var result = await _settingsSectionService.ResetCategoryAsync(category, userId);
-        return ToJsonResult(result);
+        return RedirectWithToast(result, category);
     }
 
     /// <summary>
     /// Handles POST requests to reset all settings to defaults.
     /// </summary>
-    public async Task<IActionResult> OnPostResetAllAsync()
+    public async Task<IActionResult> OnPostResetAllAsync(string? category = null)
     {
         _logger.LogCritical("Reset ALL settings requested by user {UserId}", User.Identity?.Name);
         var userId = User.Identity?.Name ?? "Unknown";
         var result = await _settingsSectionService.ResetAllAsync(userId);
-        return ToJsonResult(result);
+        return RedirectWithToast(result, category);
     }
 
     /// <summary>
@@ -269,7 +259,7 @@ public class SettingsModel : PageModel
 
         var userId = User.Identity?.Name ?? "Unknown";
         var result = await _appearanceSettingsService.ResetThemeAsync(userId);
-        return ToJsonResult(result);
+        return RedirectWithToast(result, "Appearance");
     }
 
     private static IActionResult ToJsonResult(SettingsSectionResult result)
@@ -280,6 +270,7 @@ public class SettingsModel : PageModel
             {
                 success = true,
                 message = result.Message,
+                changeCount = result.ChangeCount,
                 restartRequired = result.RestartRequired
             });
         }
@@ -307,29 +298,36 @@ public class SettingsModel : PageModel
         };
     }
 
-    private void BuildResetModals()
+    /// <summary>
+    /// The tab to show for a <c>?category=</c> value: the value when it names a tab this user can
+    /// see, otherwise General. Appearance is for SuperAdmins only.
+    /// </summary>
+    public static string ResolveTab(string? category, bool isSuperAdmin)
     {
-        ResetCategoryModal = new ConfirmationModalViewModel
+        var match = Tabs.FirstOrDefault(t => string.Equals(t, category, StringComparison.OrdinalIgnoreCase));
+        if (match == null || (match == "Appearance" && !isSuperAdmin))
         {
-            Id = "resetCategoryModal",
-            Title = "Reset Category",
-            Message = "Are you sure you want to reset this category to default values? This action cannot be undone.",
-            ConfirmText = "Reset Category",
-            CancelText = "Cancel",
-            Variant = ConfirmationVariant.Warning,
-            FormHandler = "ResetCategory"
-        };
+            return "General";
+        }
 
-        ResetAllModal = new ConfirmationModalViewModel
+        return match;
+    }
+
+    private IActionResult RedirectWithToast(SettingsSectionResult result, string? category)
+    {
+        if (result.Success)
         {
-            Id = "resetAllModal",
-            Title = "Reset All Settings",
-            Message = "Are you sure you want to reset ALL settings to their default values? This will affect all categories and cannot be undone.",
-            ConfirmText = "Reset All Settings",
-            CancelText = "Cancel",
-            Variant = ConfirmationVariant.Danger,
-            FormHandler = "ResetAll"
-        };
+            TempData.SetSuccessToast(result.Message);
+        }
+        else
+        {
+            var detail = result.Errors is { Count: > 0 } ? $" {string.Join(" ", result.Errors)}" : string.Empty;
+            TempData.SetErrorToast(result.Message + detail);
+        }
+
+        // The tab name is user input; keep it only when it names a tab, so it cannot steer the redirect.
+        var tab = Tabs.FirstOrDefault(t => string.Equals(t, category, StringComparison.OrdinalIgnoreCase)) ?? "General";
+        return RedirectToPage(new { category = tab });
     }
 
     private void BuildBotControlModals()
@@ -337,9 +335,9 @@ public class SettingsModel : PageModel
         RestartModal = new ConfirmationModalViewModel
         {
             Id = "restartModal",
-            Title = "Restart Bot",
-            Message = "Are you sure you want to restart the bot? This will briefly disconnect the bot from all servers. The bot will automatically reconnect after a few seconds.",
-            ConfirmText = "Restart Bot",
+            Title = "Restart the bot?",
+            Message = "The bot will disconnect from every server for a few seconds, then reconnect by itself.",
+            ConfirmText = "Restart bot",
             CancelText = "Cancel",
             Variant = ConfirmationVariant.Warning,
             FormHandler = "RestartBot"
@@ -348,11 +346,11 @@ public class SettingsModel : PageModel
         ShutdownModal = new TypedConfirmationModalViewModel
         {
             Id = "shutdownModal",
-            Title = "Shutdown Bot",
-            Message = "This action will completely shut down the bot. The bot will NOT restart automatically and will need to be manually started from the server. This action is critical and should only be used when necessary.",
+            Title = "Shut down the bot?",
+            Message = "The bot will stop completely and will not come back by itself. Someone has to start it again on the server.",
             RequiredText = "SHUTDOWN",
             InputLabel = "Type SHUTDOWN to confirm",
-            ConfirmText = "Shutdown Bot",
+            ConfirmText = "Shut down bot",
             CancelText = "Cancel",
             Variant = ConfirmationVariant.Danger,
             FormHandler = "ShutdownBot"

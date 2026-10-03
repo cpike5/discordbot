@@ -1,934 +1,544 @@
 /**
- * Settings Page Module
- * Handles tab switching, form submissions, and settings management
+ * Settings page (Admin > Settings).
+ *
+ * Markup contract (Pages/Admin/Settings.cshtml):
+ *  - Tabs are the shared tab panel (id `settingsTabs`, tab-panel.js); this file keeps `?category=`
+ *    in the address in step with the active tab, so a reload or a shared link opens the same tab.
+ *  - Each tab that saves is its own `<form data-settings-form="General" data-settings-handler="SaveCategory"
+ *    data-unsaved-changes>`. A save posts only that form's fields, so a tab never overwrites another.
+ *    unsaved-changes.js tracks which forms are dirty; Save all saves exactly the dirty ones.
+ *  - Reset buttons open static confirm modals (`data-modal-open`); those post to the page, which
+ *    redirects, and quick-actions.js reloads the page once so the outcome toast shows.
+ *  - The Bot Control tab polls /api/bot/status while it is visible. A restart follows the dashboard's
+ *    flow (BotStatus.watchRestart, bot-status-refresh.js); there is no second restart loop here.
+ *
+ * Exposed as window.settingsManager (browser) and module.exports (Node/tests; the pure helpers).
  */
-(function() {
+(function (root, factory) {
+    if (typeof module === 'object' && module.exports) {
+        module.exports = factory(root);
+    } else {
+        root.settingsManager = factory(root);
+        if (typeof document !== 'undefined') {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', root.settingsManager.init);
+            } else {
+                root.settingsManager.init();
+            }
+        }
+    }
+})(typeof self !== 'undefined' ? self : this, function (root) {
     'use strict';
 
-    let currentCategory = window.initialActiveCategory || 'General';
-    let isDirty = false;
-
-    // Bot Control polling configuration
-    const STATUS_POLL_INTERVAL_MS = 5000; // 5 seconds for control panel
-    const API_ENDPOINT = '/api/bot/status';
-    let statusPollInterval = null;
-
-    // Icon SVG templates for button states
-    const icons = {
-        save: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>',
-        loading: '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>',
-        success: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-        error: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
-        info: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+    var TABS_ID = 'settingsTabs';
+    var STATUS_ENDPOINT = '/api/bot/status';
+    var STATUS_POLL_MS = 5000;
+    var TAB_LABELS = {
+        General: 'General', Features: 'Features', Commands: 'Commands', Advanced: 'Advanced',
+        BotControl: 'Bot Control', AiModels: 'AI Models', Appearance: 'Appearance'
     };
 
-    // Store original button states for reset
-    const buttonOriginalStates = new WeakMap();
+    // ------------------------------------------------------------------ pure helpers
+
+    function plural(count, one, other) {
+        return count === 1 ? one : other;
+    }
 
     /**
-     * Build form data with proper checkbox handling
-     * Checkboxes need special handling because unchecked boxes don't submit values
-     * @param {HTMLFormElement} form - The form element
-     * @returns {FormData} - FormData with correct checkbox values
+     * The name/value pairs a tab posts. Checkboxes always say "true" or "false" (an unchecked box
+     * would otherwise post nothing, which the server cannot tell from "not on this form"); radios
+     * count only when checked; disabled controls, buttons and framework fields (`__...`) are left out.
+     * @param {Iterable<Object>} controls form.elements, or control-like objects in tests
+     * @returns {Array<[string, string]>}
      */
-    function buildFormData(form) {
-        const formData = new FormData();
-
-        // Add the anti-forgery token
-        const token = form.querySelector('input[name="__RequestVerificationToken"]');
-        if (token) {
-            formData.append('__RequestVerificationToken', token.value);
-        }
-
-        // Process all toggle checkboxes - add their current state (true/false)
-        const toggles = form.querySelectorAll('input[data-setting-toggle]');
-        toggles.forEach(toggle => {
-            formData.append(toggle.name, toggle.checked ? 'true' : 'false');
-        });
-
-        // Process all other form inputs (text, number, select, etc.)
-        const inputs = form.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"]), select, textarea');
-        inputs.forEach(input => {
-            if (input.name && !input.name.startsWith('__')) {
-                formData.append(input.name, input.value);
+    function buildEntries(controls) {
+        var entries = [];
+        Array.prototype.forEach.call(controls, function (control) {
+            if (!control || !control.name || control.disabled) return;
+            if (control.name.indexOf('__') === 0) return;
+            var type = String(control.type || '').toLowerCase();
+            if (type === 'submit' || type === 'button' || type === 'reset' || type === 'image' || type === 'file') return;
+            if (type === 'checkbox') {
+                entries.push([control.name, control.checked ? 'true' : 'false']);
+            } else if (type === 'radio') {
+                if (control.checked) entries.push([control.name, control.value]);
+            } else {
+                entries.push([control.name, control.value]);
             }
         });
-
-        return formData;
+        return entries;
     }
 
     /**
-     * Store the original state of a button for later reset
-     * @param {HTMLButtonElement} button - The button element
+     * Reads a save answer. `unchanged` is a save that went through but changed nothing (the server
+     * says so with changeCount 0); it is reported as that, never as a save.
+     * @param {{ok: boolean, data: Object}} result an ApiClient raw result
+     * @returns {{kind: 'saved'|'unchanged'|'error', message: string, restartRequired: boolean}}
      */
-    function storeButtonState(button) {
-        if (!button || buttonOriginalStates.has(button)) return;
-        buttonOriginalStates.set(button, {
-            innerHTML: button.innerHTML,
-            disabled: button.disabled,
-            classList: [...button.classList]
-        });
-    }
-
-    /**
-     * Reset a button to its original state
-     * @param {HTMLButtonElement} button - The button element
-     */
-    function resetButtonState(button) {
-        if (!button) return;
-        const original = buttonOriginalStates.get(button);
-        if (original) {
-            button.innerHTML = original.innerHTML;
-            button.disabled = original.disabled;
-            // Reset classes
-            button.classList.remove('btn-save-success', 'btn-save-error', 'btn-save-info');
-            button.classList.add('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700');
-        } else {
-            // Fallback for category save buttons
-            button.disabled = false;
-            button.innerHTML = 'Save Changes';
-            button.classList.remove('btn-save-success', 'btn-save-error', 'btn-save-info');
-            button.classList.add('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700');
-        }
-    }
-
-    /**
-     * Set button to loading state
-     * @param {HTMLButtonElement} button - The button element
-     */
-    function setButtonLoading(button) {
-        if (!button) return;
-        storeButtonState(button);
-        button.disabled = true;
-        button.innerHTML = `${icons.loading} Saving...`;
-    }
-
-    /**
-     * Set button to success state
-     * @param {HTMLButtonElement} button - The button element
-     * @param {boolean} autoReset - Whether to auto-reset after 2 seconds
-     */
-    function setButtonSuccess(button, autoReset = true) {
-        if (!button) return;
-        button.disabled = true;
-        button.innerHTML = `${icons.success} Saved!`;
-        button.classList.remove('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700', 'btn-save-error', 'btn-save-info');
-        button.classList.add('btn-save-success');
-
-        if (autoReset) {
-            setTimeout(() => resetButtonState(button), 2000);
-        }
-    }
-
-    /**
-     * Set button to error state (allows retry)
-     * @param {HTMLButtonElement} button - The button element
-     */
-    function setButtonError(button) {
-        if (!button) return;
-        button.disabled = false; // Allow retry
-        button.innerHTML = `${icons.error} Save Failed - Retry`;
-        button.classList.remove('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700', 'btn-save-success', 'btn-save-info');
-        button.classList.add('btn-save-error');
-    }
-
-    /**
-     * Set button to info state (no changes detected)
-     * @param {HTMLButtonElement} button - The button element
-     */
-    function setButtonInfo(button) {
-        if (!button) return;
-        button.disabled = true;
-        button.innerHTML = `${icons.info} No Changes`;
-        button.classList.remove('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700', 'btn-save-success', 'btn-save-error');
-        button.classList.add('btn-save-info');
-
-        setTimeout(() => resetButtonState(button), 2000);
-    }
-
-    /**
-     * Show inline success alert
-     * @param {string} message - The success message
-     * @param {string} category - Optional category for category-specific alerts
-     */
-    function showInlineSuccess(message, category = null) {
-        const alertId = category ? `saveSuccessAlert-${category}` : 'saveSuccessAlert';
-        const alert = document.getElementById(alertId);
-        if (!alert) return;
-
-        const messageEl = alert.querySelector('.inline-alert-message');
-        if (messageEl) {
-            messageEl.textContent = message;
-        }
-
-        alert.classList.remove('hidden');
-
-        // Announce to screen readers
-        announceToScreenReader('success', message);
-    }
-
-    /**
-     * Show inline error alert
-     * @param {string} message - The error message
-     * @param {string} category - Optional category for category-specific alerts
-     */
-    function showInlineError(message, category = null) {
-        const alertId = category ? `saveErrorAlert-${category}` : 'saveErrorAlert';
-        const alert = document.getElementById(alertId);
-        if (!alert) return;
-
-        const messageEl = alert.querySelector('.inline-alert-message');
-        if (messageEl) {
-            messageEl.textContent = message;
-        }
-
-        alert.classList.remove('hidden');
-
-        // Announce to screen readers
-        announceToScreenReader('error', message);
-    }
-
-    /**
-     * Hide inline alerts
-     * @param {string} category - Optional category for category-specific alerts
-     */
-    function hideInlineAlerts(category = null) {
-        if (category) {
-            const successAlert = document.getElementById(`saveSuccessAlert-${category}`);
-            const errorAlert = document.getElementById(`saveErrorAlert-${category}`);
-            if (successAlert) successAlert.classList.add('hidden');
-            if (errorAlert) errorAlert.classList.add('hidden');
-        } else {
-            const successAlert = document.getElementById('saveSuccessAlert');
-            const errorAlert = document.getElementById('saveErrorAlert');
-            if (successAlert) successAlert.classList.add('hidden');
-            if (errorAlert) errorAlert.classList.add('hidden');
-        }
-    }
-
-    /**
-     * Announce message to screen readers via ARIA live region
-     * @param {string} type - Message type (success, error, info)
-     * @param {string} message - The message to announce
-     */
-    function announceToScreenReader(type, message) {
-        // Use the toast live region if available
-        const liveRegion = document.getElementById('toastLiveRegion');
-        if (liveRegion) {
-            const typeLabels = {
-                success: 'Success',
-                error: 'Error',
-                info: 'Information'
+    function readSaveResult(result) {
+        var data = (result && result.data && typeof result.data === 'object') ? result.data : {};
+        if (result && result.ok && data.success !== false) {
+            var unchanged = data.changeCount === 0;
+            return {
+                kind: unchanged ? 'unchanged' : 'saved',
+                message: data.message || (unchanged ? 'Nothing changed.' : 'Saved.'),
+                restartRequired: !!data.restartRequired
             };
-            liveRegion.textContent = `${typeLabels[type] || type}: ${message}`;
+        }
+        var errors = Array.isArray(data.errors) ? data.errors.filter(Boolean) : [];
+        return {
+            kind: 'error',
+            message: errors.length ? errors.join(' ') : (data.message || 'The settings could not be saved. Try again.'),
+            restartRequired: false
+        };
+    }
 
-            // Clear after a short delay to allow for repeated announcements
-            setTimeout(() => {
-                liveRegion.textContent = '';
-            }, 1000);
+    /**
+     * One toast line for Save all.
+     * @param {Array<{category: string, kind: string}>} outcomes
+     */
+    function summarizeSaveAll(outcomes) {
+        var saved = outcomes.filter(function (o) { return o.kind === 'saved'; });
+        var unchanged = outcomes.filter(function (o) { return o.kind === 'unchanged'; });
+        var failed = outcomes.filter(function (o) { return o.kind === 'error'; });
+        var names = function (list) {
+            return list.map(function (o) { return TAB_LABELS[o.category] || o.category; }).join(', ');
+        };
+        if (outcomes.length === 0) {
+            return { kind: 'info', message: 'Nothing to save. No tab has unsaved changes.' };
+        }
+        if (failed.length === 0) {
+            if (saved.length === 0) {
+                return { kind: 'info', message: 'Nothing changed. These values were already saved.' };
+            }
+            return {
+                kind: 'success',
+                message: 'Saved ' + names(saved) + ' ' + plural(saved.length, 'tab', 'tabs') + '.' +
+                    (unchanged.length ? ' ' + names(unchanged) + ' ' + plural(unchanged.length, 'was', 'were') + ' already up to date.' : '')
+            };
+        }
+        return {
+            kind: 'error',
+            message: (saved.length ? 'Saved ' + names(saved) + '. ' : '') +
+                'Could not save ' + names(failed) + '. Open ' + plural(failed.length, 'that tab', 'those tabs') + ' to see why.'
+        };
+    }
+
+    /** The category in a query string, when it names one of `valid`; otherwise null. */
+    function categoryFromSearch(search, valid) {
+        var match = /[?&]category=([^&#]*)/.exec(search || '');
+        if (!match) return null;
+        var value;
+        try { value = decodeURIComponent(match[1]); } catch (e) { return null; }
+        return valid.indexOf(value) >= 0 ? value : null;
+    }
+
+    /** A TimeSpan string ("d.hh:mm:ss" or "hh:mm:ss") as "3d 4h 5m" / "4h 5m 6s" / "5m 6s" / "6s". */
+    function formatUptime(timeSpan) {
+        if (!timeSpan) return '0s';
+        var parts = String(timeSpan).split(':');
+        if (parts.length !== 3) return String(timeSpan);
+        var days = 0;
+        var hours;
+        var first = parts[0];
+        if (first.indexOf('.') >= 0) {
+            var dh = first.split('.');
+            days = parseInt(dh[0], 10);
+            hours = parseInt(dh[1], 10);
+        } else {
+            hours = parseInt(first, 10);
+        }
+        var minutes = parseInt(parts[1], 10);
+        var seconds = parseInt(parts[2].split('.')[0], 10);
+        if (days > 0) return days + 'd ' + hours + 'h ' + minutes + 'm';
+        if (hours > 0) return hours + 'h ' + minutes + 'm ' + seconds + 's';
+        if (minutes > 0) return minutes + 'm ' + seconds + 's';
+        return seconds + 's';
+    }
+
+    var helpers = {
+        buildEntries: buildEntries,
+        readSaveResult: readSaveResult,
+        summarizeSaveAll: summarizeSaveAll,
+        categoryFromSearch: categoryFromSearch,
+        formatUptime: formatUptime
+    };
+
+    // ------------------------------------------------------------------ page behaviour
+
+    var statusTimer = null;
+    var restarting = false;
+    var shutdownRequested = false;
+
+    function qs(selector, scope) { return (scope || document).querySelector(selector); }
+    function qsa(selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); }
+
+    function notify(kind, message, options) {
+        if (root.toast && typeof root.toast[kind] === 'function') root.toast[kind](message, options || {});
+    }
+
+    function now() {
+        return root.Format && typeof root.Format.formatDate === 'function'
+            ? root.Format.formatDate(new Date(), 'time')
+            : new Date().toLocaleTimeString();
+    }
+
+    function activeTabId() {
+        var tab = qs('#' + TABS_ID + '-container .tab-panel-tab.active');
+        return tab ? tab.dataset.tabId : null;
+    }
+
+    function validTabs() {
+        return qsa('#' + TABS_ID + '-container .tab-panel-tab').map(function (tab) { return tab.dataset.tabId; });
+    }
+
+    function switchTab(category) {
+        if (root.TabPanel && typeof root.TabPanel.switchTo === 'function') {
+            root.TabPanel.switchTo(TABS_ID, category);
         }
     }
 
-    /**
-     * Show a typed confirmation modal. The modal is owned by quick-actions.js; these three
-     * names stay because Settings.cshtml and older callers use them.
-     * @param {string} modalId - The modal element ID
-     */
-    function showTypedModal(modalId) {
-        window.quickActions?.showConfirmationModal(modalId);
-    }
+    // ---- tabs: address, polling, unsaved dots
 
-    /**
-     * Hide a typed confirmation modal
-     * @param {string} modalId - The modal element ID
-     */
-    function hideTypedModal(modalId) {
-        window.quickActions?.hideConfirmationModal(modalId);
-    }
-
-    /**
-     * Validate typed input and enable/disable confirm button.
-     * quick-actions.js does this for any `data-typed-input` on its own.
-     * @param {HTMLInputElement} input - The input element
-     */
-    function validateTypedInput(input) {
-        if (!input) return;
-
-        const confirmBtn = document.getElementById(input.dataset.confirmBtn);
-        if (confirmBtn) {
-            confirmBtn.disabled = input.value !== input.dataset.requiredText;
-        }
-    }
-
-    /**
-     * Refresh bot status via API
-     */
-    async function refreshStatus() {
-        const statusContainer = document.querySelector('[data-bot-control-status]');
-        if (!statusContainer) return;
-
+    /** Keeps ?category= current without adding history entries. */
+    function syncUrl(category) {
         try {
-            const response = await fetch(API_ENDPOINT);
-            if (!response.ok) throw new Error('Status fetch failed');
+            var url = new URL(root.location.href);
+            if (url.searchParams.get('category') === category) return;
+            url.searchParams.set('category', category);
+            root.history.replaceState(null, '', url.pathname + url.search + url.hash);
+        } catch (e) { /* the address bar is a convenience */ }
+    }
 
-            const data = await response.json();
+    function onTabChange(event) {
+        var detail = event.detail || {};
+        if (detail.panelId !== TABS_ID) return;
+        syncUrl(detail.tabId);
+        if (detail.tabId === 'BotControl') startPolling(); else stopPolling();
+    }
 
-            // Update status elements
-            updateStatusElement('[data-connection-state]', data.connectionState);
-            updateStatusElement('[data-latency]', data.latencyMs + ' ms');
-            updateStatusElement('[data-guild-count]', data.guildCount);
-            updateStatusElement('[data-uptime]', formatUptime(data.uptime));
-            updateStatusElement('[data-last-updated]', new Date().toLocaleTimeString());
-            updateStatusIndicator(data.connectionState);
-
-        } catch (error) {
-            console.error('Status refresh failed:', error);
+    /** A dot on the tab (with a text alternative) while its form has unsaved edits. */
+    function onUnsavedChange(event) {
+        var form = event.target;
+        if (!form || !form.matches || !form.matches('form[data-settings-form]')) return;
+        var tab = document.getElementById(TABS_ID + '-tab-' + form.dataset.settingsForm);
+        if (!tab) return;
+        var dirty = !!(event.detail && event.detail.dirty);
+        var marker = qs('.settings-tab-dirty', tab);
+        if (dirty && !marker) {
+            marker = document.createElement('span');
+            marker.className = 'settings-tab-dirty';
+            var dot = document.createElement('span');
+            dot.className = 'tab-dirty-dot';
+            dot.setAttribute('aria-hidden', 'true');
+            var text = document.createElement('span');
+            text.className = 'sr-only';
+            text.textContent = '(unsaved changes)';
+            marker.appendChild(dot);
+            marker.appendChild(text);
+            tab.appendChild(marker);
+        } else if (!dirty && marker) {
+            marker.remove();
         }
     }
 
+    // ---- saving
+
+    function isDirty(form) {
+        return !root.UnsavedChanges || root.UnsavedChanges.isDirty(form);
+    }
+
+    function saveButtonOf(form) {
+        return qs('[data-settings-save]', form);
+    }
+
+    function errorBox(form) {
+        return qs('[data-settings-error]', form);
+    }
+
+    function hideError(form) {
+        var box = errorBox(form);
+        if (box) box.classList.add('hidden');
+    }
+
+    function showError(form, message, focus) {
+        var box = errorBox(form);
+        if (!box) return;
+        var text = qs('[data-alert] p', box);
+        if (text) text.textContent = message;
+        box.classList.remove('hidden');
+        if (focus) box.focus();
+    }
+
+    function payloadFor(form) {
+        var body = new FormData();
+        buildEntries(form.elements).forEach(function (pair) { body.append(pair[0], pair[1]); });
+        return body;
+    }
+
+    function urlFor(form) {
+        var handler = form.dataset.settingsHandler || 'SaveCategory';
+        var category = form.dataset.settingsForm;
+        return handler === 'SaveCategory'
+            ? '?handler=SaveCategory&category=' + encodeURIComponent(category)
+            : '?handler=' + encodeURIComponent(handler);
+    }
+
+    function showRestartBanner() {
+        var banner = document.getElementById('restartBanner');
+        if (banner) banner.classList.remove('hidden');
+    }
+
     /**
-     * Update a status element with a new value
-     * @param {string} selector - CSS selector
-     * @param {string} value - New value
+     * Saves one tab. Resolves with { category, kind } (kind: saved, unchanged, error or clean).
+     * @param {HTMLFormElement} form
+     * @param {{quiet?: boolean}} [options] quiet: no toast here (Save all reports once)
      */
-    function updateStatusElement(selector, value) {
-        const el = document.querySelector(selector);
+    async function saveForm(form, options) {
+        var quiet = !!(options && options.quiet);
+        var category = form.dataset.settingsForm;
+        if (!isDirty(form)) {
+            if (!quiet) notify('info', 'Nothing to save here. You have not changed anything on this tab.', { key: 'settings-clean' });
+            return { category: category, kind: 'clean' };
+        }
+
+        var button = saveButtonOf(form);
+        var loading = root.LoadingManager;
+        hideError(form);
+        if (button && loading) loading.setButtonLoading(button, true, 'Saving...');
+
+        var outcome;
+        try {
+            var result = await root.ApiClient.postRaw(urlFor(form), payloadFor(form));
+            if (result.sessionExpired) {
+                // ApiClient already told the user to sign in again
+                outcome = { kind: 'error', message: '', restartRequired: false, expired: true };
+            } else {
+                outcome = readSaveResult(result);
+            }
+        } catch (error) {
+            outcome = { kind: 'error', message: (error && error.message) || 'The settings could not be saved. Try again.', restartRequired: false };
+        } finally {
+            if (button && loading) loading.setButtonLoading(button, false);
+        }
+
+        if (outcome.kind === 'error') {
+            if (!outcome.expired) {
+                showError(form, outcome.message, !quiet);
+                form.dispatchEvent(new CustomEvent('settings:save-failed', { bubbles: true, detail: { category: category, message: outcome.message } }));
+            }
+            return { category: category, kind: 'error' };
+        }
+
+        if (root.UnsavedChanges) root.UnsavedChanges.markClean(form);
+        if (outcome.restartRequired) showRestartBanner();
+        if (!quiet) notify(outcome.kind === 'unchanged' ? 'info' : 'success', outcome.message, { key: 'settings-save-' + category });
+        form.dispatchEvent(new CustomEvent('settings:saved', { bubbles: true, detail: { category: category, kind: outcome.kind } }));
+        return { category: category, kind: outcome.kind };
+    }
+
+    /** Saves every tab with unsaved changes, one after another, and reports once. */
+    async function saveAll(button) {
+        var forms = qsa('form[data-settings-form]').filter(isDirty);
+        var loading = root.LoadingManager;
+        if (button && loading) loading.setButtonLoading(button, true, 'Saving...');
+        var outcomes = [];
+        try {
+            for (var i = 0; i < forms.length; i++) {
+                outcomes.push(await saveForm(forms[i], { quiet: true }));
+            }
+        } finally {
+            if (button && loading) loading.setButtonLoading(button, false);
+        }
+
+        var summary = summarizeSaveAll(outcomes);
+        notify(summary.kind, summary.message, { key: 'settings-save-all' });
+
+        var firstFailed = outcomes.filter(function (o) { return o.kind === 'error'; })[0];
+        if (firstFailed) {
+            switchTab(firstFailed.category);
+            var failedForm = qs('form[data-settings-form="' + firstFailed.category + '"]');
+            var box = failedForm && errorBox(failedForm);
+            if (box && !box.classList.contains('hidden')) box.focus();
+        }
+        return outcomes;
+    }
+
+    // ---- Bot Control
+
+    function setText(selector, value) {
+        var el = qs(selector);
         if (el) el.textContent = value;
     }
 
-    /**
-     * Update the status indicator color
-     * @param {string} state - Connection state
-     */
-    function updateStatusIndicator(state) {
-        const indicator = document.querySelector('[data-status-indicator]');
+    function setIndicator(state) {
+        var indicator = qs('[data-status-indicator]');
         if (!indicator) return;
+        indicator.classList.remove('bg-success', 'bg-error', 'bg-warning', 'animate-pulse');
+        if (state === 'online') indicator.classList.add('bg-success', 'animate-pulse');
+        else if (state === 'restarting') indicator.classList.add('bg-warning', 'animate-pulse');
+        else indicator.classList.add('bg-error');
+    }
 
-        const isOnline = state.toUpperCase() === 'CONNECTED';
-
-        // Remove existing classes
-        indicator.classList.remove('bg-success', 'bg-error', 'animate-pulse');
-
-        // Add appropriate classes
-        if (isOnline) {
-            indicator.classList.add('bg-success', 'animate-pulse');
-        } else {
-            indicator.classList.add('bg-error');
+    function statusFailed(failed) {
+        var box = document.getElementById('botStatusError');
+        if (box) box.classList.toggle('hidden', !failed);
+        var updated = qs('[data-last-updated]');
+        if (updated) {
+            updated.classList.toggle('text-error', failed);
+            if (failed) updated.textContent = 'update failed at ' + now();
         }
     }
 
-    /**
-     * Format a TimeSpan string to human-readable format
-     * @param {string} timeSpanString - TimeSpan in format "d.hh:mm:ss" or "hh:mm:ss"
-     * @returns {string} Formatted uptime string
-     */
-    function formatUptime(timeSpanString) {
-        if (!timeSpanString) return '0s';
-
-        // Parse the TimeSpan string
-        const parts = timeSpanString.split(':');
-        let days = 0, hours = 0, minutes = 0, seconds = 0;
-
-        if (parts.length === 3) {
-            // Format: "hh:mm:ss" or "d.hh:mm:ss"
-            const hourPart = parts[0];
-            if (hourPart.includes('.')) {
-                const dayHour = hourPart.split('.');
-                days = parseInt(dayHour[0], 10);
-                hours = parseInt(dayHour[1], 10);
-            } else {
-                hours = parseInt(hourPart, 10);
-            }
-            minutes = parseInt(parts[1], 10);
-            seconds = parseInt(parts[2].split('.')[0], 10); // Remove fractional seconds
-        }
-
-        // Build human-readable string
-        if (days > 0) {
-            return `${days}d ${hours}h ${minutes}m`;
-        } else if (hours > 0) {
-            return `${hours}h ${minutes}m ${seconds}s`;
-        } else if (minutes > 0) {
-            return `${minutes}m ${seconds}s`;
-        } else {
-            return `${seconds}s`;
+    async function refreshStatus() {
+        if (!qs('[data-bot-control-status]') || restarting || shutdownRequested) return;
+        try {
+            var data = await root.ApiClient.get(STATUS_ENDPOINT);
+            setText('[data-connection-state]', data.connectionState);
+            setText('[data-latency]', data.latencyMs + ' ms');
+            setText('[data-guild-count]', data.guildCount);
+            setText('[data-uptime]', formatUptime(data.uptime));
+            setIndicator(String(data.connectionState).toUpperCase() === 'CONNECTED' ? 'online' : 'offline');
+            statusFailed(false);
+            setText('[data-last-updated]', now());
+        } catch (error) {
+            statusFailed(true);
         }
     }
 
-    /**
-     * Start status polling
-     */
     function startPolling() {
-        const statusContainer = document.querySelector('[data-bot-control-status]');
-        if (!statusContainer) return;
-
-        // Initial refresh
+        if (statusTimer || !qs('[data-bot-control-status]')) return;
         refreshStatus();
-
-        // Start interval polling
-        statusPollInterval = setInterval(refreshStatus, STATUS_POLL_INTERVAL_MS);
+        statusTimer = setInterval(function () { if (!document.hidden) refreshStatus(); }, STATUS_POLL_MS);
     }
 
-    /**
-     * Stop status polling
-     */
     function stopPolling() {
-        if (statusPollInterval) {
-            clearInterval(statusPollInterval);
-            statusPollInterval = null;
+        if (statusTimer) {
+            clearInterval(statusTimer);
+            statusTimer = null;
         }
     }
 
-    /**
-     * Switch between settings category tabs
-     * @param {string} category - The category name (General, Logging, Features, Advanced)
-     */
-    async function switchTab(category) {
-        if (isDirty) {
-            const confirmed = await quickActions.confirm({
-                title: 'Unsaved Changes',
-                message: 'You have unsaved changes. Are you sure you want to switch tabs?',
-                variant: 'warning',
-                confirmText: 'Switch Tab',
-                cancelText: 'Stay'
-            });
-            if (!confirmed) return;
-        }
-
-        currentCategory = category;
-
-        // Update tab buttons
-        const tabs = document.querySelectorAll('.settings-tab');
-        tabs.forEach(tab => {
-            if (tab.dataset.tab === category) {
-                tab.classList.add('active');
-                tab.setAttribute('aria-selected', 'true');
-            } else {
-                tab.classList.remove('active');
-                tab.setAttribute('aria-selected', 'false');
-            }
-        });
-
-        // Update section visibility
-        const sections = document.querySelectorAll('.settings-section');
-        sections.forEach(section => {
-            if (section.id === `${category.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}-settings`) {
-                section.classList.add('active');
-            } else {
-                section.classList.remove('active');
-            }
-        });
-
-        // Manage Bot Control status polling based on tab visibility
-        if (category === 'BotControl') {
-            startPolling();
-        } else {
-            stopPolling();
-        }
-
-        // Reset dirty flag when switching tabs
-        isDirty = false;
-    }
-
-    /**
-     * Save settings for a specific category
-     * @param {string} category - The category to save
-     */
-    async function saveCategory(category) {
-        const form = document.getElementById('settingsForm');
-        if (!form) return;
-
-        const formData = buildFormData(form);
-
-        // Get the save button from the event
-        const saveButton = event?.target;
-
-        // Hide any existing inline alerts for this category
-        hideInlineAlerts(category);
-
-        // Show loading state
-        setButtonLoading(saveButton);
-
+    /** After "Restart bot" is confirmed: show it, wait for the bot to report Connected, say so. */
+    async function afterRestart() {
+        if (!root.BotStatus || typeof root.BotStatus.watchRestart !== 'function') return;
+        restarting = true;
+        setText('[data-connection-state]', 'Restarting');
+        setIndicator('restarting');
+        var button = qs('[data-restart-button]');
+        if (button) button.disabled = true;
+        var online;
         try {
-            const { ok, data } = await window.ApiClient.postRaw(`?handler=SaveCategory&category=${category}`, formData);
-
-            if (ok && data.success) {
-                // Show success button state
-                const willReload = data.restartRequired;
-                setButtonSuccess(saveButton, !willReload);
-
-                // Show inline success alert
-                showInlineSuccess(data.message, category);
-
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-                isDirty = false;
-
-                // If restart required, reload page to show banner
-                if (willReload) {
-                    setTimeout(() => window.location.reload(), 1500);
-                }
-            } else {
-                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save settings.');
-
-                // Show error button state (allows retry)
-                setButtonError(saveButton);
-
-                // Show inline error alert
-                showInlineError(errorMsg, category);
-
-                // Show toast with longer duration for errors
-                window.quickActions?.showToast(errorMsg, 'error');
-            }
-        } catch (error) {
-            console.error('Save category error:', error);
-            const errorMsg = 'An error occurred while saving settings.';
-
-            // Show error button state
-            setButtonError(saveButton);
-
-            // Show inline error alert
-            showInlineError(errorMsg, category);
-
-            // Show toast
-            window.quickActions?.showToast(errorMsg, 'error');
+            online = await root.BotStatus.watchRestart();
+        } finally {
+            restarting = false;
+            if (button) button.disabled = false;
         }
+        await refreshStatus();
+        if (online) notify('success', 'The bot is back online.');
+        else notify('warning', 'The bot has not reconnected yet. Check the status again in a moment, or look at the logs.');
     }
 
-    /**
-     * Build form data for command module toggles
-     * @returns {FormData} - FormData with command module states
-     */
-    function buildCommandModulesFormData() {
-        const formData = new FormData();
-
-        // Add the anti-forgery token
-        const form = document.getElementById('settingsForm');
-        const token = form?.querySelector('input[name="__RequestVerificationToken"]');
-        if (token) {
-            formData.append('__RequestVerificationToken', token.value);
-        }
-
-        // Process all command module toggles - add their current state (true/false)
-        const toggles = document.querySelectorAll('input[data-command-module-toggle]');
-        toggles.forEach(toggle => {
-            if (!toggle.disabled) {
-                formData.append(toggle.name, toggle.checked ? 'true' : 'false');
-            }
-        });
-
-        return formData;
-    }
-
-    /**
-     * Save command module configurations
-     */
-    async function saveCommandModules() {
-        const formData = buildCommandModulesFormData();
-
-        // Get the save button from the event
-        const saveButton = event?.target;
-
-        // Hide any existing inline alerts for Commands
-        hideInlineAlerts('Commands');
-
-        // Show loading state
-        setButtonLoading(saveButton);
-
-        try {
-            const { ok, data } = await window.ApiClient.postRaw('?handler=SaveCommandModules', formData);
-
-            if (ok && data.success) {
-                // Show success button state
-                const willReload = data.restartRequired;
-                setButtonSuccess(saveButton, !willReload);
-
-                // Show inline success alert
-                showInlineSuccess(data.message, 'Commands');
-
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-                isDirty = false;
-
-                // If restart required, reload page to show banner
-                if (willReload) {
-                    setTimeout(() => window.location.reload(), 1500);
-                }
-            } else {
-                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save command module settings.');
-
-                // Show error button state (allows retry)
-                setButtonError(saveButton);
-
-                // Show inline error alert
-                showInlineError(errorMsg, 'Commands');
-
-                // Show toast with longer duration for errors
-                window.quickActions?.showToast(errorMsg, 'error');
-            }
-        } catch (error) {
-            console.error('Save command modules error:', error);
-            const errorMsg = 'An error occurred while saving command module settings.';
-
-            // Show error button state
-            setButtonError(saveButton);
-
-            // Show inline error alert
-            showInlineError(errorMsg, 'Commands');
-
-            // Show toast
-            window.quickActions?.showToast(errorMsg, 'error');
-        }
-    }
-
-    /**
-     * Save all settings across all categories
-     */
-    async function saveAllSettings() {
-        const form = document.getElementById('settingsForm');
-        if (!form) return;
-
-        const formData = buildFormData(form);
-
-        // Get the save button from the event
-        const saveButton = event?.target;
-
-        // Hide any existing inline alerts (global)
-        hideInlineAlerts();
-
-        // Show loading state
-        setButtonLoading(saveButton);
-
-        try {
-            const { ok, data } = await window.ApiClient.postRaw('?handler=SaveAll', formData);
-
-            if (ok && data.success) {
-                // Show success button state
-                const willReload = data.restartRequired;
-                setButtonSuccess(saveButton, !willReload);
-
-                // Show inline success alert
-                showInlineSuccess(data.message);
-
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-                isDirty = false;
-
-                // If restart required, reload page to show banner
-                if (willReload) {
-                    setTimeout(() => window.location.reload(), 1500);
-                }
-            } else {
-                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save all settings.');
-
-                // Show error button state (allows retry)
-                setButtonError(saveButton);
-
-                // Show inline error alert
-                showInlineError(errorMsg);
-
-                // Show toast with longer duration for errors
-                window.quickActions?.showToast(errorMsg, 'error');
-            }
-        } catch (error) {
-            console.error('Save all error:', error);
-            const errorMsg = 'An error occurred while saving settings.';
-
-            // Show error button state
-            setButtonError(saveButton);
-
-            // Show inline error alert
-            showInlineError(errorMsg);
-
-            // Show toast
-            window.quickActions?.showToast(errorMsg, 'error');
-        }
-    }
-
-    /**
-     * Show reset category confirmation modal
-     * @param {string} category - The category to reset
-     */
-    function showResetCategoryModal(category) {
-        currentCategory = category;
-        window.quickActions?.showConfirmationModal('resetCategoryModal');
-
-        // Attach handler to the modal form
-        const modal = document.getElementById('resetCategoryModal');
-        if (modal) {
-            const form = modal.querySelector('form');
-            if (form && !form.dataset.categoryHandler) {
-                form.dataset.categoryHandler = 'true';
-                // This script submits the reset itself (it needs the category), so
-                // quick-actions.js must not send a second request.
-                form.setAttribute('data-custom-submit', '');
-                // Bound once, but must use the module-level currentCategory (reassigned above on
-                // every call) rather than this closure's `category` - otherwise every reset after
-                // the first always resets whichever category opened the modal first.
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    await resetCategory(currentCategory);
-                });
-            }
-        }
-    }
-
-    /**
-     * Reset a category to default values
-     * @param {string} category - The category to reset
-     */
-    async function resetCategory(category) {
-        try {
-            const { ok, data } = await window.ApiClient.requestRaw(`?handler=ResetCategory&category=${category}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            });
-
-            if (ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
-                window.quickActions?.hideConfirmationModal('resetCategoryModal');
-
-                // Reload page to show updated values
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message);
-                window.quickActions?.showToast(errorMsg || 'Failed to reset category.', 'error');
-            }
-        } catch (error) {
-            console.error('Reset category error:', error);
-            window.quickActions?.showToast('An error occurred while resetting settings.', 'error');
-        }
-    }
-
-    /**
-     * Show reset all settings confirmation modal
-     */
-    function showResetAllModal() {
-        window.quickActions?.showConfirmationModal('resetAllModal');
-
-        // Attach handler to the modal form
-        const modal = document.getElementById('resetAllModal');
-        if (modal) {
-            const form = modal.querySelector('form');
-            if (form && !form.dataset.resetAllHandler) {
-                form.dataset.resetAllHandler = 'true';
-                form.setAttribute('data-custom-submit', '');
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    await resetAll();
-                });
-            }
-        }
-    }
-
-    /**
-     * Reset all settings to defaults
-     */
-    async function resetAll() {
-        try {
-            const { ok, data } = await window.ApiClient.requestRaw('?handler=ResetAll', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            });
-
-            if (ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
-                window.quickActions?.hideConfirmationModal('resetAllModal');
-
-                // Reload page to show updated values
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message);
-                window.quickActions?.showToast(errorMsg || 'Failed to reset all settings.', 'error');
-            }
-        } catch (error) {
-            console.error('Reset all error:', error);
-            window.quickActions?.showToast('An error occurred while resetting settings.', 'error');
-        }
-    }
-
-    /**
-     * Save appearance settings (default theme)
-     */
-    async function saveAppearance() {
-        const formData = new FormData();
-
-        // Add the anti-forgery token
-        const form = document.getElementById('settingsForm');
-        const token = form?.querySelector('input[name="__RequestVerificationToken"]');
-        if (token) {
-            formData.append('__RequestVerificationToken', token.value);
-        }
-
-        // Get the selected theme ID
-        const themeSelect = document.getElementById('SelectedThemeId');
-        if (themeSelect) {
-            formData.append('SelectedThemeId', themeSelect.value);
-        }
-
-        // Get the save button from the event
-        const saveButton = event?.target;
-
-        // Hide any existing inline alerts for Appearance
-        hideInlineAlerts('Appearance');
-
-        // Show loading state
-        setButtonLoading(saveButton);
-
-        try {
-            const { ok, data } = await window.ApiClient.postRaw('?handler=SaveAppearance', formData);
-
-            if (ok && data.success) {
-                // Show success button state
-                setButtonSuccess(saveButton);
-
-                // Show inline success alert
-                showInlineSuccess(data.message, 'Appearance');
-
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-                isDirty = false;
-            } else {
-                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save appearance settings.');
-
-                // Show error button state (allows retry)
-                setButtonError(saveButton);
-
-                // Show inline error alert
-                showInlineError(errorMsg, 'Appearance');
-
-                // Show toast with longer duration for errors
-                window.quickActions?.showToast(errorMsg, 'error');
-            }
-        } catch (error) {
-            console.error('Save appearance error:', error);
-            const errorMsg = 'An error occurred while saving appearance settings.';
-
-            // Show error button state
-            setButtonError(saveButton);
-
-            // Show inline error alert
-            showInlineError(errorMsg, 'Appearance');
-
-            // Show toast
-            window.quickActions?.showToast(errorMsg, 'error');
-        }
-    }
-
-    /**
-     * Reset appearance settings to default
-     */
-    async function resetAppearance() {
-        // Get the reset button from the event
-        const resetButton = event?.target;
-
-        // Hide any existing inline alerts for Appearance
-        hideInlineAlerts('Appearance');
-
-        try {
-            const { ok, data } = await window.ApiClient.requestRaw('?handler=ResetAppearance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            });
-
-            if (ok && data.success) {
-                // Show inline success alert
-                showInlineSuccess(data.message, 'Appearance');
-
-                // Show toast
-                window.quickActions?.showToast(data.message, 'success');
-
-                // Reload page to show updated default theme selection
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to reset appearance settings.');
-
-                // Show inline error alert
-                showInlineError(errorMsg, 'Appearance');
-
-                // Show toast
-                window.quickActions?.showToast(errorMsg, 'error');
-            }
-        } catch (error) {
-            console.error('Reset appearance error:', error);
-            const errorMsg = 'An error occurred while resetting appearance settings.';
-
-            // Show inline error alert
-            showInlineError(errorMsg, 'Appearance');
-
-            // Show toast
-            window.quickActions?.showToast(errorMsg, 'error');
-        }
-    }
-
-    /**
-     * Track form changes to set dirty flag
-     */
-    function trackFormChanges() {
-        const form = document.getElementById('settingsForm');
-        if (!form) return;
-
-        form.addEventListener('input', () => {
-            isDirty = true;
-        });
-
-        form.addEventListener('change', () => {
-            isDirty = true;
+    /** After "Shut down bot" is confirmed: stop asking, and say what happens next. */
+    function afterShutdown() {
+        shutdownRequested = true;
+        stopPolling();
+        var notice = document.getElementById('botShutdownNotice');
+        if (notice) notice.classList.remove('hidden');
+        setText('[data-connection-state]', 'Shutting down');
+        setIndicator('offline');
+        ['[data-restart-button]', '[data-shutdown-button]'].forEach(function (selector) {
+            var button = qs(selector);
+            if (button) button.disabled = true;
         });
     }
 
-    /**
-     * Warn user about unsaved changes before leaving
-     */
-    function setupUnloadWarning() {
-        window.addEventListener('beforeunload', (e) => {
-            if (isDirty) {
-                e.preventDefault();
-                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-                return e.returnValue;
-            }
-        });
+    // ---- events
+
+    function onClick(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+
+        var opener = target.closest('[data-modal-open]');
+        if (opener) {
+            if (root.quickActions) root.quickActions.showConfirmationModal(opener.getAttribute('data-modal-open'));
+            return;
+        }
+
+        var saveAllButton = target.closest('[data-settings-save-all]');
+        if (saveAllButton) {
+            saveAll(saveAllButton);
+            return;
+        }
+
+        var tabLink = target.closest('[data-settings-tab-link]');
+        if (tabLink) {
+            event.preventDefault();
+            switchTab(tabLink.getAttribute('data-settings-tab-link'));
+            var tabs = document.getElementById(TABS_ID + '-container');
+            if (tabs && typeof tabs.scrollIntoView === 'function') tabs.scrollIntoView({ block: 'start' });
+            return;
+        }
+
+        if (target.closest('[data-status-retry]')) refreshStatus();
     }
 
-    /**
-     * Initialize the module
-     */
+    function onSubmit(event) {
+        var form = event.target;
+        if (!form || !form.matches) return;
+
+        if (form.matches('form[data-settings-form]')) {
+            event.preventDefault();
+            saveForm(form);
+            return;
+        }
+
+        // A reset confirmation reloads the page (its toast shows after the reload). What is on the
+        // page is being thrown away on purpose, so leaving is not a loss to warn about.
+        var modal = form.closest && form.closest('[data-confirm-modal]');
+        if (modal && /^reset-/.test(modal.id) && root.UnsavedChanges) {
+            qsa('form[data-settings-form]').forEach(function (settingsForm) { root.UnsavedChanges.markClean(settingsForm); });
+        }
+    }
+
+    function onConfirmed(event) {
+        var id = event.detail && event.detail.modalId;
+        if (id === 'restartModal') afterRestart();
+        else if (id === 'shutdownModal') afterShutdown();
+    }
+
     function init() {
-        trackFormChanges();
-        setupUnloadWarning();
+        if (!document.getElementById(TABS_ID + '-container')) return;
 
-        // Start polling if Bot Control tab is active on page load
-        if (currentCategory === 'BotControl') {
-            startPolling();
-        }
+        document.addEventListener('click', onClick);
+        document.addEventListener('submit', onSubmit, true);
+        document.addEventListener('tabchange', onTabChange);
+        document.addEventListener('unsavedchange', onUnsavedChange);
+        document.addEventListener('quickactions:confirmed', onConfirmed);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden && statusTimer) refreshStatus();
+        });
+        window.addEventListener('pagehide', stopPolling);
 
-        // Clean up polling on page unload
-        window.addEventListener('beforeunload', stopPolling);
+        // A shared link names its tab in the address; the server already drew it as active.
+        var current = activeTabId();
+        var requested = categoryFromSearch(root.location.search, validTabs());
+        if (current && !requested) syncUrl(current);
+        if (current === 'BotControl') startPolling();
     }
 
-    // Expose public API
-    window.settingsManager = {
-        switchTab,
-        saveCategory,
-        saveAllSettings,
-        saveCommandModules,
-        saveAppearance,
-        resetAppearance,
-        showResetCategoryModal,
-        showResetAllModal,
-        // Bot Control functions
-        showTypedModal,
-        hideTypedModal,
-        validateTypedInput,
-        refreshStatus,
-        startPolling,
-        stopPolling
+    return {
+        init: init,
+        switchTab: switchTab,
+        saveForm: saveForm,
+        saveAll: function () { return saveAll(qs('[data-settings-save-all]')); },
+        refreshStatus: refreshStatus,
+        // pure helpers, for tests
+        buildEntries: buildEntries,
+        readSaveResult: readSaveResult,
+        summarizeSaveAll: summarizeSaveAll,
+        categoryFromSearch: categoryFromSearch,
+        formatUptime: formatUptime,
+        helpers: helpers
     };
-
-    // Initialize on DOM ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
+});

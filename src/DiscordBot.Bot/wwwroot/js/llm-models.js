@@ -1,12 +1,14 @@
 /**
  * AI Models tab (Admin > Settings > AI Models).
- * Renders the local OpenRouter model catalog and allowlist, and the read-only per-mode
- * defaults panel. Talks to LlmModelsController (api/admin/llm-models) via window.ApiClient.
+ * Renders the local OpenRouter model catalog and allowlist, and the per-mode defaults panel.
+ * Talks to LlmModelsController (api/admin/llm-models) via window.ApiClient.
  *
- * Initialization is lazy: this section sits outside #settingsForm (see Pages/Admin/Settings.cshtml)
- * and is not the default tab, so nothing is fetched until the AI Models tab is actually shown -
- * either by clicking it (hooked via window.settingsManager.switchTab) or by the page loading with
- * it already active (window.initialActiveCategory).
+ * The per-mode defaults form is saved by settings.js like every other tab (it carries
+ * data-settings-form); this file only reacts to the `settings:saved` and `settings:save-failed`
+ * events that script raises on the form. The catalog toggles save at once.
+ *
+ * Initialization is lazy: nothing is fetched until the AI Models tab is shown, either because the
+ * page opened on it or because the shared tab panel raised `tabchange` for it.
  */
 (function () {
     'use strict';
@@ -35,6 +37,10 @@
         return document.getElementById(id);
     }
 
+    function notify(kind, message) {
+        if (window.toast && typeof window.toast[kind] === 'function') window.toast[kind](message);
+    }
+
     function formatPrice(value) {
         if (value === null || value === undefined) return '—';
         return `$${Number(value).toFixed(2)}/M`;
@@ -55,6 +61,9 @@
 
     function formatDate(value) {
         if (!value) return '—';
+        if (window.Format && typeof window.Format.formatDate === 'function') {
+            return window.Format.formatDate(value, 'date') || '—';
+        }
         try {
             return new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
         } catch {
@@ -65,8 +74,10 @@
     function formatRelativeRefresh(value) {
         if (!value) return 'Never refreshed';
         try {
-            const d = new Date(value);
-            return `Last refreshed ${d.toLocaleString()}`;
+            const text = window.Format && typeof window.Format.formatDate === 'function'
+                ? window.Format.formatDate(value, 'datetime')
+                : new Date(value).toLocaleString();
+            return text ? `Last refreshed ${text}` : 'Never refreshed';
         } catch {
             return 'Never refreshed';
         }
@@ -137,7 +148,7 @@
         hideResultStates();
         const errorState = el('aiModelsErrorState');
         if (errorState) {
-            const msgEl = errorState.querySelector('p');
+            const msgEl = errorState.querySelector('[data-alert] p');
             if (msgEl) msgEl.textContent = message;
             errorState.classList.remove('hidden');
         }
@@ -161,7 +172,7 @@
             renderTable();
             renderRefreshStatus();
         } catch (err) {
-            showError(`Failed to load models: ${err.message || 'unknown error'}`);
+            showError(err.message || 'Something went wrong while loading the catalog.');
         }
     }
 
@@ -265,7 +276,7 @@
             renderDefaults(data.modes || []);
             hideDefaultsFormError();
         } catch (err) {
-            showDefaultsFormError(`Failed to load current defaults: ${err.message || 'unknown error'}`);
+            showDefaultsFormError(err.message || 'Something went wrong while loading the current defaults.');
         }
     }
 
@@ -304,7 +315,7 @@
     function showDefaultsFormError(message) {
         const box = el('aiModelsDefaultsError');
         if (!box) return;
-        const p = box.querySelector('p');
+        const p = box.querySelector('[data-alert] p');
         if (p) p.textContent = message;
         box.classList.remove('hidden');
     }
@@ -375,18 +386,16 @@
                     <td class="table-cell text-sm text-text-secondary">${formatDate(m.releasedAt)}</td>
                     <td class="table-cell text-center">${toolsBadge}</td>
                     <td class="table-cell text-center">
-                        <label class="form-toggle cursor-pointer inline-flex">
-                            <input type="checkbox" class="form-toggle-input" data-slug="${escapeHtml(m.slug)}" ${m.isEnabled ? 'checked' : ''} />
-                            <span class="form-toggle-track">
-                                <span class="form-toggle-thumb"></span>
-                            </span>
+                        <label class="toggle">
+                            <input type="checkbox" class="toggle-input" role="switch" data-slug="${escapeHtml(m.slug)}" aria-label="${escapeHtml(`Allow ${m.name}`)}" ${m.isEnabled ? 'checked' : ''} />
+                            <span class="toggle-slider" aria-hidden="true"></span>
                         </label>
                     </td>
                 </tr>`;
         }).join('');
 
         if (count) {
-            count.textContent = `${state.models.length} model${state.models.length === 1 ? '' : 's'}`;
+            count.textContent = `${state.models.length} ${state.models.length === 1 ? 'model' : 'models'}`;
         }
 
         tbody.querySelectorAll('input[data-slug]').forEach(input => {
@@ -409,8 +418,7 @@
                 if (enabled) model.enabledAt = new Date().toISOString();
             }
 
-            window.quickActions?.showToast(
-                `${slug} ${enabled ? 'enabled' : 'disabled'}.`, 'success');
+            notify('success', `${slug} ${enabled ? 'enabled' : 'disabled'}.`);
 
             // Re-render so the "enabled but unavailable" highlight and enabled-only filter stay correct.
             if (el('aiModelsEnabledOnly')?.checked) {
@@ -425,9 +433,13 @@
             refreshDefaultsUi();
         } catch (err) {
             input.checked = !enabled;
-            window.ApiClient.showErrorToast(err.message || 'Failed to update this model.');
+            window.ApiClient.showErrorToast(err);
         } finally {
             input.disabled = false;
+            // The table was redrawn: put keyboard focus back on the switch that was used
+            const again = Array.from(document.querySelectorAll('#aiModelsTableBody input[data-slug]'))
+                .find(el => el.dataset.slug === slug);
+            if (again && document.activeElement !== again) again.focus();
         }
     }
 
@@ -440,13 +452,11 @@
 
         try {
             const result = await window.ApiClient.post(`${API_BASE}/refresh`, {});
-            window.quickActions?.showToast(
-                `Catalog refreshed: ${result.added} added, ${result.updated} updated, ${result.removed} removed.`,
-                'success');
+            notify('success', `Catalog refreshed: ${result.added} added, ${result.updated} updated, ${result.removed} removed.`);
             await Promise.all([loadCatalog(), loadDefaults(), loadEnabledModels()]);
             refreshDefaultsUi();
         } catch (err) {
-            window.ApiClient.showErrorToast(err.message || 'Failed to refresh the catalog from OpenRouter.');
+            window.ApiClient.showErrorToast(err);
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -472,7 +482,7 @@
     }
 
     function updateSortHeaderAttrs() {
-        document.querySelectorAll('#ai-models-settings th[data-sort-key]').forEach(th => {
+        document.querySelectorAll('#settingsTabs-panel-AiModels th[data-sort-key]').forEach(th => {
             if (th.dataset.sortKey === state.sortBy) {
                 th.setAttribute('aria-sort', state.descending ? 'descending' : 'ascending');
             } else {
@@ -482,7 +492,7 @@
     }
 
     function bindSortHeaders() {
-        document.querySelectorAll('#ai-models-settings th[data-sort-key]').forEach(th => {
+        document.querySelectorAll('#settingsTabs-panel-AiModels th[data-sort-key]').forEach(th => {
             th.addEventListener('click', () => applySort(th.dataset.sortKey));
             th.addEventListener('keydown', evt => {
                 if (evt.key === 'Enter' || evt.key === ' ') {
@@ -493,62 +503,18 @@
         });
     }
 
-    // --- Per-mode defaults form (save / reset) -----------------------------------------------
+    // --- Per-mode defaults form ----------------------------------------------------------------
     //
-    // settings.js's button-state helpers (setButtonLoading/Success/Error) and its inline-alert
-    // helpers are private to that module's closure, so this form gets its own minimal versions -
-    // same CSS classes and element ids as every other Settings tab, just driven from here since
-    // this form is not #settingsForm (see the comment above the section in Settings.cshtml).
+    // settings.js saves this form (it is a data-settings-form) and raises events on it. Here: refresh
+    // the badges after a save, and mark the select a validation message names.
 
-    const saveIcons = {
-        loading: '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>',
-        success: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-        error: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>'
-    };
-
-    function setSaveButtonState(state) {
-        const btn = el('aiModelsSaveDefaultsBtn');
-        if (!btn) return;
-        btn.classList.remove('btn-save-success', 'btn-save-error');
-        switch (state) {
-            case 'loading':
-                btn.disabled = true;
-                btn.innerHTML = `${saveIcons.loading} Saving…`;
-                break;
-            case 'success':
-                btn.disabled = false;
-                btn.innerHTML = `${saveIcons.success} Saved!`;
-                btn.classList.add('btn-save-success');
-                setTimeout(() => setSaveButtonState('idle'), 2000);
-                break;
-            case 'error':
-                btn.disabled = false;
-                btn.innerHTML = `${saveIcons.error} Save Failed - Retry`;
-                btn.classList.add('btn-save-error');
-                break;
-            default:
-                btn.disabled = false;
-                btn.innerHTML = 'Save AI Models';
-        }
-    }
-
-    function hideDefaultsAlerts() {
-        el('saveSuccessAlert-AiModels')?.classList.add('hidden');
-        el('saveErrorAlert-AiModels')?.classList.add('hidden');
+    function hideDefaultsFieldErrors() {
         defaultSelects().forEach(select => {
             el(`aiModelDefaultFieldError-${select.dataset.fieldId}`)?.classList.add('hidden');
         });
     }
 
-    function showDefaultsAlert(alertId, message) {
-        const alert = el(alertId);
-        if (!alert) return;
-        const msgEl = alert.querySelector('.inline-alert-message');
-        if (msgEl) msgEl.textContent = message;
-        alert.classList.remove('hidden');
-    }
-
-    /** Best-effort: highlights the select(s) named in a validation error, e.g. "'slug' is not enabled…". */
+    /** Best-effort: marks the select(s) named in a validation error, e.g. "'slug' is not enabled…". */
     function flagOffendingSelect(message) {
         defaultSelects().forEach(select => {
             if (!select.value || !message.includes(select.value)) return;
@@ -557,56 +523,31 @@
                 err.textContent = message;
                 err.classList.remove('hidden');
             }
+            select.setAttribute('aria-invalid', 'true');
+            select.setAttribute('aria-describedby', err ? err.id : '');
         });
     }
 
-    function buildDefaultsFormData() {
-        const formData = new FormData();
-        defaultSelects().forEach(select => formData.append(select.name, select.value));
-        return formData;
-    }
-
-    async function onSaveDefaults(evt) {
-        evt.preventDefault();
-        hideDefaultsAlerts();
-        setSaveButtonState('loading');
-
-        try {
-            const { ok, data } = await window.ApiClient.postRaw(
-                '?handler=SaveCategory&category=AiModels', buildDefaultsFormData());
-
-            if (ok && data.success) {
-                setSaveButtonState('success');
-                showDefaultsAlert('saveSuccessAlert-AiModels', data.message);
-                window.quickActions?.showToast(data.message, 'success');
-
-                // The save may have changed which slug is "the" default for a mode - refresh badges
-                // and detail lines so they reflect what was just persisted.
-                await loadDefaults();
-                refreshDefaultsUi();
-            } else {
-                const errorMsg = data.errors && data.errors.length
-                    ? data.errors.join(', ')
-                    : (data.message || 'Failed to save AI Models settings.');
-
-                setSaveButtonState('error');
-                showDefaultsAlert('saveErrorAlert-AiModels', errorMsg);
-                flagOffendingSelect(errorMsg);
-                window.quickActions?.showToast(errorMsg, 'error');
-            }
-        } catch (err) {
-            const errorMsg = err.message || 'An error occurred while saving AI Models settings.';
-            setSaveButtonState('error');
-            showDefaultsAlert('saveErrorAlert-AiModels', errorMsg);
-            window.quickActions?.showToast(errorMsg, 'error');
-        }
-    }
-
     function bindDefaultsForm() {
-        el('aiModelsDefaultsForm')?.addEventListener('submit', onSaveDefaults);
+        const form = el('aiModelsDefaultsForm');
+        if (!form) return;
+
+        form.addEventListener('settings:saved', async () => {
+            hideDefaultsFieldErrors();
+            // The save may have changed which slug is "the" default for a mode: refresh the badges
+            // and detail lines so they show what was just stored.
+            await loadDefaults();
+            refreshDefaultsUi();
+        });
+        form.addEventListener('settings:save-failed', evt => {
+            hideDefaultsFieldErrors();
+            flagOffendingSelect((evt.detail && evt.detail.message) || '');
+        });
+
         defaultSelects().forEach(select => {
             select.addEventListener('change', () => {
                 renderModeDetails();
+                select.removeAttribute('aria-invalid');
                 el(`aiModelDefaultFieldError-${select.dataset.fieldId}`)?.classList.add('hidden');
             });
         });
@@ -620,51 +561,36 @@
         el('aiModelsToolsOnly')?.addEventListener('change', loadCatalog);
         el('aiModelsRefreshBtn')?.addEventListener('click', onRefresh);
         el('aiModelsClearFiltersBtn')?.addEventListener('click', clearFilters);
+        el('aiModelsRetryBtn')?.addEventListener('click', loadCatalog);
     }
 
     /** Fetches the catalog and defaults the first (and only the first) time the tab is shown. */
     function ensureInitialized() {
-        if (state.initialized || !el('ai-models-settings')) return;
+        if (state.initialized || !el('settingsTabs-panel-AiModels')) return;
         state.initialized = true;
         Promise.all([loadDefaults(), loadEnabledModels()]).then(refreshDefaultsUi);
         loadCatalog();
     }
 
-    function hookTabActivation() {
-        // Prefer wrapping window.settingsManager.switchTab so we catch every way the tab can be
-        // activated. It may not exist yet if settings.js hasn't attached it (script order), so also
-        // fall back to listening on the tab button itself.
-        const trigger = () => {
-            if (document.getElementById('ai-models-settings')?.classList.contains('active')) {
-                ensureInitialized();
-            }
-        };
-
-        if (window.settingsManager && typeof window.settingsManager.switchTab === 'function') {
-            const original = window.settingsManager.switchTab;
-            window.settingsManager.switchTab = function (category) {
-                const result = original.apply(this, arguments);
-                if (category === 'AiModels') {
-                    Promise.resolve(result).then(ensureInitialized);
-                }
-                return result;
-            };
-        }
-
-        document.querySelector('.settings-tab[data-tab="AiModels"]')?.addEventListener('click', trigger);
+    function isTabActive() {
+        return !!document.querySelector('#settingsTabs-container .tab-panel-tab.active[data-tab-id="AiModels"]');
     }
 
     function init() {
-        if (!el('ai-models-settings')) return;
+        if (!el('settingsTabs-panel-AiModels')) return;
 
         bindFilters();
         bindSortHeaders();
         bindDefaultsForm();
         updateSortHeaderAttrs();
-        hookTabActivation();
 
-        // The page can load with AI Models already the active tab (deep link / reload).
-        if (window.initialActiveCategory === 'AiModels') {
+        // The shared tab panel raises tabchange (also for arrow-key and programmatic switches)
+        document.addEventListener('tabchange', evt => {
+            if (evt.detail && evt.detail.tabId === 'AiModels') ensureInitialized();
+        });
+
+        // The page can load with AI Models already the active tab (a reload or a shared link).
+        if (isTabActive()) {
             ensureInitialized();
         }
     }

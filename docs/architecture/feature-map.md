@@ -673,7 +673,7 @@ gates which models the assistant, DM assistant, and feature-request modes may us
 
 | Aspect | Components |
 |--------|------------|
-| **Web Page** | `/admin/settings` "AI Models" tab (`Pages/Admin/Settings.cshtml`, `ai-models-settings` panel), rendered by `wwwroot/js/llm-models.js` |
+| **Web Page** | `/admin/settings` "AI Models" tab (`Pages/Admin/Settings.cshtml`, `settingsTabs-panel-AiModels` panel), rendered by `wwwroot/js/llm-models.js` |
 | **Controller** | `LlmModelsController` (`api/admin/llm-models`, `RequireAdmin`) — list/filter, refresh, enable/disable, per-mode defaults (`GetDefaults` delegates to `ILlmModelResolver`) |
 | **Services** | `ILlmModelCatalogService` / `LlmModelCatalogService` (refresh, filtered listing, allowlist), `IOpenRouterModelCatalogClient` / `OpenRouterModelCatalogClient` (second typed `HttpClient` against OpenRouter `GET /models`), `ILlmModelResolver` / `LlmModelResolver` (per-mode default resolution, see below) |
 | **Repository** | `ILlmModelRepository` / `LlmModelRepository` |

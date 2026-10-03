@@ -53,6 +53,12 @@ public sealed record SettingsSectionResult
     public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
     public bool RestartRequired { get; init; }
 
+    /// <summary>
+    /// How many settings (or command modules) a save actually changed. Zero means the values
+    /// sent were already the saved ones, which the page reports as "nothing changed", not as a save.
+    /// </summary>
+    public int ChangeCount { get; init; }
+
     /// <summary>Optional extra field name for a themed save (e.g. the new theme's display name).</summary>
     public string? ThemeName { get; init; }
 

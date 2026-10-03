@@ -166,10 +166,45 @@ public class SettingsSectionService : ISettingsSectionService
     }
 
     public async Task<SettingsSectionResult> SaveCategoryAsync(string category, Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default)
-        => await SaveInternalAsync(category, formSettings, userId, "Settings saved successfully.", "Failed to save settings.", cancellationToken);
+    {
+        if (!Enum.TryParse<SettingCategory>(category, out var categoryEnum) || !Enum.IsDefined(categoryEnum))
+        {
+            return new SettingsSectionResult
+            {
+                Success = false,
+                Message = $"Unknown settings tab: {category}.",
+                StatusCode = 400
+            };
+        }
+
+        // Save only this tab's settings. A client that posts the whole page (or a stale one)
+        // must not overwrite settings that belong to other tabs.
+        var categoryKeys = (await _settingsService.GetSettingsByCategoryAsync(categoryEnum, cancellationToken))
+            .Select(s => s.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        var scoped = formSettings
+            .Where(pair => categoryKeys.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+
+        return await SaveInternalAsync(category, scoped, userId, "Saved", "The settings could not be saved.", cancellationToken);
+    }
 
     public async Task<SettingsSectionResult> SaveAllAsync(Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default)
-        => await SaveInternalAsync("All", formSettings, userId, "All settings saved successfully.", "Failed to save all settings.", cancellationToken);
+        => await SaveInternalAsync("All", formSettings, userId, "Saved", "The settings could not be saved.", cancellationToken);
+
+    /// <summary>The tab's name as users read it ("AiModels" is "AI Models").</summary>
+    internal static string CategoryLabel(string category) => category switch
+    {
+        "AiModels" => "AI Models",
+        "BotControl" => "Bot Control",
+        _ => category
+    };
+
+    /// <summary>"Saved 1 setting." / "Saved 3 settings." / "Nothing changed: ...".</summary>
+    internal static string SavedMessage(string prefix, int changeCount, string noun = "setting") =>
+        changeCount == 0
+            ? "Nothing changed. These values were already saved."
+            : $"{prefix} {changeCount} {(changeCount == 1 ? noun : noun + "s")}.";
 
     private async Task<SettingsSectionResult> SaveInternalAsync(string category, Dictionary<string, string> formSettings, string userId, string successPrefix, string failureMessage, CancellationToken cancellationToken)
     {
@@ -236,9 +271,8 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = true,
-                Message = result.Changes.Count > 0
-                    ? $"{successPrefix} {result.Changes.Count} setting(s) updated."
-                    : "No changes detected.",
+                Message = SavedMessage(successPrefix, result.Changes.Count),
+                ChangeCount = result.Changes.Count,
                 RestartRequired = result.RestartRequired
             };
         }
@@ -248,7 +282,7 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = false,
-                Message = "An error occurred while saving settings. Please check logs for details.",
+                Message = "The settings could not be saved because of a server error. Check the logs.",
                 StatusCode = 500
             };
         }
@@ -263,7 +297,7 @@ public class SettingsSectionService : ISettingsSectionService
                 return new SettingsSectionResult
                 {
                     Success = false,
-                    Message = $"Invalid category: {category}",
+                    Message = $"Unknown settings tab: {category}.",
                     StatusCode = 400
                 };
             }
@@ -278,7 +312,7 @@ public class SettingsSectionService : ISettingsSectionService
                 return new SettingsSectionResult
                 {
                     Success = false,
-                    Message = $"Failed to reset {category} settings.",
+                    Message = $"The {CategoryLabel(category)} settings could not be reset.",
                     Errors = result.Errors,
                     StatusCode = 400
                 };
@@ -303,7 +337,7 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = true,
-                Message = $"{category} settings have been reset to defaults.",
+                Message = $"{CategoryLabel(category)} settings were reset to their defaults.",
                 RestartRequired = result.RestartRequired
             };
         }
@@ -313,7 +347,7 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = false,
-                Message = "An error occurred while resetting settings. Please check logs for details.",
+                Message = "The settings could not be reset because of a server error. Check the logs.",
                 StatusCode = 500
             };
         }
@@ -333,7 +367,7 @@ public class SettingsSectionService : ISettingsSectionService
                 return new SettingsSectionResult
                 {
                     Success = false,
-                    Message = "Failed to reset all settings.",
+                    Message = "The settings could not be reset.",
                     Errors = result.Errors,
                     StatusCode = 400
                 };
@@ -357,7 +391,7 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = true,
-                Message = "All settings have been reset to defaults.",
+                Message = "All settings were reset to their defaults.",
                 RestartRequired = result.RestartRequired
             };
         }
@@ -367,7 +401,7 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = false,
-                Message = "An error occurred while resetting settings. Please check logs for details.",
+                Message = "The settings could not be reset because of a server error. Check the logs.",
                 StatusCode = 500
             };
         }
@@ -391,7 +425,7 @@ public class SettingsSectionService : ISettingsSectionService
                 return new SettingsSectionResult
                 {
                     Success = false,
-                    Message = "Failed to save command module settings.",
+                    Message = "The command modules could not be saved.",
                     Errors = result.Errors,
                     StatusCode = 400
                 };
@@ -431,9 +465,8 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = true,
-                Message = result.UpdatedModules.Count > 0
-                    ? $"Command module settings saved successfully. {result.UpdatedModules.Count} module(s) updated."
-                    : "No changes detected.",
+                Message = SavedMessage("Saved", result.UpdatedModules.Count, "command module"),
+                ChangeCount = result.UpdatedModules.Count,
                 RestartRequired = result.RequiresRestart
             };
         }
@@ -443,7 +476,7 @@ public class SettingsSectionService : ISettingsSectionService
             return new SettingsSectionResult
             {
                 Success = false,
-                Message = "An error occurred while saving command module settings. Please check logs for details.",
+                Message = "The command modules could not be saved because of a server error. Check the logs.",
                 StatusCode = 500
             };
         }

@@ -76,6 +76,7 @@ Then in the view:
 | [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results, load errors (server and `EmptyState` JS twin) |
 | [Skeletons](#skeleton-components) | Loading placeholders | Regions that load after the page (`Skeleton.show` waits 300ms) |
 | [Unsaved changes](#unsaved-changes) | Leave-page protection | `data-unsaved-changes` on any editable form |
+| [Focus the first error](#focus-the-first-error) | Focus after a failed server validation | `data-focus-first-error` on the form, plus `form-focus.js` |
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
 | [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
 | [SortDropdown](#sortdropdown-component) | Sort selection dropdown | Table headers, list sorting |
@@ -965,7 +966,7 @@ Switch on the canonical `.toggle` classes. The checkbox has `role="switch"`, is 
 
 **Unchecked posts `false`.** A browser omits an unchecked checkbox, so a form cannot tell "turned off" from "not on the form", and a bound `bool` never becomes false. With `PostsFalseWhenOff` (the default) a hidden `false` input with the same name follows the checkbox; a checked toggle posts `true,false` and the model binder reads the first. It is not rendered while the toggle is disabled (a disabled field posts nothing). Set `PostsFalseWhenOff = false` for scripts that read `checked` themselves: the Settings page does, with `AdditionalAttributes["data-setting-toggle"] = "true"`.
 
-Legacy `.form-toggle*` markup (Settings command modules, `llm-models.js`, Privacy) is still styled from `site.css` until those screens move to the partial.
+Legacy `.form-toggle*` markup is still styled from `site.css` for the Privacy page only (Phase 15); Settings command modules and the `llm-models.js` catalog use the partial's `.toggle` markup.
 
 ---
 
@@ -1382,7 +1383,7 @@ The form is submitted by one delegated listener in `quick-actions.js` (B-8). It 
 | A redirect (`RedirectToPage`) | Stays busy while the browser loads the current page once. The redirect is **not followed** by script: following it would run the target's GET and spend the TempData toast or one-time value (Users/Edit's generated password) meant for the page the user lands on |
 | Session expired | The "Sign in" toast from `ApiClient`; the modal stays open |
 
-Opt-outs on the `<form>`: `data-custom-submit` (a page script handles submit itself, as `settings.js` does for reset-category; the generic handler also stands down whenever a script already called `preventDefault`) and `data-submit-mode="navigate"` (a plain browser submit, with the busy state).
+Opt-outs on the `<form>`: `data-custom-submit` (a page script handles submit itself; the generic handler also stands down whenever a script already called `preventDefault`) and `data-submit-mode="navigate"` (a plain browser submit, with the busy state).
 
 ### Accessibility Notes
 
@@ -1479,7 +1480,7 @@ var removeModal = new TypedConfirmationModalViewModel
 - Input field receives focus on modal open; the phrase is cleared and the button locked again whenever the modal reopens
 - No submit is possible until text matches
 - `Escape` dismisses and clears the typed input
-- It needs only `quick-actions.js` (both layouts load it). The partial no longer calls `settingsManager`; `settings.js` forwards its old `showTypedModal`/`hideTypedModal` to `quickActions`
+- It needs only `quick-actions.js` (both layouts load it). The partial does not call `settingsManager`; Settings opens it with `quickActions.showConfirmationModal` (a `data-modal-open` button)
 - Submission and outcomes are the same as [`ConfirmationModal`](#confirmationmodal-component)
 
 ---
@@ -1795,6 +1796,10 @@ A form is dirty when its controls differ from how they were at load, so typing t
 | `data-unsaved-indicator` | element inside the form | Shown (its `hidden` class removed) only while dirty |
 
 The form gets `data-dirty="true|false"` and fires a bubbling `unsavedchange` event (`detail.dirty`). API: `UnsavedChanges.markClean(form)` after a successful fetch save (takes the saved values as the new baseline), `isDirty(form?)`, `track(form)` / `untrack(form)` for forms inserted later, `init(scope)`. The `beforeunload` listener exists only while a tracked form is dirty, so clean pages keep the back/forward cache. The browser decides the wording of the leave-page prompt; a script cannot set it. The tracker core (`serialize`, `createTracker`, `createRegistry`, `handleBeforeUnload`) has no DOM dependency and is covered by `wwwroot/js/__tests__/unsaved-changes.test.js`.
+
+### Focus the first error
+
+`wwwroot/js/form-focus.js` (not loaded by the layouts; include it on a page that needs it). Put `data-focus-first-error` on a form the server re-renders after a failed validation: on load, the first control marked `aria-invalid="true"` (or the first radio of a `.radio-card-group-invalid` group) takes focus and scrolls into view, so keyboard and screen-reader users land on the problem. A form with no errors is left alone. API: `FormFocus.focusFirstError(form)`, `FormFocus.firstInvalid(form)`. Used by Users/Create and Edit and the two purge pages; tests in `wwwroot/js/__tests__/form-focus-purge.test.js`.
 
 ---
 
