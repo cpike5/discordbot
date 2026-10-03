@@ -7338,6 +7338,28 @@ curl -X GET "http://localhost:5000/api/autocomplete/channels?search=general&guil
 
 ---
 
+## Member Portal Voice Endpoints
+
+The voice panel on every member portal page (Soundboard, TTS, VOX) talks to these routes, which live on the
+soundboard portal controller and serve all three pages. They exist because the admin routes under
+`/api/guilds/{guildId}/audio` need the Viewer role and portal members have none (plan decision D10).
+
+**Base URL:** `/api/portal/soundboard/{guildId}`. **Authorization:** `PortalGuildMember` (the guild's
+`EnableMemberPortal` must be on; a switched-off portal answers 403 "Portal disabled").
+
+| Method | Path | Body | Success | Notes |
+|--------|------|------|---------|-------|
+| GET | `/status` | none | `{ isConnected, channelId, channelName, memberCount, isPlaying, queueLength }` | `channelId` is a string. The panel polls it. |
+| POST | `/channel` | `{ "channelId": <snowflake> }` | `{ message, channelId }` | 404 `channel_not_found` when the bot cannot join; 400 `audio_disabled` / `audio_not_enabled` |
+| DELETE | `/channel` | none | `{ message }` | 400 `not_connected` when the bot is not in a channel |
+| POST | `/stop` | none | `{ message }` | 400 `not_connected`; "Nothing playing" is a 200 |
+| GET | `/channels` | none | `[ { id, name } ]` | Ordered as Discord orders them |
+| POST | `/play/{soundId}` | none | `{ message, soundName, soundId, price, balance, currencySymbol, wasQueued, queuePosition }` | 402 for a priced sound the member cannot pay for |
+
+Error bodies are `ApiErrorDto`; the `detail` is a sentence a member can act on, never exception text.
+
+---
+
 ## VOX Portal API
 
 The VOX Portal API provides endpoints for the VOX announcement system, allowing guild members to browse clips, preview messages, and play Half-Life style announcements in voice channels.

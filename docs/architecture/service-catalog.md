@@ -45,6 +45,9 @@ Services handling voice channel connection, audio streaming, and voice state man
 | `IAudioNotifier` | Core Interfaces | Broadcasts audio state changes via SignalR to connected dashboards |
 | `AudioNotifier` | Bot/Services | SignalR hub adapter for audio event notifications |
 | `VoiceAutoLeaveService` | Bot/Services | Background service that auto-disconnects bot from voice channels after inactivity |
+| `IPortalGuildDirectory` | Bot/Interfaces | What the member portal needs from Discord: guild available, voice channels, membership. Used by `PortalPageModelBase`, `PortalGuildMemberAuthorizationHandler` and the portal playback controllers instead of `DiscordSocketClient` |
+| `DiscordPortalGuildDirectory` | Bot/Services/Portal | Production implementation over the live Discord client (cache first, REST fallback for membership) |
+| `DevelopmentPortalGuildDirectory` / `DevelopmentPortal` | Bot/Services/Portal | Offline development only (Development environment **and** `Discord:OfflineMode`, checked by `DevelopmentPortal.IsEnabled`): guilds from the database, three made-up voice channels, two seeded fake Discord IDs as members; `DevelopmentPortal.SeedAsync` links the default admin and creates the role-less `portal-member@example.com`. Registered by `AddPortalGuildDirectory` |
 
 ---
 

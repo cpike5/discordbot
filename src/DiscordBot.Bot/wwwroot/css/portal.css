@@ -1138,3 +1138,10 @@ body:not(.portal-fullscreen) .fullscreen-toolbar {
         padding-inline: 0.625rem;
     }
 }
+
+/* The section tabs' subtitles ("Play uploaded sounds") push the third tab off a tablet's header */
+@media (max-width: 1023px) {
+    .portal-header .tab-subtitle {
+        display: none;
+    }
+}

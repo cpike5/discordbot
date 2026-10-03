@@ -420,7 +420,9 @@ Plays a sound in the bot's current voice channel.
 ```
 
 On a priced sound the 200 response also carries `price`, `balance` and `currencySymbol` so the
-page can show what the play cost.
+page can show what the play cost. It always carries `wasQueued` and `queuePosition`: when the guild
+has queueing on and something is already playing, the sound waits behind it (`wasQueued: true`,
+`queuePosition` is its place in line) and the page says "queued" instead of marking it as playing.
 
 **Error Responses:**
 - **400 Bad Request** - Audio disabled, bot not in voice channel, or sound not found
@@ -570,6 +572,28 @@ Gets the current playback status and queue information.
 | `isConnected` | bool | Whether bot is connected to voice channel |
 | `currentChannelId` | ulong? | ID of current voice channel |
 
+The member portal's voice panel reads a smaller shape from the same route, and uses it as the source of
+truth for "is the bot in a voice channel" (members cannot use the SignalR hub, see below):
+
+```json
+{
+  "isConnected": true,
+  "channelId": "987654321098765432",
+  "channelName": "General Voice",
+  "memberCount": 3,
+  "isPlaying": false,
+  "queueLength": 0
+}
+```
+
+`channelId` is a string. `memberCount` counts people, not bots.
+
+#### Member portal switch
+
+Every `/api/portal/...` route is behind the `PortalGuildMember` policy, which now requires the guild's
+`EnableMemberPortal` setting (Audio Settings, issue #947). It is independent of `AudioEnabled` and is checked
+before the admin bypass, so a portal that is off is off for everyone. A refused call answers **403** with the
+problem title "Portal disabled" and the detail "The member portal is switched off for this server."
 ## UI Pages
 
 ### Admin Soundboard Management Page
@@ -624,6 +648,10 @@ Gets the current playback status and queue information.
 
 **Features:**
 
+0. **Portal switched off.** When the guild has `EnableMemberPortal` off, every portal page renders a plain
+   "The member portal is off" notice (HTTP 200) in place of its content, for members and admins alike. With
+   `AudioEnabled` off but the portal on, the page opens with a warning that nothing can be played.
+
 1. **Landing Page (Unauthenticated)**
    - Description of soundboard functionality
    - Login prompt for guild members
@@ -650,11 +678,13 @@ Gets the current playback status and queue information.
      - Queue display (if queue mode enabled)
      - Now Playing with progress bar via unified `_VoiceChannelPanel` component
 
-   - **Real-Time Status Updates** (via SignalR)
-     - Connection status updates
-     - Now Playing with progress bar (unified `_VoiceChannelPanel` component)
-     - Queue updates
-     - Error notifications
+   - **Voice state** (the unified `_VoiceChannelPanel` component, portal mode)
+     - Members hold no Identity role, so the dashboard SignalR hub refuses them (`RequireViewer`); the portal
+       pages leave the hub scripts out for them and the panel reads `GET /api/portal/soundboard/{guildId}/status`
+       after every join, leave and stop, and every five seconds while the page is visible
+     - "Connected" means the bot is in a voice channel, never that the page's own connection is up
+     - Admins and moderators who open the portal still get live hub events, with the same status read as a fallback
+     - On a phone the panel is a sticky bar (channel name, state, Stop) that stays in view while the page scrolls
 
    - **Settings Display**
      - Show active audio settings (queue mode, silent mode, timeout)

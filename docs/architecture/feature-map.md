@@ -27,6 +27,7 @@ The soundboard system allows guild members to play pre-uploaded audio files in v
 | **Discord Commands** | `/play`, `/sounds`, `/stop` (SoundboardModule) |
 | **Services** | `IAudioService`, `IPlaybackService`, `ISoundService`, `ISoundboardOrchestrationService`, `IGuildAudioSettingsService`, `IAudioNotifier` |
 | **UI Pages** | Portal: Soundboard player page; Admin: Sounds management (`SoundsController`) |
+| **Member portal access** | `IPortalGuildDirectory` (Discord-backed `DiscordPortalGuildDirectory`; database-backed `DevelopmentPortalGuildDirectory` only in Development + `Discord:OfflineMode`), `PortalGuildMemberAuthorizationHandler` (requires `EnableMemberPortal`, independent of `AudioEnabled`), `PortalPageModelBase`, `Portal/Shared/_PortalDisabled.cshtml`. Portal voice controls use `/api/portal/soundboard/{guildId}/status|channel|stop` |
 | **Database Entities** | `Sound`, `SoundPlayLog`, `GuildAudioSettings`, `AudioPlaybackLog` |
 | **Storage** | Audio files on disk (configurable path) |
 | **Key Features** | Queue management, audio filtering (distortion, echo, pitch shift), silent playback mode, auto-leave voice channels, optional per-sound pricing through the currency charge seam |

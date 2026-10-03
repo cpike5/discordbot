@@ -125,6 +125,14 @@ Identity__DefaultAdmin__Password='Change-me-123!' \
 dotnet run
 ```
 
+**Member portal in offline mode.** With `ASPNETCORE_ENVIRONMENT=Development` **and** `Discord:OfflineMode=true` (both; either alone does nothing) the member portal works without Discord, so it can be tested and screenshotted:
+
+- every guild in the database counts as available, with three made-up voice channels ("General", "Gaming", "Music Lounge") and the bot shown as Offline; joining one fails in the audio layer, which is a real error state to test
+- the default admin is linked to a fake Discord ID, and a second user, `portal-member@example.com`, is created with **no role** and the same password as the default admin; that is the account to sign in with to see what a portal member sees. The two fake IDs are the only identities treated as guild members
+- the guild still needs `GuildAudioSettings.EnableMemberPortal` on, like any other
+
+In any other environment, or when the bot is connected to Discord, none of this is registered and nothing is seeded (`DevelopmentPortal.IsEnabled`, covered by `DevelopmentPortalTests`).
+
 #### Setting Secrets
 
 ```bash

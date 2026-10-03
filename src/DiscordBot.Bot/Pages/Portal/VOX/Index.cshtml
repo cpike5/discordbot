@@ -1258,6 +1258,32 @@
 
         /* Touch: the history controls are real tap targets, not 20px glyphs */
         @@media (pointer: coarse) {
+            [id^="voxGroupTabs-tab-"],
+            .vox-mobile-letter-btn,
+            .vox-word-gap-header,
+            .vox-history-header {
+                min-height: 44px;
+            }
+
+            .vox-mobile-letter-btn {
+                min-width: 44px;
+            }
+
+            /* The tablet's A-Z rail (hidden on phones) scrolls, so its letters can be real targets */
+            .vox-az-rail {
+                width: 48px;
+            }
+
+            .vox-az-letter {
+                width: 44px;
+                height: 44px;
+                font-size: 0.8rem;
+            }
+
+            .vox-clip-search {
+                min-height: 44px;
+            }
+
             .vox-history-action-btn {
                 min-width: 44px;
                 min-height: 44px;

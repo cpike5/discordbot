@@ -643,6 +643,20 @@
         opacity: 0.4;
     }
 
+    @@media (pointer: coarse) {
+        .tts-history-toggle,
+        [id^="portalModeSwitcher-mode-"],
+        .voice-selector__trigger,
+        #portalStyleSelector-select {
+            min-height: 44px;
+        }
+
+        .tts-history-btn {
+            min-height: 44px;
+            min-width: 44px;
+        }
+    }
+
     @@media (max-width: 767px) {
         .tts-history-btn {
             min-height: 44px;

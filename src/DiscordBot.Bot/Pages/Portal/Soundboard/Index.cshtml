@@ -971,6 +971,26 @@
         }
     }
 
+    /* Touch: every control on a card, and the toolbar above the grid, is a 44px target */
+    @@media (pointer: coarse) {
+        .favorite-btn,
+        .preview-btn,
+        .delete-btn {
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0.5rem;
+        }
+
+        .sort-select,
+        .fullscreen-toggle-btn {
+            min-height: 44px;
+        }
+
+        .fullscreen-toggle-btn {
+            min-width: 44px;
+        }
+    }
+
     /* Page-specific responsive */
     @@media (max-width: 1023px) {
         .sound-panel {
