@@ -44,23 +44,28 @@ public class LedgerRepository : ILedgerRepository
             return new LedgerAppendResult(alreadyWritten, true);
         }
 
-        var owned = await BeginTransactionAsync(cancellationToken);
-        try
-        {
-            var result = await AppendCoreAsync(row, cancellationToken);
-            await CommitAsync(owned, cancellationToken);
-            return result;
-        }
-        catch (DbUpdateException ex)
-        {
-            var duplicate = await RecoverFromFailedWriteAsync(ex, owned, new[] { row }, cancellationToken);
-            return new LedgerAppendResult(duplicate.Single(), true);
-        }
-        catch
-        {
-            await RollbackAsync(owned, cancellationToken);
-            throw;
-        }
+        return await ExecuteAtomicallyAsync(
+            new[] { row },
+            async (owned, ct) =>
+            {
+                try
+                {
+                    var result = await AppendCoreAsync(row, ct);
+                    await CommitAsync(owned, ct);
+                    return result;
+                }
+                catch (DbUpdateException ex)
+                {
+                    var duplicate = await RecoverFromFailedWriteAsync(ex, owned, new[] { row }, ct);
+                    return new LedgerAppendResult(duplicate.Single(), true);
+                }
+                catch
+                {
+                    await RollbackAsync(owned, ct);
+                    throw;
+                }
+            },
+            cancellationToken);
     }
 
     /// <inheritdoc />
@@ -81,51 +86,56 @@ public class LedgerRepository : ILedgerRepository
             return new LedgerAppendPairResult(existingDebit, existingCredit, true);
         }
 
-        var owned = await BeginTransactionAsync(cancellationToken);
-        try
-        {
-            // Lock both wallets up front, lowest id first. Two transfers running in opposite
-            // directions between the same pair would otherwise be able to deadlock on Postgres.
-            foreach (var walletId in new[] { debit.WalletId, credit.WalletId }.Distinct().OrderBy(id => id))
+        return await ExecuteAtomicallyAsync(
+            new[] { debit, credit },
+            async (owned, ct) =>
             {
-                await LockWalletAsync(walletId, cancellationToken);
-            }
+                try
+                {
+                    // Lock both wallets up front, lowest id first. Two transfers running in opposite
+                    // directions between the same pair would otherwise be able to deadlock on Postgres.
+                    foreach (var walletId in new[] { debit.WalletId, credit.WalletId }.Distinct().OrderBy(id => id))
+                    {
+                        await LockWalletAsync(walletId, ct);
+                    }
 
-            var debitResult = await AppendCoreAsync(debit, cancellationToken);
+                    var debitResult = await AppendCoreAsync(debit, ct);
 
-            // Link forward now that the debit has an id, then back once the credit has one. Both
-            // writes happen before the transaction commits, so no reader ever sees a half-linked
-            // pair and the "rows are never updated" rule holds for everything outside it.
-            if (!debitResult.WasDuplicate)
-            {
-                credit.ReferenceTransactionId = debitResult.Transaction.Id;
-            }
+                    // Link forward now that the debit has an id, then back once the credit has one. Both
+                    // writes happen before the transaction commits, so no reader ever sees a half-linked
+                    // pair and the "rows are never updated" rule holds for everything outside it.
+                    if (!debitResult.WasDuplicate)
+                    {
+                        credit.ReferenceTransactionId = debitResult.Transaction.Id;
+                    }
 
-            var creditResult = await AppendCoreAsync(credit, cancellationToken);
+                    var creditResult = await AppendCoreAsync(credit, ct);
 
-            if (!debitResult.WasDuplicate)
-            {
-                debitResult.Transaction.ReferenceTransactionId = creditResult.Transaction.Id;
-                await _context.SaveChangesAsync(cancellationToken);
-            }
+                    if (!debitResult.WasDuplicate)
+                    {
+                        debitResult.Transaction.ReferenceTransactionId = creditResult.Transaction.Id;
+                        await _context.SaveChangesAsync(ct);
+                    }
 
-            await CommitAsync(owned, cancellationToken);
+                    await CommitAsync(owned, ct);
 
-            return new LedgerAppendPairResult(
-                debitResult.Transaction,
-                creditResult.Transaction,
-                debitResult.WasDuplicate && creditResult.WasDuplicate);
-        }
-        catch (DbUpdateException ex)
-        {
-            var recovered = await RecoverFromFailedWriteAsync(ex, owned, new[] { debit, credit }, cancellationToken);
-            return new LedgerAppendPairResult(recovered[0], recovered[1], true);
-        }
-        catch
-        {
-            await RollbackAsync(owned, cancellationToken);
-            throw;
-        }
+                    return new LedgerAppendPairResult(
+                        debitResult.Transaction,
+                        creditResult.Transaction,
+                        debitResult.WasDuplicate && creditResult.WasDuplicate);
+                }
+                catch (DbUpdateException ex)
+                {
+                    var recovered = await RecoverFromFailedWriteAsync(ex, owned, new[] { debit, credit }, ct);
+                    return new LedgerAppendPairResult(recovered[0], recovered[1], true);
+                }
+                catch
+                {
+                    await RollbackAsync(owned, ct);
+                    throw;
+                }
+            },
+            cancellationToken);
     }
 
     /// <inheritdoc />
@@ -303,14 +313,60 @@ public class LedgerRepository : ILedgerRepository
     }
 
     /// <summary>
-    /// Starts a transaction unless one is already running, in which case the caller above us owns
-    /// it and this returns null.
+    /// Runs one append unit (begin, work, commit) so that a retrying execution strategy can repeat it
+    /// as a whole.
+    /// <para>
+    /// The application configures Npgsql with <c>EnableRetryOnFailure</c>, and a retrying strategy
+    /// refuses a transaction the caller opens itself unless the whole transaction runs inside
+    /// <see cref="IExecutionStrategy.ExecuteAsync{TResult}(Func{CancellationToken, Task{TResult}}, CancellationToken)"/>.
+    /// Providers that do not retry (SQLite) get a pass-through strategy, so this costs them nothing.
+    /// </para>
+    /// <para>
+    /// Every attempt after the first starts clean: the change tracker is cleared (it still holds the
+    /// failed attempt's wallet change and inserted rows) and the caller's rows are put back as they
+    /// arrived (no generated id, no stamped balance, no wallet navigation, original reference). The idempotency check inside <see cref="AppendCoreAsync"/> then makes the retry safe
+    /// even when the failure was a commit whose outcome was unknown: if the first attempt did
+    /// commit, the retry finds its rows and returns them as duplicates instead of writing twice.
+    /// </para>
+    /// <para>
+    /// When a transaction is already running the caller above us owns it, and the strategy that
+    /// wraps it, so the unit runs as-is with a null transaction handle.
+    /// </para>
     /// </summary>
-    private async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken cancellationToken)
+    private async Task<T> ExecuteAtomicallyAsync<T>(
+        IReadOnlyList<LedgerTransaction> rows,
+        Func<IDbContextTransaction?, CancellationToken, Task<T>> unit,
+        CancellationToken cancellationToken)
     {
-        return _context.Database.CurrentTransaction != null
-            ? null
-            : await _context.Database.BeginTransactionAsync(cancellationToken);
+        if (_context.Database.CurrentTransaction != null)
+        {
+            return await unit(null, cancellationToken);
+        }
+
+        var originalReferences = rows.Select(r => r.ReferenceTransactionId).ToArray();
+        var attempt = 0;
+
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async ct =>
+        {
+            if (attempt++ > 0)
+            {
+                _context.ChangeTracker.Clear();
+                for (var i = 0; i < rows.Count; i++)
+                {
+                    rows[i].Id = 0;
+                    rows[i].BalanceAfter = 0;
+
+                    // Fix-up pointed this at the wallet instance the failed attempt tracked, with
+                    // its balance already moved. Re-adding the row would attach that stale copy.
+                    rows[i].Wallet = null;
+                    rows[i].ReferenceTransactionId = originalReferences[i];
+                }
+            }
+
+            var owned = await _context.Database.BeginTransactionAsync(ct);
+            return await unit(owned, ct);
+        }, cancellationToken);
     }
 
     private static async Task CommitAsync(IDbContextTransaction? owned, CancellationToken cancellationToken)
