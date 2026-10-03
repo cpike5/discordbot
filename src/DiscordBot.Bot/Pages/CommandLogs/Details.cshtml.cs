@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +29,25 @@ public class DetailsModel : PageModel
     /// </summary>
     public CommandLogDetailViewModel ViewModel { get; set; } = null!;
 
+    /// <summary>
+    /// Where Back goes: the page the person came from (a Commands view with its filters and
+    /// page, or a search), or the Execution Logs tab. Always a same-site path, because it is
+    /// written into an href.
+    /// </summary>
+    public string BackUrl { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Builds the Back target for <paramref name="returnUrl"/>.
+    /// </summary>
+    public static string ResolveBackUrl(string? returnUrl, string logsTabUrl) =>
+        ReturnUrlHelper.Sanitize(returnUrl, logsTabUrl);
+
+    /// <summary>
+    /// The address to go back to, passed by the page that linked here (<c>?returnUrl=</c>).
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? ReturnUrl { get; set; }
+
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing command log details for ID {Id}", id);
@@ -41,6 +61,7 @@ public class DetailsModel : PageModel
         }
 
         ViewModel = CommandLogDetailViewModel.FromDto(log);
+        BackUrl = ResolveBackUrl(ReturnUrl, Url?.Page("/Commands/Index", new { tab = "execution-logs" }) ?? "/Commands?tab=execution-logs");
 
         return Page();
     }

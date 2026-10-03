@@ -214,7 +214,10 @@
      * @param {string} [options.responseType] - 'blob' to read the body as a Blob
      *   (audio synthesize/preview endpoints) instead of JSON/text. Only applied
      *   when the response is ok; error bodies are always parsed as JSON/text so
-     *   error messages can still be extracted.
+     *   error messages can still be extracted. 'html' asks for an HTML fragment (a partial
+     *   view a page swaps into a region): an ok response resolves with the markup as
+     *   `data` (a string). Errors behave as for JSON, so a 4xx with a JSON body still
+     *   gives its message and an error page still becomes a plain-language message.
      */
     async function requestRaw(url, options = {}) {
         const {
@@ -233,7 +236,7 @@
         // session with 401 JSON instead of redirecting to the sign-in page.
         const finalHeaders = Object.assign({
             'X-Requested-With': 'XMLHttpRequest',
-            'Accept': responseType === 'blob' ? '*/*' : 'application/json'
+            'Accept': responseType === 'blob' ? '*/*' : (responseType === 'html' ? 'text/html' : 'application/json')
         }, headers);
         let finalBody = body;
 
@@ -311,6 +314,10 @@
                 throw new ApiClientError(NETWORK_MESSAGE, 0, null, null, 'network');
             }
 
+            if (responseType === 'html' && response.ok) {
+                return { ok: true, status: response.status, data: text, response };
+            }
+
             if (isHtmlResponse(response, text)) {
                 // A page, not data: an error page or a misrouted URL
                 const message = response.ok ? 'The server sent an unexpected response. Reload the page and try again.' : statusMessage(response.status);
@@ -357,6 +364,14 @@
     }
     function del(url, options = {}) {
         return request(url, Object.assign({}, options, { method: 'DELETE' }));
+    }
+
+    /**
+     * GET an HTML fragment (a partial view). Resolves with the markup string; throws
+     * ApiClientError otherwise, with the server's message for a client error.
+     */
+    function getHtml(url, options = {}) {
+        return request(url, Object.assign({}, options, { method: 'GET', responseType: 'html' }));
     }
 
     function getRaw(url, options = {}) {
@@ -424,6 +439,7 @@
         request,
         requestRaw,
         get,
+        getHtml,
         post,
         put,
         del,

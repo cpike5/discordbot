@@ -1152,12 +1152,13 @@ try {
 |---|---|
 | `get/post/put/del(url, [body], options)` | Resolve with the parsed body; throw `ApiClientError` for any failure |
 | `getRaw/postRaw/putRaw/delRaw(...)` | Resolve with `{ ok, status, data, response }` for HTTP errors; reject only for network failure or timeout |
+| `getHtml(url, options)` | GET an HTML fragment (a partial view a page swaps into a region). Resolves with the markup string; throws `ApiClientError` otherwise, with the server's message for a 4xx. Same as `request(url, { responseType: 'html' })`; `requestRaw` accepts the option too |
 
 What it handles for every caller:
 
 - **Expired session.** The server answers script requests with 401 problem JSON, not a redirect (see `IdentityServiceExtensions`). ApiClient also treats a redirect that lands on the sign-in page as expiry. Either way it shows one "Your session has expired" error toast with a **Sign in** action that returns to the current page, and fails with `err.kind === 'session-expired'`. Same-origin responses to raw `fetch()` calls are watched too, so older scripts get the same toast.
 - **Messages.** `ApiClientError.message` is always plain language. For a 4xx: `detail`, then `message`, `errors`, `title`. For a 5xx `detail` and `title` are skipped (some controllers put exception text in `detail`), so it is `message` or a sentence for the status code. Never "HTTP 500", never HTML.
-- **No HTML as data.** An HTML body (an error page) becomes `{ success: false, message }`.
+- **No HTML as data.** An HTML body (an error page) becomes `{ success: false, message }`. The one exception is a request that asks for it with `responseType: 'html'` / `getHtml`, whose ok response is the fragment.
 - **Network failures and timeouts.** 30 seconds by default (`timeout: 0` to disable, `signal` to cancel). They reject with `kind` `'network'` or `'timeout'` and status 0.
 - **Headers.** Anti-forgery token, `X-Requested-With: XMLHttpRequest`, `Accept: application/json`.
 
