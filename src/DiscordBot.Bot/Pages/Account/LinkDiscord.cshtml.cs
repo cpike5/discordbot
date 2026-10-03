@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -100,18 +101,6 @@ public class LinkDiscordModel : PageModel
     public string? VerificationCode { get; set; }
 
     /// <summary>
-    /// Status message to display to the user (success or error).
-    /// </summary>
-    [TempData]
-    public string? StatusMessage { get; set; }
-
-    /// <summary>
-    /// Indicates whether the status message is a success message.
-    /// </summary>
-    [TempData]
-    public bool IsSuccess { get; set; }
-
-    /// <summary>
     /// Handles GET requests to display the Discord link status page.
     /// </summary>
     public async Task<IActionResult> OnGetAsync()
@@ -183,8 +172,7 @@ public class LinkDiscordModel : PageModel
         if (!_oauthSettings.IsConfigured)
         {
             _logger.LogWarning("Discord OAuth link attempted but OAuth is not configured");
-            StatusMessage = "Discord OAuth is not configured on this server.";
-            IsSuccess = false;
+            TempData.SetErrorToast("Discord OAuth is not configured on this server.");
             return RedirectToPage();
         }
 
@@ -218,8 +206,7 @@ public class LinkDiscordModel : PageModel
         if (!user.DiscordUserId.HasValue)
         {
             _logger.LogWarning("User {UserId} attempted to unlink Discord but no Discord account is linked", user.Id);
-            StatusMessage = "No Discord account is currently linked.";
-            IsSuccess = false;
+            TempData.SetErrorToast("No Discord account is currently linked.");
             return RedirectToPage();
         }
 
@@ -267,22 +254,19 @@ public class LinkDiscordModel : PageModel
             if (updateResult.Succeeded)
             {
                 _logger.LogInformation("Successfully unlinked Discord account for user {UserId}", user.Id);
-                StatusMessage = "Discord account unlinked successfully.";
-                IsSuccess = true;
+                TempData.SetSuccessToast("Discord account unlinked successfully.");
             }
             else
             {
                 _logger.LogError("Failed to update user {UserId} after unlinking Discord: {Errors}",
                     user.Id, string.Join(", ", updateResult.Errors.Select(e => e.Description)));
-                StatusMessage = "Failed to unlink Discord account. Please try again.";
-                IsSuccess = false;
+                TempData.SetErrorToast("Failed to unlink Discord account. Please try again.");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error unlinking Discord account for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while unlinking Discord account.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while unlinking Discord account.");
         }
 
         return RedirectToPage();
@@ -314,22 +298,19 @@ public class LinkDiscordModel : PageModel
             {
                 _logger.LogInformation("Bot verification initiated successfully for user {UserId}, verification ID: {VerificationId}",
                     user.Id, result.VerificationId);
-                StatusMessage = "Verification initiated. Run /verify-account in Discord to continue.";
-                IsSuccess = true;
+                TempData.SetSuccessToast("Verification initiated. Run /verify-account in Discord to continue.");
             }
             else
             {
                 _logger.LogWarning("Failed to initiate bot verification for user {UserId}: {ErrorCode} - {ErrorMessage}",
                     user.Id, result.ErrorCode, result.ErrorMessage);
-                StatusMessage = result.ErrorMessage ?? "Failed to initiate verification.";
-                IsSuccess = false;
+                TempData.SetErrorToast(result.ErrorMessage ?? "Failed to initiate verification.");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error initiating bot verification for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while initiating verification.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while initiating verification.");
         }
 
         return RedirectToPage();
@@ -353,8 +334,7 @@ public class LinkDiscordModel : PageModel
         if (string.IsNullOrWhiteSpace(VerificationCode))
         {
             _logger.LogWarning("User {UserId} submitted empty verification code", user.Id);
-            StatusMessage = "Please enter a verification code.";
-            IsSuccess = false;
+            TempData.SetErrorToast("Please enter a verification code.");
             return RedirectToPage();
         }
 
@@ -371,22 +351,19 @@ public class LinkDiscordModel : PageModel
             {
                 _logger.LogInformation("Code verified successfully for user {UserId}, linked Discord user {DiscordUserId}",
                     user.Id, result.LinkedDiscordUserId);
-                StatusMessage = $"Discord account successfully linked! Welcome, {result.LinkedDiscordUsername ?? "Discord User"}!";
-                IsSuccess = true;
+                TempData.SetSuccessToast($"Discord account successfully linked! Welcome, {result.LinkedDiscordUsername ?? "Discord User"}!");
             }
             else
             {
                 _logger.LogWarning("Code verification failed for user {UserId}: {ErrorCode} - {ErrorMessage}",
                     user.Id, result.ErrorCode, result.ErrorMessage);
-                StatusMessage = result.ErrorMessage ?? "Invalid verification code.";
-                IsSuccess = false;
+                TempData.SetErrorToast(result.ErrorMessage ?? "Invalid verification code.");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying code for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while verifying the code.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while verifying the code.");
         }
 
         return RedirectToPage();
@@ -412,14 +389,12 @@ public class LinkDiscordModel : PageModel
         {
             await _verificationService.CancelPendingVerificationAsync(user.Id);
             _logger.LogInformation("Verification cancelled successfully for user {UserId}", user.Id);
-            StatusMessage = "Verification cancelled.";
-            IsSuccess = true;
+            TempData.SetInfoToast("Verification cancelled.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error cancelling verification for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while cancelling verification.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while cancelling verification.");
         }
 
         return RedirectToPage();
@@ -443,8 +418,7 @@ public class LinkDiscordModel : PageModel
         if (!user.DiscordUserId.HasValue)
         {
             _logger.LogWarning("User {UserId} attempted to refresh Discord data but no Discord account is linked", user.Id);
-            StatusMessage = "No Discord account is currently linked.";
-            IsSuccess = false;
+            TempData.SetErrorToast("No Discord account is currently linked.");
             return RedirectToPage();
         }
 
@@ -458,14 +432,12 @@ public class LinkDiscordModel : PageModel
             _userInfoService.InvalidateCache(user.Id);
 
             _logger.LogInformation("User {UserId} refreshed Discord guild data successfully", user.Id);
-            StatusMessage = "Discord data refreshed successfully.";
-            IsSuccess = true;
+            TempData.SetSuccessToast("Discord data refreshed successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error refreshing Discord data for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while refreshing Discord data. Please try again.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while refreshing Discord data. Please try again.");
         }
 
         return RedirectToPage();

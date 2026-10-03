@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -31,8 +32,6 @@ public class CreateModel : PageModel
     public InputModel Input { get; set; } = new();
 
     public UserFormViewModel ViewModel { get; set; } = new();
-
-    public string? ErrorMessage { get; set; }
 
     public class InputModel
     {
@@ -103,12 +102,12 @@ public class CreateModel : PageModel
         if (result.Succeeded)
         {
             _logger.LogInformation("Successfully created user: {Email}", Input.Email);
-            TempData["SuccessMessage"] = $"User {Input.Email} created successfully";
+            TempData.SetSuccessToast($"User {Input.Email} created successfully");
             return RedirectToPage("Index");
         }
 
         _logger.LogWarning("Failed to create user {Email}: {Error}", Input.Email, result.ErrorMessage);
-        ErrorMessage = result.ErrorMessage ?? "Failed to create user";
+        ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Failed to create user");
         await LoadViewModelAsync(currentUserId);
         return Page();
     }

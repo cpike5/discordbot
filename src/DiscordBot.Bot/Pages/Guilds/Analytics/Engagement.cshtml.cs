@@ -123,7 +123,7 @@ public class EngagementModel : GuildPageModelBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load engagement analytics for guild {GuildId}", guildId);
-            TempData["ErrorMessage"] = "Failed to load analytics data. Please try again.";
+            ErrorMessage = "Failed to load analytics data. Please try again.";
             // Return page with empty data
         }
 

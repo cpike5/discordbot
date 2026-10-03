@@ -1,5 +1,6 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -261,13 +262,13 @@ public class IndexModel : GuildPageModelBase
 
         if (result.Success)
         {
-            SuccessMessage = result.FileDeleted
+            TempData.SetSuccessToast(result.FileDeleted
                 ? "Sound deleted successfully."
-                : "Sound deleted successfully (file was already missing).";
+                : "Sound deleted successfully (file was already missing).");
         }
         else
         {
-            ErrorMessage = result.ErrorMessage ?? "Failed to delete sound.";
+            TempData.SetErrorToast(result.ErrorMessage ?? "Failed to delete sound.");
         }
 
         return RedirectToPage("Index", new { guildId, sort = Sort });
@@ -290,14 +291,14 @@ public class IndexModel : GuildPageModelBase
         // Validate file exists
         if (file == null || file.Length == 0)
         {
-            ErrorMessage = "Please select a file to upload.";
+            TempData.SetErrorToast("Please select a file to upload.");
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
 
         // Validate file extension early (before opening stream)
         if (!_soundFileService.IsValidAudioFormat(file.FileName))
         {
-            ErrorMessage = "Invalid file format. Supported formats: MP3, WAV, OGG, M4A.";
+            TempData.SetErrorToast("Invalid file format. Supported formats: MP3, WAV, OGG, M4A.");
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
 
@@ -308,7 +309,7 @@ public class IndexModel : GuildPageModelBase
         if (file.Length > settings.MaxFileSizeBytes)
         {
             var maxSizeMB = settings.MaxFileSizeBytes / (1024.0 * 1024.0);
-            ErrorMessage = $"File size exceeds the maximum allowed size of {maxSizeMB:F1} MB.";
+            TempData.SetErrorToast($"File size exceeds the maximum allowed size of {maxSizeMB:F1} MB.");
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
 
@@ -327,11 +328,11 @@ public class IndexModel : GuildPageModelBase
 
         if (result.Success)
         {
-            SuccessMessage = $"Sound '{result.Sound!.Name}' uploaded successfully.";
+            TempData.SetSuccessToast($"Sound '{result.Sound!.Name}' uploaded successfully.");
         }
         else
         {
-            ErrorMessage = result.ErrorMessage ?? "Failed to upload sound.";
+            TempData.SetErrorToast(result.ErrorMessage ?? "Failed to upload sound.");
         }
 
         return RedirectToPage("Index", new { guildId, sort = Sort });
@@ -355,7 +356,7 @@ public class IndexModel : GuildPageModelBase
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
             if (!settings.AudioEnabled)
             {
-                ErrorMessage = "Audio features are not enabled for this guild.";
+                TempData.SetErrorToast("Audio features are not enabled for this guild.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -366,7 +367,7 @@ public class IndexModel : GuildPageModelBase
 
             if (discoveredFiles.Count == 0)
             {
-                ErrorMessage = "No sound files found in the guild's directory.";
+                TempData.SetWarningToast("No sound files found in the guild's directory.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -429,11 +430,11 @@ public class IndexModel : GuildPageModelBase
             {
                 _logger.LogInformation("Discovered {Count} new sounds for guild {GuildId}",
                     newSoundsCount, guildId);
-                SuccessMessage = $"Discovered {newSoundsCount} new sound(s).";
+                TempData.SetSuccessToast($"Discovered {newSoundsCount} new sound(s).");
             }
             else
             {
-                ErrorMessage = "No new sounds found. All files in the directory are already registered.";
+                TempData.SetInfoToast("No new sounds found. All files in the directory are already registered.");
             }
 
             return RedirectToPage("Index", new { guildId, sort = Sort });
@@ -441,7 +442,7 @@ public class IndexModel : GuildPageModelBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error discovering sounds for guild {GuildId}", guildId);
-            ErrorMessage = "An error occurred while discovering sounds. Please try again.";
+            TempData.SetErrorToast("An error occurred while discovering sounds. Please try again.");
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
     }
@@ -468,7 +469,7 @@ public class IndexModel : GuildPageModelBase
             // Validate new name
             if (string.IsNullOrWhiteSpace(newName))
             {
-                ErrorMessage = "Sound name cannot be empty.";
+                TempData.SetErrorToast("Sound name cannot be empty.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -477,7 +478,7 @@ public class IndexModel : GuildPageModelBase
             if (sound == null)
             {
                 _logger.LogWarning("Sound {SoundId} not found for guild {GuildId}", soundId, guildId);
-                ErrorMessage = "Sound not found.";
+                TempData.SetErrorToast("Sound not found.");
                 return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
@@ -488,7 +489,7 @@ public class IndexModel : GuildPageModelBase
             // For now, we'll just reload the page. In a future enhancement, we could add an UpdateSoundAsync method.
             // Since this is a limitation, we'll set an error message.
 
-            ErrorMessage = "Rename functionality is not yet implemented. Please delete and re-upload the sound with the new name.";
+            TempData.SetWarningToast("Rename functionality is not yet implemented. Please delete and re-upload the sound with the new name.");
             _logger.LogWarning("Rename attempted but UpdateSoundAsync not available in ISoundService");
 
             return RedirectToPage("Index", new { guildId, sort = Sort });
@@ -497,7 +498,7 @@ public class IndexModel : GuildPageModelBase
         {
             _logger.LogError(ex, "Error renaming sound {SoundId} for guild {GuildId}",
                 soundId, guildId);
-            ErrorMessage = "An error occurred while renaming the sound. Please try again.";
+            TempData.SetErrorToast("An error occurred while renaming the sound. Please try again.");
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
     }

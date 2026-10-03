@@ -45,20 +45,6 @@
     </div>
 }
 
-@if (!string.IsNullOrEmpty(Model.SuccessMessage))
-{
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new AlertViewModel { Variant = AlertVariant.Success, Message = Model.SuccessMessage, IsDismissible = true }" />
-    </div>
-}
-
-@if (!string.IsNullOrEmpty(Model.ErrorMessage))
-{
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new AlertViewModel { Variant = AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = true }" />
-    </div>
-}
-
 <!-- Guild currencies -->
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <div>

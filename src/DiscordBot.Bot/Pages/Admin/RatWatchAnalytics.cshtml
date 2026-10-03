@@ -41,14 +41,14 @@
     </div>
 
     <!-- Display any errors -->
-    @if (TempData["ErrorMessage"] != null)
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="mb-6">
             @{
                 var errorAlert = new AlertViewModel {
                     Variant = AlertVariant.Error,
                     Title = "Error",
-                    Message = TempData["ErrorMessage"]!.ToString()!,
+                    Message = Model.ErrorMessage,
                     ShowIcon = true
                 };
             }

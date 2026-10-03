@@ -102,7 +102,20 @@
 </head>
 <body class="font-sans antialiased text-text-primary">
 
-    @if (!Model.IsLeaderboardPublic)
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage) && !Model.IsAuthorized)
+    {
+        <!-- Load Error (failed before the leaderboard could be resolved) -->
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="max-w-md w-full">
+                <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                    Variant = AlertVariant.Error,
+                    Title = "Leaderboard unavailable",
+                    Message = Model.ErrorMessage
+                }' />
+            </div>
+        </div>
+    }
+    else if (!Model.IsLeaderboardPublic)
     {
         <!-- Not Public Message -->
         <div class="min-h-screen flex items-center justify-center p-4">
@@ -188,6 +201,16 @@
                     <p class="text-xl text-text-secondary">@Model.GuildName</p>
                     <p class="text-sm text-text-tertiary mt-2">Accountability metrics and fun stats</p>
                 </div>
+
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="mb-8">
+                        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                            Variant = AlertVariant.Error,
+                            Message = Model.ErrorMessage
+                        }" />
+                    </div>
+                }
 
                 <!-- Fun Stats Highlight Cards -->
                 @if (Model.FunStats != null)

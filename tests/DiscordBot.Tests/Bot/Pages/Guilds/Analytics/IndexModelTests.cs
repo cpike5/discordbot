@@ -75,7 +75,7 @@ public class IndexModelTests
         var actionContext = new ActionContext(httpContext, new RouteData(), new PageActionDescriptor(), modelState);
         _indexModel.PageContext = new PageContext(actionContext);
 
-        // TempData is required by the catch block in OnGetAsync when analytics loading fails
+        // A real TempData dictionary so nothing on the page model trips over a null one
         _indexModel.TempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>());
     }
 
@@ -249,6 +249,8 @@ public class IndexModelTests
 
         // Assert
         result.Should().BeOfType<PageResult>("the page should handle analytics exceptions gracefully and still return PageResult");
+        _indexModel.ErrorMessage.Should().Be("Failed to load analytics data. Please try again.",
+            "a load failure is page state rendered by the page itself, not a toast");
     }
 
     // -----------------------------------------------------------------

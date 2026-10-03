@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -96,16 +97,10 @@ public class ProfileModel : PageModel
     public ThemeSource CurrentThemeSource { get; set; }
 
     /// <summary>
-    /// Status message to display to the user (success or error).
+    /// Page-state error shown when the theme preferences failed to load.
+    /// Action results from the POST handler are shown as toasts instead.
     /// </summary>
-    [TempData]
-    public string? StatusMessage { get; set; }
-
-    /// <summary>
-    /// Indicates whether the status message is a success message.
-    /// </summary>
-    [TempData]
-    public bool IsSuccess { get; set; }
+    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Handles GET requests to display the profile page.
@@ -164,8 +159,7 @@ public class ProfileModel : PageModel
         if (!SelectedThemeId.HasValue)
         {
             _logger.LogWarning("User {UserId} attempted to save without selecting a theme", user.Id);
-            StatusMessage = "Please select a theme.";
-            IsSuccess = false;
+            TempData.SetErrorToast("Please select a theme.");
             return RedirectToPage();
         }
 
@@ -175,8 +169,7 @@ public class ProfileModel : PageModel
         {
             _logger.LogWarning("User {UserId} attempted to select invalid theme {ThemeId}",
                 user.Id, SelectedThemeId.Value);
-            StatusMessage = "The selected theme is not available.";
-            IsSuccess = false;
+            TempData.SetErrorToast("The selected theme is not available.");
             return RedirectToPage();
         }
 
@@ -201,21 +194,18 @@ public class ProfileModel : PageModel
                 _logger.LogInformation("Successfully updated theme preference for user {UserId} to {ThemeName}",
                     user.Id, theme.DisplayName);
 
-                StatusMessage = "Theme preference saved successfully.";
-                IsSuccess = true;
+                TempData.SetSuccessToast("Theme preference saved successfully.");
             }
             else
             {
                 _logger.LogWarning("Failed to update theme preference for user {UserId}", user.Id);
-                StatusMessage = "Failed to save theme preference. Please try again.";
-                IsSuccess = false;
+                TempData.SetErrorToast("Failed to save theme preference. Please try again.");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error saving theme preference for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while saving your preferences.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while saving your preferences.");
         }
 
         return RedirectToPage();
@@ -242,8 +232,7 @@ public class ProfileModel : PageModel
         {
             _logger.LogError(ex, "Error loading theme data for user {UserId}", userId);
             AvailableThemes = new SelectList(Enumerable.Empty<ThemeDto>(), nameof(ThemeDto.Id), nameof(ThemeDto.DisplayName));
-            StatusMessage = "Failed to load theme preferences.";
-            IsSuccess = false;
+            ErrorMessage = "Failed to load theme preferences.";
         }
     }
 

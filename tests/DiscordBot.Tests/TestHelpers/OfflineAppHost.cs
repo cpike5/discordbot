@@ -124,6 +124,19 @@ public sealed class OfflineAppHost : IAsyncDisposable
         return client;
     }
 
+    /// <summary>
+    /// A client that is not signed in and does not follow redirects, so a test can see where
+    /// the app sends it. The caller disposes the client.
+    /// </summary>
+    public HttpClient CreateAnonymousClient()
+    {
+        return _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+    }
+
     /// <summary>The Identity id of the seeded admin.</summary>
     public async Task<string> GetAdminUserIdAsync()
     {

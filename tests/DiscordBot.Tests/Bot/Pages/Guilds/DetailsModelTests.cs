@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -50,6 +51,7 @@ public class DetailsModelTests
         var modelState = new ModelStateDictionary();
         var actionContext = new ActionContext(httpContext, new RouteData(), new PageActionDescriptor(), modelState);
         _detailsModel.PageContext = new PageContext(actionContext);
+        _detailsModel.TempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>());
     }
 
     private static GuildDetailsAggregateDto BuildAggregate(ulong guildId, string name = "Test Guild")
@@ -196,11 +198,11 @@ public class DetailsModelTests
 
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
-        _detailsModel.SuccessMessage.Should().Be("Guild synced successfully");
+        _detailsModel.TempData["ToastSuccess"].Should().Be("Guild synced successfully");
     }
 
     [Fact]
-    public async Task OnPostSyncAsync_WhenGuildNotFound_DoesNotSetSuccessMessage()
+    public async Task OnPostSyncAsync_WhenGuildNotFound_SetsErrorToastInsteadOfSuccess()
     {
         // Arrange
         const ulong guildId = 123456789UL;
@@ -212,6 +214,7 @@ public class DetailsModelTests
         await _detailsModel.OnPostSyncAsync(guildId, CancellationToken.None);
 
         // Assert
-        _detailsModel.SuccessMessage.Should().BeNull();
+        _detailsModel.TempData["ToastSuccess"].Should().BeNull();
+        _detailsModel.TempData["ToastError"].Should().Be("Guild not found in Discord client");
     }
 }

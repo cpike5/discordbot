@@ -1,6 +1,6 @@
 # UX Polish Audit and Plan
 
-**Status:** In progress. Phases 0a and 0b done; next is Phase 1.
+**Status:** In progress. Phases 0a, 0b and 1 done; next is Phase 2.
 **Date:** 2026-10-02
 **Scope:** The admin web portal (Razor Pages), the member portal (Soundboard, TTS, VOX), and the shared layout, components, CSS and JS behind them.
 
@@ -410,6 +410,16 @@ All runtime verification uses PostgreSQL (D16) with `Discord:OfflineMode=true`.
   - One error layout; add 400 (session timed out, reload), 405, 429, 503; show the original path; apply theme; `<main>`; remove "team notified".
 - **Acceptance:** expired-cookie fetch shows the session toast; every previously swallowed TempData message appears; double-clicking Login sends one POST; `/Error/400` renders themed.
 - **Verify:** delete the auth cookie and trigger a fetch; Slow 3G double-submit on Login; screenshot each error page in both themes.
+
+**Done (Phase 1).** All listed changes landed; the acceptance checks pass on PostgreSQL in offline mode (Login double-click sends one POST; dropping the auth cookie and calling `ApiClient` or raw `fetch` shows one "session expired" toast with Sign in; error pages checked in both themes). Notes for later phases:
+
+- **Toasts.** `toast.success/error/warning/info(msg, { title, duration, action, key })` is the API (`wwwroot/js/toast.js`, documented in `docs/articles/component-api.md`). The old shapes are aliases, so the ~190 existing call sites were not rewritten; move them to `toast.*` as each screen phase touches them. `Components/_ToastContainer` (the bottom variant, included by five pages, which duplicated the container id) is gone; the layouts own the container.
+- **TempData bridge.** Every `[TempData] SuccessMessage` / `ErrorMessage` / `StatusMessage` producer moved to `TempData.Set*Toast`; the alert blocks that showed them are gone. Load failures are plain `ErrorMessage` page state with a non-dismissible `_Alert` (`GuildPageModelBase.ErrorMessage` is no longer `[TempData]`). Previously swallowed messages now show: Logs load failure, AuditLogs/Logs export failures, PublicLeaderboard load failure, Users/Edit reset-password and unlink errors, ScheduledMessages/Edit delete errors, Guilds/Details sync failures. Login and ExternalLogin keep their inline form error. Users/Edit's one-time password and Privacy's export link are `[TempData]` data shown once in a dismissible `_Alert`, because a toast closes too soon to copy them. `Integration/FeedbackPlumbingTests` covers redirect → toast → shown once.
+- **Session expiry.** Script requests (`/api`, `/hubs`, `X-Requested-With`, JSON-only `Accept`) get 401/403 problem JSON (`HttpRequestExtensions.IsScriptRequest`). `ApiClient` sends `X-Requested-With`, and also watches same-origin responses to raw `fetch()`, so the 32 raw-`fetch` files get the toast without being rewritten. They still need moving to `ApiClient` for the error, timeout and pending handling (definition of done, item 3).
+- **Error text.** `ApiClient` prefers `detail` for 4xx and ignores it for 5xx, because about 28 controller catch blocks put `ex.Message` in `detail` on a 500. A few return `ex.Message` with a 400 from a catch-all (`PortalTtsSynthesisController`, `PortalTtsPresetsController`, `PortalVoxController`, moderation controllers); those still reach users and belong to the phases that own those screens.
+- **Submit guard.** `data-submit-guard` exists and is on the Login forms only. Each screen phase adds it to its POST forms (the purge pages in Phase 11 first). `LoadingManager.setButtonLoading` now keeps the button's icon slot and label.
+- **Error pages.** One page, `Pages/Error/Index.cshtml` (`/Error/{statusCode}`), on `_ErrorLayout`. It handles every verb and ignores antiforgery, so the antiforgery 400 renders ("This page has expired", with Reload). Direct visits answer 200; re-executed errors keep the real status. Copy is in `ErrorPageModel.Describe`.
+- **Found along the way.** Reminders bound its page number as `page`, which Razor Pages reserves for the page name: Cancel always threw and Previous/Next dropped the page number. Fixed (now `pageNumber`). ScheduledMessages, FeatureRequests, RatWatch and FlaggedEvents still use `asp-route-page` in their hand-rolled pagination, which URL generation overwrites with the page name, so their Previous/Next links always lead to page 1; they go when those screens move to `_Pagination` (Phases 7 and 8).
 
 ### Phase 2 — Tokens, CSS and theme (D4, D5)
 

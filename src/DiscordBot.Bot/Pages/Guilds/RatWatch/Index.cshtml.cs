@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
@@ -136,12 +137,12 @@ public class IndexModel : GuildPageModelBase
         if (success)
         {
             _logger.LogInformation("Successfully cancelled Rat Watch {WatchId}", watchId);
-            SuccessMessage = "Rat Watch cancelled successfully.";
+            TempData.SetSuccessToast("Rat Watch cancelled successfully.");
         }
         else
         {
             _logger.LogWarning("Failed to cancel Rat Watch {WatchId} - not found or already completed", watchId);
-            ErrorMessage = "Could not cancel the Rat Watch. It may have already completed or been cancelled.";
+            TempData.SetErrorToast("Could not cancel the Rat Watch. It may have already completed or been cancelled.");
         }
 
         return RedirectToPage("Index", new { guildId, page, pageSize });
@@ -171,12 +172,12 @@ public class IndexModel : GuildPageModelBase
         if (success)
         {
             _logger.LogInformation("Successfully ended voting on Rat Watch {WatchId}", watchId);
-            SuccessMessage = "Voting ended and verdict determined.";
+            TempData.SetSuccessToast("Voting ended and verdict determined.");
         }
         else
         {
             _logger.LogWarning("Failed to end voting on Rat Watch {WatchId} - not found or not in voting status", watchId);
-            ErrorMessage = "Could not end voting. The watch may not be in voting status.";
+            TempData.SetErrorToast("Could not end voting. The watch may not be in voting status.");
         }
 
         return RedirectToPage("Index", new { guildId, page, pageSize });
@@ -213,19 +214,19 @@ public class IndexModel : GuildPageModelBase
         // Validate parameters
         if (string.IsNullOrWhiteSpace(timezone))
         {
-            ErrorMessage = "Timezone is required.";
+            TempData.SetErrorToast("Timezone is required.");
             return RedirectToPage("Index", new { guildId, page, pageSize });
         }
 
         if (maxAdvanceHours < 1 || maxAdvanceHours > 168) // 1 week max
         {
-            ErrorMessage = "Max advance hours must be between 1 and 168 (1 week).";
+            TempData.SetErrorToast("Max advance hours must be between 1 and 168 (1 week).");
             return RedirectToPage("Index", new { guildId, page, pageSize });
         }
 
         if (votingDurationMinutes < 1 || votingDurationMinutes > 60)
         {
-            ErrorMessage = "Voting duration must be between 1 and 60 minutes.";
+            TempData.SetErrorToast("Voting duration must be between 1 and 60 minutes.");
             return RedirectToPage("Index", new { guildId, page, pageSize });
         }
 
@@ -241,12 +242,12 @@ public class IndexModel : GuildPageModelBase
             }, cancellationToken);
 
             _logger.LogInformation("Successfully updated Rat Watch settings for guild {GuildId}", guildId);
-            SuccessMessage = "Rat Watch settings updated successfully.";
+            TempData.SetSuccessToast("Rat Watch settings updated successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update Rat Watch settings for guild {GuildId}", guildId);
-            ErrorMessage = "Failed to update settings. Please try again.";
+            TempData.SetErrorToast("Failed to update settings. Please try again.");
         }
 
         return RedirectToPage("Index", new { guildId, page, pageSize });

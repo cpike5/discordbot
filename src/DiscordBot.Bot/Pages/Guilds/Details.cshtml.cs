@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -314,7 +315,7 @@ public class DetailsModel : GuildPageModelBase
                     return new JsonResult(new { success = true, message = "Guild synced successfully" });
                 }
 
-                SuccessMessage = "Guild synced successfully";
+                TempData.SetSuccessToast("Guild synced successfully");
                 return RedirectToPage(new { guildId });
             }
             else
@@ -326,7 +327,7 @@ public class DetailsModel : GuildPageModelBase
                     return new JsonResult(new { success = false, message = "Guild not found in Discord client" });
                 }
 
-                ErrorMessage = "Guild not found in Discord client";
+                TempData.SetErrorToast("Guild not found in Discord client");
                 return RedirectToPage(new { guildId });
             }
         }
@@ -339,7 +340,7 @@ public class DetailsModel : GuildPageModelBase
                 return new JsonResult(new { success = false, message = "An error occurred while syncing the guild" });
             }
 
-            ErrorMessage = "An error occurred while syncing the guild";
+            TempData.SetErrorToast("An error occurred while syncing the guild");
             return RedirectToPage(new { guildId });
         }
     }

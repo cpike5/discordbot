@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -31,10 +32,10 @@ public class UserPurgeModel : PageModel
     public string? CannotPurgeReason { get; set; }
     public bool ShowPreview { get; set; }
 
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    [TempData]
+    /// <summary>
+    /// Page-state error shown when the preview for the requested user could not be loaded.
+    /// Action results from the purge POST are shown as toasts instead.
+    /// </summary>
     public string? ErrorMessage { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
@@ -86,7 +87,7 @@ public class UserPurgeModel : PageModel
         if (!canPurge)
         {
             CannotPurgeReason = reason;
-            ErrorMessage = reason;
+            TempData.SetErrorToast(reason ?? "User cannot be purged.");
             return Page();
         }
 
@@ -104,7 +105,7 @@ public class UserPurgeModel : PageModel
         if (PurgeResult.Success)
         {
             var totalDeleted = PurgeResult.DeletedCounts.Values.Sum();
-            SuccessMessage = $"User data purged successfully. {totalDeleted} records deleted.";
+            TempData.SetSuccessToast($"User data purged successfully. {totalDeleted} records deleted.");
 
             _logger.LogInformation(
                 "Successfully purged data for Discord user {DiscordUserId}. Total records: {TotalDeleted}",
@@ -112,7 +113,10 @@ public class UserPurgeModel : PageModel
         }
         else
         {
-            ErrorMessage = PurgeResult.ErrorMessage ?? "An error occurred during purge.";
+            // A failed transaction's message carries exception text; it is logged below, not shown.
+            TempData.SetErrorToast(PurgeResult.ErrorCode == UserPurgeResultDto.TransactionFailed
+                ? "An error occurred during purge."
+                : PurgeResult.ErrorMessage ?? "An error occurred during purge.");
 
             _logger.LogError(
                 "Failed to purge data for Discord user {DiscordUserId}: {Error}",

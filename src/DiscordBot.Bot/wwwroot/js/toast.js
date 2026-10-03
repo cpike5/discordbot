@@ -1,279 +1,359 @@
 /**
- * Toast Notification Manager
- * Provides toast notifications with auto-dismiss, hover-to-pause, and progress bar.
+ * Toast notifications - the one toast API for the app (UX plan decision D1).
+ *
+ *   toast.success('Saved.');
+ *   toast.error('Could not save.', { action: { label: 'Retry', onClick: save } });
+ *   toast.info('Copied.', { title: 'Clipboard' });
+ *   toast.warning('Rate limit approaching.');
+ *
+ * Options: { title, duration (ms, 0 = stay until dismissed), action: { label, onClick }, key }.
+ * Error toasts stay until dismissed. A toast whose type, title and message (or `key`) match
+ * one already on screen is not shown twice; the existing one restarts its timer instead.
+ * Timers pause while the toast is hovered, focused or touched.
+ *
+ * Server-side messages arrive through the TempData bridge (TempData.SetSuccessToast etc.),
+ * which _ToastContainer renders as JSON in #serverToasts; they are shown on load.
+ *
+ * Older call shapes still work and route here:
+ *   ToastManager.show(type, message, options)
+ *   quickActions.showToast(message, type)
+ *   showToast(type, message) and showToast(message, type)
+ *   Toast.show(message, type)
  */
-const ToastManager = {
-  container: null,
-  toasts: [],
-  maxToasts: 5,
+(function () {
+  'use strict';
 
-  // Toast icon SVG templates
-  icons: {
-    info: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-    success: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-    warning: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
-    error: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
-  },
+  const TYPES = ['success', 'error', 'warning', 'info'];
+  const TYPE_LABELS = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Information' };
 
-  /**
-   * Initialize the toast manager
-   */
-  init() {
-    this.container = document.getElementById('toastContainer');
-    if (!this.container) {
-      // Auto-create the container so ToastManager works on any page
-      // (e.g. portal pages that don't include _ToastContainer.cshtml)
-      this.container = document.createElement('div');
-      this.container.id = 'toastContainer';
-      this.container.className = 'fixed right-4 flex flex-col gap-2 pointer-events-none overflow-hidden';
-      this.container.style.cssText = 'top: 80px; max-height: calc(100vh - 96px); z-index: var(--z-toast);';
-      this.container.setAttribute('role', 'region');
-      this.container.setAttribute('aria-label', 'Notifications');
+  const ToastManager = {
+    container: null,
+    toasts: [],
+    maxToasts: 5,
 
-      // Add screen-reader live region
-      const liveRegion = document.createElement('div');
-      liveRegion.id = 'toastLiveRegion';
-      liveRegion.className = 'sr-only';
-      liveRegion.setAttribute('aria-live', 'polite');
-      liveRegion.setAttribute('aria-atomic', 'true');
-      this.container.appendChild(liveRegion);
+    icons: {
+      info: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+      success: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+      warning: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
+      error: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+    },
 
-      document.body.appendChild(this.container);
-    }
-  },
+    /**
+     * Find or create the container and its live regions, then show any toasts the
+     * server queued through TempData. Safe to call more than once.
+     */
+    init() {
+      if (this.container && document.body.contains(this.container)) return;
 
-  /**
-   * Show a toast notification
-   * @param {string} type - Toast type: 'success', 'error', 'warning', 'info'
-   * @param {string} message - The message to display
-   * @param {object} options - Optional configuration
-   * @param {string} options.title - Optional title
-   * @param {number} options.duration - Auto-dismiss duration in ms (default: 3000 for success, 5000 for info/warning, 0/no auto-dismiss for error)
-   * @param {object} options.action - Optional action button { label: string, onClick: function }
-   */
-  show(type, message, options = {}) {
-    if (!this.container) {
-      this.init();
-    }
+      this.container = document.getElementById('toastContainer');
+      if (!this.container) {
+        // Pages without _ToastContainer (standalone pages) still get toasts
+        this.container = document.createElement('div');
+        this.container.id = 'toastContainer';
+        this.container.className = 'toast-container';
+        this.container.setAttribute('role', 'region');
+        this.container.setAttribute('aria-label', 'Notifications');
+        document.body.appendChild(this.container);
+      }
+      this.ensureLiveRegion('toastLiveRegion', 'polite');
+      this.ensureLiveRegion('toastAlertRegion', 'assertive');
 
-    // Default durations by type: success=3s, info=5s, error=no auto-dismiss
-    const defaultDuration = type === 'error' ? 0 : type === 'success' ? 3000 : 5000;
-    const {
-      title = null,
-      duration = defaultDuration,
-      action = null
-    } = options;
+      this.showServerToasts();
+    },
 
-    // Enforce max toasts limit
-    while (this.toasts.length >= this.maxToasts) {
-      const oldestToast = this.toasts.shift();
-      clearTimeout(oldestToast.timeoutId);
-      oldestToast.element.remove();
-    }
+    /** @private */
+    ensureLiveRegion(id, politeness) {
+      if (document.getElementById(id)) return;
+      const region = document.createElement('div');
+      region.id = id;
+      region.className = 'sr-only';
+      region.setAttribute('aria-live', politeness);
+      region.setAttribute('aria-atomic', 'true');
+      this.container.appendChild(region);
+    },
 
-    // Create and add new toast
-    const toastData = this.createToast(type, message, title, duration, action);
-    this.toasts.push(toastData);
+    /**
+     * Show the toasts _ToastContainer rendered from TempData, once.
+     * @private
+     */
+    showServerToasts() {
+      const data = document.getElementById('serverToasts');
+      if (!data || data.dataset.shown === 'true') return;
+      data.dataset.shown = 'true';
 
-    // Insert at beginning (newest on top)
-    this.container.insertBefore(toastData.element, this.container.firstChild);
+      let queued = [];
+      try {
+        queued = JSON.parse(data.textContent || '[]');
+      } catch (e) {
+        return;
+      }
+      queued.forEach(t => this.show(t.type, t.message, { title: t.title || null }));
+    },
 
-    // Announce to screen readers via live region
-    this.announceToScreenReader(type, message, title);
-  },
+    /**
+     * Show a toast.
+     * @param {string} type - 'success', 'error', 'warning' or 'info'
+     * @param {string} message
+     * @param {object} [options]
+     * @param {string} [options.title]
+     * @param {number} [options.duration] - ms before it closes; 0 keeps it until dismissed.
+     *   Defaults: success 4s, info/warning 6s, error stays.
+     * @param {{label: string, onClick: function}} [options.action]
+     * @param {string} [options.key] - identity for de-duplication (defaults to type + title + message)
+     */
+    show(type, message, options = {}) {
+      if (!this.container) this.init();
+      if (!TYPES.includes(type)) type = 'info';
+      message = message == null ? '' : String(message);
 
-  /**
-   * Announce toast message to screen readers
-   * @private
-   */
-  announceToScreenReader(type, message, title) {
-    const liveRegion = document.getElementById('toastLiveRegion');
-    if (liveRegion) {
-      const typeLabels = {
-        success: 'Success',
-        error: 'Error',
-        warning: 'Warning',
-        info: 'Information'
-      };
-      const announcement = title
-        ? `${typeLabels[type]}: ${title}. ${message}`
-        : `${typeLabels[type]}: ${message}`;
-      liveRegion.textContent = announcement;
+      const defaultDuration = type === 'error' ? 0 : type === 'success' ? 4000 : 6000;
+      const {
+        title = null,
+        duration = defaultDuration,
+        action = null,
+        key = `${type}|${title || ''}|${message}`
+      } = options || {};
 
-      // Clear after a short delay to allow for repeated announcements
-      setTimeout(() => {
-        liveRegion.textContent = '';
-      }, 1000);
-    }
-  },
+      // Repeats: keep the one on screen and give it a fresh timer
+      const existing = this.toasts.find(t => t.key === key && !t.dismissing);
+      if (existing) {
+        this.restartTimer(existing);
+        existing.element.classList.remove('toast-bump');
+        void existing.element.offsetWidth;
+        existing.element.classList.add('toast-bump');
+        return existing;
+      }
 
-  /**
-   * Create a toast element
-   * @private
-   */
-  createToast(type, message, title, duration, action) {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'polite');
+      while (this.toasts.length >= this.maxToasts) {
+        const oldest = this.toasts.shift();
+        clearTimeout(oldest.timeoutId);
+        oldest.element.remove();
+      }
 
-    const autoDismiss = duration > 0;
+      const toastData = this.createToast(type, message, title, duration, action, key);
+      this.toasts.push(toastData);
+      this.container.insertBefore(toastData.element, this.container.firstChild);
+      this.announce(type, message, title);
+      return toastData;
+    },
 
-    // Build content HTML
-    let contentHTML = '';
-    if (title) {
-      contentHTML = `
-        <p class="text-sm font-semibold text-text-primary">${this.escapeHtml(title)}</p>
-        <p class="text-sm text-text-secondary mt-0.5">${this.escapeHtml(message)}</p>
-      `;
-    } else {
-      contentHTML = `<p class="text-sm text-text-primary">${this.escapeHtml(message)}</p>`;
-    }
+    success(message, options) { return this.show('success', message, options); },
+    error(message, options) { return this.show('error', message, options); },
+    warning(message, options) { return this.show('warning', message, options); },
+    info(message, options) { return this.show('info', message, options); },
 
-    // Build action button HTML if provided
-    let actionHTML = '';
-    if (action && action.label) {
-      actionHTML = `
-        <button class="toast-action" type="button">
-          ${this.escapeHtml(action.label)}
-        </button>
-      `;
-    }
+    /**
+     * Announce through the shared live regions: errors assertively, the rest politely.
+     * The toast element itself carries no live role, so nothing is read twice.
+     * @private
+     */
+    announce(type, message, title) {
+      const region = document.getElementById(type === 'error' ? 'toastAlertRegion' : 'toastLiveRegion');
+      if (!region) return;
+      region.textContent = title
+        ? `${TYPE_LABELS[type]}: ${title}. ${message}`
+        : `${TYPE_LABELS[type]}: ${message}`;
+      setTimeout(() => { region.textContent = ''; }, 1000);
+    },
 
-    toast.innerHTML = `
-      <div class="toast-icon flex-shrink-0 mt-0.5">
-        ${this.icons[type]}
-      </div>
-      <div class="flex-1 min-w-0 flex items-start gap-2">
-        <div class="flex-1">
-          ${contentHTML}
+    /** @private */
+    createToast(type, message, title, duration, action, key) {
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+
+      const autoDismiss = duration > 0;
+      const escape = this.escapeHtml;
+
+      const contentHTML = title
+        ? `<p class="text-sm font-semibold text-text-primary">${escape(title)}</p>
+           <p class="text-sm text-text-secondary mt-0.5">${escape(message)}</p>`
+        : `<p class="text-sm text-text-primary">${escape(message)}</p>`;
+
+      const actionHTML = action && action.label
+        ? `<button class="toast-action" type="button">${escape(action.label)}</button>`
+        : '';
+
+      toast.innerHTML = `
+        <div class="toast-icon flex-shrink-0 mt-0.5">${this.icons[type]}</div>
+        <div class="flex-1 min-w-0 flex items-start gap-2">
+          <div class="flex-1 min-w-0 break-words">${contentHTML}</div>
+          ${actionHTML}
         </div>
-        ${actionHTML}
-      </div>
-      <button class="toast-close" aria-label="Dismiss notification">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-      ${autoDismiss ? `<div class="toast-progress animating" style="animation-duration: ${duration}ms;"></div>` : ''}
-    `;
+        <button class="toast-close" type="button" aria-label="Dismiss notification">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        ${autoDismiss ? `<div class="toast-progress animating" style="animation-duration: ${duration}ms;"></div>` : ''}
+      `;
 
-    // Store timer reference
-    const toastData = {
-      element: toast,
-      timeoutId: null,
-      remainingTime: duration,
-      startTime: Date.now()
-    };
+      const toastData = {
+        element: toast,
+        key,
+        duration,
+        timeoutId: null,
+        remainingTime: duration,
+        startTime: Date.now(),
+        pauseReasons: new Set(),
+        dismissing: false
+      };
 
-    // Set up auto-dismiss (only for non-persistent toasts)
-    if (autoDismiss) {
-      toastData.timeoutId = setTimeout(() => {
-        this.dismissToast(toastData);
-      }, duration);
+      if (autoDismiss) {
+        this.startTimer(toastData);
 
-      // Pause on hover
-      toast.addEventListener('mouseenter', () => {
-        const elapsed = Date.now() - toastData.startTime;
-        toastData.remainingTime = Math.max(0, toastData.remainingTime - elapsed);
-
-        clearTimeout(toastData.timeoutId);
-
-        const progressBar = toast.querySelector('.toast-progress');
-        if (progressBar) {
-          progressBar.classList.add('paused');
-        }
-      });
-
-      toast.addEventListener('mouseleave', () => {
-        toastData.startTime = Date.now();
-        toastData.timeoutId = setTimeout(() => {
-          this.dismissToast(toastData);
-        }, toastData.remainingTime);
-
-        const progressBar = toast.querySelector('.toast-progress');
-        if (progressBar) {
-          progressBar.classList.remove('paused');
-        }
-      });
-    }
-
-    // Close button handler
-    const closeBtn = toast.querySelector('.toast-close');
-    closeBtn.addEventListener('click', () => {
-      clearTimeout(toastData.timeoutId);
-      this.dismissToast(toastData);
-    });
-
-    // Action button handler
-    if (action && action.onClick) {
-      const actionBtn = toast.querySelector('.toast-action');
-      if (actionBtn) {
-        actionBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          action.onClick();
-          clearTimeout(toastData.timeoutId);
-          this.dismissToast(toastData);
+        // Pause while the pointer is over it, focus is inside it, or a finger is on it
+        const pause = reason => this.pause(toastData, reason);
+        const resume = reason => this.resume(toastData, reason);
+        toast.addEventListener('mouseenter', () => pause('hover'));
+        toast.addEventListener('mouseleave', () => resume('hover'));
+        toast.addEventListener('focusin', () => pause('focus'));
+        toast.addEventListener('focusout', e => {
+          if (!toast.contains(e.relatedTarget)) resume('focus');
         });
+        toast.addEventListener('touchstart', () => pause('touch'), { passive: true });
+        toast.addEventListener('touchend', () => setTimeout(() => resume('touch'), 1500), { passive: true });
+        toast.addEventListener('touchcancel', () => resume('touch'), { passive: true });
       }
-    }
 
-    return toastData;
-  },
+      toast.querySelector('.toast-close').addEventListener('click', () => this.dismissToast(toastData));
 
-  /**
-   * Dismiss a toast
-   * @private
-   */
-  dismissToast(toastData) {
-    const toast = toastData.element;
-
-    // Add dismissing animation class
-    toast.classList.add('dismissing');
-
-    // Remove after animation (200ms)
-    setTimeout(() => {
-      toast.remove();
-
-      // Remove from toasts array
-      const index = this.toasts.indexOf(toastData);
-      if (index > -1) {
-        this.toasts.splice(index, 1);
+      if (action && typeof action.onClick === 'function') {
+        const actionBtn = toast.querySelector('.toast-action');
+        if (actionBtn) {
+          actionBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            action.onClick();
+            this.dismissToast(toastData);
+          });
+        }
       }
-    }, 200);
-  },
 
-  /**
-   * Clear all toasts
-   */
-  clearAll() {
-    const toastsCopy = [...this.toasts];
+      return toastData;
+    },
 
-    toastsCopy.forEach(toastData => {
+    /** @private */
+    startTimer(toastData) {
       clearTimeout(toastData.timeoutId);
-      this.dismissToast(toastData);
-    });
-  },
+      toastData.startTime = Date.now();
+      toastData.timeoutId = setTimeout(() => this.dismissToast(toastData), toastData.remainingTime);
+    },
 
-  /**
-   * Escape HTML to prevent XSS
-   * @private
-   */
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    /** @private */
+    restartTimer(toastData) {
+      if (!(toastData.duration > 0)) return;
+      toastData.remainingTime = toastData.duration;
+      const bar = toastData.element.querySelector('.toast-progress');
+      if (bar) {
+        bar.classList.remove('animating');
+        void bar.offsetWidth;
+        bar.classList.add('animating');
+      }
+      if (toastData.pauseReasons.size === 0) {
+        this.startTimer(toastData);
+      } else {
+        clearTimeout(toastData.timeoutId);
+        if (bar) bar.classList.add('paused');
+      }
+    },
+
+    /** @private */
+    pause(toastData, reason) {
+      const wasRunning = toastData.pauseReasons.size === 0;
+      toastData.pauseReasons.add(reason);
+      if (!wasRunning) return;
+      clearTimeout(toastData.timeoutId);
+      toastData.remainingTime = Math.max(0, toastData.remainingTime - (Date.now() - toastData.startTime));
+      const bar = toastData.element.querySelector('.toast-progress');
+      if (bar) bar.classList.add('paused');
+    },
+
+    /** @private */
+    resume(toastData, reason) {
+      if (!toastData.pauseReasons.delete(reason) || toastData.pauseReasons.size > 0) return;
+      if (toastData.dismissing) return;
+      this.startTimer(toastData);
+      const bar = toastData.element.querySelector('.toast-progress');
+      if (bar) bar.classList.remove('paused');
+    },
+
+    /** Dismiss one toast. */
+    dismissToast(toastData) {
+      if (toastData.dismissing) return;
+      toastData.dismissing = true;
+      clearTimeout(toastData.timeoutId);
+
+      const toast = toastData.element;
+      // Keep focus on the page rather than losing it to <body> when the toast goes
+      const hadFocus = toast.contains(document.activeElement);
+      toast.classList.add('dismissing');
+
+      setTimeout(() => {
+        toast.remove();
+        const index = this.toasts.indexOf(toastData);
+        if (index > -1) this.toasts.splice(index, 1);
+        if (hadFocus) {
+          const main = document.getElementById('main-content');
+          if (main) {
+            if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+            main.focus({ preventScroll: true });
+          }
+        }
+      }, 200);
+    },
+
+    /** Dismiss every toast. */
+    clearAll() {
+      [...this.toasts].forEach(t => this.dismissToast(t));
+    },
+
+    /** @private */
+    escapeHtml(text) {
+      if (window.SafeHtml && typeof window.SafeHtml.escape === 'function') {
+        return window.SafeHtml.escape(text);
+      }
+      return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+  };
+
+  /** Accepts (type, message) or (message, type), whichever order a caller used. */
+  function showEitherOrder(a, b, options) {
+    if (TYPES.includes(a) && !TYPES.includes(b)) return ToastManager.show(a, b, options);
+    return ToastManager.show(TYPES.includes(b) ? b : 'info', a, options);
   }
-};
 
-// Auto-initialize on DOM ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => ToastManager.init());
-} else {
-  ToastManager.init();
-}
+  const toast = {
+    success: (message, options) => ToastManager.success(message, options),
+    error: (message, options) => ToastManager.error(message, options),
+    warning: (message, options) => ToastManager.warning(message, options),
+    info: (message, options) => ToastManager.info(message, options),
+    show: (type, message, options) => ToastManager.show(type, message, options),
+    dismissAll: () => ToastManager.clearAll()
+  };
 
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ToastManager;
-}
+  window.ToastManager = ToastManager;
+  window.toast = toast;
+  // Legacy shapes
+  if (typeof window.showToast !== 'function') window.showToast = showEitherOrder;
+  if (!window.Toast) window.Toast = { show: (a, b, options) => showEitherOrder(a, b, options) };
+
+  // Dismissible _Alert banners: remove the alert, then call its optional callback by name.
+  document.addEventListener('click', e => {
+    const button = e.target instanceof Element ? e.target.closest('[data-alert-dismiss]') : null;
+    if (!button) return;
+    const alert = button.closest('[data-alert]');
+    if (!alert) return;
+    const callbackName = button.dataset.dismissCallback;
+    alert.remove();
+    if (callbackName && /^[A-Za-z_$][\w$]*$/.test(callbackName) && typeof window[callbackName] === 'function') {
+      window[callbackName](alert);
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => ToastManager.init());
+  } else {
+    ToastManager.init();
+  }
+})();

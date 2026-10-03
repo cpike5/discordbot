@@ -55,6 +55,14 @@
     </div>
 </div>
 
+<!-- Load Error -->
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel { Variant = AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = false }" />
+    </div>
+}
+
 <!-- Tab Navigation -->
 <div class="mb-6">
     @await Html.PartialAsync("Shared/Components/_TabPanel", tabModel)

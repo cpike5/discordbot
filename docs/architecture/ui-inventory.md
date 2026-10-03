@@ -109,9 +109,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/error/403` | `Pages/Error/403.cshtml` | Access forbidden |
-| `/error/404` | `Pages/Error/404.cshtml` | Page not found |
-| `/error/500` | `Pages/Error/500.cshtml` | Server error |
+| `/Error/{statusCode}` | `Pages/Error/Index.cshtml` | One page for every status code (400 expired page, 403, 404, 405, 429, 500, 503, …). Reached through `UseStatusCodePagesWithReExecute` and `UseExceptionHandler`; shows the address that failed, a reference for 5xx, and Sign in / Reload / Go back actions. Uses `_ErrorLayout`. A failed request from a script (`/api`, `/hubs`, `X-Requested-With`) gets problem JSON instead. |
 
 ---
 
@@ -124,6 +122,7 @@ All layouts are located in `Pages/Shared/`.
 | **Main Layout** | `_Layout.cshtml` | Default authenticated layout with navbar, sidebar, footer | Most admin/guild pages |
 | **Landing Layout** | `_LayoutLanding.cshtml` | Unauthenticated layout for public pages | Landing, Login pages |
 | **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context | Guild pages under `/guild/{guildId}/*` |
+| **Error Layout** | `_ErrorLayout.cshtml` | Standalone, themed, `<main>` landmark; renders even when the theme lookup fails | `Pages/Error/Index` |
 
 `_PwaHead.cshtml` is a head partial (manifest link, install icons, service worker registration) included by `_Layout`, `Portal/_PortalLayout`, `_LayoutLanding`, and `Account/Login`. See [Progressive Web App](../articles/pwa.md).
 
@@ -133,7 +132,7 @@ All layouts are located in `Pages/Shared/`.
 |-----------|------|---------|
 | Navbar | `_Navbar.cshtml` | Top navigation bar with user menu |
 | Sidebar | `_Sidebar.cshtml` | Left sidebar with navigation (admin/authenticated) |
-| Toast Container | `_ToastContainer.cshtml` | Global toast notification container |
+| Toast Container | `_ToastContainer.cshtml` | Toast container and live regions, plus toasts queued through `TempData.Set*Toast` (as JSON for `toast.js`). Rendered by `_Layout` and `_PortalLayout`; do not include it in pages |
 | Mobile Search | `_MobileSearchOverlay.cshtml` | Mobile-friendly search overlay |
 | Validation Scripts | `_ValidationScriptsPartial.cshtml` | Client-side validation script inclusion |
 | Breadcrumb | `_Breadcrumb.cshtml` | Navigation breadcrumb trail |
@@ -228,7 +227,6 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Quick Actions Card** | `_QuickActionsCard.cshtml` | Card with action buttons/links | `QuickActionsCardViewModel` |
 | **Guild Header** | `_GuildHeader.cshtml` | Guild name/icon header | `GuildHeaderViewModel` |
 | **Voice Channel Panel** | `_VoiceChannelPanel.cshtml` | Voice channel list/control panel | `VoiceChannelPanelViewModel` |
-| **Toast Container** | `_ToastContainer.cshtml` | Global toast notification area | `ToastContainerViewModel` |
 | **Currency Wallet Panel** | `_CurrencyWalletPanel.cshtml` | Holder list, ledger with paging, and the mint / fine / adjust modal for one currency. Static markup filled by `currency-wallets.js`; the `CanMint` / `CanFine` / `CanAdminister` flags decide which actions are rendered at all. Shared by the guild currency detail page and `/Admin/Currency`. | `CurrencyWalletPanelViewModel` |
 
 ### TTS & Audio Components
@@ -494,7 +492,9 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 |--------|----------|---------|
 | Filter Panel | `wwwroot/js/shared/filter-panel.js` | Collapsible filters + date presets |
 | NavTabs | `wwwroot/js/shared/nav-tabs.js` | Tab switching (page/in-page/AJAX) |
-| Toast System | `wwwroot/js/shared/toast.js` | Toast notifications API |
+| Toast System | `wwwroot/js/toast.js` | `toast.success/error/warning/info`, legacy aliases, server toasts, `_Alert` dismiss |
+| API Client | `wwwroot/js/api-client.js` | Fetch wrapper: anti-forgery, session-expiry toast, plain-language errors, timeout |
+| Loading Manager | `wwwroot/js/loading-manager.js` | Button pending states, page/container overlays, `data-submit-guard` |
 | Preview Popup | `wwwroot/js/shared/preview-popup.js` | User/guild preview cards |
 | Currency Manage | `wwwroot/js/currency/currency-manage.js` | Currency create/edit form, deactivation, mint authority list (guild and bot-wide pages) |
 | Currency Wallets | `wwwroot/js/currency/currency-wallets.js` | Holder list, ledger paging, and the mint / fine / adjust actions behind `_CurrencyWalletPanel` |

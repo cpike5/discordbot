@@ -67,6 +67,11 @@ public class RatWatchAnalyticsModel : PageModel
     public List<GuildSummaryDto> EnabledGuilds { get; private set; } = new();
 
     /// <summary>
+    /// Page-state error shown when the analytics data failed to load.
+    /// </summary>
+    public string? ErrorMessage { get; private set; }
+
+    /// <summary>
     /// Handles GET requests to display the global analytics dashboard.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -179,7 +184,7 @@ public class RatWatchAnalyticsModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load global analytics data (GuildId filter: {GuildId})", GuildId?.ToString() ?? "All");
-            TempData["ErrorMessage"] = "Failed to load analytics data. Please try again.";
+            ErrorMessage = "Failed to load analytics data. Please try again.";
             // Return page with empty data
         }
 

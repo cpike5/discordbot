@@ -154,8 +154,8 @@ public class DetailsModelSyncTests
         redirectResult.RouteValues.Should().ContainKey("guildId")
             .WhoseValue.Should().Be(guildId, "redirect should include guild ID");
 
-        _detailsModel.SuccessMessage.Should().Be("Guild synced successfully",
-            "TempData should contain success message");
+        _detailsModel.TempData["ToastSuccess"].Should().Be("Guild synced successfully",
+            "TempData should contain the success toast");
 
         _mockGuildService.Verify(
             s => s.SyncGuildAsync(guildId, It.IsAny<CancellationToken>()),
@@ -164,7 +164,7 @@ public class DetailsModelSyncTests
     }
 
     [Fact]
-    public async Task OnPostSyncAsync_NonAjax_WhenGuildNotFound_RedirectsWithoutSuccessMessage()
+    public async Task OnPostSyncAsync_NonAjax_WhenGuildNotFound_RedirectsWithErrorToast()
     {
         // Arrange
         const ulong guildId = 999999999UL;
@@ -184,8 +184,10 @@ public class DetailsModelSyncTests
         redirectResult.RouteValues.Should().ContainKey("guildId")
             .WhoseValue.Should().Be(guildId, "redirect should include guild ID");
 
-        _detailsModel.SuccessMessage.Should().BeNull(
-            "TempData should not contain success message for failed sync");
+        _detailsModel.TempData["ToastSuccess"].Should().BeNull(
+            "TempData should not contain a success toast for failed sync");
+        _detailsModel.TempData["ToastError"].Should().Be("Guild not found in Discord client",
+            "a failed sync should report an error toast");
 
         _mockGuildService.Verify(
             s => s.SyncGuildAsync(guildId, It.IsAny<CancellationToken>()),
@@ -228,7 +230,7 @@ public class DetailsModelSyncTests
     }
 
     [Fact]
-    public async Task OnPostSyncAsync_NonAjax_WithException_RedirectsWithoutSuccessMessage()
+    public async Task OnPostSyncAsync_NonAjax_WithException_RedirectsWithErrorToast()
     {
         // Arrange
         const ulong guildId = 123456789UL;
@@ -249,8 +251,10 @@ public class DetailsModelSyncTests
         redirectResult.RouteValues.Should().ContainKey("guildId")
             .WhoseValue.Should().Be(guildId, "redirect should include guild ID");
 
-        _detailsModel.SuccessMessage.Should().BeNull(
-            "TempData should not contain success message when exception occurs");
+        _detailsModel.TempData["ToastSuccess"].Should().BeNull(
+            "TempData should not contain a success toast when exception occurs");
+        _detailsModel.TempData["ToastError"].Should().Be("An error occurred while syncing the guild",
+            "an exception should report a plain-language error toast");
 
         _mockGuildService.Verify(
             s => s.SyncGuildAsync(guildId, It.IsAny<CancellationToken>()),

@@ -10,7 +10,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 **API Version:** 1.0
 
-**Authentication:** None (MVP - authentication to be added in future releases)
+**Authentication:** The admin portal's sign-in cookie. Without a valid session an API call gets **401** and a problem body (`application/problem+json`, detail "Your session has expired. Sign in again to continue."); without the required role it gets **403**. API calls are never redirected to the sign-in page. The same applies to any request sent with `X-Requested-With: XMLHttpRequest` (Razor Page handlers called from scripts) or accepting only JSON. An unmatched `/api` route answers 404 with a problem body, not the HTML error page.
 
 ---
 
@@ -6212,7 +6212,7 @@ All error responses follow a consistent format using `ApiErrorDto`.
 | Field | Type | Description |
 |-------|------|-------------|
 | `message` | string | Short, user-friendly error message |
-| `detail` | string? | Detailed error explanation (optional) |
+| `detail` | string? | What to fix, for a 4xx; `ApiClient` shows it in preference to `message`. Never shown for a 5xx, so exception text there stays out of the UI (optional) |
 | `statusCode` | integer | HTTP status code |
 | `traceId` | string? | Correlation ID for log tracing (optional) |
 
@@ -6220,7 +6220,9 @@ All error responses follow a consistent format using `ApiErrorDto`.
 
 | Code | Meaning | Common Causes |
 |------|---------|---------------|
-| 400 | Bad Request | Invalid input, validation failure, malformed JSON |
+| 400 | Bad Request | Invalid input, validation failure, malformed JSON, stale antiforgery token |
+| 401 | Unauthorized | No session, or it expired (problem JSON, never a redirect) |
+| 403 | Forbidden | Signed in without the required role |
 | 404 | Not Found | Guild not found, resource doesn't exist |
 | 500 | Internal Server Error | Unexpected server error, database connection failure |
 | 202 | Accepted | Async operation initiated (shutdown, restart) |

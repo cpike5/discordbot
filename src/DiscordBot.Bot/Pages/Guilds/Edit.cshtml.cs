@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -137,7 +138,7 @@ public class EditModel : GuildPageModelBase
         if (result == null)
         {
             _logger.LogWarning("Failed to update guild {GuildId} - guild not found", Input.GuildId);
-            ErrorMessage = "Guild not found. It may have been removed.";
+            TempData.SetErrorToast("Guild not found. It may have been removed.");
             await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
@@ -158,14 +159,14 @@ public class EditModel : GuildPageModelBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update audio settings for guild {GuildId}", Input.GuildId);
-            ErrorMessage = "Guild settings saved, but audio settings failed to update. Please try again.";
+            TempData.SetErrorToast("Guild settings saved, but audio settings failed to update. Please try again.");
             await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
 
         _logger.LogInformation("Successfully updated guild {GuildId}", Input.GuildId);
-        SuccessMessage = "Guild settings saved successfully.";
+        TempData.SetSuccessToast("Guild settings saved successfully.");
 
         return RedirectToPage("Details", new { guildId = Input.GuildId });
     }

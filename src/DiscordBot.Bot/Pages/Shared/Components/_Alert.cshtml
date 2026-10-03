@@ -9,10 +9,12 @@
     };
 }
 
-<div class="flex items-start gap-3 p-4 rounded-lg border @bgClass @borderClass @textClass" role="alert" aria-live="polite">
+@* Server-rendered, so it is there on load: role="status" (polite), not role="alert", which
+   would interrupt the page's announcement. Dismiss is wired globally by toast.js. *@
+<div class="flex items-start gap-3 p-4 rounded-lg border @bgClass @borderClass @textClass" role="status" data-alert>
     @if (Model.ShowIcon)
     {
-        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@iconPath" />
         </svg>
     }
@@ -31,12 +33,9 @@
             type="button"
             class="p-1 hover:opacity-70 transition-opacity"
             aria-label="Dismiss"
-            @if (!string.IsNullOrEmpty(Model.DismissCallback))
-            {
-                @:onclick="@Model.DismissCallback"
-            }
-        >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            data-alert-dismiss
+            data-dismiss-callback="@Model.DismissCallback">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
         </button>

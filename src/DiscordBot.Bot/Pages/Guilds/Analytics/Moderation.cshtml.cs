@@ -138,7 +138,7 @@ public class ModerationModel : GuildPageModelBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load moderation analytics data for guild {GuildId}", guildId);
-            TempData["ErrorMessage"] = "Failed to load analytics data. Please try again.";
+            ErrorMessage = "Failed to load analytics data. Please try again.";
             // Return page with empty data
         }
 

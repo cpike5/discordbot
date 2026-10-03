@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -65,16 +66,17 @@ public class PrivacyModel : PageModel
     public IEnumerable<ConsentHistoryEntryDto> ConsentHistory { get; set; } = Array.Empty<ConsentHistoryEntryDto>();
 
     /// <summary>
-    /// Status message to display to the user (success or error).
+    /// Page-state error shown when the consent data failed to load.
+    /// Action results from the POST handlers are shown as toasts instead.
     /// </summary>
-    [TempData]
-    public string? StatusMessage { get; set; }
+    public string? ErrorMessage { get; set; }
 
     /// <summary>
-    /// Indicates whether the status message is a success message.
+    /// Download link from a successful export, carried across the redirect and shown once
+    /// in a page alert so the user can use it (a toast would auto-dismiss).
     /// </summary>
     [TempData]
-    public bool IsSuccess { get; set; }
+    public string? ExportDownloadUrl { get; set; }
 
     /// <summary>
     /// Handles GET requests to display the privacy and consent settings page.
@@ -117,8 +119,7 @@ public class PrivacyModel : PageModel
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching consent data for user {UserId}", user.Id);
-                StatusMessage = "An error occurred while loading consent data.";
-                IsSuccess = false;
+                ErrorMessage = "An error occurred while loading consent data.";
             }
         }
         else
@@ -149,8 +150,7 @@ public class PrivacyModel : PageModel
         if (!user.DiscordUserId.HasValue)
         {
             _logger.LogWarning("User {UserId} attempted to toggle consent without Discord account linked", user.Id);
-            StatusMessage = "You must link your Discord account before managing consent preferences.";
-            IsSuccess = false;
+            TempData.SetErrorToast("You must link your Discord account before managing consent preferences.");
             return RedirectToPage();
         }
 
@@ -158,8 +158,7 @@ public class PrivacyModel : PageModel
         if (!Enum.IsDefined(typeof(ConsentType), type))
         {
             _logger.LogWarning("User {UserId} attempted to toggle invalid consent type {Type}", user.Id, type);
-            StatusMessage = "Invalid consent type.";
-            IsSuccess = false;
+            TempData.SetErrorToast("Invalid consent type.");
             return RedirectToPage();
         }
 
@@ -186,8 +185,7 @@ public class PrivacyModel : PageModel
             {
                 _logger.LogInformation("Successfully {Action} consent for {ConsentType} for user {UserId}",
                     grant ? "granted" : "revoked", consentType, user.Id);
-                StatusMessage = "Your consent preferences have been updated successfully.";
-                IsSuccess = true;
+                TempData.SetSuccessToast("Your consent preferences have been updated successfully.");
             }
             else
             {
@@ -195,7 +193,7 @@ public class PrivacyModel : PageModel
                     grant ? "grant" : "revoke", consentType, user.Id, result.ErrorCode, result.ErrorMessage);
 
                 // Handle specific error codes with user-friendly messages
-                StatusMessage = result.ErrorCode switch
+                TempData.SetErrorToast(result.ErrorCode switch
                 {
                     ConsentUpdateResult.AlreadyGranted => "This consent is already granted.",
                     ConsentUpdateResult.NotGranted => "This consent is not currently granted.",
@@ -203,15 +201,13 @@ public class PrivacyModel : PageModel
                     ConsentUpdateResult.InvalidConsentType => "Invalid consent type.",
                     ConsentUpdateResult.DatabaseError => "A database error occurred. Please try again.",
                     _ => result.ErrorMessage ?? "Failed to update consent preferences. Please try again."
-                };
-                IsSuccess = false;
+                });
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error toggling consent for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while updating consent preferences.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while updating consent preferences.");
         }
 
         return RedirectToPage();
@@ -234,8 +230,7 @@ public class PrivacyModel : PageModel
         if (!user.DiscordUserId.HasValue)
         {
             _logger.LogWarning("User {UserId} attempted to export data without Discord account linked", user.Id);
-            StatusMessage = "You must link your Discord account before exporting data.";
-            IsSuccess = false;
+            TempData.SetErrorToast("You must link your Discord account before exporting data.");
             return RedirectToPage();
         }
 
@@ -255,30 +250,27 @@ public class PrivacyModel : PageModel
                 _logger.LogInformation("Successfully exported data for user {UserId}. {RecordCount} records exported",
                     user.Id, totalRecords);
 
-                StatusMessage = $"Your data has been exported successfully. {totalRecords} records were exported. " +
-                              $"Download link: {result.DownloadUrl} (expires in 7 days)";
-                IsSuccess = true;
+                TempData.SetSuccessToast($"Your data has been exported successfully. {totalRecords} records were exported.");
+                ExportDownloadUrl = result.DownloadUrl;
             }
             else
             {
                 _logger.LogWarning("Failed to export data for user {UserId}: {ErrorCode} - {ErrorMessage}",
                     user.Id, result.ErrorCode, result.ErrorMessage);
 
-                StatusMessage = result.ErrorCode switch
+                TempData.SetErrorToast(result.ErrorCode switch
                 {
                     UserDataExportResultDto.UserNotFound => "User not found in the database.",
                     UserDataExportResultDto.DatabaseError => "A database error occurred. Please try again.",
                     UserDataExportResultDto.FileSystemError => "Failed to create export files. Please try again.",
                     _ => result.ErrorMessage ?? "Failed to export data. Please try again."
-                };
-                IsSuccess = false;
+                });
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error exporting data for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while exporting your data. Please try again.";
-            IsSuccess = false;
+            TempData.SetErrorToast("An error occurred while exporting your data. Please try again.");
         }
 
         return RedirectToPage();

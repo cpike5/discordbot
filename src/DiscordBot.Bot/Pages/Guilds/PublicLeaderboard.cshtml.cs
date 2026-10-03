@@ -103,6 +103,11 @@ public class PublicLeaderboardModel : PageModel
     public string LoginUrl { get; private set; } = string.Empty;
 
     /// <summary>
+    /// Gets the page-level error shown when the leaderboard failed to load (current request only).
+    /// </summary>
+    public string? ErrorMessage { get; private set; }
+
+    /// <summary>
     /// Handles GET requests to display the public leaderboard.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -239,7 +244,7 @@ public class PublicLeaderboardModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load public leaderboard for guild {GuildId}", guildId);
-            TempData["ErrorMessage"] = "Failed to load leaderboard. Please try again.";
+            ErrorMessage = "Failed to load leaderboard. Please try again.";
         }
 
         return Page();

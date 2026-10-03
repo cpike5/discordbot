@@ -331,8 +331,8 @@ public class LinkDiscordModelTests
 
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
-        pageModel.StatusMessage.Should().Contain("Discord OAuth is not configured");
-        pageModel.IsSuccess.Should().BeFalse();
+        pageModel.TempData["ToastError"].Should().BeOfType<string>().Which.Should().Contain("Discord OAuth is not configured");
+        pageModel.TempData.Should().NotContainKey("ToastSuccess");
     }
 
     [Fact]
@@ -402,8 +402,8 @@ public class LinkDiscordModelTests
             Times.Once,
             "user should be updated with cleared Discord fields");
 
-        _pageModel.StatusMessage.Should().Contain("Discord account unlinked successfully");
-        _pageModel.IsSuccess.Should().BeTrue();
+        _pageModel.TempData["ToastSuccess"].Should().BeOfType<string>().Which.Should().Contain("Discord account unlinked successfully");
+        _pageModel.TempData.Should().NotContainKey("ToastError");
     }
 
     [Fact]
@@ -453,8 +453,8 @@ public class LinkDiscordModelTests
 
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
-        _pageModel.StatusMessage.Should().Contain("No Discord account is currently linked");
-        _pageModel.IsSuccess.Should().BeFalse();
+        _pageModel.TempData["ToastError"].Should().BeOfType<string>().Which.Should().Contain("No Discord account is currently linked");
+        _pageModel.TempData.Should().NotContainKey("ToastSuccess");
 
         // Verify no unlink operations were performed
         _mockTokenService.Verify(
@@ -501,8 +501,8 @@ public class LinkDiscordModelTests
 
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
-        _pageModel.StatusMessage.Should().Contain("Failed to unlink Discord account");
-        _pageModel.IsSuccess.Should().BeFalse();
+        _pageModel.TempData["ToastError"].Should().BeOfType<string>().Which.Should().Contain("Failed to unlink Discord account");
+        _pageModel.TempData.Should().NotContainKey("ToastSuccess");
     }
 
     [Fact]
@@ -532,8 +532,8 @@ public class LinkDiscordModelTests
 
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
-        _pageModel.StatusMessage.Should().Contain("An error occurred while unlinking Discord account");
-        _pageModel.IsSuccess.Should().BeFalse();
+        _pageModel.TempData["ToastError"].Should().BeOfType<string>().Which.Should().Contain("An error occurred while unlinking Discord account");
+        _pageModel.TempData.Should().NotContainKey("ToastSuccess");
     }
 
     [Fact]
@@ -579,8 +579,8 @@ public class LinkDiscordModelTests
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
         // Should still succeed overall even if external login removal fails
-        _pageModel.StatusMessage.Should().Contain("Discord account unlinked successfully");
-        _pageModel.IsSuccess.Should().BeTrue();
+        _pageModel.TempData["ToastSuccess"].Should().BeOfType<string>().Which.Should().Contain("Discord account unlinked successfully");
+        _pageModel.TempData.Should().NotContainKey("ToastError");
     }
 
     [Fact]
@@ -664,8 +664,8 @@ public class LinkDiscordModelTests
 
         // Assert
         result.Should().BeOfType<RedirectToPageResult>();
-        _pageModel.StatusMessage.Should().Contain("Discord account unlinked successfully");
-        _pageModel.IsSuccess.Should().BeTrue();
+        _pageModel.TempData["ToastSuccess"].Should().BeOfType<string>().Which.Should().Contain("Discord account unlinked successfully");
+        _pageModel.TempData.Should().NotContainKey("ToastError");
 
         // Verify RemoveLoginAsync was not called
         _mockUserManager.Verify(

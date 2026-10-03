@@ -8,7 +8,11 @@ public record AlertViewModel
     public string Message { get; init; } = string.Empty;
     public bool IsDismissible { get; init; } = false;
     public bool ShowIcon { get; init; } = true;
-    public string? DismissCallback { get; init; } // JavaScript function name
+    /// <summary>
+    /// Optional name of a global JavaScript function, called with the alert element after the
+    /// alert is dismissed. A name, not code: it is never evaluated. Dismissing works without it.
+    /// </summary>
+    public string? DismissCallback { get; init; }
 }
 
 public enum AlertVariant

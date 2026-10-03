@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
@@ -41,18 +42,6 @@ public class IndexModel : PageModel
     public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
     public GuildHeaderViewModel Header { get; set; } = new();
     public GuildNavBarViewModel Navigation { get; set; } = new();
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
-    /// Error message from TempData.
-    /// </summary>
-    [TempData]
-    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Handles GET requests to display the scheduled messages list.
@@ -177,12 +166,12 @@ public class IndexModel : PageModel
         if (success)
         {
             _logger.LogInformation("Successfully deleted scheduled message {MessageId}", messageId);
-            SuccessMessage = "Scheduled message deleted successfully.";
+            TempData.SetSuccessToast("Scheduled message deleted successfully.");
         }
         else
         {
             _logger.LogWarning("Failed to delete scheduled message {MessageId} - not found", messageId);
-            ErrorMessage = "Scheduled message not found. It may have already been deleted.";
+            TempData.SetErrorToast("Scheduled message not found. It may have already been deleted.");
         }
 
         return RedirectToPage("Index", new { guildId, page, pageSize });
@@ -213,7 +202,7 @@ public class IndexModel : PageModel
         if (scheduledMessage == null)
         {
             _logger.LogWarning("Failed to toggle scheduled message {MessageId} - not found", messageId);
-            ErrorMessage = "Scheduled message not found. It may have been deleted.";
+            TempData.SetErrorToast("Scheduled message not found. It may have been deleted.");
             return RedirectToPage("Index", new { guildId, page, pageSize });
         }
 
@@ -236,12 +225,12 @@ public class IndexModel : PageModel
         {
             var action = result.IsEnabled ? "resumed" : "paused";
             _logger.LogInformation("Successfully {Action} scheduled message {MessageId}", action, messageId);
-            SuccessMessage = $"Scheduled message {action} successfully.";
+            TempData.SetSuccessToast($"Scheduled message {action} successfully.");
         }
         else
         {
             _logger.LogWarning("Failed to toggle scheduled message {MessageId}", messageId);
-            ErrorMessage = "Failed to update scheduled message.";
+            TempData.SetErrorToast("Failed to update scheduled message.");
         }
 
         return RedirectToPage("Index", new { guildId, page, pageSize });

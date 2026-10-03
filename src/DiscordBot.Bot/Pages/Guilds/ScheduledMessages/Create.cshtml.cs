@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -58,17 +59,6 @@ public class CreateModel : PageModel
     /// View model for display-only properties (guild info, available channels).
     /// </summary>
     public ScheduledMessageFormViewModel ViewModel { get; set; } = new();
-
-    /// <summary>
-    /// Error message to display on the page.
-    /// </summary>
-    public string? ErrorMessage { get; set; }
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
 
     /// <summary>
     /// List of available text channels in the guild.
@@ -281,13 +271,13 @@ public class CreateModel : PageModel
             _logger.LogInformation("Successfully created scheduled message {MessageId} for guild {GuildId}",
                 result.Id, Input.GuildId);
 
-            SuccessMessage = "Scheduled message created successfully.";
+            TempData.SetSuccessToast("Scheduled message created successfully.");
             return RedirectToPage("Index", new { guildId = Input.GuildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create scheduled message for guild {GuildId}", Input.GuildId);
-            ErrorMessage = "An error occurred while creating the scheduled message. Please try again.";
+            TempData.SetErrorToast("An error occurred while creating the scheduled message. Please try again.");
             await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();

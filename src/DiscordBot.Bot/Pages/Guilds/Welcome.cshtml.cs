@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -56,17 +57,6 @@ public class WelcomeModel : PageModel
     /// Guild layout navigation ViewModel.
     /// </summary>
     public GuildNavBarViewModel Navigation { get; set; } = new();
-
-    /// <summary>
-    /// Error message to display on the page.
-    /// </summary>
-    public string? ErrorMessage { get; set; }
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
 
     /// <summary>
     /// List of available text channels in the guild.
@@ -235,13 +225,13 @@ public class WelcomeModel : PageModel
         if (result == null)
         {
             _logger.LogWarning("Failed to update welcome configuration for guild {GuildId} - guild not found", Input.GuildId);
-            ErrorMessage = "Guild not found. It may have been removed.";
+            TempData.SetErrorToast("Guild not found. It may have been removed.");
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
 
         _logger.LogInformation("Successfully updated welcome configuration for guild {GuildId}", Input.GuildId);
-        SuccessMessage = "Welcome configuration saved successfully.";
+        TempData.SetSuccessToast("Welcome configuration saved successfully.");
 
         return RedirectToPage("Welcome", new { guildId = Input.GuildId });
     }

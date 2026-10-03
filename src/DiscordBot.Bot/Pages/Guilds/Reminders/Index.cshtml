@@ -7,30 +7,6 @@
     Layout = "_GuildLayout";
 }
 
-<!-- Success Message -->
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Success,
-                Message = Model.SuccessMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
-    <!-- Error Message -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Error,
-                Message = Model.ErrorMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
     <!-- Statistics Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-6">
         <!-- Total Reminders -->
@@ -267,7 +243,7 @@
                         {
                             <a asp-page="Index"
                                asp-route-guildId="@Model.ViewModel.GuildId"
-                               asp-route-page="@(Model.ViewModel.CurrentPage - 1)"
+                               asp-route-pageNumber="@(Model.ViewModel.CurrentPage - 1)"
                                asp-route-status="@Model.Status"
                                class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
                                 Previous
@@ -288,7 +264,7 @@
                         {
                             <a asp-page="Index"
                                asp-route-guildId="@Model.ViewModel.GuildId"
-                               asp-route-page="@(Model.ViewModel.CurrentPage + 1)"
+                               asp-route-pageNumber="@(Model.ViewModel.CurrentPage + 1)"
                                asp-route-status="@Model.Status"
                                class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
                                 Next

@@ -1,5 +1,6 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Enums;
@@ -47,7 +48,7 @@ public class IndexModel : GuildPageModelBase
     /// <summary>
     /// Gets or sets the page number.
     /// </summary>
-    [BindProperty(SupportsGet = true, Name = "page")]
+    [BindProperty(SupportsGet = true, Name = "pageNumber")]
     public int CurrentPage { get; set; } = 1;
 
     /// <summary>
@@ -177,16 +178,16 @@ public class IndexModel : GuildPageModelBase
         {
             _logger.LogWarning("Reminder {ReminderId} not found or doesn't belong to guild {GuildId}",
                 reminderId, ulongGuildId);
-            ErrorMessage = "Reminder not found.";
-            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
+            TempData.SetErrorToast("Reminder not found.");
+            return RedirectToPage(new { guildId, pageNumber = CurrentPage, PageSize, Status });
         }
 
         if (reminder.Status != ReminderStatus.Pending)
         {
             _logger.LogWarning("Cannot cancel reminder {ReminderId} - status is {Status}, not Pending",
                 reminderId, reminder.Status);
-            ErrorMessage = "Only pending reminders can be cancelled.";
-            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
+            TempData.SetErrorToast("Only pending reminders can be cancelled.");
+            return RedirectToPage(new { guildId, pageNumber = CurrentPage, PageSize, Status });
         }
 
         // Update status to cancelled
@@ -194,8 +195,8 @@ public class IndexModel : GuildPageModelBase
         await _reminderRepository.UpdateAsync(reminder, cancellationToken);
 
         _logger.LogInformation("Successfully cancelled reminder {ReminderId}", reminderId);
-        SuccessMessage = "Reminder cancelled successfully.";
+        TempData.SetSuccessToast("Reminder cancelled successfully.");
 
-        return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
+        return RedirectToPage(new { guildId, pageNumber = CurrentPage, PageSize, Status });
     }
 }

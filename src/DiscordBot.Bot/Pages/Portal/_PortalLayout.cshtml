@@ -30,6 +30,8 @@
 </head>
 <body class="portal-page bg-bg-primary text-text-primary font-sans antialiased">
     @RenderBody()
+    <!-- Toast container, with any toasts queued through TempData -->
+    <partial name="_ToastContainer" />
     <!-- Shared fetch wrapper (anti-forgery token, JSON/blob handling, error parsing) -->
     <script src="~/js/safe-html.js" asp-append-version="true"></script>
     <script src="~/js/api-client.js" asp-append-version="true"></script>
@@ -37,6 +39,8 @@
     <script src="~/js/user-preferences.js" asp-append-version="true"></script>
     <!-- Shared Toast Notification Manager -->
     <script src="~/js/toast.js" asp-append-version="true"></script>
+    <!-- Button pending states and the data-submit-guard double-submit guard -->
+    <script src="~/js/loading-manager.js" asp-append-version="true"></script>
     <!-- Shared Keyboard Shortcut Manager -->
     <script src="~/js/shared/keyboard-shortcuts.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

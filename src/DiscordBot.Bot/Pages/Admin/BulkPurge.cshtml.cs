@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -40,12 +41,6 @@ public class BulkPurgeModel : PageModel
     public BulkPurgePreviewDto? PreviewResult { get; set; }
     public BulkPurgeResultDto? PurgeResult { get; set; }
 
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    [TempData]
-    public string? ErrorMessage { get; set; }
-
     public void OnGet()
     {
         // Default to no specific entity type selected
@@ -67,7 +62,8 @@ public class BulkPurgeModel : PageModel
 
         if (!PreviewResult.Success)
         {
-            ErrorMessage = PreviewResult.ErrorMessage ?? "Failed to generate preview.";
+            // The service's preview error carries exception text (already logged there), so show a plain sentence.
+            TempData.SetErrorToast("Failed to generate preview.");
         }
 
         return Page();
@@ -91,14 +87,17 @@ public class BulkPurgeModel : PageModel
 
         if (PurgeResult.Success)
         {
-            SuccessMessage = $"Successfully purged {PurgeResult.DeletedCount:N0} {PurgeResult.EntityType} records.";
+            TempData.SetSuccessToast($"Successfully purged {PurgeResult.DeletedCount:N0} {PurgeResult.EntityType} records.");
             _logger.LogInformation(
                 "Bulk purge completed: {DeletedCount} {EntityType} records deleted",
                 PurgeResult.DeletedCount, PurgeResult.EntityType);
         }
         else
         {
-            ErrorMessage = PurgeResult.ErrorMessage ?? "An error occurred during purge.";
+            // A failed transaction's message carries exception text; it is logged below, not shown.
+            TempData.SetErrorToast(PurgeResult.ErrorCode == BulkPurgeResultDto.TransactionFailed
+                ? "An error occurred during purge."
+                : PurgeResult.ErrorMessage ?? "An error occurred during purge.");
             _logger.LogError(
                 "Bulk purge failed for {EntityType}: {Error}",
                 criteria.EntityType, PurgeResult.ErrorMessage);

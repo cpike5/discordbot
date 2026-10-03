@@ -3,12 +3,45 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 namespace DiscordBot.Bot.Extensions;
 
 /// <summary>
-/// Extension methods for TempData to provide toast notification support.
-/// Toast messages set via these methods will be automatically displayed
-/// when the _ToastContainer partial is rendered in the layout.
+/// The TempData→toast bridge (UX plan decision D1). A page handler reports the result of an
+/// action with <c>TempData.SetSuccessToast(...)</c> (or error, warning, info) and the next page
+/// render shows it as a toast, whether the handler redirected or returned <c>Page()</c>.
+/// <c>_ToastContainer</c>, rendered by every layout, reads the queued toasts with
+/// <see cref="TakeToasts"/>. Persistent page state (a load failure, a degraded service)
+/// belongs in an <c>_Alert</c> on the page instead.
 /// </summary>
 public static class TempDataExtensions
 {
+    private static readonly (string Type, string MessageKey, string TitleKey)[] ToastKeys =
+    {
+        ("error", "ToastError", "ToastErrorTitle"),
+        ("warning", "ToastWarning", "ToastWarningTitle"),
+        ("success", "ToastSuccess", "ToastSuccessTitle"),
+        ("info", "ToastInfo", "ToastInfoTitle"),
+    };
+
+    /// <summary>
+    /// Reads and consumes the queued toasts, most severe first. Each key is read once, so a
+    /// toast shows on exactly one page render.
+    /// </summary>
+    /// <param name="tempData">The TempData dictionary.</param>
+    /// <returns>The queued toasts; empty when there are none.</returns>
+    public static IReadOnlyList<ToastMessage> TakeToasts(this ITempDataDictionary tempData)
+    {
+        var toasts = new List<ToastMessage>();
+        foreach (var (type, messageKey, titleKey) in ToastKeys)
+        {
+            var message = tempData[messageKey]?.ToString();
+            var title = tempData[titleKey]?.ToString();
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                toasts.Add(new ToastMessage(type, message, string.IsNullOrWhiteSpace(title) ? null : title));
+            }
+        }
+
+        return toasts;
+    }
+
     /// <summary>
     /// Sets a success toast message to be displayed on the next page load.
     /// </summary>
@@ -22,11 +55,15 @@ public static class TempDataExtensions
         {
             tempData["ToastSuccessTitle"] = title;
         }
+        else
+        {
+            tempData.Remove("ToastSuccessTitle");
+        }
     }
 
     /// <summary>
     /// Sets an error toast message to be displayed on the next page load.
-    /// Error toasts display for longer (10 seconds by default).
+    /// Error toasts stay until the user dismisses them.
     /// </summary>
     /// <param name="tempData">The TempData dictionary.</param>
     /// <param name="message">The message to display.</param>
@@ -37,6 +74,10 @@ public static class TempDataExtensions
         if (title != null)
         {
             tempData["ToastErrorTitle"] = title;
+        }
+        else
+        {
+            tempData.Remove("ToastErrorTitle");
         }
     }
 
@@ -53,6 +94,10 @@ public static class TempDataExtensions
         {
             tempData["ToastWarningTitle"] = title;
         }
+        else
+        {
+            tempData.Remove("ToastWarningTitle");
+        }
     }
 
     /// <summary>
@@ -68,5 +113,17 @@ public static class TempDataExtensions
         {
             tempData["ToastInfoTitle"] = title;
         }
+        else
+        {
+            tempData.Remove("ToastInfoTitle");
+        }
     }
 }
+
+/// <summary>
+/// A toast queued through TempData, as <c>_ToastContainer</c> hands it to <c>toast.js</c>.
+/// </summary>
+/// <param name="Type">"success", "error", "warning" or "info".</param>
+/// <param name="Message">The message text.</param>
+/// <param name="Title">An optional title.</param>
+public sealed record ToastMessage(string Type, string Message, string? Title);

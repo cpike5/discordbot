@@ -46,7 +46,13 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
   `portal-soundboard.js` (the larger, pre-existing shared modules) were not touched.
 
 ### Error Pages
-- `404.cshtml`, `403.cshtml`, `500.cshtml`
+- One page for every status code: `Pages/Error/Index.cshtml` (`/Error/{statusCode}`, `ErrorPageModel`) on `Shared/_ErrorLayout.cshtml` (standalone, themed, `<main>`). Handles every verb and ignores antiforgery, because the status-code middleware re-executes the failed request with its own method. Shows the failed address; script requests get problem JSON. Copy lives in `ErrorPageModel.Describe`.
+
+### Feedback (UX plan D1)
+- **Toast** for action results: `toast.success/error/warning/info(msg, { action })` in JS (`wwwroot/js/toast.js`; old `ToastManager.show` / `quickActions.showToast` / `showToast` / `Toast.show` shapes alias to it), `TempData.SetSuccessToast(...)` etc. in page handlers (`Extensions/TempDataExtensions.cs`). `_ToastContainer` (in `_Layout` and `_PortalLayout`, never in pages) renders queued toasts as JSON.
+- **`_Alert`** for persistent page state (load failure, degraded): a plain `ErrorMessage` property, never `[TempData]`. Dismiss is global (`data-alert-dismiss`), `role="status"`.
+- **Requests from scripts** go through `ApiClient`: session-expiry toast with Sign in, plain-language errors (no 5xx `detail`), 30s timeout, never HTML as data. The server answers script requests (`/api`, `/hubs`, `X-Requested-With`) with 401/403 problem JSON instead of redirecting (`IdentityServiceExtensions`, `HttpRequestExtensions.IsScriptRequest`).
+- **Server-posted forms** get `data-submit-guard` (`loading-manager.js`).
 
 ### REST API Controllers (37)
 **Location:** `Bot/Controllers/` — JSON API endpoints for Razor Pages frontend and external consumers.
@@ -113,3 +119,4 @@ Loaded globally in `_Layout.cshtml`:
 - **Portal pages** use `_PortalLayout` — don't mix admin and portal layouts
 - **Currency DTO snowflakes** (`WalletDto.UserId`, `PriceEntryDto.ExemptRoleIds`, `MintAuthorityDto.PrincipalId`, …) carry `[JsonNumberHandling(WriteAsString | AllowReadingFromString)]` so they cross into JavaScript as strings. Keep that attribute on any new ID field a page script touches.
 - **Form patterns:** Follow conventions in `form-implementation-standards.md` — validation, error display, CSRF tokens
+- **Pagination route values:** never `page` (`asp-route-page`, `RedirectToPage(new { page = … })`): Razor Pages reserves it for the page name, so the link loses the page number or the redirect throws. Bind and link `pageNumber`, as `PaginatedPageModel` does

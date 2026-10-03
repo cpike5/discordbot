@@ -7,30 +7,6 @@
     Layout = "_GuildLayout";
 }
 
-<!-- Success Message -->
-@if (!string.IsNullOrEmpty(Model.SuccessMessage))
-{
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-            Variant = AlertVariant.Success,
-            Message = Model.SuccessMessage,
-            IsDismissible = true
-        }" />
-    </div>
-}
-
-<!-- Error Message -->
-@if (!string.IsNullOrEmpty(Model.ErrorMessage))
-{
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-            Variant = AlertVariant.Error,
-            Message = Model.ErrorMessage,
-            IsDismissible = true
-        }" />
-    </div>
-}
-
 <!-- Filter Bar -->
 <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
     <form method="get" id="filterForm">
