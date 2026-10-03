@@ -7,6 +7,7 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.Interfaces;
 using Elastic.Apm;
 using Elastic.Apm.Api;
@@ -31,6 +32,7 @@ public class InteractionHandler
     private readonly ILogger<InteractionHandler> _logger;
     private readonly ICommandExecutionLogger _commandExecutionLogger;
     private readonly IDashboardUpdateService _dashboardUpdateService;
+    private readonly IDashboardStatsBroadcaster _dashboardStatsBroadcaster;
     private readonly BotMetrics _botMetrics;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly NotificationOptions _notificationOptions;
@@ -45,6 +47,7 @@ public class InteractionHandler
         ILogger<InteractionHandler> logger,
         ICommandExecutionLogger commandExecutionLogger,
         IDashboardUpdateService dashboardUpdateService,
+        IDashboardStatsBroadcaster dashboardStatsBroadcaster,
         BotMetrics botMetrics,
         IServiceScopeFactory scopeFactory,
         IOptions<NotificationOptions> notificationOptions)
@@ -55,6 +58,7 @@ public class InteractionHandler
         _logger = logger;
         _commandExecutionLogger = commandExecutionLogger;
         _dashboardUpdateService = dashboardUpdateService;
+        _dashboardStatsBroadcaster = dashboardStatsBroadcaster;
         _botMetrics = botMetrics;
         _scopeFactory = scopeFactory;
         _notificationOptions = notificationOptions.Value;
@@ -419,6 +423,9 @@ public class InteractionHandler
             };
 
             await _dashboardUpdateService.BroadcastCommandExecutedAsync(update);
+
+            // The Commands (24h) card follows the command; the broadcaster coalesces bursts
+            _dashboardStatsBroadcaster.NotifyChanged();
         }
         catch (Exception ex)
         {

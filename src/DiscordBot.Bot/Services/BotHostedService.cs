@@ -39,6 +39,7 @@ public class BotHostedService : IHostedService
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IBotStatusBroadcaster _botStatusBroadcaster;
+    private readonly IDashboardStatsBroadcaster _dashboardStatsBroadcaster;
     private readonly IAuditLogQueue _auditLogQueue;
     private readonly IMemberSyncQueue _memberSyncQueue;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -71,6 +72,7 @@ public class BotHostedService : IHostedService
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IBotStatusBroadcaster botStatusBroadcaster,
+        IDashboardStatsBroadcaster dashboardStatsBroadcaster,
         IAuditLogQueue auditLogQueue,
         IMemberSyncQueue memberSyncQueue,
         IServiceScopeFactory scopeFactory,
@@ -101,6 +103,7 @@ public class BotHostedService : IHostedService
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _botStatusBroadcaster = botStatusBroadcaster;
+        _dashboardStatsBroadcaster = dashboardStatsBroadcaster;
         _auditLogQueue = auditLogQueue;
         _memberSyncQueue = memberSyncQueue;
         _scopeFactory = scopeFactory;
@@ -558,6 +561,9 @@ public class BotHostedService : IHostedService
             await guildRepository.SetActiveStatusAsync(guildId, isActive);
 
             _logger.LogDebug("Updated guild {GuildId} active status to {IsActive}", guildId, isActive);
+
+            // The server and member counts on open dashboards just changed
+            _dashboardStatsBroadcaster.NotifyChanged();
         }
         catch (Exception ex)
         {

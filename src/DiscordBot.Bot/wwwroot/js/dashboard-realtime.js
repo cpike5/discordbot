@@ -1,27 +1,35 @@
 /**
  * Dashboard Real-time Updates
- * Handles SignalR connection and DOM updates for real-time dashboard data.
- * Depends on: DashboardHub (dashboard-hub.js)
+ * Draws the live activity feed and the hero numbers from DashboardHub events.
+ * Depends on: DashboardHub (dashboard-hub.js), DashboardStats (dashboard-stats.js), Format.
+ *
+ * What it does not do: show connection state (the page-wide banner and the Stale badge follow
+ * the hub), or draw the bot status banner (bot-status-refresh.js does, from the same
+ * BotStatusUpdated push).
+ *
+ * Every event goes to every dashboard (no hub groups), so nothing is rejoined after a reconnect.
+ * What a reconnect does lose is the pushes sent while the connection was down, so the hero
+ * numbers are fetched again then.
  */
 const DashboardRealtime = (function() {
     'use strict';
 
     const CONFIG = {
-        maxActivityItems: 15,
-        updateDebounceMs: 100
+        maxActivityItems: 15
     };
 
     let isPaused = false;
     let isInitialized = false;
     let pendingActivities = [];
     let elements = {};
-    let lastConnectionState = null;
+    let statsRequest = 0;
 
     // Public API
     return {
         init,
         pause,
         resume,
+        refreshStats,
         isPaused: () => isPaused,
         isConnected: () => DashboardHub.isConnected()
     };
@@ -30,30 +38,17 @@ const DashboardRealtime = (function() {
         if (isInitialized) return;
         isInitialized = true;
 
-        console.log('[DashboardRealtime] Initializing...');
-
         cacheElements();
         setupPauseButton();
 
-        // Connect to SignalR
-        const connected = await DashboardHub.connect();
-
         // The hub keeps retrying after a failed first attempt and attaches handlers when it gets
-        // through, so register them either way.
+        // through, so register them whether or not the first attempt connected.
         setupEventHandlers();
-        updateConnectionStatus(connected ? 'connected' : 'reconnecting');
-
-        // Setup connection state handlers
-        DashboardHub.on('reconnecting', () => updateConnectionStatus('reconnecting'));
-        DashboardHub.on('reconnected', () => updateConnectionStatus('connected'));
-        DashboardHub.on('disconnected', () => updateConnectionStatus('disconnected'));
-        DashboardHub.on('connectionFailed', () => updateConnectionStatus('disconnected'));
+        await DashboardHub.connect();
     }
 
     function cacheElements() {
         elements = {
-            connectionStatus: document.getElementById('connection-status'),
-            botStatusCard: document.querySelector('[data-bot-status-banner], [data-bot-status-card]'),
             activityFeed: document.getElementById('activity-feed'),
             activityItemTemplate: document.getElementById('activity-item-template'),
             pauseBtn: document.getElementById('pause-feed-btn'),
@@ -78,32 +73,18 @@ const DashboardRealtime = (function() {
     }
 
     function setupEventHandlers() {
-        DashboardHub.on('BotStatusUpdated', handleBotStatusUpdated);
         DashboardHub.on('CommandExecuted', handleCommandExecuted);
         DashboardHub.on('GuildActivity', handleGuildActivity);
         DashboardHub.on('StatsUpdated', handleStatsUpdated);
-    }
-
-    function handleBotStatusUpdated(data) {
-        console.log('[DashboardRealtime] BotStatusUpdated:', data);
-
-        const card = elements.botStatusCard;
-        if (!card) return;
-
-        // Update DOM elements
-        updateElement(card, '[data-connection-state]', data.connectionState);
-        updateElement(card, '[data-latency]', data.latency ?? 'N/A');
-        updateElement(card, '[data-uptime]', formatUptime(data.uptime));
-        updateElement(card, '[data-guild-count]', data.guildCount);
-        updateElement(card, '[data-last-updated]', 'Just now');
-
-        // Don't apply pulse animation to bot status banner - it updates frequently
-        // and already has visual status indicators (dot, colors)
+        // Pushes sent while the connection was down are gone; ask for the numbers again.
+        DashboardHub.on('reconnected', () => { refreshStats(); });
+        // A tab that sat in the background may have missed pushes too.
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && DashboardHub.isConnected()) refreshStats();
+        });
     }
 
     function handleCommandExecuted(data) {
-        console.log('[DashboardRealtime] CommandExecuted:', data);
-
         if (isPaused) {
             pendingActivities.unshift({ type: 'command', data });
             return;
@@ -111,16 +92,14 @@ const DashboardRealtime = (function() {
 
         addActivityItem({
             icon: '🔧',
-            timestamp: new Date(data.timestamp),
-            description: `<span class="font-mono text-accent-orange">/${escapeHtml(data.commandName)}</span> executed by <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`,
+            timestamp: data.timestamp,
+            description: `<span class="font-mono text-accent-orange">/${escapeHtml(data.commandName)}</span> ${data.success === false ? 'failed for' : 'executed by'} <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`,
             guild: data.guildName || 'Direct Message',
             success: data.success
         });
     }
 
     function handleGuildActivity(data) {
-        console.log('[DashboardRealtime] GuildActivity:', data);
-
         if (isPaused) {
             pendingActivities.unshift({ type: 'guild', data });
             return;
@@ -141,34 +120,34 @@ const DashboardRealtime = (function() {
 
         addActivityItem({
             icon: iconMap[data.eventType] || '📢',
-            timestamp: new Date(data.timestamp),
+            timestamp: data.timestamp,
             description: formatGuildEventDescription(data),
             guild: data.guildName
         });
     }
 
+    /** The StatsUpdated push: a DashboardStatsDto, camelCased. */
     function handleStatsUpdated(data) {
-        console.log('[DashboardRealtime] StatsUpdated:', data);
-
-        // Update stats cards if they exist
-        if (data.totalCommands !== undefined) {
-            updateElement(document.body, '[data-total-commands]', data.totalCommands);
-        }
-        if (data.activeUsers !== undefined) {
-            updateElement(document.body, '[data-active-users]', data.activeUsers);
-        }
-        if (data.messagesProcessed !== undefined) {
-            updateElement(document.body, '[data-messages-processed]', data.messagesProcessed);
-        }
+        window.DashboardStats.apply(document, data, window.Format);
     }
 
-    function updateConnectionStatus(state) {
-        // The page-wide banner (connection-banner.js) tells the user about connection changes; a
-        // toast here as well announced every change twice.
-        if (state === lastConnectionState) return;
-        lastConnectionState = state;
-
-        console.log('[DashboardRealtime] Connection status:', state);
+    /**
+     * Fetches the hero numbers and draws them. Safe to call often: only the newest answer is
+     * applied, so a slow request cannot overwrite a fresher push.
+     * @returns {Promise<boolean>} true if the numbers were applied
+     */
+    async function refreshStats() {
+        const ticket = ++statsRequest;
+        try {
+            const stats = await window.ApiClient.get(window.location.pathname + '?handler=Stats');
+            if (ticket !== statsRequest) return false;
+            window.DashboardStats.apply(document, stats, window.Format);
+            return true;
+        } catch (error) {
+            // The connection banner already says what is wrong; the numbers stay as they were.
+            console.warn('[DashboardRealtime] Could not refresh stats:', error && error.message);
+            return false;
+        }
     }
 
     function addActivityItem(item) {
@@ -191,7 +170,11 @@ const DashboardRealtime = (function() {
             if (el) el.textContent = value ?? '';
         };
 
-        setText('.activity-timestamp', formatTimestamp(item.timestamp));
+        // A real <time>: it reads "just now", then keeps itself current (format.js)
+        const timeEl = itemEl.querySelector('.activity-timestamp');
+        const when = item.timestamp ? new Date(item.timestamp) : new Date();
+        const iso = (isNaN(when) ? new Date() : when).toISOString();
+        if (timeEl) timeEl.setAttribute('data-relative-time', iso);
         setText('.activity-icon', item.icon);
         // description is built from escaped values by the callers above
         const descriptionEl = itemEl.querySelector('.activity-description');
@@ -201,6 +184,7 @@ const DashboardRealtime = (function() {
         itemEl.classList.add('activity-item-enter');
 
         feed.insertBefore(clone, feed.firstChild);
+        if (window.Format && typeof window.Format.scan === 'function') window.Format.scan(feed.firstElementChild);
 
         // Limit items
         while (feed.children.length > CONFIG.maxActivityItems) {
@@ -225,8 +209,6 @@ const DashboardRealtime = (function() {
         if (elements.pauseIcon) elements.pauseIcon.classList.add('hidden');
         if (elements.playIcon) elements.playIcon.classList.remove('hidden');
         if (elements.pausedIndicator) elements.pausedIndicator.classList.remove('hidden');
-
-        console.log('[DashboardRealtime] Feed paused');
     }
 
     function resume() {
@@ -251,53 +233,6 @@ const DashboardRealtime = (function() {
                 handleGuildActivity(pending.data);
             }
         }
-
-        console.log('[DashboardRealtime] Feed resumed');
-    }
-
-    // Helper functions
-    function updateElement(parent, selector, value) {
-        const el = parent.querySelector(selector);
-        if (el) el.textContent = value;
-    }
-
-    function triggerUpdatePulse(element) {
-        element.classList.remove('card-update-pulse');
-        void element.offsetWidth; // Force reflow
-        element.classList.add('card-update-pulse');
-    }
-
-    function formatTimestamp(date) {
-        if (!(date instanceof Date) || isNaN(date)) {
-            date = new Date();
-        }
-        return date.toTimeString().split(' ')[0]; // HH:MM:SS
-    }
-
-    function formatUptime(uptimeStr) {
-        if (!uptimeStr) return '0m';
-
-        // Parse TimeSpan format: "d.hh:mm:ss.fffffff" or "hh:mm:ss"
-        const parts = uptimeStr.split(':');
-        if (parts.length < 2) return uptimeStr;
-
-        let days = 0, hours = 0, minutes = 0;
-
-        if (parts[0].includes('.')) {
-            const dayHour = parts[0].split('.');
-            days = parseInt(dayHour[0]) || 0;
-            hours = parseInt(dayHour[1]) || 0;
-        } else {
-            hours = parseInt(parts[0]) || 0;
-        }
-        minutes = parseInt(parts[1]) || 0;
-
-        let result = '';
-        if (days > 0) result += `${days}d `;
-        if (hours > 0 || days > 0) result += `${hours}h `;
-        result += `${minutes}m`;
-
-        return result.trim();
     }
 
     function formatGuildEventDescription(data) {
@@ -324,14 +259,16 @@ const DashboardRealtime = (function() {
             'MemberLeft': `A member left the server`,
             'MessageSent': `Message sent in <span class="font-mono text-accent-orange">#channel</span>`,
             'MessageDeleted': `Message deleted`,
-            'MessageEdited': `Message edited`
+            'MessageEdited': `Message edited`,
+            'BotJoined': `The bot was added to a server`,
+            'BotLeft': `The bot was removed from a server`
         };
         return eventDescriptions[data.eventType] || `${escapeHtml(data.eventType)} event`;
     }
 
     function escapeHtml(unsafe) {
         if (!unsafe) return '';
-        return unsafe
+        return String(unsafe)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
@@ -339,6 +276,9 @@ const DashboardRealtime = (function() {
             .replace(/'/g, "&#039;");
     }
 })();
+
+// Expose for dashboard-actions.js (a top-level const is not a window property)
+window.DashboardRealtime = DashboardRealtime;
 
 // Auto-initialize when DOM is ready
 if (document.readyState === 'loading') {

@@ -371,6 +371,8 @@ Services for user notifications, performance alerts, and subscriptions.
 | `DashboardNotifier` | Bot/Services | SignalR hub for real-time dashboard updates |
 | `IDashboardUpdateService` | Core Interfaces | Publish update events for dashboard |
 | `DashboardUpdateService` | Bot/Services | Publishes status/metric updates to SignalR |
+| `IDashboardStatsProvider` / `DashboardStatsProvider` | Bot/Interfaces, Bot/Services/Dashboard (scoped) | The dashboard hero numbers (`DashboardStatsDto`): active servers, members, commands in the last 24 hours, 24-hour uptime. One definition for the page render, `?handler=Stats` and the push |
+| `IDashboardStatsBroadcaster` / `DashboardStatsBroadcaster` | Bot/Interfaces, Bot/Services/Dashboard (singleton) | `NotifyChanged()` coalesces a burst (command run, guild join/leave, Sync All) into one `StatsUpdated` broadcast about 2 seconds later |
 
 ---
 

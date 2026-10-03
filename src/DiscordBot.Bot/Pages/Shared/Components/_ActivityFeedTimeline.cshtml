@@ -1,4 +1,5 @@
 @model DiscordBot.Bot.ViewModels.Components.ActivityFeedTimelineViewModel
+@using System.Net
 @{
     var maxHeightStyle = !string.IsNullOrEmpty(Model.MaxHeight) ? $"max-height: {Model.MaxHeight};" : "";
 }
@@ -9,7 +10,7 @@
         <div class="bg-bg-primary/50 rounded-lg p-3">
             <div class="flex items-center gap-2 mb-1">
                 <span class="activity-icon text-xs" aria-hidden="true"></span>
-                <span class="activity-timestamp text-xs text-text-tertiary font-mono"></span>
+                <time class="activity-timestamp text-xs text-text-tertiary font-mono"></time>
             </div>
             <p class="text-sm text-text-primary activity-description"></p>
             <p class="text-xs text-text-tertiary mt-1 activity-guild"></p>
@@ -57,19 +58,20 @@
                     <div class="activity-item @item.TypeClassName">
                         <div class="bg-bg-primary/50 rounded-lg p-3">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="activity-timestamp text-xs text-text-tertiary font-mono">@item.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                                <span class="activity-timestamp text-xs text-text-tertiary font-mono">@DisplayFormat.Time(item.Timestamp, relative: true)</span>
                             </div>
                             <p class="text-sm text-text-primary activity-description">
                                 @if (!string.IsNullOrEmpty(item.CommandText))
                                 {
-                                    @Html.Raw(item.Message.Replace(item.CommandText, $"<span class=\"font-mono text-accent-orange\">{item.CommandText}</span>"))
+                                    @* Encode first: the message can carry a name from Discord *@
+                                    @Html.Raw(WebUtility.HtmlEncode(item.Message).Replace(WebUtility.HtmlEncode(item.CommandText), $"<span class=\"font-mono text-accent-orange\">{WebUtility.HtmlEncode(item.CommandText)}</span>"))
                                 }
                                 else
                                 {
                                     @item.Message
                                 }
                             </p>
-                            <p class="text-xs text-text-tertiary mt-1 activity-guild">@item.Source - @item.RelativeTime</p>
+                            <p class="text-xs text-text-tertiary mt-1 activity-guild">@item.Source</p>
                         </div>
                     </div>
                 }

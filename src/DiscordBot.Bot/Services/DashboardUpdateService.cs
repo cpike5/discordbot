@@ -121,8 +121,8 @@ public class DashboardUpdateService : IDashboardUpdateService
         try
         {
             _logger.LogDebug(
-                "Broadcasting stats update: CommandsToday={CommandsToday}, TotalMembers={TotalMembers}",
-                stats.CommandsToday,
+                "Broadcasting stats update: Commands24h={Commands24h}, TotalMembers={TotalMembers}",
+                stats.CommandsLast24Hours,
                 stats.TotalMembers);
 
             await _hubContext.Clients.All.SendAsync(

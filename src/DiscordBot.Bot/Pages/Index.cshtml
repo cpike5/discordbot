@@ -3,6 +3,11 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Dashboard";
+
+    // What this user can actually use (D8): a card or action they cannot use is left out, and the
+    // grid below closes up around what remains.
+    var isAdmin = Model.QuickActions.UserIsAdmin;
+    var showQuickActions = Model.QuickActions.Actions.Any(a => !a.IsAdminOnly || isAdmin);
 }
 
 <!-- Page Header -->
@@ -11,6 +16,9 @@
         <p class="page-eyebrow">Overview</p>
         <h1 class="page-title">Dashboard</h1>
         <p class="page-subtitle">Bot health, connected servers and the latest activity at a glance.</p>
+    </div>
+    <div class="page-actions">
+        <span class="badge badge-warning" data-stale-badge hidden title="Live updates are paused. The numbers and activity below may be out of date.">Stale</span>
     </div>
 </div>
 
@@ -27,49 +35,69 @@
     }
 </div>
 
-<!-- Connected Servers and Activity Timeline - 2 Column Grid -->
-<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6 mb-8">
-    <!-- Connected Servers Widget (1/2 width) -->
-    <partial name="Shared/Components/_ConnectedServersWidget" model="Model.ConnectedServers" />
+<!-- Connected Servers (moderators and up) and Activity Timeline. Without the servers card the
+     timeline takes the full row instead of leaving a hole beside it. -->
+<div class="grid grid-cols-1 @(Model.ShowConnectedServers ? "xl:grid-cols-2" : "") gap-4 lg:gap-6 mb-8">
+    @if (Model.ShowConnectedServers)
+    {
+        <partial name="Shared/Components/_ConnectedServersWidget" model="Model.ConnectedServers" />
+    }
 
-    <!-- Activity Timeline (1/2 width) -->
     <div class="flex flex-col">
         <partial name="Shared/Components/_ActivityFeedTimeline" model="Model.ActivityTimeline" />
     </div>
 </div>
 
 <!-- Audit Log - Full Width (Admin only) -->
-@if (Model.AuditLog != null && (User.IsInRole("Admin") || User.IsInRole("SuperAdmin")))
+@if (Model.AuditLog != null && Model.ShowAuditLog)
 {
     <div class="mb-8">
         <partial name="Shared/Components/_AuditLogCard" model="Model.AuditLog" />
     </div>
 }
 
-<!-- Quick Actions Panel at Bottom -->
-<div class="mb-8">
-    <partial name="Shared/Components/_QuickActionsCard" model="Model.QuickActions" />
-</div>
+<!-- Quick Actions Panel at Bottom (only when there is something this user can do) -->
+@if (showQuickActions)
+{
+    <div class="mb-8">
+        <partial name="Shared/Components/_QuickActionsCard" model="Model.QuickActions" />
+    </div>
+}
 
-<!-- Confirmation Modals (hidden by default) -->
-@{
+@if (isAdmin)
+{
+    <!-- Confirmation Modals (hidden by default). dashboard-actions.js follows up on each. -->
     var restartBotModal = new ConfirmationModalViewModel
     {
         Id = "restartBotModal",
-        Title = "Restart Bot",
-        Message = "Are you sure you want to restart the bot? This will disconnect the bot from all servers temporarily. The bot will automatically reconnect after restarting.",
-        ConfirmText = "Restart Bot",
+        Title = "Restart the bot?",
+        Message = "The bot disconnects from Discord and reconnects, which takes a few seconds. Commands and voice playback stop until it is back.",
+        ConfirmText = "Restart bot",
         CancelText = "Cancel",
         Variant = ConfirmationVariant.Warning,
         FormAction = "",
         FormHandler = "RestartBot"
     };
+    var syncGuildsModal = new ConfirmationModalViewModel
+    {
+        Id = "syncGuildsModal",
+        Title = "Sync all servers?",
+        Message = "Server names and records are refreshed from Discord for every server the bot is in. Nothing is removed.",
+        ConfirmText = "Sync servers",
+        CancelText = "Cancel",
+        Variant = ConfirmationVariant.Info,
+        FormAction = "",
+        FormHandler = "SyncAllGuilds"
+    };
+    <partial name="Shared/Components/_ConfirmationModal" model="restartBotModal" />
+    <partial name="Shared/Components/_ConfirmationModal" model="syncGuildsModal" />
 }
-<partial name="Shared/Components/_ConfirmationModal" model="restartBotModal" />
 
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="~/js/dashboard-stats.js" asp-append-version="true"></script>
     <script src="~/js/dashboard-realtime.js" asp-append-version="true"></script>
+    <script src="~/js/dashboard-actions.js" asp-append-version="true"></script>
     <script src="~/js/command-stats-chart.js" asp-append-version="true"></script>
 }

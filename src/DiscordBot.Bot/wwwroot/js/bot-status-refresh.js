@@ -141,6 +141,8 @@
         if (!data) return;
         const state = data.connectionState !== undefined ? data.connectionState : data.ConnectionState;
         renderFooter(footerStateFor(state));
+        // On the dashboard the same push redraws the banner (the footer is on every page)
+        renderBanner(data);
     }
 
     async function refreshFooter() {
@@ -158,7 +160,7 @@
         }
     }
 
-    window.BotStatus = { apply: applyBotStatus, refresh: refreshFooter, footerStateFor };
+    window.BotStatus = { apply: applyBotStatus, refresh: refreshFooter, footerStateFor, watchRestart };
 
     /**
      * Refreshes the bot status card with latest data from the API.
@@ -216,121 +218,150 @@
         }
     }
 
+    // ---- Dashboard banner ----------------------------------------------------------------------
+
+    let onlineSummaryHtml = null;
+
+    // The banner's three looks. Whole class names, so Tailwind keeps them.
+    const BANNER_TONES = {
+        online: { icon: 'text-success', iconBg: 'bg-success/20', badgeText: 'text-success', badgeBg: 'bg-success/20', dot: 'bg-success' },
+        offline: { icon: 'text-error', iconBg: 'bg-error/20', badgeText: 'text-error', badgeBg: 'bg-error/20', dot: 'bg-error' },
+        restarting: { icon: 'text-warning', iconBg: 'bg-warning/20', badgeText: 'text-warning', badgeBg: 'bg-warning/20', dot: 'bg-warning' }
+    };
+    const ALL_TONE_CLASSES = ['text-success', 'bg-success/20', 'text-error', 'bg-error/20', 'text-warning', 'bg-warning/20', 'bg-success', 'bg-error', 'bg-warning'];
+
+    function swapClasses(element, toneClasses) {
+        if (!element) return;
+        element.classList.remove(...ALL_TONE_CLASSES);
+        element.classList.add(...toneClasses);
+    }
+
+    /**
+     * Draws the dashboard banner from a status payload: the REST one (`latencyMs`) or the hub's
+     * (`latency`). While a restart the user asked for is in progress (data-restarting) a state
+     * other than Connected reads "Restarting", not "Offline".
+     */
+    function renderBanner(data) {
+        const banner = document.querySelector('[data-bot-status-banner]');
+        if (!banner || !data) return;
+
+        const stateKey = String(data.connectionState !== undefined ? data.connectionState : data.ConnectionState || '').toUpperCase();
+        const stateConfig = STATUS_COLORS[stateKey] || STATUS_COLORS['DISCONNECTED'];
+        const connected = stateConfig.isOnline;
+        const restarting = banner.dataset.restarting === 'true' && !connected;
+        const toneKey = connected ? 'online' : (restarting ? 'restarting' : 'offline');
+        const tone = BANNER_TONES[toneKey];
+        const wasOnline = banner.dataset.isOnline === 'true';
+
+        banner.dataset.isOnline = connected.toString();
+        banner.classList.toggle('offline', !connected && !restarting);
+        banner.classList.toggle('restarting', restarting);
+
+        if (banner.dataset.tone !== toneKey) {
+            banner.dataset.tone = toneKey;
+            swapClasses(banner.querySelector('[data-status-icon]'), [tone.iconBg]);
+            swapClasses(banner.querySelector('[data-status-icon] svg'), [tone.icon]);
+            swapClasses(banner.querySelector('[data-status-badge]'), [tone.badgeText, tone.badgeBg]);
+            const dot = banner.querySelector('[data-status-dot]');
+            swapClasses(dot, [tone.dot]);
+            if (dot) dot.classList.toggle('animate-pulse', connected || restarting);
+        }
+
+        const heading = banner.querySelector('[data-status-heading]');
+        if (heading) heading.textContent = connected ? 'Bot is Online' : (restarting ? 'Bot is restarting' : 'Bot is Offline');
+
+        const statusText = banner.querySelector('[data-status-text]');
+        if (statusText) statusText.textContent = restarting ? 'Restarting' : stateConfig.label;
+
+        const guildCount = Number(data.guildCount !== undefined ? data.guildCount : data.GuildCount);
+        const summary = banner.querySelector('[data-summary-text]');
+        if (summary) {
+            // Keep the server-rendered "Connected to N servers with M members" sentence while the
+            // banner shows something else, so coming back online does not lose the member count.
+            if (wasOnline && !connected && summary.querySelector('[data-guild-count]')) {
+                onlineSummaryHtml = summary.innerHTML;
+            }
+            if (connected && !wasOnline && onlineSummaryHtml) {
+                summary.innerHTML = onlineSummaryHtml;
+            }
+            const countElement = summary.querySelector('[data-guild-count]');
+            if (connected && countElement) {
+                // The status payload has no member count, so keep the server-rendered sentence
+                // and refresh only the number it does report.
+                if (!isNaN(guildCount)) countElement.textContent = guildCount.toLocaleString();
+            } else if (connected) {
+                const serverWord = guildCount === 1 ? 'server' : 'servers';
+                const countText = isNaN(guildCount) ? '' : guildCount.toLocaleString() + ' ';
+                summary.textContent = `Connected to ${countText}${serverWord}`;
+            } else if (restarting) {
+                summary.textContent = 'Reconnecting to Discord. This takes a few seconds.';
+            } else {
+                summary.textContent = 'Not currently connected to Discord';
+            }
+        }
+
+        const metricsSection = banner.querySelector('[data-metrics-section]');
+        if (metricsSection) metricsSection.classList.toggle('hidden', !connected);
+
+        const latency = data.latencyMs !== undefined ? data.latencyMs : data.latency;
+        const latencyElement = banner.querySelector('[data-latency]');
+        if (latencyElement && latency !== undefined && latency !== null) latencyElement.textContent = latency;
+
+        const uptimeElement = banner.querySelector('[data-uptime]');
+        if (uptimeElement && data.uptime) uptimeElement.textContent = formatUptime(String(data.uptime));
+    }
+
     /**
      * Refreshes the bot status banner with latest data from the API.
      */
     async function refreshBotStatusBanner() {
-        const banner = document.querySelector('[data-bot-status-banner]');
-        if (!banner) {
-            return;
-        }
-
         try {
-            const data = await fetchStatus();
-            const stateKey = data.connectionState.toUpperCase();
-            const stateConfig = STATUS_COLORS[stateKey] || STATUS_COLORS['DISCONNECTED'];
-            const isOnline = stateConfig.isOnline;
-            const wasOnline = banner.dataset.isOnline === 'true';
-
-            // Update banner online state
-            banner.dataset.isOnline = isOnline.toString();
-
-            // Update banner classes for online/offline styling
-            if (isOnline !== wasOnline) {
-                if (isOnline) {
-                    banner.classList.remove('offline');
-                } else {
-                    banner.classList.add('offline');
-                }
-
-                // Update icon container
-                const iconContainer = banner.querySelector('[data-status-icon]');
-                if (iconContainer) {
-                    iconContainer.classList.remove('bg-success/20', 'bg-error/20');
-                    iconContainer.classList.add(isOnline ? 'bg-success/20' : 'bg-error/20');
-                }
-
-                // Update icon
-                const icon = iconContainer?.querySelector('svg');
-                if (icon) {
-                    icon.classList.remove('text-success', 'text-error');
-                    icon.classList.add(isOnline ? 'text-success' : 'text-error');
-                }
-
-                // Update status badge
-                const badge = banner.querySelector('[data-status-badge]');
-                if (badge) {
-                    badge.classList.remove('text-success', 'bg-success/20', 'text-error', 'bg-error/20');
-                    badge.classList.add(isOnline ? 'text-success' : 'text-error');
-                    badge.classList.add(isOnline ? 'bg-success/20' : 'bg-error/20');
-                }
-
-                // Update status dot
-                const dot = banner.querySelector('[data-status-dot]');
-                if (dot) {
-                    dot.classList.remove('bg-success', 'bg-error', 'animate-pulse');
-                    dot.classList.add(isOnline ? 'bg-success' : 'bg-error');
-                    if (isOnline) {
-                        dot.classList.add('animate-pulse');
-                    }
-                }
-            }
-
-            // Update status heading
-            const heading = banner.querySelector('[data-status-heading]');
-            if (heading) {
-                heading.textContent = isOnline ? 'Bot is Online' : 'Bot is Offline';
-            }
-
-            // Update status text
-            const statusText = banner.querySelector('[data-status-text]');
-            if (statusText) {
-                statusText.textContent = stateConfig.label;
-            }
-
-            // Update summary text
-            const summary = banner.querySelector('[data-summary-text]');
-            if (summary) {
-                const guildCountElement = summary.querySelector('[data-guild-count]');
-                if (isOnline && wasOnline && guildCountElement) {
-                    // The status API has no member count, so keep the server-rendered sentence
-                    // and only refresh the number it does report.
-                    guildCountElement.textContent = data.guildCount.toLocaleString();
-                } else if (isOnline) {
-                    const serverWord = data.guildCount === 1 ? 'server' : 'servers';
-                    summary.textContent = `Connected to ${data.guildCount.toLocaleString()} ${serverWord}`;
-                } else {
-                    summary.textContent = 'Not currently connected to Discord';
-                }
-            }
-
-            // Update metrics section visibility
-            const metricsSection = banner.querySelector('[data-metrics-section]');
-            if (metricsSection) {
-                if (isOnline) {
-                    metricsSection.classList.remove('hidden');
-                } else {
-                    metricsSection.classList.add('hidden');
-                }
-            }
-
-            // Update latency
-            const latencyElement = banner.querySelector('[data-latency]');
-            if (latencyElement) {
-                latencyElement.textContent = data.latencyMs;
-            }
-
-            // Update uptime
-            const uptimeElement = banner.querySelector('[data-uptime]');
-            if (uptimeElement) {
-                uptimeElement.textContent = formatUptime(data.uptime);
-            }
-
-            console.log('[BotStatusRefresh] Banner updated:', data.connectionState);
-
+            renderBanner(await fetchStatus());
         } catch (error) {
-            console.error('Failed to refresh bot status banner:', error);
+            console.warn('Failed to refresh bot status banner:', error);
         }
+    }
+
+    /**
+     * Marks the banner as restarting and waits for the bot to report Connected again, polling the
+     * status API. Resolves true when it does, false after the timeout. The banner shows
+     * "Restarting" in between instead of flipping to Offline and back.
+     * @param {object} [options]
+     * @param {number} [options.timeoutMs=90000]
+     * @param {number} [options.intervalMs=2000]
+     */
+    async function watchRestart(options) {
+        const timeoutMs = (options && options.timeoutMs) || 90000;
+        const intervalMs = (options && options.intervalMs) || 2000;
+        const banner = document.querySelector('[data-bot-status-banner]');
+        if (banner) banner.dataset.restarting = 'true';
+
+        const deadline = Date.now() + timeoutMs;
+        let connected = false;
+        // The status API is polled directly here: fetchStatus() reuses an answer for a second, so
+        // this loop would otherwise keep reading the same one.
+        lastData = null;
+        while (Date.now() < deadline) {
+            let data = null;
+            try {
+                data = await fetchStatus();
+            } catch (error) {
+                // The server may itself be restarting; keep trying until the deadline
+            }
+            if (data) {
+                connected = String(data.connectionState || '').toUpperCase() === 'CONNECTED';
+                renderBanner(data);
+                if (connected) break;
+            }
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
+            lastData = null;
+        }
+
+        if (banner) delete banner.dataset.restarting;
+        // Draw the final state (Offline after a timeout) without the restarting wording
+        if (!connected && lastData) renderBanner(lastData);
+        else if (!connected) await refreshBotStatusBanner();
+        return connected;
     }
 
     /**
