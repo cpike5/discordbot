@@ -1,4 +1,4 @@
-@page "{id:long}"
+@page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Guilds.EditModel
 @using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
@@ -12,6 +12,7 @@
 <div class="max-w-3xl mx-auto">
     <form method="post" id="guild-edit-form"
           data-submit-guard
+          data-focus-first-error
           data-unsaved-changes
           data-unsaved-dirty-on-load="@(Model.DirtyOnLoad ? "true" : "false")"
           novalidate>
@@ -58,11 +59,11 @@
                             Type = "number",
                             Value = Model.Input.AutoLeaveTimeoutMinutes.ToString(),
                             Min = "0",
-                            Max = "1440",
+                            Max = GuildAudioSettings.MaxAutoLeaveTimeoutMinutes.ToString(),
                             Step = "1",
                             InputMode = "numeric",
                             Autocomplete = "off",
-                            HelpText = "Minutes of silence before the bot leaves the voice channel. 0 keeps it there.",
+                            HelpText = "Minutes of silence before the bot leaves the voice channel, from 0 to 60. 0 keeps it there.",
                             ValidationState = FormFieldState.StateOf(timeoutError),
                             ValidationMessage = timeoutError
                         }' />
@@ -91,7 +92,7 @@
                         Title = "Audio settings could not be loaded",
                         Message = "They are left as they are when you save. Reload the page to try again."
                     }' />
-                    <a asp-page="Edit" asp-route-id="@Model.ViewModel.Id" class="btn btn-secondary mt-3">Reload audio settings</a>
+                    <a asp-page="Edit" asp-route-guildId="@Model.ViewModel.Id" class="btn btn-secondary mt-3">Reload audio settings</a>
                 </div>
             }
         </section>
@@ -111,5 +112,5 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/form-errors.js" asp-append-version="true"></script>
+    <script src="~/js/form-focus.js" asp-append-version="true"></script>
 }

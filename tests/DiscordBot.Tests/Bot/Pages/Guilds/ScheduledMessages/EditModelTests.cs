@@ -126,6 +126,31 @@ public class EditModelTests
     }
 
     [Fact]
+    public async Task OnPost_WithATimeInADaylightSavingGap_ReportsItOnTheTimeField_InsteadOfThrowing()
+    {
+        // 02:30 on 8 March 2026 does not exist in New York: the clocks go from 02:00 to 03:00
+        _model.Input = new EditModel.InputModel
+        {
+            Title = "t",
+            Content = "x",
+            ChannelId = 111UL,
+            Frequency = ScheduleFrequency.Daily,
+            IsEnabled = true,
+            NextExecutionAt = new DateTime(2026, 3, 8, 2, 30, 0),
+            UserTimezone = "America/New_York"
+        };
+
+        var result = await _model.OnPostAsync(GuildId, MessageId, CancellationToken.None);
+
+        result.Should().BeOfType<PageResult>();
+        _model.ModelState["Input.NextExecutionAt"]!.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be("That time doesn't exist in America/New_York because of a daylight-saving change. Pick a time before or after it.");
+        _model.Editor.NextExecutionLocal.Should().Be("2026-03-08T02:30", "the form keeps what the user typed");
+        _model.Editor.SummaryNextRunUtcIso.Should().BeNull("a skipped time stands for no instant");
+        _messages.Verify(s => s.UpdateAsync(It.IsAny<Guid>(), It.IsAny<ScheduledMessageUpdateDto>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task OnPostDelete_RemovesTheMessageAndReturnsToTheList()
     {
         _messages.Setup(s => s.DeleteAsync(MessageId, It.IsAny<CancellationToken>())).ReturnsAsync(true);

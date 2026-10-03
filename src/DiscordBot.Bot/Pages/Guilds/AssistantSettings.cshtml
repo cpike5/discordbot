@@ -27,6 +27,7 @@
 
 <form method="post" id="assistant-form"
       data-submit-guard
+      data-focus-first-error
       data-unsaved-changes
       data-unsaved-dirty-on-load="@(dirtyOnLoad ? "true" : "false")"
       novalidate>
@@ -214,6 +215,6 @@
 
 @section Scripts {
     <script src="~/js/section-gate.js" asp-append-version="true"></script>
-    <script src="~/js/form-errors.js" asp-append-version="true"></script>
+    <script src="~/js/form-focus.js" asp-append-version="true"></script>
     <script src="~/js/assistant-settings.js" asp-append-version="true"></script>
 }

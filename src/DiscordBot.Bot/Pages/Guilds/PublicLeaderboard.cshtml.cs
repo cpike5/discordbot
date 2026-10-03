@@ -145,9 +145,6 @@ public class PublicLeaderboardModel : PageModel
                 return Unavailable(StatusCodes.Status404NotFound);
             }
 
-            GuildName = guild.Name;
-            GuildIconUrl = guild.IconUrl;
-
             if (settings == null || !settings.IsEnabled)
             {
                 // Same answer as an unknown server: a visitor learns nothing about which servers exist
@@ -159,9 +156,14 @@ public class PublicLeaderboardModel : PageModel
             if (!IsLeaderboardPublic)
             {
                 _logger.LogInformation("Public leaderboard not enabled for guild {GuildId}", guildId);
-                // Still show page, but with a message that it's not public
+                // Still show page, but with a message that it's not public and no guild details:
+                // anyone can request this URL, so a name here would let visitors enumerate servers
                 return Page();
             }
+
+            // Only a board that is public may name its server; every other state stays generic
+            GuildName = guild.Name;
+            GuildIconUrl = guild.IconUrl;
 
             // Check authentication state
             IsAuthenticated = User.Identity?.IsAuthenticated ?? false;
@@ -187,6 +189,7 @@ public class PublicLeaderboardModel : PageModel
             {
                 _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
                 ErrorMessage = "The bot is not connected to this server right now, so membership cannot be checked. Try again in a moment.";
+                ClearGuildDetails();
                 Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 return Page();
             }
@@ -197,6 +200,7 @@ public class PublicLeaderboardModel : PageModel
                 _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
                     applicationUser.DiscordUserId.Value, guildId);
                 Availability = LeaderboardAvailability.NotAMember;
+                ClearGuildDetails();
                 Response.StatusCode = StatusCodes.Status403Forbidden;
                 return Page();
             }
@@ -257,14 +261,25 @@ public class PublicLeaderboardModel : PageModel
         {
             _logger.LogError(ex, "Failed to load public leaderboard for guild {GuildId}", guildId);
             ErrorMessage = "The leaderboard could not be loaded. Try again in a moment.";
+            ClearGuildDetails();
             Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         }
 
         return Page();
     }
 
+    /// <summary>
+    /// Drops the server's name and icon so a refusal or error state renders no guild data.
+    /// </summary>
+    private void ClearGuildDetails()
+    {
+        GuildName = string.Empty;
+        GuildIconUrl = null;
+    }
+
     private IActionResult Unavailable(int statusCode)
     {
+        ClearGuildDetails();
         Availability = LeaderboardAvailability.NotAvailable;
         Response.StatusCode = statusCode;
         return Page();

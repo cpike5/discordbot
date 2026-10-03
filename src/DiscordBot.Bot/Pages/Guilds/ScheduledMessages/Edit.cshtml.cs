@@ -148,6 +148,15 @@ public class EditModel : GuildPageModelBase
             }
         }
 
+        // A wall-clock time inside a spring-forward gap does not exist, so it has no UTC instant
+        if (Input.NextExecutionAt.HasValue
+            && TimezoneHelper.IsNonexistentLocalTime(Input.NextExecutionAt.Value, Input.UserTimezone))
+        {
+            ModelState.AddModelError(
+                "Input.NextExecutionAt",
+                $"That time doesn't exist in {Input.UserTimezone} because of a daylight-saving change. Pick a time before or after it.");
+        }
+
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Scheduled message {MessageId} is invalid. Errors: {Errors}",

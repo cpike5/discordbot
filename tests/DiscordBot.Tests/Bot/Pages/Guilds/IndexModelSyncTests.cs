@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Pages.Guilds;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -83,9 +84,39 @@ public class IndexModelSyncTests
         _mockAuthorizationService
             .Setup(s => s.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<object>(), "RequireAdmin"))
             .ReturnsAsync(AuthorizationResult.Success());
+
+        // ...and for the per-guild access check that guards a single-guild sync
+        _mockAuthorizationService
+            .Setup(s => s.AuthorizeAsync(
+                It.IsAny<ClaimsPrincipal>(),
+                It.IsAny<object>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Success());
     }
 
     #region OnPostSyncGuildAsync Tests
+
+    [Fact]
+    public async Task OnPostSyncGuildAsync_WithoutAccessToThatGuild_IsForbidden_AndSyncsNothing()
+    {
+        // Arrange: a Moderator may open this page, but has no access to the guild in the request
+        const ulong guildId = 123456789UL;
+        SetupPageContext(isAjax: true);
+        _mockAuthorizationService
+            .Setup(s => s.AuthorizeAsync(
+                It.IsAny<ClaimsPrincipal>(),
+                It.Is<object>(o => o is ulong && (ulong)o == guildId),
+                It.Is<IEnumerable<IAuthorizationRequirement>>(r => r.OfType<GuildAccessRequirement>().Any())))
+            .ReturnsAsync(AuthorizationResult.Failed());
+
+        // Act
+        var result = await _indexModel.OnPostSyncGuildAsync(guildId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<ForbidResult>("the name and member count of a guild must not go to someone without access to it");
+        _mockGuildService.Verify(s => s.SyncGuildAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockGuildService.Verify(s => s.GetGuildByIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 
     [Fact]
     public async Task OnPostSyncGuildAsync_WhenSuccessful_ReturnsJsonWithSuccess()

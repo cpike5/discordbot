@@ -119,10 +119,12 @@ public class RouteSmokeTests : IClassFixture<RouteSmokeTests.AppFixture>
             ["guildId"] = GuildId.ToString()
         };
 
-        /// <summary>Pages whose own route parameter named <c>id</c> is a guild id.</summary>
+        /// <summary>
+        /// Pages whose own route parameter named <c>id</c> is a guild id. Empty now: Guilds/Edit
+        /// takes <c>{guildId}</c> like every other guild page, which the authorization policy needs.
+        /// </summary>
         private static readonly HashSet<string> PagesWhoseIdIsAGuild = new(StringComparer.OrdinalIgnoreCase)
         {
-            "/Guilds/Edit"
         };
 
         /// <summary>Pages that read a required <c>id</c> from the query string, and the id to send.</summary>

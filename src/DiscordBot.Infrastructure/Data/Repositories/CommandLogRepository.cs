@@ -118,17 +118,34 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IDictionary<string, int>> GetCommandUsageStatsAsync(
+    public Task<IDictionary<string, int>> GetCommandUsageStatsAsync(
         DateTime? since = null,
         CancellationToken cancellationToken = default)
+        => GetCommandUsageStatsAsync(since, null, null, cancellationToken);
+
+    public async Task<IDictionary<string, int>> GetCommandUsageStatsAsync(
+        DateTime? since,
+        DateTime? until,
+        ulong? guildId,
+        CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Retrieving command usage statistics since {Since}", since);
+        _logger.LogDebug("Retrieving command usage statistics since {Since} until {Until} for guild {GuildId}", since, until, guildId);
 
         var query = DbSet.AsQueryable();
 
         if (since.HasValue)
         {
             query = query.Where(c => c.ExecutedAt >= since.Value);
+        }
+
+        if (until.HasValue)
+        {
+            query = query.Where(c => c.ExecutedAt < until.Value);
+        }
+
+        if (guildId.HasValue)
+        {
+            query = query.Where(c => c.GuildId == guildId.Value);
         }
 
         var stats = await query
@@ -207,18 +224,30 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         return result;
     }
 
-    public async Task<CommandSuccessRateDto> GetSuccessRateAsync(
+    public Task<CommandSuccessRateDto> GetSuccessRateAsync(
         DateTime? since = null,
         ulong? guildId = null,
         CancellationToken cancellationToken = default)
+        => GetSuccessRateAsync(since, null, guildId, cancellationToken);
+
+    public async Task<CommandSuccessRateDto> GetSuccessRateAsync(
+        DateTime? since,
+        DateTime? until,
+        ulong? guildId,
+        CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Retrieving command success rate since {Since} for guild {GuildId}", since, guildId);
+        _logger.LogDebug("Retrieving command success rate since {Since} until {Until} for guild {GuildId}", since, until, guildId);
 
         var query = DbSet.AsQueryable();
 
         if (since.HasValue)
         {
             query = query.Where(l => l.ExecutedAt >= since.Value);
+        }
+
+        if (until.HasValue)
+        {
+            query = query.Where(l => l.ExecutedAt < until.Value);
         }
 
         if (guildId.HasValue)
@@ -241,20 +270,33 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         return result;
     }
 
-    public async Task<IReadOnlyList<CommandPerformanceDto>> GetCommandPerformanceAsync(
+    public Task<IReadOnlyList<CommandPerformanceDto>> GetCommandPerformanceAsync(
         DateTime? since = null,
         ulong? guildId = null,
         int limit = 10,
         CancellationToken cancellationToken = default)
+        => GetCommandPerformanceAsync(since, null, guildId, limit, cancellationToken);
+
+    public async Task<IReadOnlyList<CommandPerformanceDto>> GetCommandPerformanceAsync(
+        DateTime? since,
+        DateTime? until,
+        ulong? guildId,
+        int limit,
+        CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Retrieving command performance metrics since {Since} for guild {GuildId}, limit {Limit}",
-            since, guildId, limit);
+        _logger.LogDebug("Retrieving command performance metrics since {Since} until {Until} for guild {GuildId}, limit {Limit}",
+            since, until, guildId, limit);
 
         var query = DbSet.AsQueryable();
 
         if (since.HasValue)
         {
             query = query.Where(l => l.ExecutedAt >= since.Value);
+        }
+
+        if (until.HasValue)
+        {
+            query = query.Where(l => l.ExecutedAt < until.Value);
         }
 
         if (guildId.HasValue)

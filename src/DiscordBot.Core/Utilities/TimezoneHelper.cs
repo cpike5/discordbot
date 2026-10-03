@@ -36,6 +36,24 @@ public static class TimezoneHelper
     }
 
     /// <summary>
+    /// True when <paramref name="localDateTime"/> does not exist in the named zone because a
+    /// spring-forward change skips it (02:30 on the night the clocks go from 02:00 to 03:00).
+    /// <see cref="ConvertToUtc"/> throws for such a time. False for a missing or unknown zone,
+    /// where the time is read as UTC.
+    /// </summary>
+    public static bool IsNonexistentLocalTime(DateTime localDateTime, string? ianaTimezoneName)
+    {
+        if (string.IsNullOrWhiteSpace(ianaTimezoneName))
+        {
+            return false;
+        }
+
+        var timeZone = GetTimeZoneInfo(ianaTimezoneName);
+        return timeZone.Id != "UTC"
+            && timeZone.IsInvalidTime(DateTime.SpecifyKind(localDateTime, DateTimeKind.Unspecified));
+    }
+
+    /// <summary>
     /// Converts a UTC DateTime to local time in the specified IANA timezone.
     /// </summary>
     /// <param name="utcDateTime">The UTC datetime.</param>

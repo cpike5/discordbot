@@ -265,7 +265,7 @@ public class IndexModel : GuildPageModelBase
             }
         }
 
-        Range(request.AutoLeaveTimeoutMinutes, "autoLeaveTimeout", 0, 60, "the auto-leave timeout", "minutes");
+        Range(request.AutoLeaveTimeoutMinutes, "autoLeaveTimeout", 0, GuildAudioSettings.MaxAutoLeaveTimeoutMinutes, "the auto-leave timeout", "minutes");
         Range(request.MaxDurationSeconds, "maxDuration", 1, 300, "the maximum duration", "seconds");
         Range(request.MaxFileSizeMB, "maxFileSize", 1, 50, "the maximum file size", "MB");
         Range(request.MaxSoundsPerGuild, "maxSounds", 1, 500, "the maximum number of sounds", "sounds");
@@ -277,11 +277,16 @@ public class IndexModel : GuildPageModelBase
             errors["defaultStyle"] = "Choose one of the listed styles.";
         }
 
-        foreach (var command in request.CommandRoles?.Keys ?? Enumerable.Empty<string>())
+        foreach (var (command, roleIds) in request.CommandRoles ?? new Dictionary<string, List<ulong>>())
         {
             if (!SoundboardCommands.Contains(command, StringComparer.OrdinalIgnoreCase))
             {
                 errors["form"] = "A command in the permissions is not recognised. Reload the page and try again.";
+            }
+            else if (roleIds == null)
+            {
+                // {"commandRoles": {"play": null}}: a missing list is a bad request, not a crash
+                errors["form"] = "The permissions for a command could not be read. Reload the page and try again.";
             }
         }
 

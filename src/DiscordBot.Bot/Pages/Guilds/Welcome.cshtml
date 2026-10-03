@@ -30,6 +30,7 @@
 
 <form method="post" id="welcome-form"
       data-submit-guard
+      data-focus-first-error
       data-unsaved-changes
       data-unsaved-dirty-on-load="@(dirtyOnLoad ? "true" : "false")"
       data-guild-name="@Model.ViewModel.GuildName"
@@ -257,6 +258,6 @@
 @section Scripts {
     <script src="~/js/discord-markdown.js" asp-append-version="true"></script>
     <script src="~/js/section-gate.js" asp-append-version="true"></script>
-    <script src="~/js/form-errors.js" asp-append-version="true"></script>
+    <script src="~/js/form-focus.js" asp-append-version="true"></script>
     <script src="~/js/welcome-settings.js" asp-append-version="true"></script>
 }

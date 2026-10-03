@@ -203,9 +203,10 @@
                                         <a asp-page="Edit" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80" aria-label="Edit @user.Email">
                                             Edit
                                         </a>
-                                        @if (user.Id != Model.ViewModel.CurrentUserId)
+                                        @if (user.Id != Model.ViewModel.CurrentUserId
+                                             && (User.IsInRole("SuperAdmin") || user.HighestRole != "SuperAdmin"))
                                         {
-                                            @* Disable / enable. You cannot do it to yourself; the service refuses too. *@
+                                            @* Disable / enable. Not yourself, and only a SuperAdmin may do it to a SuperAdmin; the service refuses too. *@
                                             <form method="post" asp-page-handler="ToggleActive" class="inline" data-submit-guard>
                                                 <input type="hidden" name="userId" value="@user.Id" />
                                                 <input type="hidden" name="isActive" value="@((!user.IsActive).ToString().ToLowerInvariant())" />

@@ -133,6 +133,16 @@ public class AudioAdminPageTests : IDisposable
     }
 
     [Fact]
+    public async Task AssignCategory_WithoutABody_IsABadRequest_NotAServerError()
+    {
+        var model = CreateSoundboard();
+
+        var result = await model.OnPostAssignCategoryAsync(GuildId, null!);
+
+        Json<object>(result, 400);
+    }
+
+    [Fact]
     public async Task AssignCategory_NullTakesTheSoundOutOfItsCategory()
     {
         var (sound, _, _) = await SeedSoundAsync();
@@ -340,6 +350,19 @@ public class AudioAdminPageTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAll_WithANullRoleListForACommand_IsABadRequest_AndSavesNothing()
+    {
+        var (model, _, _, settings, _) = CreateAudioSettings();
+        var request = ValidSave();
+        request.CommandRoles = new() { ["play"] = null! };
+
+        var result = await model.OnPostSaveAllAsync(request, CancellationToken.None);
+
+        Json<object>(result, 400);
+        settings.CommandRoleRestrictions.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task SaveAll_ClearingAllRolesEmptiesAnExistingRestriction()
     {
         var (model, _, _, settings, _) = CreateAudioSettings();
@@ -475,7 +498,7 @@ public class AudioAdminPageTests : IDisposable
         options.Voice.Should().Be("en-US-JennyNeural");
     }
 
-    private (TtsModel model, Mock<ITtsService> tts, Mock<ITtsPlaybackService> playback) CreateTts(bool configured = true, bool connected = true)
+    private (TtsModel model, Mock<ITtsService> tts, Mock<ITtsPlaybackService> playback) CreateTts(bool configured = true, bool connected = true, bool ssmlEnabled = true, int maxComplexity = 50, int maxSsmlLength = 5000)
     {
         var tts = new Mock<ITtsService>();
         tts.SetupGet(t => t.IsConfigured).Returns(configured);
@@ -489,7 +512,7 @@ public class AudioAdminPageTests : IDisposable
 
         var settingsService = new Mock<ITtsSettingsService>();
         settingsService.Setup(s => s.GetOrCreateSettingsAsync(GuildId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GuildTtsSettings { GuildId = GuildId, DefaultVoice = "en-US-JennyNeural", MaxMessageLength = 20 });
+            .ReturnsAsync(new GuildTtsSettings { GuildId = GuildId, DefaultVoice = "en-US-JennyNeural", MaxMessageLength = 20, SsmlEnabled = ssmlEnabled, MaxSsmlComplexity = maxComplexity });
 
         var playback = new Mock<ITtsPlaybackService>();
         playback.Setup(p => p.PlayAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
@@ -506,6 +529,7 @@ public class AudioAdminPageTests : IDisposable
             Mock.Of<ISettingsService>(),
             Mock.Of<IGuildAudioSettingsRepository>(),
             Mock.Of<ISsmlBuilder>(),
+            Microsoft.Extensions.Options.Options.Create(new DiscordBot.Core.Configuration.AzureSpeechSsmlOptions { MaxDocumentLength = maxSsmlLength }),
             NullLogger<TtsModel>.Instance);
         Wire(model, new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("discord:username", "admin") }, "test")));
         return (model, tts, playback);
@@ -539,6 +563,58 @@ public class AudioAdminPageTests : IDisposable
 
         tts.Verify(t => t.SynthesizeSpeechAsync("<speak>hi</speak>", null, SynthesisMode.Ssml, It.IsAny<CancellationToken>()), Times.Once);
         tts.Verify(t => t.SynthesizeSpeechAsync(It.IsAny<string>(), It.IsAny<TtsOptions?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendMessage_ProModeSsml_IsRefusedWhenTheServerHasSsmlOff()
+    {
+        var (model, tts, playback) = CreateTts(ssmlEnabled: false);
+
+        var result = await model.OnPostSendMessageAsync(GuildId, new TtsModel.TtsSendDto { Message = "hi", Ssml = "<speak>hi</speak>" });
+
+        Prop(Json<object>(result, 403), "code").Should().Be("ssml_not_enabled");
+        tts.Verify(t => t.SynthesizeSpeechAsync(It.IsAny<string>(), It.IsAny<TtsOptions?>(), It.IsAny<SynthesisMode>(), It.IsAny<CancellationToken>()), Times.Never);
+        playback.Verify(p => p.PlayAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendMessage_ProModeSsml_IsRefusedWhenTooLong()
+    {
+        var (model, tts, _) = CreateTts(maxSsmlLength: 40);
+
+        var result = await model.OnPostSendMessageAsync(GuildId, new TtsModel.TtsSendDto { Message = "hi", Ssml = "<speak>" + new string('a', 40) + "</speak>" });
+
+        var body = Json<object>(result, 400);
+        Prop(body, "code").Should().Be("ssml_too_long");
+        Prop(body, "message").Should().Contain("limit is 40");
+        tts.Verify(t => t.SynthesizeSpeechAsync(It.IsAny<string>(), It.IsAny<TtsOptions?>(), It.IsAny<SynthesisMode>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendMessage_ProModeSsml_IsRefusedAboveTheServersComplexityLimit()
+    {
+        var (model, tts, _) = CreateTts(maxComplexity: 3);
+
+        // Opening tags: speak, voice, prosody, emphasis = 4 > 3
+        var result = await model.OnPostSendMessageAsync(GuildId, new TtsModel.TtsSendDto
+        {
+            Message = "hi",
+            Ssml = "<speak><voice name=\"v\"><prosody rate=\"1\"><emphasis>hi</emphasis></prosody></voice></speak>"
+        });
+
+        Prop(Json<object>(result, 400), "code").Should().Be("ssml_complexity_exceeded");
+        tts.Verify(t => t.SynthesizeSpeechAsync(It.IsAny<string>(), It.IsAny<TtsOptions?>(), It.IsAny<SynthesisMode>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Preview_ProModeSsml_IsHeldToTheSameRules()
+    {
+        var (model, tts, _) = CreateTts(ssmlEnabled: false);
+
+        var result = await model.OnPostPreviewAsync(GuildId, new TtsModel.TtsSendDto { Message = "hi", Ssml = "<speak>hi</speak>" });
+
+        Prop(Json<object>(result, 403), "code").Should().Be("ssml_not_enabled");
+        tts.Verify(t => t.SynthesizeSpeechAsync(It.IsAny<string>(), It.IsAny<TtsOptions?>(), It.IsAny<SynthesisMode>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

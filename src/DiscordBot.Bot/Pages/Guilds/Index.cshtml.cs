@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -121,6 +122,15 @@ public class IndexModel : PaginatedPageModel
     public async Task<IActionResult> OnPostSyncGuildAsync(ulong id, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User requesting sync for guild {GuildId}", id);
+
+        // RequireModerator only says the caller has a role. The id comes from the request body, so
+        // the caller needs access to that guild before its name and member count go back.
+        var access = await _authorizationService.AuthorizeAsync(User, id, new GuildAccessRequirement());
+        if (!access.Succeeded)
+        {
+            _logger.LogWarning("User {User} attempted to sync guild {GuildId} without access to it", User.Identity?.Name, id);
+            return Forbid();
+        }
 
         try
         {
