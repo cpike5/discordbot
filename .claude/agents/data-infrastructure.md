@@ -52,6 +52,7 @@ You are a domain expert for the **Data & Infrastructure** stream of a Discord bo
 - **Repos:** `Data/Repositories/Currency/` - `CurrencyRepository`, `WalletRepository`, `LedgerRepository`, `PriceRepository`, `MintAuthorityRepository`
 - **Services:** `Services/Currency/` - `CurrencyService` (admin, mint authorities, prices, reconcile), `WalletService` (balance rules)
 - **`ILedgerRepository.AppendAsync` is the single write path.** One transaction: idempotency check, wallet row lock, `BalanceAfter` stamp, insert, `CachedBalance` update. A duplicate key writes nothing and returns the existing row. Nothing else writes `CachedBalance`.
+- **Any `BeginTransaction` must run inside `Database.CreateExecutionStrategy().ExecuteAsync(...)`.** The app configures Npgsql with `EnableRetryOnFailure`, which throws on a user-initiated transaction otherwise; the test contexts do not retry, so tests will not catch it. `LedgerRepository.ExecuteAtomicallyAsync` shows the pattern (clear the change tracker and reset the rows at the start of each retry). `LedgerRepositoryRetryingStrategyTests` builds a retrying context.
 - **Row locking:** Postgres uses `SELECT ... FOR UPDATE`; SQLite uses a no-op write to promote the transaction before reading. `AppendPairAsync` (transfers) locks both wallets in id order.
 - **Balance rules live in `WalletService`**, never in the repository. Fines are the only thing that may cross zero.
 - `LedgerTransaction.ReferenceTransactionId` and `ModerationCaseId` are indexed columns with **no FK** (the transfer pair references itself circularly).
