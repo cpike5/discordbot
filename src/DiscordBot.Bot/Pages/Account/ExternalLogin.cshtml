@@ -1,7 +1,7 @@
 @page
 @model ExternalLoginModel
 @{
-    ViewData["Title"] = "External Login";
+    ViewData["Title"] = "Signing in";
     Layout = null;
 }
 
@@ -20,7 +20,7 @@
 </head>
 <body class="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-8 font-sans">
 
-    <div class="w-full max-w-md">
+    <main class="w-full max-w-md">
         <div class="text-center mb-8">
             <div class="inline-flex items-center justify-center w-16 h-16 bg-accent-orange rounded-xl mb-4">
                 <svg class="w-10 h-10 text-white animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
@@ -28,8 +28,8 @@
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </div>
-            <h1 class="text-2xl font-bold text-text-primary">Processing Login</h1>
-            <p class="text-text-secondary mt-2">Please wait while we complete your sign-in...</p>
+            <h1 class="text-2xl font-bold text-text-primary">Signing you in</h1>
+            <p class="text-text-secondary mt-2">Please wait while we finish signing you in…</p>
         </div>
 
         @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -40,19 +40,19 @@
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                     </svg>
                     <div>
-                        <p class="text-sm font-semibold text-error">Login failed</p>
+                        <p class="text-sm font-semibold text-error">Sign-in failed</p>
                         <p class="text-sm text-error mt-1">@Model.ErrorMessage</p>
                     </div>
                 </div>
 
                 <div class="mt-6 text-center">
                     <a href="/Account/Login" class="inline-flex items-center justify-center py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover">
-                        Return to Login
+                        Return to sign in
                     </a>
                 </div>
             </div>
         }
-    </div>
+    </main>
 
 </body>
 </html>

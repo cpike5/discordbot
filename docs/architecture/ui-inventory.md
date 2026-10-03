@@ -20,21 +20,21 @@ For detailed component documentation, see [Component API Usage Guide](../article
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/` | `Pages/Landing.cshtml` | Unauthenticated landing page |
+| `/` | `Pages/Landing.cshtml` | Unauthenticated landing page: themed (follows the OS), `<main>`, nav with theme toggle and a Sign in link at every width, nine current feature cards, real repository links |
 | `/index` | `Pages/Index.cshtml` | Authenticated home/dashboard. Hero cards (`data-stat-*`) follow the `StatsUpdated` hub event and `?handler=Stats`; Connected Servers is Moderator+, Audit Log and Quick Actions are Admin (a Viewer's grid closes up: the timeline takes the full row and an empty Quick Actions card is not rendered); Restart and Sync All ask first (`restartBotModal`, `syncGuildsModal`) and `dashboard-actions.js` follows up (restart: banner reads "Restarting" until the bot is back; sync: servers and numbers refresh). Handlers: `Stats` (GET JSON), `ConnectedServers` (GET JSON, Moderator+), `RestartBot` and `SyncAllGuilds` (POST, Admin) |
 
 ### Account Pages
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/account/login` | `Pages/Account/Login.cshtml` | OAuth login with Discord |
+| `/account/login` | `Pages/Account/Login.cshtml` | Sign in with Discord or email: one h1, `autocomplete="username"`, pending state (`data-submit-guard`), focus on the first error (`form-focus.js`), form-level errors in one alert |
 | `/account/external-login` | `Pages/Account/ExternalLogin.cshtml` | External OAuth flow handler |
-| `/account/link-discord` | `Pages/Account/LinkDiscord.cshtml` | Link Discord account to profile |
+| `/account/link-discord` | `Pages/Account/LinkDiscord.cshtml` | Link Discord account to profile: pending states on every form, code length from `Verification:CodeLength`, live expiry countdown (`link-discord.js`), IDs offered as copy buttons instead of text |
 | `/account/logout` | `Pages/Account/Logout.cshtml` | Sign out: POST signs out; GET auto-submits a sign-out POST when signed in, else confirms "signed out" (standalone page) |
-| `/account/access-denied` | `Pages/Account/AccessDenied.cshtml` | Authorization failure page |
-| `/account/lockout` | `Pages/Account/Lockout.cshtml` | Account lockout notification |
-| `/account/privacy` | `Pages/Account/Privacy.cshtml` | Privacy policy page |
-| `/account/profile` | `Pages/Account/Profile.cshtml` | User profile settings |
+| `/account/access-denied` | `Pages/Account/AccessDenied.cshtml` | Authorization failure page in plain language, with Sign out (POST) |
+| `/account/lockout` | `Pages/Account/Lockout.cshtml` | Account lockout notification; the duration comes from the Identity lockout configuration |
+| `/account/privacy` | `Pages/Account/Privacy.cshtml` | Consent switches (`_FormToggle`, confirmed, redirect back to the row), export with a real download button, typed-confirm delete over `ApiClient` (`privacy.js`) |
+| `/account/profile` | `Pages/Account/Profile.cshtml` | User profile: local dates, theme radio cards with "Match my system" (clears the saved choice) |
 
 ### Admin Pages
 
@@ -131,7 +131,7 @@ All layouts are located in `Pages/Shared/`.
 | **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context | Guild pages under `/guild/{guildId}/*` |
 | **Error Layout** | `_ErrorLayout.cshtml` | Standalone, themed, `<main>` landmark; renders even when the theme lookup fails | `Pages/Error/Index` |
 
-Every layout and standalone page (`_Layout`, `Portal/_PortalLayout`, `_ErrorLayout`, the `Layout = null` Account pages and `PublicLeaderboard`) puts `theme-root` on `<html>` (`TagHelpers/ThemeRootTagHelper`) and `<partial name="_ThemeHead" />` in `<head>`: together they render the saved theme, or follow `prefers-color-scheme` when none is saved, before first paint. `_LayoutLanding` does not yet (Phase 15 of the UX polish plan). See *Theme System* in [Design System](../articles/design-system.md).
+Every layout and standalone page (`_Layout`, `Portal/_PortalLayout`, `_ErrorLayout`, the `Layout = null` Account pages and `PublicLeaderboard`) puts `theme-root` on `<html>` (`TagHelpers/ThemeRootTagHelper`) and `<partial name="_ThemeHead" />` in `<head>`: together they render the saved theme, or follow `prefers-color-scheme` when none is saved, before first paint. `_LayoutLanding` does too, and loads `theme.js` so Landing follows the OS while open. See *Theme System* in [Design System](../articles/design-system.md).
 
 `_PwaHead.cshtml` is a head partial (manifest link, install icons, service worker registration) included by `_Layout`, `Portal/_PortalLayout`, `_LayoutLanding`, and `Account/Login`. See [Progressive Web App](../articles/pwa.md).
 

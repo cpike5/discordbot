@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -79,6 +80,41 @@ public class PrivacyModel : PageModel
     public string? ExportDownloadUrl { get; set; }
 
     /// <summary>
+    /// The export link as a path on this site, for the download button. The export service builds an
+    /// absolute URL from <c>Application:BaseUrl</c>, which points somewhere else whenever the site is
+    /// reached on another host or port, so only the path is used. Null when there is no usable link.
+    /// </summary>
+    public string? ExportDownloadPath
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(ExportDownloadUrl)) return null;
+
+            // Only an http(s) URL is reduced to its path; on some platforms "//host/x" also parses as an
+            // absolute (file) URL, and that must stay rejected below
+            var path = Uri.TryCreate(ExportDownloadUrl, UriKind.Absolute, out var absolute)
+                       && (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps)
+                ? absolute.AbsolutePath
+                : ExportDownloadUrl;
+
+            // A local path only: never "//host" or "/\host", which browsers read as another site
+            return path.StartsWith('/') && !path.StartsWith("//", StringComparison.Ordinal) && !path.StartsWith("/\\", StringComparison.Ordinal)
+                ? path
+                : null;
+        }
+    }
+
+    /// <summary>The id of the data-management card, the target of the redirect after an export.</summary>
+    private const string DataManagementFragment = "data-management";
+
+    /// <summary>
+    /// Redirects back to this page at the given element, so the page does not jump to the top
+    /// after a POST from far down the page.
+    /// </summary>
+    private IActionResult RedirectToFragment(string fragment) =>
+        RedirectToPage(pageName: null, pageHandler: null, routeValues: null, fragment: fragment);
+
+    /// <summary>
     /// Handles GET requests to display the privacy and consent settings page.
     /// </summary>
     public async Task<IActionResult> OnGetAsync()
@@ -151,7 +187,7 @@ public class PrivacyModel : PageModel
         {
             _logger.LogWarning("User {UserId} attempted to toggle consent without Discord account linked", user.Id);
             TempData.SetErrorToast("You must link your Discord account before managing consent preferences.");
-            return RedirectToPage();
+            return RedirectToFragment($"consent-{type}");
         }
 
         // Validate consent type
@@ -159,7 +195,7 @@ public class PrivacyModel : PageModel
         {
             _logger.LogWarning("User {UserId} attempted to toggle invalid consent type {Type}", user.Id, type);
             TempData.SetErrorToast("Invalid consent type.");
-            return RedirectToPage();
+            return RedirectToFragment($"consent-{type}");
         }
 
         var consentType = (ConsentType)type;
@@ -210,7 +246,7 @@ public class PrivacyModel : PageModel
             TempData.SetErrorToast("An error occurred while updating consent preferences.");
         }
 
-        return RedirectToPage();
+        return RedirectToFragment($"consent-{type}");
     }
 
     /// <summary>
@@ -231,7 +267,7 @@ public class PrivacyModel : PageModel
         {
             _logger.LogWarning("User {UserId} attempted to export data without Discord account linked", user.Id);
             TempData.SetErrorToast("You must link your Discord account before exporting data.");
-            return RedirectToPage();
+            return RedirectToFragment(DataManagementFragment);
         }
 
         var discordUserId = user.DiscordUserId.Value;
@@ -250,7 +286,7 @@ public class PrivacyModel : PageModel
                 _logger.LogInformation("Successfully exported data for user {UserId}. {RecordCount} records exported",
                     user.Id, totalRecords);
 
-                TempData.SetSuccessToast($"Your data has been exported successfully. {totalRecords} records were exported.");
+                TempData.SetSuccessToast($"Your data has been exported. It has {DisplayFormat.Plural(totalRecords, "record")}.");
                 ExportDownloadUrl = result.DownloadUrl;
             }
             else
@@ -273,7 +309,7 @@ public class PrivacyModel : PageModel
             TempData.SetErrorToast("An error occurred while exporting your data. Please try again.");
         }
 
-        return RedirectToPage();
+        return RedirectToFragment(DataManagementFragment);
     }
 
     /// <summary>
@@ -341,7 +377,7 @@ public class PrivacyModel : PageModel
                 return new JsonResult(new
                 {
                     success = true,
-                    message = $"Your data has been permanently deleted. {totalDeleted} records were removed from the system.",
+                    message = $"Your data has been permanently deleted. {DisplayFormat.Plural(totalDeleted, "record")} removed.",
                     redirectUrl = Url.Page("/Account/Logout") ?? "/"
                 });
             }

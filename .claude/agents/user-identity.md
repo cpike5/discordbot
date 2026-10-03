@@ -30,6 +30,7 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### Pages
 - **Account:** Login, ExternalLogin, Profile, Privacy, LinkDiscord, Logout, Lockout, AccessDenied
+  - Lockout reads its duration from the Identity lockout options (`Identity:LockoutTimeSpanMinutes`); LinkDiscord reads the code length from `Verification:CodeLength`; Privacy export links are served from `wwwroot/exports/` (the page uses the path only) and consent switches post `grant` and redirect to `#consent-{type}`; Profile saves no theme as "Match my system" (clears the saved choice and cookie).
 - **Admin:** `Admin/Users/` (Index, Create, Edit, Details), `Admin/UserPurge.cshtml` (preview is a GET; the purge redirects, so a refresh never re-runs it; counts named by `Helpers/PurgeDisplay`). `UserManagementService` has no delete or unlock operation; the Users list offers disable/enable via `SetUserActiveStatusAsync`.
 - **Guild:** `Guilds/Members/` (Index, Moderation)
 

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using DiscordBot.Bot.Pages.Account;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Pages.Account;
@@ -92,6 +94,7 @@ public class LinkDiscordModelTests
             _mockUserDiscordGuildService.Object,
             _mockVerificationService.Object,
             _oauthSettings,
+            Options.Create(new VerificationOptions()),
             _mockLogger.Object);
 
         // Setup HttpContext and PageContext
@@ -313,6 +316,7 @@ public class LinkDiscordModelTests
             _mockUserDiscordGuildService.Object,
             _mockVerificationService.Object,
             oauthSettings,
+            Options.Create(new VerificationOptions()),
             _mockLogger.Object);
 
         // Setup HttpContext and PageContext
@@ -672,5 +676,46 @@ public class LinkDiscordModelTests
             um => um.RemoveLoginAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()),
             Times.Never,
             "should not attempt to remove login when none exists");
+    }
+    [Fact]
+    public void VerificationCodeLength_FollowsOptions_AndPlaceholderMatchesIt()
+    {
+        _pageModel.VerificationCodeLength.Should().Be(6);
+        _pageModel.CodePlaceholder.Should().Be("ABC-234");
+
+        var longer = new LinkDiscordModel(
+            _mockUserManager.Object,
+            _mockSignInManager.Object,
+            _mockTokenService.Object,
+            _mockUserInfoService.Object,
+            _mockGuildMembershipService.Object,
+            _mockUserDiscordGuildService.Object,
+            _mockVerificationService.Object,
+            _oauthSettings,
+            Options.Create(new VerificationOptions { CodeLength = 8 }),
+            _mockLogger.Object);
+
+        longer.VerificationCodeLength.Should().Be(8);
+        longer.CodePlaceholder.Replace("-", "").Should().HaveLength(8);
+    }
+
+    [Theory]
+    [InlineData("AB1")]
+    [InlineData("ABC-2345X")]
+    public async Task OnPostVerifyCodeAsync_WrongLength_ExplainsTheLength_WithoutSpendingAnAttempt(string code)
+    {
+        var user = new ApplicationUser { Id = "user-123" };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, user.Id) }, "TestAuth"));
+        _pageModel.PageContext.HttpContext.User = principal;
+        _mockUserManager.Setup(um => um.GetUserAsync(principal)).ReturnsAsync(user);
+        _pageModel.VerificationCode = code;
+
+        var result = await _pageModel.OnPostVerifyCodeAsync();
+
+        result.Should().BeOfType<RedirectToPageResult>();
+        _pageModel.TempData["ToastError"].Should().BeOfType<string>().Which.Should().Contain("6 characters");
+        _mockVerificationService.Verify(
+            vs => vs.ValidateCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
