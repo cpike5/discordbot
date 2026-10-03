@@ -3,6 +3,46 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Global Rat Watch Analytics";
+
+    var hasDateFilter = Model.Request.Query.ContainsKey("StartDate") || Model.Request.Query.ContainsKey("EndDate");
+    var hasFilters = hasDateFilter || Model.GuildId.HasValue;
+    var dateFilter = new DateRangeFilterViewModel
+    {
+        StartDate = Model.StartDate,
+        EndDate = Model.EndDate,
+        Presets = DateRangePreset.Long,
+        ClearUrl = Url.Page("RatWatchAnalytics"),
+        HasActiveFilters = hasFilters
+    };
+    var loadFailed = !string.IsNullOrEmpty(Model.ErrorMessage);
+
+    // The figures behind each chart, as text (see _ChartDataTable)
+    var summary = Model.ViewModel.Summary;
+    var otherWatches = Math.Max(0, summary.TotalWatches - summary.GuiltyCount - summary.ClearedEarlyCount - summary.ActiveWatches);
+    var timeSeriesTable = new ChartDataTableViewModel
+    {
+        Id = "watchesOverTimeData",
+        Caption = "Watches per day: total, guilty and cleared early",
+        Columns = new[] { "Day", "Total", "Guilty", "Cleared early" },
+        Rows = Model.ViewModel.TimeSeries.Select(t => (IReadOnlyList<string>)new[]
+        {
+            ChartDataTableViewModel.Day(t.Date), ChartDataTableViewModel.Count(t.TotalCount),
+            ChartDataTableViewModel.Count(t.GuiltyCount), ChartDataTableViewModel.Count(t.ClearedCount)
+        }).ToList()
+    };
+    var outcomeTable = new ChartDataTableViewModel
+    {
+        Id = "outcomeDistributionData",
+        Caption = "Watches by outcome",
+        Columns = new[] { "Outcome", "Watches" },
+        Rows = new IReadOnlyList<string>[]
+        {
+            new[] { "Guilty", ChartDataTableViewModel.Count(summary.GuiltyCount) },
+            new[] { "Cleared early", ChartDataTableViewModel.Count(summary.ClearedEarlyCount) },
+            new[] { "Active", ChartDataTableViewModel.Count(summary.ActiveWatches) },
+            new[] { "Other", ChartDataTableViewModel.Count(otherWatches) }
+        }
+    };
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -32,149 +72,55 @@
                 {
                     <span>Analytics for @Model.ViewModel.GuildName</span>
                 }
+                else if (loadFailed)
+                {
+                    <span>Cross-server metrics and trends</span>
+                }
                 else
                 {
-                    <span>Cross-guild metrics and trends for all servers (@Model.EnabledGuilds.Count guilds with Rat Watch enabled)</span>
+                    <span>Cross-server metrics and trends (@DisplayFormat.Plural(Model.EnabledGuilds.Count, "server") with Rat Watch enabled)</span>
                 }
             </p>
         </div>
     </div>
 
-    <!-- Display any errors -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    <filter-panel title="Filters"
+                  is-collapsible="true"
+                  active-filter-count="@(hasFilters ? 1 : 0)"
+                  default-expanded="true">
+        <form method="get" id="filterForm">
+            <div class="mb-4">
+                <label for="GuildId" class="block text-sm font-medium text-text-primary mb-2">Server</label>
+                <select id="GuildId"
+                        name="GuildId"
+                        class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors">
+                    <option value="">All servers</option>
+                    @foreach (var guild in Model.EnabledGuilds.OrderBy(g => g.Name))
+                    {
+                        <option value="@guild.GuildId" selected="@(Model.GuildId == guild.GuildId)">@guild.Name</option>
+                    }
+                </select>
+            </div>
+            <partial name="Shared/Components/_DateRangeFilter" model="dateFilter" />
+        </form>
+    </filter-panel>
+
+    @if (loadFailed)
     {
-        <div class="mb-6">
-            @{
-                var errorAlert = new AlertViewModel {
-                    Variant = AlertVariant.Error,
-                    Title = "Error",
-                    Message = Model.ErrorMessage,
-                    ShowIcon = true
-                };
-            }
-            <partial name="Shared/Components/_Alert" model="errorAlert" />
-        </div>
+        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+            Type = EmptyStateType.Error,
+            Title = "Analytics could not be loaded",
+            Description = Model.ErrorMessage!,
+            Size = EmptyStateSize.Default,
+            HeadingLevel = 2,
+            Announce = true,
+            PrimaryActionText = "Try again",
+            PrimaryActionUrl = Model.Request.Path + Model.Request.QueryString,
+            PrimaryActionIconPath = ""
+        }' />
     }
-
-    <!-- Filter Panel -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
-        <button type="button"
-                id="filterToggle"
-                class="w-full flex items-center justify-between px-5 py-4 text-left"
-                aria-expanded="true"
-                aria-controls="filterContent"
-                onclick="toggleFilterPanel()">
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                <span class="text-lg font-semibold text-text-primary">Filters</span>
-                @if (Model.StartDate.HasValue || Model.EndDate.HasValue || Model.GuildId.HasValue)
-                {
-                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                        Text = "Active",
-                        Variant = BadgeVariant.Orange,
-                        Size = BadgeSize.Small
-                    })" />
-                }
-            </div>
-            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-        </button>
-
-        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
-            <div class="border-t border-border-primary p-5">
-                <form method="get" id="filterForm">
-                    <!-- Guild Filter Dropdown -->
-                    <div class="mb-4">
-                        <label for="GuildId" class="block text-sm font-medium text-text-primary mb-2">Filter by Guild</label>
-                        <select id="GuildId"
-                                name="GuildId"
-                                class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors">
-                            <option value="">All Guilds</option>
-                            @foreach (var guild in Model.EnabledGuilds.OrderBy(g => g.Name))
-                            {
-                                <option value="@guild.GuildId" selected="@(Model.GuildId == guild.GuildId)">@guild.Name</option>
-                            }
-                        </select>
-                    </div>
-
-                    <!-- Quick Date Presets -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
-                        @{
-                            var today = DateTime.UtcNow.Date;
-                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
-                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
-                            var is90Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
-                                          Model.StartDate.Value.Date == today.AddDays(-90) && Model.EndDate.Value.Date == today;
-
-                            string GetPresetClass(bool isActive) => isActive
-                                ? "px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
-                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
-                        }
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
-                                Last 7 Days
-                            </button>
-                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
-                                Last 30 Days
-                            </button>
-                            <button type="button" onclick="setDatePreset('90days')" class="@GetPresetClass(is90Days)">
-                                Last 90 Days
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Filter Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Start Date -->
-                        <div>
-                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
-                            <input type="date"
-                                   id="StartDate"
-                                   name="StartDate"
-                                   value="@Model.StartDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-
-                        <!-- End Date -->
-                        <div>
-                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
-                            <input type="date"
-                                   id="EndDate"
-                                   name="EndDate"
-                                   value="@Model.EndDate?.ToString("yyyy-MM-dd")"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
-                    </div>
-
-                    <!-- Filter Actions -->
-                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
-                        <button type="submit" class="btn btn-primary">
-                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            Apply Filters
-                        </button>
-                        @if (Model.StartDate.HasValue || Model.EndDate.HasValue || Model.GuildId.HasValue)
-                        {
-                            <a asp-page="RatWatchAnalytics" class="btn btn-secondary">
-                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Clear Filters
-                            </a>
-                        }
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
+    else
+    {
     <!-- Summary Stats Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
         <!-- Total Guilds with Rat Watch Enabled -->
@@ -183,7 +129,7 @@
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-text-secondary">Guilds Using Rat Watch</p>
+                        <p class="text-sm font-medium text-text-secondary">Servers using Rat Watch</p>
                         <p class="mt-2 text-3xl font-bold text-text-primary">@Model.EnabledGuilds.Count.ToString("N0")</p>
                         <p class="mt-1 text-xs text-text-tertiary">Servers with feature enabled</p>
                     </div>
@@ -260,7 +206,7 @@
                         </svg>
                     </div>
                     <h2 class="text-lg font-semibold text-text-primary">
-                        @(Model.GuildId.HasValue ? "Watches Over Time" : "Global Trends")
+                        @(Model.GuildId.HasValue ? "Watches Over Time" : "Trends across all servers")
                     </h2>
                 </div>
             </div>
@@ -268,8 +214,9 @@
                 @if (Model.ViewModel.TimeSeries.Any())
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="watchesOverTimeChart" aria-label="Line chart showing Rat Watches over time" role="img"></canvas>
+                        <canvas id="watchesOverTimeChart" role="img" aria-label="Line chart of Rat Watches per day: total, guilty and cleared early" aria-describedby="watchesOverTimeData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="timeSeriesTable" />
                 }
                 else
                 {
@@ -300,8 +247,9 @@
                 @if (Model.ViewModel.Summary.TotalWatches > 0)
                 {
                     <div style="position: relative; min-height: 300px; max-height: 400px;">
-                        <canvas id="outcomeDistributionChart" aria-label="Doughnut chart showing outcome distribution" role="img"></canvas>
+                        <canvas id="outcomeDistributionChart" role="img" aria-label="Doughnut chart of Rat Watches by outcome" aria-describedby="outcomeDistributionData"></canvas>
                     </div>
+                    <partial name="Shared/Components/_ChartDataTable" model="outcomeTable" />
                 }
                 else
                 {
@@ -322,15 +270,15 @@
     {
         <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-8">
             <div class="px-5 py-4 border-b border-border-primary">
-                <h2 class="text-lg font-semibold text-text-primary">Per-Guild Summary</h2>
-                <p class="text-sm text-text-secondary mt-1">View individual guild analytics</p>
+                <h2 class="text-lg font-semibold text-text-primary">Per-server summary</h2>
+                <p class="text-sm text-text-secondary mt-1">View individual server analytics</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-bg-primary/50">
                         <tr>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Guild</th>
-                            <th class="px-5 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
+                            <th scope="col" class="px-5 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border-primary">
@@ -341,7 +289,7 @@
                                     <div class="flex items-center gap-3">
                                         @if (!string.IsNullOrEmpty(guild.IconUrl))
                                         {
-                                            <img src="@guild.IconUrl" alt="@guild.Name icon" class="w-10 h-10 rounded-lg" />
+                                            <img src="@guild.IconUrl" alt="" class="w-10 h-10 rounded-lg" />
                                         }
                                         else
                                         {
@@ -369,6 +317,7 @@
                 </table>
             </div>
         </div>
+    }
     }
 </div>
 
@@ -410,37 +359,8 @@
 @Html.Raw(chartDataJson)
     </script>
 
-    <!-- Filter Panel Toggle Script -->
-    <script>
-        function toggleFilterPanel() {
-            const content = document.getElementById('filterContent');
-            const chevron = document.getElementById('filterChevron');
-            const toggle = document.getElementById('filterToggle');
-
-            if (content.style.maxHeight === '0px') {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-            } else {
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-
-        // Presets come from DateRangeFilter, which counts days on the viewer's local calendar
-        // (a UTC date string gives the wrong day in the local evening)
-        function setDatePreset(preset) {
-            const startDateInput = document.getElementById('StartDate');
-            const endDateInput = document.getElementById('EndDate');
-            if (!DateRangeFilter.applyPreset(startDateInput, endDateInput, preset)) return;
-
-            // Auto-submit the form after setting dates
-            document.getElementById('filterForm').submit();
-        }
-    </script>
     <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
-
-    <!-- Load Custom Analytics Chart Script -->
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
+    <script src="~/js/analytics-charts.js" asp-append-version="true"></script>
     <script src="~/js/rat-watch-analytics.js" asp-append-version="true"></script>
 }

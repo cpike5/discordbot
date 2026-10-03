@@ -1,0 +1,35 @@
+@model DiscordBot.Bot.ViewModels.Components.ChartDataTableViewModel
+@*
+    The figures behind a chart, as a table that is visually hidden (sr-only) but read by screen
+    readers. The chart's canvas names it with aria-describedby="@Model.Id". Rendered on the server
+    from the same model the chart's JSON island comes from; cell text is encoded by Razor.
+*@
+<table id="@Model.Id" class="sr-only">
+    <caption>@Model.Caption</caption>
+    <thead>
+        <tr>
+            @foreach (var column in Model.Columns)
+            {
+                <th scope="col">@column</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                @for (var i = 0; i < row.Count; i++)
+                {
+                    if (i == 0)
+                    {
+                        <th scope="row">@row[i]</th>
+                    }
+                    else
+                    {
+                        <td>@row[i]</td>
+                    }
+                }
+            </tr>
+        }
+    </tbody>
+</table>
