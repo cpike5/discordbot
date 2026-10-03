@@ -2018,9 +2018,11 @@ Real-time updates are provided by the `PerformanceMetricsBroadcastService` backg
 
 ### Page Integration
 
-#### Health Metrics Page (`/Admin/Performance/HealthMetrics`)
+#### Health Tab (`/Admin/Performance?tab=health`)
 
-**JavaScript Module:** `wwwroot/js/performance/health-metrics-realtime.js`
+The old standalone `/Admin/Performance/HealthMetrics` page redirects to this tab.
+
+**JavaScript Module:** `wwwroot/js/performance/tabs/health.js` (declares `live = { group: 'performance', events, snapshot }`); `wwwroot/js/performance/live.js` joins the hub group while the tab is open, leaves it on a tab switch and rejoins on `connected` / `reconnected`.
 
 **SignalR Usage:**
 ```javascript
@@ -2048,9 +2050,11 @@ const metrics = await DashboardHub.invoke('GetCurrentPerformanceMetrics');
 
 ---
 
-#### System Health Page (`/Admin/Performance/SystemHealth`)
+#### System Tab (`/Admin/Performance?tab=system`)
 
-**JavaScript Module:** `wwwroot/js/performance/system-health-realtime.js`
+The old standalone `/Admin/Performance/SystemHealth` page redirects to this tab.
+
+**JavaScript Module:** `wwwroot/js/performance/tabs/system.js` (`live = { group: 'system-health', ... }`), subscribed through `wwwroot/js/performance/live.js`.
 
 **SignalR Usage:**
 ```javascript
@@ -2078,9 +2082,11 @@ const health = await DashboardHub.invoke('GetCurrentSystemHealth');
 
 ---
 
-#### Alerts Page (`/Admin/Performance/Alerts`)
+#### Alerts Tab (`/Admin/Performance?tab=alerts`)
 
-**JavaScript Module:** `wwwroot/js/performance/alerts-realtime.js`
+The old standalone `/Admin/Performance/Alerts` page redirects to this tab.
+
+**JavaScript Module:** `wwwroot/js/performance/tabs/alerts.js` (`live = { group: 'alerts', ... }`), subscribed through `wwwroot/js/performance/live.js`. A pushed incident change refreshes the tab.
 
 **SignalR Usage:**
 ```javascript

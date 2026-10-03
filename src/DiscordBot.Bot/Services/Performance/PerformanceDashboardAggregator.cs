@@ -341,10 +341,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
                 P95Ms = p95,
                 SlowestCommands = slowest,
                 TimeoutCount = timeouts.Sum(t => t.TimeoutCount),
-                RecentTimeouts = timeouts,
-                AvgResponseTimeTrend = 0,
-                ErrorRateTrend = 0,
-                P99Trend = 0
+                RecentTimeouts = timeouts
             };
         }
         catch (Exception ex)
@@ -361,10 +358,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
                 P95Ms = 0,
                 SlowestCommands = Array.Empty<SlowestCommandDto>(),
                 RecentTimeouts = Array.Empty<CommandTimeoutDto>(),
-                TimeoutCount = 0,
-                AvgResponseTimeTrend = 0,
-                ErrorRateTrend = 0,
-                P99Trend = 0
+                TimeoutCount = 0
             };
         }
     }

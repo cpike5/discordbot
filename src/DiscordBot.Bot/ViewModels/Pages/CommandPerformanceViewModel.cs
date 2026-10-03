@@ -60,51 +60,6 @@ public record CommandPerformanceViewModel
     public bool LoadFailed { get; init; }
 
     /// <summary>
-    /// Gets the trend for average response time compared to previous period (negative = improvement).
-    /// </summary>
-    public double AvgResponseTimeTrend { get; init; }
-
-    /// <summary>
-    /// Gets the trend for error rate compared to previous period (negative = improvement).
-    /// </summary>
-    public double ErrorRateTrend { get; init; }
-
-    /// <summary>
-    /// Gets the trend for P99 latency compared to previous period (negative = improvement).
-    /// </summary>
-    public double P99Trend { get; init; }
-
-    /// <summary>
-    /// Gets the CSS class for response time trend styling.
-    /// </summary>
-    public static string GetTrendClass(double trend) => trend switch
-    {
-        < 0 => "metric-trend-up",    // improvement (lower is better for latency)
-        > 0 => "metric-trend-down",  // degradation
-        _ => "metric-trend-neutral"
-    };
-
-    /// <summary>
-    /// Gets the CSS class for error rate trend styling.
-    /// </summary>
-    public static string GetErrorRateTrendClass(double trend) => trend switch
-    {
-        < 0 => "metric-trend-up",    // improvement (lower is better)
-        > 0 => "metric-trend-down",  // degradation (more errors)
-        _ => "metric-trend-neutral"
-    };
-
-    /// <summary>
-    /// Formats a trend value for display with appropriate sign and unit.
-    /// </summary>
-    public static string FormatTrend(double trend, string unit = "ms")
-    {
-        if (Math.Abs(trend) < 0.1) return "No change";
-        var sign = trend < 0 ? "" : "+";
-        return $"{sign}{trend:F0}{unit} vs yesterday";
-    }
-
-    /// <summary>
     /// Gets the CSS class for latency value based on thresholds.
     /// </summary>
     public static string GetLatencyClass(double ms) => ms switch

@@ -653,37 +653,6 @@
     box-shadow: var(--shadow-md), var(--surface-highlight);
   }
 
-  /* Enhanced card — a metric panel with a 2px accent rule along the top */
-  .card-enhanced {
-    position: relative;
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--surface-highlight);
-    overflow: hidden;
-    transition: border-color var(--transition-normal), transform var(--transition-normal), box-shadow var(--transition-normal);
-  }
-  .card-enhanced:hover {
-    border-color: var(--color-border-strong);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md), var(--surface-highlight);
-  }
-  .card-enhanced::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--color-border-strong);
-  }
-  .card-enhanced.accent-blue::before { background-color: var(--color-accent-blue-fill); }
-  .card-enhanced.accent-orange::before { background-color: var(--color-accent-orange-fill); }
-  .card-enhanced.accent-success::before { background-color: var(--color-success-fill); }
-  .card-enhanced.accent-info::before { background-color: var(--color-info-fill); }
-  .card-enhanced.accent-warning::before { background-color: var(--color-warning-fill); }
-  .card-enhanced.accent-error::before { background-color: var(--color-error-fill); }
-
   .hero-metric-card {
     position: relative;
     padding: 1.25rem 1.25rem 1.125rem;
@@ -2426,7 +2395,6 @@
 
   /* Dropdown surfaces */
   .user-menu-dropdown,
-  .server-action-dropdown,
   .notification-dropdown {
     position: absolute;
     right: 0;
@@ -2445,7 +2413,6 @@
     transition: opacity var(--transition-fast), transform var(--transition-fast), visibility 0s linear var(--duration-fast);
   }
   .user-menu-dropdown.active,
-  .server-action-dropdown.active,
   .notification-dropdown.active {
     opacity: 1;
     visibility: visible;
@@ -2507,11 +2474,6 @@
   }
   .user-menu-item.danger svg {
     color: var(--color-error);
-  }
-  .server-action-dropdown {
-    top: calc(100% + 0.25rem);
-    width: 180px;
-    overflow: hidden;
   }
   .notification-dropdown {
     display: flex;
@@ -2687,7 +2649,6 @@
     .bot-status-led,
     .status-dot.pulse,
     .user-menu-dropdown,
-    .server-action-dropdown,
     .notification-dropdown,
     .notification-badge,
     .quick-action-card {

@@ -31,10 +31,6 @@ public class IndexModel : PageModel
     private readonly IDashboardStatsProvider _statsProvider;
     private readonly IDashboardStatsBroadcaster _statsBroadcaster;
 
-    public BotStatusViewModel BotStatus { get; private set; } = default!;
-    public GuildStatsViewModel GuildStats { get; private set; } = default!;
-    public CommandStatsViewModel CommandStats { get; private set; } = default!;
-    public RecentActivityViewModel RecentActivity { get; private set; } = default!;
     public QuickActionsCardViewModel QuickActions { get; private set; } = default!;
     public AuditLogCardViewModel? AuditLog { get; private set; }
 
@@ -88,10 +84,9 @@ public class IndexModel : PageModel
         _logger.LogDebug("Dashboard accessed by authenticated user {UserId}", User.Identity?.Name);
 
         var statusDto = _botService.GetStatus();
-        BotStatus = BotStatusViewModel.FromDto(statusDto);
 
         _logger.LogTrace("Bot status retrieved: {ConnectionState}, Latency: {LatencyMs}ms, Guilds: {GuildCount}",
-            BotStatus.ConnectionState, BotStatus.LatencyMs, BotStatus.GuildCount);
+            statusDto.ConnectionState, statusDto.LatencyMs, statusDto.GuildCount);
 
         // Determine admin status for conditional audit log fetch
         var isAdmin = IsAdmin;
@@ -122,18 +117,9 @@ public class IndexModel : PageModel
             });
         }
 
-        GuildStats = GuildStatsViewModel.FromGuilds(guilds);
-        _logger.LogDebug("Guild stats retrieved: Total: {TotalGuilds}, Active: {ActiveGuilds}, Inactive: {InactiveGuilds}",
-            GuildStats.TotalGuilds, GuildStats.ActiveGuilds, GuildStats.InactiveGuilds);
-
-        CommandStats = CommandStatsViewModel.FromStats(commandStats, timeRangeHours: 24);
-        _logger.LogDebug("Command stats retrieved: Total: {TotalCommands}, Top command: {TopCommand}",
-            CommandStats.TotalCommands,
-            CommandStats.TopCommands.FirstOrDefault()?.CommandName ?? "None");
-
-        RecentActivity = RecentActivityViewModel.FromLogs(recentLogsResponse.Items);
-        _logger.LogDebug("Recent activity retrieved: {ActivityCount} items",
-            RecentActivity.Activities.Count);
+        var totalCommands = commandStats.Values.Sum();
+        _logger.LogDebug("Dashboard data retrieved: {GuildCount} guilds, {TotalCommands} commands, {ActivityCount} recent logs",
+            guilds.Count, totalCommands, recentLogsResponse.Items.Count);
 
         // Process audit logs if fetched
         if (auditLogsResponse.HasValue)
@@ -189,7 +175,7 @@ public class IndexModel : PageModel
         // Build Dashboard Redesign ViewModels
         var stats = DashboardStatsProvider.Build(
             guilds,
-            CommandStats.TotalCommands,
+            totalCommands,
             _connectionStateService.GetUptimePercentage(DashboardStatsProvider.Window));
         BuildBotStatusBanner(statusDto, stats);
         BuildHeroMetrics(stats);
