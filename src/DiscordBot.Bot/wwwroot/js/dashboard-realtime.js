@@ -38,12 +38,10 @@ const DashboardRealtime = (function() {
         // Connect to SignalR
         const connected = await DashboardHub.connect();
 
-        if (connected) {
-            updateConnectionStatus('connected');
-            setupEventHandlers();
-        } else {
-            updateConnectionStatus('disconnected');
-        }
+        // The hub keeps retrying after a failed first attempt and attaches handlers when it gets
+        // through, so register them either way.
+        setupEventHandlers();
+        updateConnectionStatus(connected ? 'connected' : 'reconnecting');
 
         // Setup connection state handlers
         DashboardHub.on('reconnecting', () => updateConnectionStatus('reconnecting'));
@@ -165,44 +163,10 @@ const DashboardRealtime = (function() {
     }
 
     function updateConnectionStatus(state) {
-        // Only show toast if state actually changed
+        // The page-wide banner (connection-banner.js) tells the user about connection changes; a
+        // toast here as well announced every change twice.
         if (state === lastConnectionState) return;
-
-        const previousState = lastConnectionState;
         lastConnectionState = state;
-
-        // Show toast notification for connection status changes
-        if (typeof ToastManager !== 'undefined') {
-            const toastConfig = {
-                'connected': {
-                    type: 'success',
-                    message: 'Real-time connection established',
-                    title: 'Connected'
-                },
-                'reconnecting': {
-                    type: 'warning',
-                    message: 'Attempting to reconnect...',
-                    title: 'Reconnecting'
-                },
-                'disconnected': {
-                    type: 'error',
-                    message: 'Real-time updates unavailable',
-                    title: 'Disconnected'
-                }
-            };
-
-            const config = toastConfig[state];
-            if (config) {
-                // Don't show "connected" toast on initial load, only on reconnection
-                if (state === 'connected' && previousState === null) {
-                    // Skip initial connection toast
-                } else {
-                    ToastManager.show(config.type, config.message, {
-                        title: config.title
-                    });
-                }
-            }
-        }
 
         console.log('[DashboardRealtime] Connection status:', state);
     }

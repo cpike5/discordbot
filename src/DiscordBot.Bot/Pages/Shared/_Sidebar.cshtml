@@ -1,6 +1,35 @@
 @inject DiscordBot.Core.Interfaces.IVersionService VersionService
 @inject Microsoft.Extensions.Options.IOptions<DiscordBot.Core.Configuration.ObservabilityOptions> ObservabilityOptions
+@inject DiscordBot.Core.Interfaces.IBotService BotService
+@inject Microsoft.Extensions.Options.IOptions<DiscordBot.Bot.Services.BotConfiguration> BotConfig
 @{
+    // The footer says what the bot is actually doing. bot-status-refresh.js keeps it current; this
+    // is the state at render time, so the page is right before (or without) script.
+    var offlineMode = BotConfig.Value.OfflineMode;
+    var botState = "unknown";
+    try
+    {
+        botState = BotService.GetStatus().ConnectionState switch
+        {
+            "Connected" => "online",
+            "Connecting" => "connecting",
+            _ => "offline"
+        };
+    }
+    catch (Exception)
+    {
+        // Status unavailable: say so rather than guess.
+    }
+
+    var botStatusText = botState switch
+    {
+        "online" => "Bot online",
+        "connecting" => "Bot connecting…",
+        "offline" => "Bot offline",
+        _ => "Status unknown"
+    };
+    var botStatusDetail = offlineMode ? "Not connected to Discord (offline mode)" : null;
+
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
     bool IsPage(string page) => string.Equals(currentPage, page, StringComparison.OrdinalIgnoreCase);
     bool StartsWith(string prefix) => currentPage.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
@@ -199,14 +228,15 @@
   </nav>
 
   <!-- Bot Status Footer -->
-  <div class="sidebar-footer bot-status-footer" role="status" aria-label="Bot status">
-    <div class="bot-status-container">
+  <div class="sidebar-footer bot-status-footer" role="status" aria-label="Bot status"
+       data-bot-footer data-bot-state="@botState" data-offline-mode="@offlineMode.ToString().ToLowerInvariant()">
+    <div class="bot-status-container" data-bot-footer-container title="@(botStatusDetail ?? botStatusText)">
       <div class="bot-status-led-wrap" aria-hidden="true">
-        <span class="bot-status-led"></span>
+        <span class="bot-status-led @(botState == "online" ? "" : botState)" data-bot-led></span>
       </div>
       <div class="bot-status-text">
-        <p class="bot-status-name">Bot Online</p>
-        <p class="bot-status-version">@VersionService.GetVersion()</p>
+        <p class="bot-status-name"><span data-bot-footer-text>@botStatusText</span><span class="badge badge-warning bot-status-stale" data-stale-badge hidden>Stale</span></p>
+        <p class="bot-status-version" data-bot-footer-detail>@(offlineMode ? "Offline mode · " : "")@VersionService.GetVersion()</p>
       </div>
     </div>
   </div>

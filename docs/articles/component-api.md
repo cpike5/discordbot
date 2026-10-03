@@ -1134,6 +1134,58 @@ ChartTheme.onChange((chart, colors) => {
 
 ---
 
+## Formatting: `Format` and `DisplayFormat`
+
+One way to write dates, relative time, plurals, numbers, durations and money (UX plan D6). `wwwroot/js/format.js` (loaded by both layouts, before `timezone.js`) is `window.Format`; `Helpers/DisplayFormat.cs` is its server twin. Do not write another `formatDate`, `timeAgo`, `toLocaleString('en-US')` or "N item(s)".
+
+Rules: dates arrive from the server as UTC and show in the viewer's time zone, language and 12/24-hour setting (the locale is never hard-coded and `hour12` is never forced). A timestamp with no zone designator is read as UTC. CSV exports stay UTC with "UTC" in the header. Every function takes an optional `{ locale, timeZone, now }` for tests.
+
+| `Format.` | Returns |
+|---|---|
+| `formatDate(value, style)` | `style` is `date`, `date-short`, `datetime` (default), `datetime-short`, `datetime-seconds`, `time` or `full`: "Oct 3, 2026, 2:05 PM" (en-US), "3 Oct 2026, 14:05" (en-GB) |
+| `relativeTime(value)` | "now", "5 minutes ago", "yesterday", "in 2 hours"; after 30 days a date |
+| `plural(count, one, [other])` | "1 server", "2 servers", "1,234 entries": count and word together |
+| `number(n, { maximumFractionDigits })` | Locale grouping and decimal marks |
+| `duration(ms, { maxUnits })` | "2d 5h", "5h 30m", "45s", "<1s" |
+| `currency(amount, symbol, { iso })` | Virtual currency "1,250 🪙" (whole units, symbol after); `{ iso: true }` for an ISO code like `USD` |
+| `parseUtc(value)` | A `Date`, or `null` |
+| `scan(root)` | Binds relative-time elements under `root` (see below) |
+
+**Relative time in markup.** `<time data-relative-time="2026-10-03T12:00:00Z"></time>` renders the wording, refreshes every 30 seconds (and when the tab becomes visible), and shows the absolute time with zone in a tooltip on hover and on keyboard focus. The element gets `tabindex="0"` so keyboard users can reach the tooltip; use it for recency that matters, not on every cell of a long table. `data-utc="…" data-format="relative"` does the same through `timezone.js`.
+
+**Absolute dates in markup.** `<span data-utc="2026-10-03T12:00:00Z" data-format="datetime-short"></span>`. `timezone.js` converts them on load and, through a `MutationObserver`, anything inserted later (AJAX tabs, row templates) before it is painted. For markup you build by hand and need converted at once, call `timezoneUtils.scan(root)`. From Razor, `@DisplayFormat.Time(value, "datetime-short")` renders the element with a labelled UTC fallback inside, so the page reads correctly before script and the swap barely changes the width; `relative: true` gives the relative form. Put `Iso(value)` (always ends in `Z`) in a hand-written `data-utc`, not `ToString("o")`: an `Unspecified` `DateTime` serializes without the `Z`.
+
+| `DisplayFormat.` (C#) | Notes |
+|---|---|
+| `Time(DateTime?, style, relative, empty)` | `<time>` element, upgraded by script |
+| `Iso(DateTime)`, `ToUtc(DateTime)` | `Unspecified` is treated as UTC |
+| `Date(value, style)`, `RelativeTime(value, now)` | UTC / English fallback text; the script replaces it in the viewer's language |
+| `Plural`, `Number`, `Duration`, `Currency` | Final as rendered; pass a `CultureInfo` in tests |
+
+**Date presets.** `wwwroot/js/date-range-filter.js` is the only preset helper. `DateRangeFilter.presetRange('today' | 'yesterday' | '7days' | '30days' | '90days')` returns `{ start, end }` as `YYYY-MM-DD` in the viewer's local calendar (`toISOString()` is UTC and gives the wrong day in the local evening); `applyPreset(startInput, endInput, preset)` fills two date inputs and `detectPreset(start, end)` names a matching range. Pages that still compute presets with `toISOString()` should switch as they are reworked.
+
+---
+
+## Live Connection: Hub States, Banner and Stale Badge
+
+`DashboardHub` (`wwwroot/js/dashboard-hub.js`) never gives up. Its states, from `getConnectionState()` and `onStateChange(({ state, previousState }) => …)`, are `connecting` (the first attempt), `connected`, `reconnecting` (lost and still trying; this includes a first attempt that failed, because a page opened while the server is down keeps retrying too) and `disconnected` (only after `disconnect()`). Retries go at 0, 2, 5 and 10 seconds, then every 25 to 35 seconds forever; the browser coming back online or the tab becoming visible retries at once, and `DashboardHub.retryNow()` does the same on demand. When a connection that failed or dropped comes back the hub raises `connected` and `reconnected`. Group memberships do not survive a new connection, so a page that joined groups rejoins them in a `DashboardHub.on('reconnected', …)` handler.
+
+The one thing it does not retry is a 401 or 403: that means the session ended, not that the server is away. The hub goes to `disconnected` with `getDisconnectReason() === 'auth'` (also `reason` on the state change), and `retryNow()` tries once more in case the user signed in elsewhere. If the SignalR client library did not load, `connect()` resolves `false` and nothing retries.
+
+`_ConnectionBanner` (in `_Layout`; driven by `connection-banner.js`) floats under the top bar while the hub is down for more than 1.5 seconds: "Reconnecting…", a "Retry now" button, then "Live updates restored." for 3 seconds. An ended session shows at once as "Signed out" with a Sign in link instead of Retry. It reports the **hub**, not the bot: in offline mode the hub is connected and the banner stays hidden. One polite live region (`#connection-announcer`) carries the announcements.
+
+Any element with `data-stale-badge` and the `hidden` attribute is shown while live updates are paused and hidden again on recovery. Put one beside anything labelled "Live" (the sidebar footer has one):
+
+```cshtml
+<h2>Recent Activity <span class="badge badge-warning" data-stale-badge hidden>Stale</span></h2>
+```
+
+`<partial name="Components/_ConnectionStatus" />` takes `ConnectionStatusViewModel(State, CustomText, Id = "connection-status", Live = true)`. Pass a different `Id` when the default is already on the page (`dashboard-realtime.js` looks it up), and `Live = false` when something else announces the change.
+
+**Sidebar bot status.** The sidebar footer shows the bot's own state: "Bot online", "Bot connecting…", "Bot offline" (with "Offline mode" in the detail line under `Discord:OfflineMode`) or "Status unknown" when `/api/bot/status` does not answer. It is rendered by the server from `IBotService`, then kept current by `bot-status-refresh.js` from the `BotStatusUpdated` hub event and a 30-second poll. `BotStatus.apply({ connectionState: 'Connected' })` applies a payload by hand (handy in a browser test: an offline-mode bot cannot be switched on).
+
+---
+
 ## Row Actions
 
 Put `row-actions` on the group of buttons in a table row, list item or card. They fade in on hover, but are never hover-only: they show whenever anything in the row has keyboard focus, and always on devices that cannot hover (touch). The row is a `tr`, `li`, `.table-row`, `.group` or `[data-row]`.

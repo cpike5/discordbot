@@ -13,11 +13,10 @@
     };
 }
 
-<div id="connection-status"
+<div id="@Model.Id"
      class="connection-status inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-bg-tertiary border border-border-primary"
      data-state="@stateStr"
-     role="status"
-     aria-live="polite">
+     @(Model.Live ? Html.Raw("role=\"status\" aria-live=\"polite\"") : null)>
     <span class="connection-dot relative w-2 h-2 rounded-full"></span>
     <span class="connection-text">@displayText</span>
 </div>

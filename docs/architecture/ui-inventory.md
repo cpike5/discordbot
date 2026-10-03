@@ -132,8 +132,9 @@ Every layout and standalone page (`_Layout`, `Portal/_PortalLayout`, `_ErrorLayo
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Navbar | `_Navbar.cshtml` | Top navigation bar with user menu |
-| Sidebar | `_Sidebar.cshtml` | Left sidebar with navigation (admin/authenticated) |
+| Navbar | `_Navbar.cshtml` | Top navigation bar; the user menu is a disclosure (button with `aria-expanded`, plain links, no `role=menu`) |
+| Sidebar | `_Sidebar.cshtml` | Left sidebar with navigation (admin/authenticated). `inert` while the mobile drawer is closed (`navigation.js`). The footer shows the bot's real state (rendered from `IBotService`, kept current by `bot-status-refresh.js`) and a `data-stale-badge` |
+| Connection Banner | `_ConnectionBanner.cshtml` | Floating "Reconnecting…" banner and its announcer, hidden while the SignalR hub is up (`connection-banner.js`). Rendered by `_Layout` only |
 | Toast Container | `_ToastContainer.cshtml` | Toast container and live regions, plus toasts queued through `TempData.Set*Toast` (as JSON for `toast.js`). Rendered by `_Layout` and `_PortalLayout`; do not include it in pages |
 | Mobile Search | `_MobileSearchOverlay.cshtml` | Mobile-friendly search overlay |
 | Theme Head | `_ThemeHead.cshtml` | `theme-color` meta and the blocking first-paint theme script; needs `theme-root` on `<html>` |
@@ -189,7 +190,7 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Severity Badge** | `_SeverityBadge.cshtml` | Severity as a `.severity-badge` pill, with a pulse dot when critical (styles in `site.css`) | `Severity` |
 | **Bot Status Card** | `_BotStatusCard.cshtml` | Bot online status display | `BotStatusCardViewModel` |
 | **Bot Status Banner** | `_BotStatusBanner.cshtml` | Bot status banner for page top | `BotStatusBannerViewModel` |
-| **Connection Status** | `_ConnectionStatus.cshtml` | WebSocket/API connection status | `ConnectionStatusViewModel` |
+| **Connection Status** | `_ConnectionStatus.cshtml` | SignalR connection pill (`Id` and `Live` parameters; used inside `_ConnectionBanner`) | `ConnectionStatusViewModel` |
 | **Restart Banner** | `_RestartBanner.cshtml` | Bot restart in-progress banner | `RestartBannerViewModel` |
 
 ### Data Display Components

@@ -1,0 +1,18 @@
+@using DiscordBot.Bot.ViewModels.Components
+@*
+    Page-wide live-connection banner. Hidden while the SignalR hub is up; connection-banner.js
+    shows it when the connection is lost and hides it again when it recovers. Floats under the top
+    bar instead of sitting in the page flow, so it never pushes content around mid-click.
+
+    It is not a live region itself: the one polite region below carries the announcements, and the
+    pill inside is rendered with Live = false so nothing is read twice.
+*@
+<div id="connection-banner" class="connection-banner" data-connection-banner hidden>
+    <div class="connection-banner-inner">
+        @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Reconnecting, null, "hub-connection-status", false))
+        <p class="connection-banner-text" data-connection-banner-text>Live updates are paused, so this page may be out of date.</p>
+        <button type="button" class="btn btn-secondary btn-sm" data-connection-retry>Retry now</button>
+        <a href="/Account/Login" class="btn btn-primary btn-sm" data-connection-signin hidden>Sign in</a>
+    </div>
+</div>
+<div id="connection-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>

@@ -1,8 +1,98 @@
 // date-range-filter.js
-// Provides functionality for the date range filter component
+// Provides functionality for the date range filter component.
+//
+// This is the one date-preset helper for the app. `presetRange(preset, now)` turns a preset name
+// into a start and end date in the viewer's LOCAL calendar ("today" is the viewer's today, not
+// UTC's), formatted for <input type="date">. Pages that still carry their own copy (they compute
+// dates with toISOString(), which is UTC and wrong in the local evening) should call
+// `DateRangeFilter.applyPreset(startInput, endInput, preset)` instead; they move over as each
+// screen is reworked.
 
 (function () {
     'use strict';
+
+    /** Preset names understood by presetRange, in the order a filter bar shows them. */
+    const PRESETS = ['today', 'yesterday', '7days', '30days', '90days'];
+
+    /**
+     * Formats a Date as YYYY-MM-DD in local time (what <input type="date"> expects).
+     * @param {Date} date
+     * @returns {string}
+     */
+    function formatDateForInput(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    /**
+     * The date range a preset stands for, as local YYYY-MM-DD strings. The ranges end today and
+     * start N days earlier ("7days": start = today - 7), as the Commands filter always did.
+     * @param {string} preset one of PRESETS
+     * @param {Date} [now] injectable for tests
+     * @returns {{start: string, end: string}|null} null for an unknown preset
+     */
+    function presetRange(preset, now) {
+        const today = new Date(now ? now.getTime() : Date.now());
+        today.setHours(0, 0, 0, 0);
+
+        const start = new Date(today);
+        const end = new Date(today);
+        switch (preset) {
+            case 'today':
+                break;
+            case 'yesterday':
+                start.setDate(start.getDate() - 1);
+                end.setDate(end.getDate() - 1);
+                break;
+            case '7days':
+                start.setDate(start.getDate() - 7);
+                break;
+            case '30days':
+                start.setDate(start.getDate() - 30);
+                break;
+            case '90days':
+                start.setDate(start.getDate() - 90);
+                break;
+            default:
+                return null;
+        }
+        return { start: formatDateForInput(start), end: formatDateForInput(end) };
+    }
+
+    /**
+     * Which preset (if any) a start/end pair matches.
+     * @param {string} startDateStr YYYY-MM-DD
+     * @param {string} endDateStr YYYY-MM-DD
+     * @param {Date} [now] injectable for tests
+     * @returns {string|null}
+     */
+    function detectPreset(startDateStr, endDateStr, now) {
+        if (!startDateStr || !endDateStr) return null;
+        for (const name of PRESETS) {
+            const range = presetRange(name, now);
+            if (range && range.start === startDateStr && range.end === endDateStr) return name;
+        }
+        return null;
+    }
+
+    /**
+     * Fills a pair of date inputs from a preset. Sets values only: no events, no submit.
+     * @returns {boolean} false for an unknown preset or missing inputs
+     */
+    function applyPreset(startInput, endInput, preset, now) {
+        const range = presetRange(preset, now);
+        if (!range || !startInput || !endInput) return false;
+        startInput.value = range.start;
+        endInput.value = range.end;
+        return true;
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { PRESETS, presetRange, detectPreset, formatDateForInput };
+    }
+    if (typeof document === 'undefined') return;
 
     /**
      * Toggles the visibility of a filter panel
@@ -73,30 +163,11 @@
             return;
         }
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        let startDate;
-        switch (preset) {
-            case 'today':
-                startDate = new Date(today);
-                break;
-            case '7days':
-                startDate = new Date(today);
-                startDate.setDate(startDate.getDate() - 7);
-                break;
-            case '30days':
-                startDate = new Date(today);
-                startDate.setDate(startDate.getDate() - 30);
-                break;
-            default:
-                console.error(`Unknown preset: ${preset}`);
-                return;
+        if (!presetRange(preset)) {
+            console.error(`Unknown preset: ${preset}`);
+            return;
         }
-
-        // Format dates as YYYY-MM-DD for date inputs
-        startDateInput.value = formatDateForInput(startDate);
-        endDateInput.value = formatDateForInput(today);
+        applyPreset(startDateInput, endDateInput, preset);
 
         // Update button styling to show active preset
         updatePresetButtonStyles(filterId, preset);
@@ -137,52 +208,15 @@
     }
 
     /**
-     * Formats a Date object as YYYY-MM-DD string
-     * @param {Date} date - The date to format
-     * @returns {string} The formatted date string
-     */
-    function formatDateForInput(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    /**
      * Detects which preset (if any) matches the current date range
      * @param {string} startDateStr - Start date in YYYY-MM-DD format
      * @param {string} endDateStr - End date in YYYY-MM-DD format
      * @returns {string|null} The matching preset ('today', '7days', '30days') or null
      */
     function detectActivePreset(startDateStr, endDateStr) {
-        if (!startDateStr || !endDateStr) return null;
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const startDate = new Date(startDateStr + 'T00:00:00');
-        const endDate = new Date(endDateStr + 'T00:00:00');
-
-        // Check if it matches today
-        if (startDate.getTime() === today.getTime() && endDate.getTime() === today.getTime()) {
-            return 'today';
-        }
-
-        // Check if it matches 7 days
-        const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        if (startDate.getTime() === sevenDaysAgo.getTime() && endDate.getTime() === today.getTime()) {
-            return '7days';
-        }
-
-        // Check if it matches 30 days
-        const thirtyDaysAgo = new Date(today);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        if (startDate.getTime() === thirtyDaysAgo.getTime() && endDate.getTime() === today.getTime()) {
-            return '30days';
-        }
-
-        return null;
+        const name = detectPreset(startDateStr, endDateStr);
+        // The Commands filter only has buttons for these three.
+        return ['today', '7days', '30days'].includes(name) ? name : null;
     }
 
     /**
@@ -340,15 +374,7 @@
         if (!startDateInput.value && !endDateInput.value) {
             console.log('No date filters set, applying default 7-day filter');
 
-            // Calculate 7-day date range
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const sevenDaysAgo = new Date(today);
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-            // Populate the input fields
-            startDateInput.value = formatDateForInput(sevenDaysAgo);
-            endDateInput.value = formatDateForInput(today);
+            applyPreset(startDateInput, endDateInput, '7days');
 
             // Update button styling to show 7-day preset as active
             updatePresetButtonStyles(filterId, '7days');
@@ -409,6 +435,12 @@
         preserveHashAndSubmit,
         clearFiltersAndReload,
         applyDefaultFilterIfNeeded,
-        initFilterPanels: init  // Expose init for re-initialization after AJAX loads
+        initFilterPanels: init,  // Expose init for re-initialization after AJAX loads
+        // The canonical preset helper (see the header comment)
+        PRESETS,
+        presetRange,
+        detectPreset,
+        applyPreset,
+        formatDateForInput
     };
 })();
