@@ -1,7 +1,7 @@
 @* Error state for preview popups *@
 @{
     var type = ViewData["Type"]?.ToString() ?? "user";
-    var errorTitle = type == "guild" ? "Guild Unavailable" : "User Not Found";
+    var errorTitle = type == "guild" ? "Server unavailable" : "User Not Found";
     var errorDescription = type == "guild"
         ? "The bot may have been removed from this server or the server was deleted."
         : "This user may have been deleted or is unavailable.";
