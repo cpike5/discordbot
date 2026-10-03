@@ -244,7 +244,7 @@
             else
             {
                 <!-- Bot Verification - Pending State -->
-                <div class="max-w-md mx-auto text-left" data-verification data-expires-at="@Model.PendingVerification!.ExpiresAtUtcIso">
+                <div class="max-w-md mx-auto text-left" data-verification data-expires-at="@Model.PendingVerification!.ExpiresAtUtcIso" data-seconds-remaining="@Model.PendingVerification.SecondsRemaining">
                     <!-- Info Box with Instructions -->
                     <div class="p-4 bg-info-bg border border-info-border rounded-lg mb-6">
                         <div class="flex items-start gap-3">

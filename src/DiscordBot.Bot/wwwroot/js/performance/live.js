@@ -16,6 +16,8 @@
  *
  * Group membership does not survive a new connection, so the group is joined again on the hub's
  * `connected` and `reconnected` events, and the snapshot is fetched again to close the gap.
+ * A join that fails (the hub's join functions answer false, or throw) leaves the status 'paused':
+ * the page never claims to be live on a group the server did not confirm.
  *
  * `status()` is 'none' (no subscription), 'live' (connected and joined) or 'paused' (subscribed,
  * but the hub is down or reconnecting). onChange(fn) reports changes of that, and
@@ -56,6 +58,8 @@
         let generation = 0;        // bumped on every subscribe/unsubscribe; stale async work stops
         let bound = false;
         let joining = false;       // a join is in flight (the hub raises connected and reconnected together)
+        let joinPromise = null;    // the in-flight join, shared so a second caller waits instead of joining twice
+        let joinGen = -1;
         const changeListeners = [];
         const updateListeners = [];
 
@@ -113,7 +117,20 @@
             if (gen === generation) emitUpdate();
         }
 
-        async function join(gen) {
+        // Joins the current spec's group once per generation: subscribe() running before the hub's
+        // `connected` event has finished its own rejoin shares that join rather than sending a second
+        // one (and fetching a second snapshot).
+        function join(gen) {
+            if (joinPromise && joinGen === gen) return joinPromise;
+            joinGen = gen;
+            const promise = doJoin(gen).finally(() => {
+                if (joinPromise === promise) joinPromise = null;
+            });
+            joinPromise = promise;
+            return promise;
+        }
+
+        async function doJoin(gen) {
             if (!spec) return;
             const group = GROUPS[spec.group];
             if (!group || hubState() !== 'connected') {
@@ -123,15 +140,20 @@
             }
             groupSent = spec.group;
             joining = true;
+            let confirmed = false;
             try {
-                await hub[group.join]();
+                // The hub's join functions answer false when they could not join; one that
+                // returns nothing (older hubs, fakes) is taken at its word unless it throws.
+                confirmed = (await hub[group.join]()) !== false;
+            } catch (e) {
+                console.error('[Performance.Live] could not join ' + spec.group, e);
             } finally {
                 joining = false;
             }
             if (gen !== generation) return;
-            joined = hubState() === 'connected';
+            joined = confirmed && hubState() === 'connected';
             notify();
-            await applySnapshot(gen);
+            if (confirmed) await applySnapshot(gen);
         }
 
         async function leave(group) {
@@ -153,7 +175,7 @@
                 if (!spec || joining) return;
                 joined = false;
                 groupSent = null;
-                join(generation);
+                join(generation).catch(function (e) { console.error('[Performance.Live] rejoin failed', e); });
             };
             hub.on('connected', rejoin);
             hub.on('reconnected', rejoin);
@@ -202,10 +224,24 @@
             }
             if (typeof hub.connect === 'function' && hubState() !== 'connected') {
                 // A failed first attempt is retried by the hub itself; 'connected' then joins.
-                await hub.connect();
+                try {
+                    await hub.connect();
+                } catch (e) {
+                    console.error('[Performance.Live] could not connect', e);
+                }
                 if (gen !== generation) return;
+                // The `connected` event may already have joined (and fetched the snapshot) meanwhile
+                if (joined && groupSent === spec.group) return;
             }
-            await join(gen);
+            try {
+                await join(gen);
+            } catch (e) {
+                console.error('[Performance.Live] could not start', e);
+                if (gen === generation) {
+                    joined = false;
+                    notify();
+                }
+            }
         }
 
         function unsubscribe() {

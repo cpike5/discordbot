@@ -148,3 +148,105 @@ test('a switch that happens while the first join is in flight does not leak the 
     assert.ok(hub.calls.includes('leave:performance'), 'left the group it had asked to join');
     assert.equal(live.status(), 'none');
 });
+
+test('a join the hub reports as failed leaves the tab paused, with no snapshot', async () => {
+    const hub = fakeHub();
+    hub.joinPerformanceGroup = async () => { hub.calls.push('join:performance'); return false; };
+    const live = Live.create(hub);
+    let snapshots = 0;
+    const seen = [];
+    live.onChange(status => seen.push(status));
+
+    await live.subscribe({ group: 'performance', events: {}, snapshot: async () => { snapshots++; } });
+
+    assert.equal(live.status(), 'paused');
+    assert.equal(snapshots, 0);
+    assert.notEqual(seen[seen.length - 1], 'live');
+});
+
+test('a join that throws is caught: subscribe resolves and the tab is paused', async () => {
+    const hub = fakeHub();
+    hub.joinAlertsGroup = async () => { throw new Error('boom'); };
+    const live = Live.create(hub);
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+        await live.subscribe({ group: 'alerts', events: {} });
+    } finally {
+        console.error = originalError;
+    }
+    assert.equal(live.status(), 'paused');
+});
+
+test('a connect that throws is caught too', async () => {
+    const hub = fakeHub('disconnected');
+    hub.connect = async () => { throw new Error('no network'); };
+    const live = Live.create(hub);
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+        await live.subscribe({ group: 'performance', events: {} });
+    } finally {
+        console.error = originalError;
+    }
+    assert.equal(live.status(), 'paused');
+});
+
+test('a failed join is retried on the next connected event and then goes live', async () => {
+    const hub = fakeHub();
+    let accept = false;
+    hub.joinPerformanceGroup = async () => { hub.calls.push('join:performance'); return accept; };
+    const live = Live.create(hub);
+    await live.subscribe({ group: 'performance', events: {} });
+    assert.equal(live.status(), 'paused');
+
+    accept = true;
+    hub.emit('connected', {});
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(live.status(), 'live');
+});
+
+test('subscribing while the hub is still connecting does not join or fetch the snapshot twice', async () => {
+    const hub = fakeHub('connecting');
+    // The hub raises `connected` before connect() resolves, as the real one does
+    hub.connect = async () => {
+        hub.calls.push('connect');
+        hub.state = 'connected';
+        hub.emit('connected', {});
+        await new Promise(resolve => setImmediate(resolve));
+        return true;
+    };
+    const live = Live.create(hub);
+    let snapshots = 0;
+
+    await live.subscribe({ group: 'performance', events: {}, snapshot: async () => { snapshots++; } });
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.equal(hub.calls.filter(c => c === 'join:performance').length, 1, 'one join');
+    assert.equal(snapshots, 1, 'one snapshot');
+    assert.equal(live.status(), 'live');
+});
+
+test('subscribe does not join a second time while the connected event is still joining', async () => {
+    const hub = fakeHub('connecting');
+    let release;
+    hub.joinPerformanceGroup = () => {
+        hub.calls.push('join:performance');
+        return new Promise(resolve => { release = () => resolve(true); });
+    };
+    hub.connect = async () => {
+        hub.state = 'connected';
+        hub.emit('connected', {});
+        return true;
+    };
+    const live = Live.create(hub);
+    let snapshots = 0;
+
+    const pending = live.subscribe({ group: 'performance', events: {}, snapshot: async () => { snapshots++; } });
+    await new Promise(resolve => setImmediate(resolve));
+    release();
+    await pending;
+
+    assert.equal(hub.calls.filter(c => c === 'join:performance').length, 1);
+    assert.equal(snapshots, 1);
+});

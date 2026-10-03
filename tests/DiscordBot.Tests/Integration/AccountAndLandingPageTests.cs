@@ -72,7 +72,7 @@ public class AccountAndLandingPageTests : IClassFixture<AccountAndLandingPageTes
 
         var html = WebUtility.HtmlDecode(await anonymous.GetStringAsync("/Account/Lockout"));
 
-        html.Should().Contain("You can try again in 15 minutes", "the default Identity lockout is 15 minutes");
+        html.Should().Contain("The lock clears within 15 minutes", "the default Identity lockout is 15 minutes, and the page cannot know how much of it is left");
         html.Should().Contain("Return to sign in");
         html.Should().Contain("<main");
         html.Should().NotContain("Return to Login");

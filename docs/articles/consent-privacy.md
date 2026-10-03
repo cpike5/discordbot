@@ -718,28 +718,24 @@ The bot implements automatic data retention policies to minimize data storage an
 
 ### Data Export
 
-**Current Status:** Not implemented (planned for future release)
+**Current Status:** Implemented (`UserDataExportService`)
 
-**Planned Implementation:**
-
-Users will be able to request a data export containing:
-- All message logs (MessageLog records)
-- All consent records (UserConsent records)
-- Audit log entries related to the user
-- Account information
-
-**Planned Access Methods:**
+**Access Methods:**
 - Slash command: `/privacy export-data`
-- Web UI: "Export My Data" button on Privacy page
-- Admin interface: Admins can export data on behalf of users (for compliance requests)
+- Web UI: "Export my data" button on the Privacy page
 
-**Planned Export Format:**
-- JSON file containing structured data
-- CSV files for tabular data (message logs, consent history)
-- Downloadable as ZIP archive
-- Automatic deletion of export file after 7 days
-
-**Implementation Tracking:** See GitHub issue backlog for data export feature
+**Export Format:**
+- A ZIP archive of JSON files (one per data category) plus a README
+- Written to `{ContentRoot}/data/exports/{discordUserId}/{exportId}.zip`, **outside `wwwroot`**, so no
+  static-file route can serve it. In Docker that is `/app/data/exports`, inside the `/app/data` volume.
+- Downloaded through the signed-in `Privacy` page handler `GET /Account/Privacy?handler=DownloadExport&id={exportId}`.
+  The file is looked up only under the signed-in user's own Discord ID, so another user's export id, an
+  unknown id and an expired export all answer 404; an anonymous request is sent to sign in. The response
+  is `application/zip` with `Cache-Control: no-store`.
+- Archives are deleted after 7 days (by last-write time) by `UserDataExportCleanupService`, and immediately
+  when the user's data is purged (`UserPurgeService`).
+- Older builds wrote exports to `wwwroot/exports` (publicly reachable). The cleanup service removes anything
+  left there.
 
 ---
 

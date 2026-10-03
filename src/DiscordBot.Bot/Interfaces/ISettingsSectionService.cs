@@ -27,9 +27,10 @@ public interface ISettingsSectionService
     Task<SettingsSectionResult> ResetCategoryAsync(string category, string userId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Resets all settings to their default values.
+    /// Resets all settings to their default values. <paramref name="includeAppearance"/> false leaves the
+    /// SuperAdmin-only Appearance category (the default theme) as it is.
     /// </summary>
-    Task<SettingsSectionResult> ResetAllAsync(string userId, CancellationToken cancellationToken = default);
+    Task<SettingsSectionResult> ResetAllAsync(string userId, CancellationToken cancellationToken = default, bool includeAppearance = true);
 
     /// <summary>
     /// Saves command module enabled/disabled states.

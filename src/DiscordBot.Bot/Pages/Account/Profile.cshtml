@@ -5,6 +5,12 @@
     ViewData["Title"] = "Profile";
 }
 
+@if (Model.ThemeCleared)
+{
+    <!-- Read once by profile.js after "Match my system": clears the choice this browser remembered -->
+    <div data-theme-cleared hidden></div>
+}
+
 <!-- Page Header -->
 <div class="mb-8">
     <h1 class="page-title">Profile</h1>
@@ -215,6 +221,10 @@
     </div>
 
 </div>
+
+@section Scripts {
+    <script src="~/js/profile.js" asp-append-version="true"></script>
+}
 
 @functions {
     private string GetRoleBadgeClasses(string role)

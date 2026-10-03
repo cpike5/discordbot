@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -40,6 +41,27 @@ public class SettingsModelTests
         var modelState = new ModelStateDictionary();
         var actionContext = new ActionContext(httpContext, new RouteData(), new PageActionDescriptor(), modelState);
         _settingsModel.PageContext = new PageContext(actionContext);
+        _settingsModel.TempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OnPostResetAllAsync_ResetsAppearanceOnlyForASuperAdmin(bool isSuperAdmin)
+    {
+        _mockAppearanceSettingsService
+            .Setup(s => s.IsSuperAdminAsync(It.IsAny<System.Security.Claims.ClaimsPrincipal>()))
+            .ReturnsAsync(isSuperAdmin);
+        _mockSettingsSectionService
+            .Setup(s => s.ResetAllAsync(It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+            .ReturnsAsync(new SettingsSectionResult { Success = true, Message = "done" });
+
+        var result = await _settingsModel.OnPostResetAllAsync("General");
+
+        result.Should().BeOfType<RedirectToPageResult>();
+        _mockSettingsSectionService.Verify(
+            s => s.ResetAllAsync(It.IsAny<string>(), It.IsAny<CancellationToken>(), isSuperAdmin),
+            Times.Once);
     }
 
     private static JsonElement SerializeResultValue(object? value)

@@ -24,7 +24,15 @@ public class UserDataExportService : IUserDataExportService
     private readonly ILogger<UserDataExportService> _logger;
 
     private const int ExportExpirationDays = 7;
+
+    /// <summary>
+    /// Exports live under <c>{ContentRoot}/data/exports</c>, outside wwwroot, so no static-file route can serve them.
+    /// They are only reachable through the authenticated download handler on the Privacy page.
+    /// </summary>
     private const string ExportsDirectory = "exports";
+
+    /// <summary>The Razor Pages download handler (Pages/Account/Privacy) that serves an export to its owner.</summary>
+    public const string DownloadPath = "/Account/Privacy?handler=DownloadExport&id=";
 
     public UserDataExportService(
         BotDbContext dbContext,
@@ -76,10 +84,7 @@ public class UserDataExportService : IUserDataExportService
             var correlationId = Guid.NewGuid().ToString();
 
             // Create export directory structure
-            var userExportPath = Path.Combine(
-                _environment.WebRootPath,
-                ExportsDirectory,
-                discordUserId.ToString());
+            var userExportPath = GetUserExportDirectory(discordUserId);
 
             var tempExportPath = Path.Combine(
                 Path.GetTempPath(),
@@ -123,7 +128,7 @@ public class UserDataExportService : IUserDataExportService
                 Directory.Delete(tempExportPath, recursive: true);
 
                 var expiresAt = DateTime.UtcNow.AddDays(ExportExpirationDays);
-                var downloadUrl = $"{_applicationOptions.BaseUrl.TrimEnd('/')}/exports/{discordUserId}/{zipFileName}";
+                var downloadUrl = $"{_applicationOptions.BaseUrl.TrimEnd('/')}{DownloadPath}{exportId}";
 
                 _logger.LogInformation(
                     "Successfully exported data for Discord user {DiscordUserId}. Export ID: {ExportId}, Total records: {TotalRecords}",
@@ -190,6 +195,62 @@ public class UserDataExportService : IUserDataExportService
         }
     }
 
+    private string GetExportsRoot() => Path.Combine(_environment.ContentRootPath, "data", ExportsDirectory);
+
+    private string GetUserExportDirectory(ulong discordUserId) => Path.Combine(GetExportsRoot(), discordUserId.ToString());
+
+    public string? GetExportFilePath(ulong discordUserId, Guid exportId)
+    {
+        if (exportId == Guid.Empty) return null;
+
+        var path = Path.Combine(GetUserExportDirectory(discordUserId), $"{exportId}.zip");
+        var file = new FileInfo(path);
+
+        // A file past its lifetime is gone as far as the user is concerned, even if cleanup has not run yet
+        return file.Exists && file.LastWriteTimeUtc >= DateTime.UtcNow.AddDays(-ExportExpirationDays) ? path : null;
+    }
+
+    public int DeleteUserExports(ulong discordUserId)
+    {
+        var userDir = GetUserExportDirectory(discordUserId);
+        if (!Directory.Exists(userDir)) return 0;
+
+        var count = Directory.GetFiles(userDir).Length;
+        Directory.Delete(userDir, recursive: true);
+        _logger.LogInformation("Deleted {Count} export file(s) for Discord user {DiscordUserId}", count, discordUserId);
+        return count;
+    }
+
+    /// <summary>
+    /// Exports used to be written under wwwroot/exports, where static files served them to anyone with the link.
+    /// Nothing reads that folder any more, so whatever is left in it is removed (the folder itself too when it can
+    /// be, since a Docker volume mounted there cannot be deleted).
+    /// </summary>
+    private void DeleteLegacyPublicExports()
+    {
+        if (string.IsNullOrEmpty(_environment.WebRootPath)) return;
+
+        var legacyPath = Path.Combine(_environment.WebRootPath, ExportsDirectory);
+        if (!Directory.Exists(legacyPath)) return;
+
+        try
+        {
+            foreach (var entry in Directory.EnumerateFileSystemEntries(legacyPath).ToList())
+            {
+                if (Directory.Exists(entry)) Directory.Delete(entry, recursive: true);
+                else File.Delete(entry);
+            }
+
+            try { Directory.Delete(legacyPath); } catch (IOException) { /* a mount point; the contents are gone */ }
+
+            _logger.LogInformation("Removed legacy public export files from {Path}", legacyPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove legacy public export files from {Path}", legacyPath);
+        }
+    }
+
     public async Task<int> CleanupExpiredExportsAsync(CancellationToken cancellationToken = default)
     {
         using var activity = BotActivitySource.StartServiceActivity(
@@ -198,7 +259,9 @@ public class UserDataExportService : IUserDataExportService
 
         try
         {
-            var exportsBasePath = Path.Combine(_environment.WebRootPath, ExportsDirectory);
+            DeleteLegacyPublicExports();
+
+            var exportsBasePath = GetExportsRoot();
 
             if (!Directory.Exists(exportsBasePath))
             {
@@ -216,7 +279,7 @@ public class UserDataExportService : IUserDataExportService
                 {
                     var fileInfo = new FileInfo(zipFile);
 
-                    if (fileInfo.CreationTimeUtc < expirationDate)
+                    if (fileInfo.LastWriteTimeUtc < expirationDate)
                     {
                         try
                         {

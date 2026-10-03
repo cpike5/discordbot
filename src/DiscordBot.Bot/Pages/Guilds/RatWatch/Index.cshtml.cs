@@ -111,6 +111,34 @@ public class IndexModel : GuildPageModelBase
     }
 
     /// <summary>
+    /// True when the watch exists and belongs to this guild. The route's guildId is what the GuildAccess
+    /// policy authorizes, so a watch id from another guild must not be acted on through it.
+    /// </summary>
+    private async Task<bool> WatchBelongsToGuildAsync(Guid watchId, ulong guildId, CancellationToken cancellationToken)
+    {
+        var watch = await _ratWatchService.GetByIdAsync(watchId, cancellationToken);
+        if (watch == null || watch.GuildId != guildId)
+        {
+            _logger.LogWarning("Rat Watch {WatchId} is not in guild {GuildId}; refusing the action", watchId, guildId);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsKnownTimeZone(string timezone)
+    {
+        try
+        {
+            return TimeZoneInfo.TryFindSystemTimeZoneById(timezone, out _);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Handles POST requests to cancel a Rat Watch.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -128,6 +156,11 @@ public class IndexModel : GuildPageModelBase
     {
         _logger.LogInformation("User attempting to cancel Rat Watch {WatchId} for guild {GuildId}",
             watchId, guildId);
+
+        if (!await WatchBelongsToGuildAsync(watchId, guildId, cancellationToken))
+        {
+            return NotFound();
+        }
 
         var success = await _ratWatchService.CancelWatchAsync(
             watchId,
@@ -166,6 +199,11 @@ public class IndexModel : GuildPageModelBase
     {
         _logger.LogInformation("User attempting to end vote on Rat Watch {WatchId} for guild {GuildId}",
             watchId, guildId);
+
+        if (!await WatchBelongsToGuildAsync(watchId, guildId, cancellationToken))
+        {
+            return NotFound();
+        }
 
         var success = await _ratWatchService.FinalizeVotingAsync(watchId, cancellationToken);
 
@@ -216,6 +254,18 @@ public class IndexModel : GuildPageModelBase
         {
             TempData.SetErrorToast("Timezone is required.");
             return RedirectToPage("Index", new { guildId, pageNumber, pageSize });
+        }
+
+        // A name the server cannot resolve would break every time conversion for the guild. The value
+        // already stored may be re-submitted as it is (an older unknown name must not block other edits).
+        if (!IsKnownTimeZone(timezone))
+        {
+            var current = await _ratWatchService.GetGuildSettingsAsync(guildId, cancellationToken);
+            if (!string.Equals(current.Timezone, timezone, StringComparison.Ordinal))
+            {
+                TempData.SetErrorToast("Unknown timezone. Use a timezone ID such as \"America/New_York\" or \"UTC\".");
+                return RedirectToPage("Index", new { guildId, pageNumber, pageSize });
+            }
         }
 
         if (maxAdvanceHours < 1 || maxAdvanceHours > 168) // 1 week max

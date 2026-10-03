@@ -32,11 +32,10 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - /var/lib/discordbot/sounds:/app/sounds          # Soundboard + VOX clips (rw for uploads)
-      - /var/lib/discordbot/data:/app/data               # SQLite DB (temporary, remove after PG migration)
+      - /var/lib/discordbot/data:/app/data               # SQLite DB (temporary) and user data exports (data/exports); keep after PG migration
       - /var/lib/discordbot/assistant:/app/assistant:ro   # AI assistant prompt + docs
       - /var/lib/discordbot/cache:/app/cache              # Audio PCM cache
       - /var/lib/discordbot/logs:/app/logs                # Serilog file output
-      - /var/lib/discordbot/exports:/app/wwwroot/exports  # User data export ZIPs
     ports:
       - "5000:5000"
     restart: unless-stopped

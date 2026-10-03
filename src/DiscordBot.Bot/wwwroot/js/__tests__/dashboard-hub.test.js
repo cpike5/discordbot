@@ -349,3 +349,28 @@ test('coming back online or visible does not retry after an auth failure; retryN
         delete global.document;
     }
 });
+
+test('the performance, alerts and system health joins answer true only when the server accepted them', async () => {
+    const state = { failStarts: 0 };
+    installFakeSignalR(state);
+    const hub = freshHub();
+
+    // Not connected yet: nothing was joined
+    assert.equal(await hub.joinPerformanceGroup(), false);
+    assert.equal(await hub.joinAlertsGroup(), false);
+    assert.equal(await hub.joinSystemHealthGroup(), false);
+
+    await hub.connect();
+    const invoked = [];
+    state.connection.invoke = async name => { invoked.push(name); };
+    assert.equal(await hub.joinPerformanceGroup(), true);
+    assert.equal(await hub.joinAlertsGroup(), true);
+    assert.equal(await hub.joinSystemHealthGroup(), true);
+    assert.deepEqual(invoked, ['JoinPerformanceGroup', 'JoinAlertsGroup', 'JoinSystemHealthGroup']);
+
+    // The server refuses (for example a missing role): false, not a silent success
+    state.connection.invoke = async () => { throw new Error('HubException: not allowed'); };
+    assert.equal(await hub.joinPerformanceGroup(), false);
+    assert.equal(await hub.joinAlertsGroup(), false);
+    assert.equal(await hub.joinSystemHealthGroup(), false);
+});
