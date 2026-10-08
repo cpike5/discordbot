@@ -84,7 +84,9 @@ public interface IModerationService
     Task<ModeratorStatsSummaryDto> GetModeratorStatsAsync(ulong guildId, ulong? moderatorId = null, DateTime? startDate = null, DateTime? endDate = null, CancellationToken ct = default);
 
     /// <summary>
-    /// Gets all temporary moderation actions (temp bans, temp mutes) that have expired and need to be lifted.
+    /// Gets the temporary bans that have expired and still need to be lifted (see
+    /// <see cref="IModerationCaseRepository.GetExpiredCasesAsync"/>). Mutes are Discord timeouts,
+    /// which lift themselves, so they are not returned.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A collection of expired moderation cases.</returns>

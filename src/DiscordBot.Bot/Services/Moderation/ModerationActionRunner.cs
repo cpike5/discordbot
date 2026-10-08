@@ -92,6 +92,16 @@ public class ModerationActionRunner : IModerationActionRunner
             return ModerationActionResult.PlainError("I cannot be warned.");
         }
 
+        // A non-member can still be warned; a member is checked against the moderator's rank.
+        var guildUser = user as IGuildUser ?? await context.ResolveGuildUserAsync(user);
+        if (guildUser != null && context.ModeratorHierarchy.HasValue && guildUser.Hierarchy >= context.ModeratorHierarchy.Value)
+        {
+            _logger.LogDebug(
+                "User {ModeratorId} attempted to warn user {TargetId} with equal/higher role hierarchy",
+                context.ModeratorUser.Id, guildUser.Id);
+            return ModerationActionResult.PlainError("You cannot warn a user with an equal or higher role than yours.");
+        }
+
         try
         {
             var createDto = new ModerationCaseCreateDto

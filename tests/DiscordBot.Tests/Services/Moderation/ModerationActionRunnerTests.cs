@@ -155,6 +155,43 @@ public class ModerationActionRunnerTests
         result.PlainText.Should().Be("I cannot be warned.");
     }
 
+    [Theory]
+    [InlineData(10)]
+    [InlineData(15)]
+    public async Task WarnAsync_TargetHasEqualOrHigherHierarchy_ReturnsErrorWithoutCreatingCase(int targetHierarchy)
+    {
+        var target = CreateTargetGuildUserMock(hierarchy: targetHierarchy);
+        var context = CreateContext(moderatorHierarchy: 10, resolvedGuildUser: target.Object);
+
+        var result = await _runner.WarnAsync(context.Object, target.Object, "reason");
+
+        result.Success.Should().BeFalse();
+        result.PlainText.Should().Be("You cannot warn a user with an equal or higher role than yours.");
+        _mockModerationService.Verify(
+            s => s.CreateCaseAsync(It.IsAny<ModerationCaseCreateDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task WarnAsync_PlainUserResolvingToHigherRankedMember_ReturnsErrorWithoutCreatingCase()
+    {
+        // The slash-command option can arrive as a plain IUser; the runner resolves the member to check rank.
+        var plainUser = new Mock<IUser>();
+        plainUser.SetupGet(u => u.Id).Returns(TargetId);
+        plainUser.SetupGet(u => u.Username).Returns("Target");
+        plainUser.SetupGet(u => u.IsBot).Returns(false);
+        var member = CreateTargetGuildUserMock(hierarchy: 20);
+        var context = CreateContext(moderatorHierarchy: 10, resolvedGuildUser: member.Object);
+
+        var result = await _runner.WarnAsync(context.Object, plainUser.Object, "reason");
+
+        result.Success.Should().BeFalse();
+        result.PlainText.Should().Be("You cannot warn a user with an equal or higher role than yours.");
+        _mockModerationService.Verify(
+            s => s.CreateCaseAsync(It.IsAny<ModerationCaseCreateDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     // ---------- Kick ----------
 
     [Fact]

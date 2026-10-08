@@ -50,6 +50,9 @@ public static class ModerationServiceExtensions
         // Handlers (singleton)
         services.AddSingleton<AutoModerationHandler>();
 
+        // Background service that lifts temporary bans when they expire
+        services.AddHostedService<TemporaryBanExpiryService>();
+
         return services;
     }
 }
