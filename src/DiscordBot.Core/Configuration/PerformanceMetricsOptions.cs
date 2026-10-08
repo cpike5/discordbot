@@ -23,10 +23,11 @@ public class PerformanceMetricsOptions
     public int LatencyRetentionHours { get; set; } = 24;
 
     /// <summary>
-    /// Gets or sets the retention period (in days) for connection event history.
-    /// Default is 7 days.
+    /// Gets or sets the retention period (in days) for connection event history, enforced by
+    /// <c>DataRetentionService</c>. Zero or less disables the sweep. Default is 30 days, because the
+    /// performance dashboard reports 30-day uptime from these events.
     /// </summary>
-    public int ConnectionEventRetentionDays { get; set; } = 7;
+    public int ConnectionEventRetentionDays { get; set; } = 30;
 
     /// <summary>
     /// Gets or sets whether Discord API request tracking is enabled.

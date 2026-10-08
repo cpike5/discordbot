@@ -27,6 +27,10 @@ public static class AnalyticsServiceExtensions
             configuration.GetSection(AnalyticsRetentionOptions.SectionName));
         services.Configure<HistoricalMetricsOptions>(
             configuration.GetSection(HistoricalMetricsOptions.SectionName));
+        services.Configure<DataRetentionOptions>(
+            configuration.GetSection(DataRetentionOptions.SectionName));
+        services.Configure<UserActivityEventRetentionOptions>(
+            configuration.GetSection(UserActivityEventRetentionOptions.SectionName));
 
         // Register analytics services
         services.AddScoped<IServerAnalyticsService, ServerAnalyticsService>();
@@ -38,6 +42,10 @@ public static class AnalyticsServiceExtensions
         services.AddHostedService<ChannelActivityAggregationService>();
         services.AddHostedService<GuildMetricsAggregationService>();
         services.AddHostedService<AnalyticsRetentionService>();
+
+        // Retention for the raw event tables the aggregators read from (command logs, activity
+        // events) and the other high-volume tables with no retention job of their own.
+        services.AddHostedService<DataRetentionService>();
 
         return services;
     }

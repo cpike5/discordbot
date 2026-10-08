@@ -189,4 +189,15 @@ public interface ICommandLogRepository : IRepository<CommandLog>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A dictionary mapping guild ID to command count.</returns>
     Task<IDictionary<ulong, int>> GetCommandCountsByGuildAsync(DateTime since, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes one batch of command logs executed before <paramref name="cutoff"/>.
+    /// Used by the data retention sweep, which calls it repeatedly until it returns fewer rows
+    /// than <paramref name="batchSize"/>.
+    /// </summary>
+    /// <param name="cutoff">Logs with <c>ExecutedAt</c> earlier than this (UTC) are deleted.</param>
+    /// <param name="batchSize">Maximum number of rows to delete in this call (clamped to 1..1000).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows deleted.</returns>
+    Task<int> DeleteOlderThanAsync(DateTime cutoff, int batchSize, CancellationToken cancellationToken = default);
 }

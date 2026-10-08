@@ -47,4 +47,15 @@ public interface IConnectionEventRepository : IRepository<ConnectionEvent>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Number of events deleted.</returns>
     Task<int> CleanupOldEventsAsync(int retentionDays, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes one batch of connection events recorded before <paramref name="cutoff"/>.
+    /// Used by the data retention sweep, which calls it repeatedly until it returns fewer rows
+    /// than <paramref name="batchSize"/>.
+    /// </summary>
+    /// <param name="cutoff">Events with <c>Timestamp</c> earlier than this (UTC) are deleted.</param>
+    /// <param name="batchSize">Maximum number of rows to delete in this call (clamped to 1..1000).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows deleted.</returns>
+    Task<int> DeleteOlderThanAsync(DateTime cutoff, int batchSize, CancellationToken cancellationToken = default);
 }
