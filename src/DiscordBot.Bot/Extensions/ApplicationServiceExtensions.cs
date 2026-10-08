@@ -38,6 +38,13 @@ public static class ApplicationServiceExtensions
         services.Configure<BackgroundServicesOptions>(
             configuration.GetSection(BackgroundServicesOptions.SectionName));
 
+        // One background service failing must not stop the whole bot. .NET 8's default
+        // (StopHost) would take Discord, the portal and every other loop down with it. A service
+        // that faults stays in the health registry with status "Error" (MonitoredBackgroundService),
+        // which turns the overall background-service health Unhealthy.
+        services.Configure<HostOptions>(options =>
+            options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
+
         // Singleton services (application-wide state)
         services.AddSingleton<IBackgroundTaskRunner, BackgroundTaskRunner>();
         services.AddSingleton<IVersionService, VersionService>();

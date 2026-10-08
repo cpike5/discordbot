@@ -31,12 +31,14 @@ public class PrioritySamplerTests
         };
     }
 
-    private PrioritySampler CreateSampler(SamplingOptions? options = null)
+    private PrioritySampler CreateSampler(SamplingOptions? options = null, Func<double>? nextDouble = null)
     {
         var samplingOptions = options ?? _defaultOptions;
         var optionsMock = new Mock<IOptions<SamplingOptions>>();
         optionsMock.Setup(o => o.Value).Returns(samplingOptions);
-        return new PrioritySampler(optionsMock.Object, _mockLogger.Object);
+        return nextDouble is null
+            ? new PrioritySampler(optionsMock.Object, _mockLogger.Object)
+            : new PrioritySampler(optionsMock.Object, _mockLogger.Object, nextDouble);
     }
 
     #region Always Sample (100%) Tests
@@ -578,38 +580,30 @@ public class PrioritySamplerTests
             "regular commands should sample at ~10% (default rate)");
     }
 
-    [Fact(Skip = "Timing-sensitive probabilistic test — flaky by nature")]
-    public void ShouldSample_BackgroundServiceOperation_UsesDefaultRate()
+    [Theory]
+    [InlineData(0.005, SamplingDecision.RecordAndSample)]
+    [InlineData(0.05, SamplingDecision.Drop)]
+    public void ShouldSample_BackgroundServiceOperation_UsesLowPriorityRate(
+        double randomValue, SamplingDecision expected)
     {
-        // Arrange
-        var sampler = CreateSampler();
+        // Arrange - a fixed random source makes the decision deterministic.
+        // background.* spans are low priority (1%), so 0.005 samples and 0.05 (inside the
+        // 10% default rate) drops.
+        var sampler = CreateSampler(nextDouble: () => randomValue);
+        var parameters = new SamplingParameters(
+            parentContext: default,
+            traceId: ActivityTraceId.CreateRandom(),
+            name: "background.metrics_aggregation.execute",
+            kind: ActivityKind.Internal,
+            tags: null,
+            links: null);
 
-        // Act - Run multiple samples
-        var sampleCount = 1000;
-        var sampledCount = 0;
-
-        for (int i = 0; i < sampleCount; i++)
-        {
-            var params2 = new SamplingParameters(
-                parentContext: default,
-                traceId: ActivityTraceId.CreateRandom(),
-                name: "background.metrics_aggregation.execute",
-                kind: ActivityKind.Internal,
-                tags: null,
-                links: null
-            );
-
-            var result = sampler.ShouldSample(params2);
-            if (result.Decision == SamplingDecision.RecordAndSample)
-            {
-                sampledCount++;
-            }
-        }
+        // Act
+        var result = sampler.ShouldSample(parameters);
 
         // Assert
-        var actualRate = (double)sampledCount / sampleCount;
-        actualRate.Should().BeInRange(0.05, 0.15,
-            "background service operations should sample at ~10%");
+        result.Decision.Should().Be(expected,
+            "background service operations sample at the low-priority rate (1%)");
     }
 
     #endregion

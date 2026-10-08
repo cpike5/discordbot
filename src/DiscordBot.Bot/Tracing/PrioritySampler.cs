@@ -13,7 +13,10 @@ public class PrioritySampler : Sampler
 {
     private readonly SamplingOptions _options;
     private readonly ILogger<PrioritySampler> _logger;
-    private readonly Random _random = new();
+    // Random.Shared is thread-safe; a shared `new Random()` called from concurrent spans can
+    // corrupt its state and get stuck returning 0. Tests pass a fixed source through the
+    // internal constructor.
+    private readonly Func<double> _nextDouble;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PrioritySampler"/> class.
@@ -23,7 +26,20 @@ public class PrioritySampler : Sampler
     public PrioritySampler(
         IOptions<SamplingOptions> options,
         ILogger<PrioritySampler> logger)
+        : this(options, logger, static () => Random.Shared.NextDouble())
     {
+    }
+
+    /// <summary>
+    /// Initializes a new instance with a supplied source of uniform [0, 1) values, so tests can
+    /// make sampling decisions deterministic.
+    /// </summary>
+    internal PrioritySampler(
+        IOptions<SamplingOptions> options,
+        ILogger<PrioritySampler> logger,
+        Func<double> nextDouble)
+    {
+        _nextDouble = nextDouble;
         _options = options.Value;
         _logger = logger;
 
@@ -57,7 +73,7 @@ public class PrioritySampler : Sampler
         var samplingRate = DetermineSamplingRate(spanName, tags);
 
         // Make probabilistic decision
-        var shouldSample = _random.NextDouble() < samplingRate;
+        var shouldSample = _nextDouble() < samplingRate;
 
         if (shouldSample)
         {

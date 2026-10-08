@@ -1,4 +1,8 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -566,5 +570,65 @@ public class DashboardHubTests
             s => s.DismissNotificationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>()),
             Times.Never,
             "Should not call notification service for unauthenticated user");
+    }
+
+    [Fact]
+    public async Task OnConnectedAsync_WithLinkedDiscordAccount_TagsActivityWithDiscordSnowflake()
+    {
+        // Arrange
+        var connectionId = $"conn-{Guid.NewGuid():N}";
+        var context = new Mock<HubCallerContext>();
+        context.Setup(c => c.ConnectionId).Returns(connectionId);
+        context.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.Name, "testuser"),
+            new Claim(ClaimsPrincipalExtensions.DiscordUserIdClaimType, "123456789012345678")
+        }, "TestAuth")));
+        _hub.Context = context.Object;
+
+        // Act
+        var activity = await CaptureHubActivityAsync(connectionId, () => _hub.OnConnectedAsync());
+
+        // Assert
+        activity.GetTagItem(TracingConstants.Attributes.UserId).Should().Be("123456789012345678");
+        activity.GetTagItem("portal.user.name").Should().BeNull();
+    }
+
+    [Fact]
+    public async Task OnConnectedAsync_WithoutLinkedDiscordAccount_DoesNotPutUsernameInDiscordUserId()
+    {
+        // Arrange
+        var connectionId = $"conn-{Guid.NewGuid():N}";
+        _mockContext.Setup(c => c.ConnectionId).Returns(connectionId);
+
+        // Act
+        var activity = await CaptureHubActivityAsync(connectionId, () => _hub.OnConnectedAsync());
+
+        // Assert
+        activity.GetTagItem(TracingConstants.Attributes.UserId).Should().BeNull(
+            "discord.user.id carries Discord snowflakes only, never a portal username");
+        activity.GetTagItem("portal.user.name").Should().Be("testuser");
+    }
+
+    /// <summary>
+    /// Runs a hub call and returns the activity it recorded, found by its connection id so
+    /// activities from tests running in parallel are ignored.
+    /// </summary>
+    private static async Task<Activity> CaptureHubActivityAsync(string connectionId, Func<Task> hubCall)
+    {
+        var stopped = new ConcurrentBag<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == BotActivitySource.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = stopped.Add
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        await hubCall();
+
+        var activity = stopped.FirstOrDefault(a => (a.GetTagItem("signalr.connection.id") as string) == connectionId);
+        activity.Should().NotBeNull("the hub call should record an activity for its connection");
+        return activity!;
     }
 }
