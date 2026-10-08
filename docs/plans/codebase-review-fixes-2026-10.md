@@ -1,6 +1,6 @@
 # Codebase Review Fixes (October 2026)
 
-**Status:** In progress. Wave 1 started 2026-10-08.
+**Status:** In progress. Wave 1 done; wave 2 and the wave 3 code items started 2026-10-08.
 **Date:** 2026-10-08
 **Source:** [`reports/codebase-review-2026-10-08.md`](../../reports/codebase-review-2026-10-08.md). Finding IDs (H1–H11) refer to that report.
 **Branch:** `claude/nice-bohr-il9uyg`
@@ -90,3 +90,14 @@ wave agents, so the agents do not conflict.
 ## Status notes
 
 Updated as each wave lands.
+
+### Wave 1: done (2026-10-08)
+
+All 15 items landed. Full suite on the merged branch: 5,730 passed, 0 failed, 21 skipped (PostgreSQL). SQLite was not exercised.
+
+- **1a–1e (scheduling).** A scope per message; a missing channel disables the message, but only while the client is Connected; the next run is saved before sending. Trade-off: `LastExecutedAt` now means "attempted", and a one-time message whose send fails is not retried. Reminders fall back to a REST lookup, and a cancel during delivery sticks. `/schedule-create` takes an optional UTC `start`, required for one-time schedules. Monthly schedules keep their day of month. **Open:** the anchor day is inferred, not stored. A schedule created on the 15th for the 31st settles on the 28th after February. Storing it needs a column.
+- **1f–1g (moderation).** `TemporaryBanExpiryService` lifts expired bans and records an Unban case. No schema change: a later Ban or Unban case closes a ban. `/warn` checks role hierarchy. **Open:** a guild the bot has left is retried every cycle (logged at Debug). The message-context Warn modal still has no hierarchy check.
+- **1h (currency).** The ledger re-checks the balance after the wallet lock against a caller floor (`LedgerFloorException`). It also fixed a lost update: the tracked wallet copy could be stale, so the wallet is reloaded under the lock.
+- **1i–1k (assistant).** `fetch_url` follows up to 5 redirects by hand and checks each hop. `execute_python` gets a cleared environment and no longer claims to be a sandbox. The rate limiter reserves at check time and releases on failure.
+- **1l–1n (web).** Twelve controllers got `GuildAccess` at class level; Preview got it on its two guild actions, and Autocomplete checks access by hand. **Behaviour change:** on admin API controllers, an Identity Admin now needs Discord Administrator in that guild, as the guild pages already require. `ModeratorAccess` is now `RequireModerator`. Portal upload enforces the per-file size limit. Upload and play have per-user rate limits (`PortalRateLimit`). The voice name is escaped. **Open:** Admin Logs' channel picker returns 403 for guilds the admin does not administer. Preview popups show their error state for guilds the viewer is not in.
+- **1o (data).** `DataRetentionService` covers the six tables. `PerformanceMetrics:ConnectionEventRetentionDays` was never read before; it is now applied, and its default went from 7 to 30 to match the 30-day uptime view. **Note:** command logs older than 90 days drop out of all-time command counts.
