@@ -13,8 +13,9 @@ public class GuildMembershipCacheOptions
 
     /// <summary>
     /// Gets or sets the cache duration (in minutes) for stored guild membership data.
-    /// Used to reduce database queries when checking if users are members of guilds
-    /// for authorization purposes (e.g., GuildAccessAuthorizationHandler).
+    /// Used by UserDiscordGuildService to reduce database queries when reading a user's stored
+    /// guild memberships. (GuildAccessHandler, which authorizes guild pages, checks membership
+    /// through the Discord client and does not read this cache.)
     /// Default is 30 minutes.
     /// </summary>
     public int StoredGuildMembershipDurationMinutes { get; set; } = 30;
