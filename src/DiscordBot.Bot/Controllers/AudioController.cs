@@ -170,7 +170,7 @@ public class AudioController : ControllerBase
     /// Position 0 skips the currently playing sound.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
-    /// <param name="position">Zero-based queue position to remove.</param>
+    /// <param name="position">Queue position as broadcast: 1 is the first waiting sound, 0 the playing one.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Success status.</returns>
     [HttpDelete("queue/{position}")]
