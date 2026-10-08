@@ -25,6 +25,7 @@ public class WebFetchToolProvider : IDmToolProvider
     private const int MinMaxLength = 2000;
     private const int MaxMaxLength = 16000;
     private const int MaxResponseBytes = 512 * 1024;
+    private const int MaxRedirects = 5;
 
     /// <inheritdoc />
     public string Name => "WebFetch";
@@ -105,30 +106,71 @@ public class WebFetchToolProvider : IDmToolProvider
             maxLength = Math.Clamp(maxLengthElement.GetInt32(), MinMaxLength, MaxMaxLength);
         }
 
-        // SSRF protection: resolve DNS and check for private/reserved addresses
-        var ssrfCheck = await CheckSsrfAsync(uri);
-        if (ssrfCheck != null)
-        {
-            return ToolExecutionResult.CreateError(ssrfCheck);
-        }
-
         _logger.LogDebug("Fetching URL {Url} with max length {MaxLength}", uri.Host, maxLength);
 
         var client = _httpClientFactory.CreateClient("DmAssistantWebFetch");
 
+        // The named client does not follow redirects (AllowAutoRedirect = false), so each hop comes
+        // back here and gets the same private-address check as the URL the model asked for.
+        // DNS rebinding between this check and the connect is not closed here (connection pinning
+        // is separate work); a redirect to an internal address is.
+        var current = uri;
         HttpResponseMessage response;
-        try
+        for (var redirects = 0; ; redirects++)
         {
-            response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        }
-        catch (TaskCanceledException)
-        {
-            return ToolExecutionResult.CreateError("Request timed out.");
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogWarning(ex, "HTTP request failed for {Host}", uri.Host);
-            return ToolExecutionResult.CreateError($"Failed to fetch URL: {ex.Message}");
+            // SSRF protection: resolve DNS and check for private/reserved addresses
+            var ssrfCheck = await CheckSsrfAsync(current);
+            if (ssrfCheck != null)
+            {
+                if (redirects > 0)
+                {
+                    _logger.LogWarning(
+                        "Refused redirect from {OriginalHost} to {TargetHost}: {Reason}",
+                        uri.Host, current.Host, ssrfCheck);
+                }
+
+                return ToolExecutionResult.CreateError(ssrfCheck);
+            }
+
+            try
+            {
+                response = await client.GetAsync(current, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            }
+            catch (TaskCanceledException)
+            {
+                return ToolExecutionResult.CreateError("Request timed out.");
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "HTTP request failed for {Host}", current.Host);
+                return ToolExecutionResult.CreateError($"Failed to fetch URL: {ex.Message}");
+            }
+
+            if (!IsRedirect(response.StatusCode))
+            {
+                break;
+            }
+
+            var location = response.Headers.Location;
+            response.Dispose();
+
+            if (location == null)
+            {
+                return ToolExecutionResult.CreateError("Redirect response had no Location header.");
+            }
+
+            if (redirects >= MaxRedirects)
+            {
+                return ToolExecutionResult.CreateError($"Too many redirects (more than {MaxRedirects}).");
+            }
+
+            var next = location.IsAbsoluteUri ? location : new Uri(current, location);
+            if (next.Scheme != Uri.UriSchemeHttp && next.Scheme != Uri.UriSchemeHttps)
+            {
+                return ToolExecutionResult.CreateError("Redirect refused: only HTTP and HTTPS URLs are supported.");
+            }
+
+            current = next;
         }
 
         if (!response.IsSuccessStatusCode)
@@ -182,6 +224,10 @@ public class WebFetchToolProvider : IDmToolProvider
             truncated = wasTruncated
         });
     }
+
+    private static bool IsRedirect(HttpStatusCode status) => status is
+        HttpStatusCode.MovedPermanently or HttpStatusCode.Found or HttpStatusCode.SeeOther or
+        HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect;
 
     /// <summary>
     /// Checks if the URL target resolves to a private/reserved IP address (SSRF protection).

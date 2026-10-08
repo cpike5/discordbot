@@ -71,7 +71,10 @@ public static class DmAssistantServiceExtensions
             client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot-DmAssistant/1.0");
             client.MaxResponseContentBufferSize = 512 * 1024;
-        });
+        })
+        // WebFetchToolProvider follows redirects itself so it can run its private-address check on
+        // every hop; a handler that followed them would reach an internal target unchecked.
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
         services.AddScoped<IDmToolProvider, WebFetchToolProvider>();
 
         // Only register LLM-dependent service if API key is configured
