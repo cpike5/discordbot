@@ -20,6 +20,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IScheduledMessageService _scheduledMessageService;
     private readonly IInteractionStateService _stateService;
+    private readonly ITimeParsingService _timeParsingService;
     private readonly DiscordSocketClient _client;
     private readonly ILogger<ScheduleModule> _logger;
 
@@ -29,11 +30,13 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
     public ScheduleModule(
         IScheduledMessageService scheduledMessageService,
         IInteractionStateService stateService,
+        ITimeParsingService timeParsingService,
         DiscordSocketClient client,
         ILogger<ScheduleModule> logger)
     {
         _scheduledMessageService = scheduledMessageService;
         _stateService = stateService;
+        _timeParsingService = timeParsingService;
         _client = client;
         _logger = logger;
     }
@@ -142,7 +145,8 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         [Summary("channel", "Channel where the message will be sent")] ITextChannel channel,
         [Summary("message", "Content of the message to send")] string message,
         [Summary("frequency", "How often the message should be sent")] ScheduleFrequency frequency,
-        [Summary("cron", "Cron expression (required for Custom frequency)")] string? cron = null)
+        [Summary("cron", "Cron expression (required for Custom frequency)")] string? cron = null,
+        [Summary("start", "When to send it first, in UTC (e.g. 2h, tomorrow 3pm); required for Once")] string? start = null)
     {
         _logger.LogInformation(
             "Schedule create command executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}), Title: {Title}, Frequency: {Frequency}",
@@ -172,12 +176,13 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
             }
         }
 
-        // Calculate next execution time
-        var nextExecution = await _scheduledMessageService.CalculateNextExecutionAsync(frequency, cron);
+        // Resolve the first run: the given start time, or the next interval from now
+        var (nextExecution, firstRunError) = await ResolveFirstRunAsync(
+            frequency, cron, start, _scheduledMessageService, _timeParsingService, DateTime.UtcNow);
         if (!nextExecution.HasValue)
         {
-            await RespondAsync(embed: EmbedHelper.Error("Error", "Failed to calculate next execution time."), ephemeral: true);
-            _logger.LogError("Schedule create failed: could not calculate next execution time for frequency {Frequency}", frequency);
+            await RespondAsync(embed: EmbedHelper.Error("Error", firstRunError ?? "Failed to calculate next execution time."), ephemeral: true);
+            _logger.LogWarning("Schedule create failed: no first run for frequency {Frequency}: {Error}", frequency, firstRunError);
             return;
         }
 
@@ -230,6 +235,45 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to create scheduled message: {ex.Message}"), ephemeral: true);
         }
+    }
+
+    /// <summary>
+    /// Resolves the first run of a new scheduled message, as the web form does with its
+    /// next-run field: an explicit <paramref name="start"/> (parsed in UTC) wins and is required
+    /// for one-time schedules; otherwise the first run is one interval from now.
+    /// </summary>
+    /// <returns>The first run in UTC, or null and a message for the user.</returns>
+    internal static async Task<(DateTime? FirstRun, string? Error)> ResolveFirstRunAsync(
+        ScheduleFrequency frequency,
+        string? cron,
+        string? start,
+        IScheduledMessageService scheduledMessageService,
+        ITimeParsingService timeParsingService,
+        DateTime nowUtc)
+    {
+        if (!string.IsNullOrWhiteSpace(start))
+        {
+            var parsed = timeParsingService.Parse(start, "UTC");
+            if (!parsed.Success || !parsed.UtcTime.HasValue)
+            {
+                return (null, parsed.ErrorMessage ?? "Could not understand the start time.");
+            }
+
+            if (parsed.UtcTime.Value <= nowUtc)
+            {
+                return (null, "The start time must be in the future.");
+            }
+
+            return (parsed.UtcTime.Value, null);
+        }
+
+        if (frequency == ScheduleFrequency.Once)
+        {
+            return (null, "A start time is required for a one-time schedule, for example `2h` or `tomorrow 3pm` (UTC).");
+        }
+
+        var next = await scheduledMessageService.CalculateNextExecutionAsync(frequency, cron);
+        return next.HasValue ? (next, null) : (null, "Failed to calculate next execution time.");
     }
 
     /// <summary>
