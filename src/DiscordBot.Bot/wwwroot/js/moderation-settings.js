@@ -235,21 +235,59 @@
         toast.success(result.message || 'Saved.');
     }
 
-    async function submitOverview(form) {
+    /** The overview's values as the server expects them: the mode, the mod-log channel and its kinds. */
+    function readOverview(form) {
         var checked = form.querySelector('input[name="mode"]:checked');
-        var base = baselines.get(form) || {};
-        var mode = checked ? parseInt(checked.value, 10) : null;
+        var channel = byId('modlog-channel');
+        var kinds = 0;
+        modLogKinds(form).forEach(function (box) {
+            if (box.checked) kinds |= parseInt(box.dataset.modlogKind, 10);
+        });
+        return {
+            mode: checked ? parseInt(checked.value, 10) : null,
+            modLogChannelId: channel ? channel.value : '',
+            modLogEvents: kinds
+        };
+    }
 
-        if (mode === null || mode === base.mode) {
+    function modLogKinds(form) {
+        return Array.prototype.slice.call(form.querySelectorAll('[data-modlog-kind]'));
+    }
+
+    /** The kind toggles mean nothing without a channel, so they follow the channel's state. */
+    function syncModLogKinds(form) {
+        var channel = byId('modlog-channel');
+        var off = !channel || channel.value === '';
+        modLogKinds(form).forEach(function (box) {
+            box.disabled = off;
+            var label = box.closest('.toggle');
+            if (label) label.classList.toggle('toggle-disabled', off);
+        });
+    }
+
+    async function submitOverview(form) {
+        clearErrors(form);
+        var current = readOverview(form);
+        var base = baselines.get(form) || {};
+        var patch = {};
+
+        if (current.mode !== null && current.mode !== base.mode) patch.mode = current.mode;
+        if (current.modLogChannelId !== base.modLogChannelId) patch.modLogChannelId = current.modLogChannelId;
+        if (current.modLogEvents !== base.modLogEvents) patch.modLogEvents = current.modLogEvents;
+
+        if (Object.keys(patch).length === 0) {
             toast.info('No changes to save.');
             return;
         }
-        var patch = { mode: mode };
 
         var result = await saveForm(form, 'SaveOverview', patch, 'Could not save the overview settings. Try again.');
         if (!result) return;
 
-        baselines.set(form, { mode: mode });
+        baselines.set(form, {
+            mode: typeof result.mode === 'number' ? result.mode : current.mode,
+            modLogChannelId: typeof result.modLogChannelId === 'string' ? result.modLogChannelId : current.modLogChannelId,
+            modLogEvents: typeof result.modLogEvents === 'number' ? result.modLogEvents : current.modLogEvents
+        });
         if (window.UnsavedChanges) UnsavedChanges.markClean(form);
         toast.success(result.message || 'Saved.');
     }
@@ -264,11 +302,15 @@
 
     function setupMode() {
         var form = byId('overviewForm');
-        var checked = form.querySelector('input[name="mode"]:checked');
-        baselines.set(form, { mode: checked ? parseInt(checked.value, 10) : null });
+        baselines.set(form, readOverview(form));
+        syncModLogKinds(form);
 
         form.addEventListener('change', function (e) {
             if (e.target.name === 'mode') showMode(e.target.value);
+            if (e.target.id === 'modlog-channel') {
+                syncModLogKinds(form);
+                clearFieldError(e.target);
+            }
         });
     }
 

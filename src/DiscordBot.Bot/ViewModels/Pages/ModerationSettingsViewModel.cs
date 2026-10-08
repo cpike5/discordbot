@@ -41,6 +41,16 @@ public class ModerationSettingsViewModel
     public RaidProtectionConfigDto RaidProtectionConfig { get; set; } = new();
 
     /// <summary>
+    /// The channel the mod-log feed posts to, or null when the feed is off.
+    /// </summary>
+    public ulong? ModLogChannelId { get; set; }
+
+    /// <summary>
+    /// Which kinds of event the mod-log feed posts.
+    /// </summary>
+    public ModLogEventKinds ModLogEvents { get; set; } = ModLogEventKinds.All;
+
+    /// <summary>
     /// Gets or sets the list of mod tags for this guild.
     /// </summary>
     public IReadOnlyList<ModTagDto> Tags { get; set; } = Array.Empty<ModTagDto>();
@@ -66,6 +76,8 @@ public class ModerationSettingsViewModel
             SpamConfig = config.SpamConfig,
             ContentFilterConfig = config.ContentFilterConfig,
             RaidProtectionConfig = config.RaidProtectionConfig,
+            ModLogChannelId = config.ModLogChannelId,
+            ModLogEvents = config.ModLogEvents,
             Tags = tags.ToList(),
             UpdatedAt = config.UpdatedAt
         };
@@ -86,4 +98,15 @@ public class OverviewUpdateDto
     /// Gets or sets the simple mode preset name. Null leaves the saved preset alone.
     /// </summary>
     public string? SimplePreset { get; set; }
+
+    /// <summary>
+    /// The mod-log channel as a string snowflake. Null leaves the saved channel alone; an empty
+    /// string turns the feed off.
+    /// </summary>
+    public string? ModLogChannelId { get; set; }
+
+    /// <summary>
+    /// The <see cref="ModLogEventKinds"/> flags to post. Null leaves the saved value alone.
+    /// </summary>
+    public int? ModLogEvents { get; set; }
 }

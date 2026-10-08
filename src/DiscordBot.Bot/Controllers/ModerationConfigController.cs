@@ -3,6 +3,8 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 
 namespace DiscordBot.Bot.Controllers;
 
@@ -16,18 +18,22 @@ namespace DiscordBot.Bot.Controllers;
 public class ModerationConfigController : ControllerBase
 {
     private readonly IGuildModerationConfigService _configService;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<ModerationConfigController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModerationConfigController"/> class.
     /// </summary>
     /// <param name="configService">The guild moderation config service.</param>
+    /// <param name="discordClient">The Discord client, used to check a mod-log channel belongs to the guild.</param>
     /// <param name="logger">The logger.</param>
     public ModerationConfigController(
         IGuildModerationConfigService configService,
+        DiscordSocketClient discordClient,
         ILogger<ModerationConfigController> logger)
     {
         _configService = configService;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -85,6 +91,21 @@ public class ModerationConfigController : ControllerBase
 
         // Ensure the GuildId from the route matches the request (override if needed)
         request.GuildId = guildId;
+
+        var modLogError = ModLogSettings.ValidateChannel(_discordClient, guildId, request.ModLogChannelId)
+            ?? ModLogSettings.ValidateEvents((int)request.ModLogEvents);
+        if (modLogError != null)
+        {
+            _logger.LogWarning("Invalid mod-log settings in config update for guild {GuildId}: {Error}", guildId, modLogError);
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid request",
+                Detail = modLogError,
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         try
         {

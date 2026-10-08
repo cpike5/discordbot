@@ -37,6 +37,7 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Permissions](permissions.md) - Permission system documentation
 - [Scheduled Messages](scheduled-messages.md) - Automated message scheduling with cron expressions
 - [Welcome System](welcome-system.md) - Automated welcome messages for new members
+- [Mod-log Channel](mod-log-channel.md) - Post every moderation case to a Discord channel
 - [Rat Watch](rat-watch.md) - Accountability and task tracking feature
 
 ## Configuration

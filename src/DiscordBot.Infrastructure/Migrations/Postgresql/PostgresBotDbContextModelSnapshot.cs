@@ -1412,6 +1412,12 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("boolean");
 
+                    b.Property<long?>("ModLogChannelId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ModLogEvents")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Mode")
                         .HasColumnType("integer");
 

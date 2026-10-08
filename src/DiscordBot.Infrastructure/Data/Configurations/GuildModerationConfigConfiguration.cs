@@ -39,6 +39,17 @@ public class GuildModerationConfigConfiguration : IEntityTypeConfiguration<Guild
         builder.Property(c => c.RaidProtectionConfig)
             .IsRequired(); // JSON, no length limit
 
+        // Mod-log feed: nullable channel (ulong as long, like GuildId) and a flags enum as int
+        builder.Property(c => c.ModLogChannelId)
+            .HasConversion<long?>();
+
+        // No database default: "None" (every kind off) is a value an admin can choose, and a
+        // database default would silently replace it on insert. The entity's initializer gives a
+        // new row All.
+        builder.Property(c => c.ModLogEvents)
+            .HasConversion<int>()
+            .IsRequired();
+
         // DateTime property
         builder.Property(c => c.UpdatedAt)
             .IsRequired();

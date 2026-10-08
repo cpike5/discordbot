@@ -101,6 +101,12 @@ public class IndexModel : GuildPageModelBase
     public List<ChannelOption> AvailableChannels { get; set; } = new();
 
     /// <summary>
+    /// True when a mod-log channel is saved but is not among the channels the bot can see (deleted,
+    /// or the bot is offline). The picker still lists it so a save does not silently clear it.
+    /// </summary>
+    public bool ModLogChannelMissing { get; set; }
+
+    /// <summary>
     /// Handles GET requests for the Moderation Settings page.
     /// </summary>
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -154,6 +160,9 @@ public class IndexModel : GuildPageModelBase
                 .ToList();
         }
 
+        ModLogChannelMissing = config.ModLogChannelId.HasValue
+            && AvailableChannels.All(c => c.Id != config.ModLogChannelId.Value);
+
         // Load statistics for the last 24 hours
         await LoadStatisticsAsync(GuildId, cancellationToken);
 
@@ -176,9 +185,31 @@ public class IndexModel : GuildPageModelBase
             return Rejected("Nothing to save.");
         }
 
+        var errors = new Dictionary<string, string>();
         if (request.SimplePreset != null && !PresetNames.Contains(request.SimplePreset, StringComparer.OrdinalIgnoreCase))
         {
-            return ValidationFailure(new Dictionary<string, string> { ["simplePreset"] = "Choose Relaxed, Moderate or Strict." });
+            errors["simplePreset"] = "Choose Relaxed, Moderate or Strict.";
+        }
+
+        ulong? modLogChannelId = null;
+        if (request.ModLogChannelId != null)
+        {
+            var channelError = ModLogSettings.TryParseChannel(request.ModLogChannelId, out modLogChannelId)
+                ?? ModLogSettings.ValidateChannel(_discordClient, GuildId, modLogChannelId);
+            if (channelError != null)
+            {
+                errors["modLogChannelId"] = channelError;
+            }
+        }
+
+        if (request.ModLogEvents.HasValue && ModLogSettings.ValidateEvents(request.ModLogEvents.Value) is { } eventsError)
+        {
+            errors["modLogEvents"] = eventsError;
+        }
+
+        if (errors.Count > 0)
+        {
+            return ValidationFailure(errors);
         }
 
         try
@@ -192,12 +223,27 @@ public class IndexModel : GuildPageModelBase
             {
                 config.SimplePreset = request.SimplePreset;
             }
+            if (request.ModLogChannelId != null)
+            {
+                config.ModLogChannelId = modLogChannelId;
+            }
+            if (request.ModLogEvents.HasValue)
+            {
+                config.ModLogEvents = (ModLogEventKinds)request.ModLogEvents.Value;
+            }
 
             await _configService.UpdateConfigAsync(GuildId, config, cancellationToken);
 
             _logger.LogInformation("Overview settings saved successfully for guild {GuildId}", GuildId);
 
-            return new JsonResult(new { success = true, message = "Overview settings saved successfully.", mode = (int)config.Mode });
+            return new JsonResult(new
+            {
+                success = true,
+                message = "Overview settings saved successfully.",
+                mode = (int)config.Mode,
+                modLogChannelId = config.ModLogChannelId?.ToString() ?? string.Empty,
+                modLogEvents = (int)config.ModLogEvents
+            });
         }
         catch (Exception ex)
         {

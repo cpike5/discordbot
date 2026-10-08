@@ -213,7 +213,10 @@ Services for moderation cases, notes, tags, and enforcement actions.
 | Service | Location | Purpose |
 |---------|----------|---------|
 | `IModerationService` | Core Interfaces | High-level moderation case management |
-| `IGuildModerationConfigService` | Core Interfaces | Guild moderation settings (warnings, timeouts, etc.) |
+| `IGuildModerationConfigService` | Core Interfaces | Guild moderation settings (warnings, timeouts, etc.), including the mod-log channel; applying a preset keeps the mod-log settings |
+| `IModLogNotifier` | Core Interfaces | Posts a moderation outcome to the guild's mod-log channel when one is configured and the kind is enabled. Never throws; returns the posted message id or null |
+| `ModLogNotifier` | Bot/Services/Moderation | Implementation over the socket client: resolves the channel from `GuildModerationConfig`, posts the `ModLogEmbeds` embed, warns once per guild per hour (an `IMemoryCache` key) when the channel is missing or refuses the bot. Queued from `ModerationService.CreateCaseAsync` on `IBackgroundTaskRunner` |
+| `ModLogEmbeds` / `ModLogSettings` | Bot/Helpers | The case embed and its portal link button as pure functions; the channel and kinds validation shared by the Moderation Settings page and `ModerationConfigController` |
 | `IModNoteService` | Core Interfaces | User moderation notes (admins document issues) |
 | `IModTagService` | Core Interfaces | Moderation tag management (categorization) |
 | `IWatchlistService` | Core Interfaces | User watchlist for monitoring suspicious accounts |
