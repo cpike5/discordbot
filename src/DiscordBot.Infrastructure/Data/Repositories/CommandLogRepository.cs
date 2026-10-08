@@ -459,4 +459,32 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         _logger.LogDebug("Retrieved command counts for {GuildCount} guilds", counts.Count);
         return counts;
     }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteOlderThanAsync(DateTime cutoff, int batchSize, CancellationToken cancellationToken = default)
+    {
+        // Clamped to 1000 - the ids selected below become an IN (...) list. See
+        // LlmUsageRepository.DeleteOlderThanAsync for why 1000 is the ceiling.
+        batchSize = Math.Clamp(batchSize, 1, 1000);
+
+        var idsToDelete = await DbSet
+            .AsNoTracking()
+            .Where(l => l.ExecutedAt < cutoff)
+            .OrderBy(l => l.ExecutedAt)
+            .Select(l => l.Id)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (idsToDelete.Count == 0)
+        {
+            return 0;
+        }
+
+        var deleted = await DbSet
+            .Where(l => idsToDelete.Contains(l.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogDebug("Deleted {Count} command logs (batch) older than {Cutoff}", deleted, cutoff);
+        return deleted;
+    }
 }

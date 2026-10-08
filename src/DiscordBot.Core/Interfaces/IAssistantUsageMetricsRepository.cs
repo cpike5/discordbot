@@ -88,4 +88,18 @@ public interface IAssistantUsageMetricsRepository : IRepository<AssistantUsageMe
     Task<int> DeleteOlderThanAsync(
         DateTime cutoffDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes one batch of daily metrics rows whose <c>Date</c> is before the date part of
+    /// <paramref name="cutoffDate"/>. Used by the data retention sweep, which calls it repeatedly
+    /// until it returns fewer rows than <paramref name="batchSize"/>.
+    /// </summary>
+    /// <param name="cutoffDate">The cutoff date. Entries with Date &lt; cutoffDate.Date are deleted.</param>
+    /// <param name="batchSize">Maximum number of rows to delete in this call (clamped to 1..1000).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows deleted.</returns>
+    Task<int> DeleteOlderThanAsync(
+        DateTime cutoffDate,
+        int batchSize,
+        CancellationToken cancellationToken = default);
 }

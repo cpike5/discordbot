@@ -30,4 +30,15 @@ public interface IAudioPlaybackLogRepository : IRepository<AudioPlaybackLog>
         DateTime? from,
         DateTime? to,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes one batch of audio playback log entries played before <paramref name="cutoff"/>.
+    /// Used by the data retention sweep, which calls it repeatedly until it returns fewer rows
+    /// than <paramref name="batchSize"/>.
+    /// </summary>
+    /// <param name="cutoff">Entries with <c>PlayedAt</c> earlier than this (UTC) are deleted.</param>
+    /// <param name="batchSize">Maximum number of rows to delete in this call (clamped to 1..1000).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The number of rows deleted.</returns>
+    Task<int> DeleteOlderThanAsync(DateTime cutoff, int batchSize, CancellationToken ct = default);
 }

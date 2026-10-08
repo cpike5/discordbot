@@ -195,6 +195,41 @@ public class AssistantUsageMetricsRepository : Repository<AssistantUsageMetrics>
         return deletedCount;
     }
 
+    /// <inheritdoc />
+    public async Task<int> DeleteOlderThanAsync(
+        DateTime cutoffDate,
+        int batchSize,
+        CancellationToken cancellationToken = default)
+    {
+        // Clamped to 1000 - the ids selected below become an IN (...) list. See
+        // LlmUsageRepository.DeleteOlderThanAsync for why 1000 is the ceiling.
+        batchSize = Math.Clamp(batchSize, 1, 1000);
+        var cutoffDateOnly = cutoffDate.Date;
+
+        var idsToDelete = await DbSet
+            .AsNoTracking()
+            .Where(m => m.Date < cutoffDateOnly)
+            .OrderBy(m => m.Id)
+            .Select(m => m.Id)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (idsToDelete.Count == 0)
+        {
+            return 0;
+        }
+
+        var deletedCount = await DbSet
+            .Where(m => idsToDelete.Contains(m.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogDebug(
+            "Deleted {Count} assistant usage metrics records (batch) older than {CutoffDate}",
+            deletedCount, cutoffDateOnly);
+
+        return deletedCount;
+    }
+
     /// <summary>
     /// Gets aggregated metrics across all guilds for a date range.
     /// </summary>

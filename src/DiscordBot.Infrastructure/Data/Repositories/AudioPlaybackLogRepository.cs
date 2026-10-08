@@ -57,4 +57,29 @@ public class AudioPlaybackLogRepository : Repository<AudioPlaybackLog>, IAudioPl
 
         return await GetPagedAsync(query, page, pageSize, ct);
     }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteOlderThanAsync(DateTime cutoff, int batchSize, CancellationToken ct = default)
+    {
+        // Clamped to 1000 - the ids selected below become an IN (...) list. See
+        // LlmUsageRepository.DeleteOlderThanAsync for why 1000 is the ceiling.
+        batchSize = Math.Clamp(batchSize, 1, 1000);
+
+        var idsToDelete = await DbSet
+            .AsNoTracking()
+            .Where(a => a.PlayedAt < cutoff)
+            .OrderBy(a => a.Id)
+            .Select(a => a.Id)
+            .Take(batchSize)
+            .ToListAsync(ct);
+
+        if (idsToDelete.Count == 0)
+        {
+            return 0;
+        }
+
+        return await DbSet
+            .Where(a => idsToDelete.Contains(a.Id))
+            .ExecuteDeleteAsync(ct);
+    }
 }

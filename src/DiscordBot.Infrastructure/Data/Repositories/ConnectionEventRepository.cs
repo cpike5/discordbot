@@ -97,20 +97,25 @@ public class ConnectionEventRepository : Repository<ConnectionEvent>, IConnectio
     /// <inheritdoc/>
     public async Task<int> CleanupOldEventsAsync(int retentionDays, CancellationToken cancellationToken = default)
     {
+        const int batchSize = 1000;
         var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
         _logger.LogInformation("Cleaning up connection events older than {Cutoff} ({RetentionDays} days)", cutoff, retentionDays);
 
-        var eventsToDelete = await DbSet
-            .Where(e => e.Timestamp < cutoff)
-            .ToListAsync(cancellationToken);
+        // Delete in batches rather than loading every expired row into memory first.
+        var count = 0;
+        while (true)
+        {
+            var deleted = await DeleteOlderThanAsync(cutoff, batchSize, cancellationToken);
+            count += deleted;
 
-        var count = eventsToDelete.Count;
+            if (deleted < batchSize)
+            {
+                break;
+            }
+        }
 
         if (count > 0)
         {
-            DbSet.RemoveRange(eventsToDelete);
-            await Context.SaveChangesAsync(cancellationToken);
-
             _logger.LogInformation("Deleted {Count} connection events older than {Cutoff}", count, cutoff);
         }
         else
@@ -119,5 +124,30 @@ public class ConnectionEventRepository : Repository<ConnectionEvent>, IConnectio
         }
 
         return count;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteOlderThanAsync(DateTime cutoff, int batchSize, CancellationToken cancellationToken = default)
+    {
+        // Clamped to 1000 - the ids selected below become an IN (...) list. See
+        // LlmUsageRepository.DeleteOlderThanAsync for why 1000 is the ceiling.
+        batchSize = Math.Clamp(batchSize, 1, 1000);
+
+        var idsToDelete = await DbSet
+            .AsNoTracking()
+            .Where(e => e.Timestamp < cutoff)
+            .OrderBy(e => e.Id)
+            .Select(e => e.Id)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (idsToDelete.Count == 0)
+        {
+            return 0;
+        }
+
+        return await DbSet
+            .Where(e => idsToDelete.Contains(e.Id))
+            .ExecuteDeleteAsync(cancellationToken);
     }
 }
