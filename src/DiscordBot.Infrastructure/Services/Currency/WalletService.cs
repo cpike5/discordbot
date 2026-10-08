@@ -1,6 +1,7 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Exceptions;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -99,7 +100,7 @@ public class WalletService : IWalletService
                 IdempotencyKey = idempotencyKey,
                 ActorId = actorId
             },
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         _logger.LogInformation(
             "Minted {Amount} of currency {CurrencyId} to user {UserId} (source {Source}, duplicate {Duplicate})",
@@ -162,18 +163,29 @@ public class WalletService : IWalletService
 
         var wallet = existing ?? await _wallets.GetOrCreateAsync(currencyId, userId, cancellationToken);
 
-        var appended = await _ledger.AppendAsync(
-            new LedgerTransaction
-            {
-                WalletId = wallet.Id,
-                Type = LedgerTransactionType.Spend,
-                Source = LedgerSource.Manual,
-                Amount = -amount,
-                FeatureKey = featureKey,
-                IdempotencyKey = idempotencyKey,
-                ActorId = actorId
-            },
-            cancellationToken);
+        // The checks above are a fast path. Another spend can land between them and the write, so
+        // the ledger checks the zero floor again under the wallet lock.
+        LedgerAppendResult appended;
+        try
+        {
+            appended = await _ledger.AppendAsync(
+                new LedgerTransaction
+                {
+                    WalletId = wallet.Id,
+                    Type = LedgerTransactionType.Spend,
+                    Source = LedgerSource.Manual,
+                    Amount = -amount,
+                    FeatureKey = featureKey,
+                    IdempotencyKey = idempotencyKey,
+                    ActorId = actorId
+                },
+                minBalanceAfter: 0,
+                cancellationToken: cancellationToken);
+        }
+        catch (LedgerFloorException ex)
+        {
+            return SpendResult.Failed(FloorError(ex.Balance), ex.Balance);
+        }
 
         return new SpendResult
         {
@@ -244,28 +256,39 @@ public class WalletService : IWalletService
 
         var trimmedNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
 
-        var pair = await _ledger.AppendPairAsync(
-            new LedgerTransaction
-            {
-                WalletId = sender.Id,
-                Type = LedgerTransactionType.TransferOut,
-                Source = LedgerSource.Manual,
-                Amount = -amount,
-                Reason = trimmedNote,
-                IdempotencyKey = $"{idempotencyKey}:out",
-                ActorId = fromUserId
-            },
-            new LedgerTransaction
-            {
-                WalletId = recipient.Id,
-                Type = LedgerTransactionType.TransferIn,
-                Source = LedgerSource.Manual,
-                Amount = amount,
-                Reason = trimmedNote,
-                IdempotencyKey = $"{idempotencyKey}:in",
-                ActorId = fromUserId
-            },
-            cancellationToken);
+        // As for a spend, the checks above are a fast path and the ledger re-checks the sender's
+        // zero floor under the lock. A refusal there writes neither half.
+        LedgerAppendPairResult pair;
+        try
+        {
+            pair = await _ledger.AppendPairAsync(
+                new LedgerTransaction
+                {
+                    WalletId = sender.Id,
+                    Type = LedgerTransactionType.TransferOut,
+                    Source = LedgerSource.Manual,
+                    Amount = -amount,
+                    Reason = trimmedNote,
+                    IdempotencyKey = $"{idempotencyKey}:out",
+                    ActorId = fromUserId
+                },
+                new LedgerTransaction
+                {
+                    WalletId = recipient.Id,
+                    Type = LedgerTransactionType.TransferIn,
+                    Source = LedgerSource.Manual,
+                    Amount = amount,
+                    Reason = trimmedNote,
+                    IdempotencyKey = $"{idempotencyKey}:in",
+                    ActorId = fromUserId
+                },
+                debitMinBalanceAfter: 0,
+                cancellationToken: cancellationToken);
+        }
+        catch (LedgerFloorException ex)
+        {
+            return TransferResult.Failed(FloorError(ex.Balance), ex.Balance);
+        }
 
         _logger.LogInformation(
             "Transferred {Amount} of currency {CurrencyId} from {FromUserId} to {ToUserId} (duplicate {Duplicate})",
@@ -324,23 +347,45 @@ public class WalletService : IWalletService
         // A fine stops at zero, or at the currency's debt floor when it allows debt. Either way
         // the clamped amount is still written, so the ledger shows what actually happened.
         var floor = currency.AllowNegative ? currency.DebtFloor ?? 0 : 0;
-        var room = Math.Max(0, balance - floor);
-        var effective = Math.Min(amount, room);
-        var clamped = effective == amount ? (long?)null : effective;
+        var idempotencyKey = BuildFineKey(currencyId, userId, moderatorId);
+        long effective;
+        long? clamped;
+        LedgerAppendResult appended;
 
-        var appended = await _ledger.AppendAsync(
-            new LedgerTransaction
+        // The clamp is worked out from a balance read before the wallet lock, so the ledger checks
+        // the floor again under it. If a concurrent write has moved the balance, clamp again from
+        // the balance the ledger saw. Nothing was written, so the same key is reused.
+        for (var attempt = 1; ; attempt++)
+        {
+            var room = Math.Max(0, balance - floor);
+            effective = Math.Min(amount, room);
+            clamped = effective == amount ? (long?)null : effective;
+
+            try
             {
-                WalletId = wallet.Id,
-                Type = LedgerTransactionType.Fine,
-                Source = LedgerSource.Manual,
-                Amount = -effective,
-                Reason = reason.Trim(),
-                IdempotencyKey = BuildFineKey(currencyId, userId, moderatorId),
-                ModerationCaseId = moderationCaseId,
-                ActorId = moderatorId
-            },
-            cancellationToken);
+                appended = await _ledger.AppendAsync(
+                    new LedgerTransaction
+                    {
+                        WalletId = wallet.Id,
+                        Type = LedgerTransactionType.Fine,
+                        Source = LedgerSource.Manual,
+                        Amount = -effective,
+                        Reason = reason.Trim(),
+                        IdempotencyKey = idempotencyKey,
+                        ModerationCaseId = moderationCaseId,
+                        ActorId = moderatorId
+                    },
+                    // A zero row moves nothing, so it needs no floor; this also lets a wallet
+                    // already below a since-raised floor still record the clamped fine.
+                    minBalanceAfter: effective == 0 ? null : floor,
+                    cancellationToken: cancellationToken);
+                break;
+            }
+            catch (LedgerFloorException ex) when (attempt < MaxFineClampAttempts)
+            {
+                balance = ex.Balance;
+            }
+        }
 
         _logger.LogInformation(
             "Fined user {UserId} {Amount} of currency {CurrencyId} by moderator {ModeratorId} (clamped to {Effective})",
@@ -437,7 +482,7 @@ public class WalletService : IWalletService
                 ReferenceTransactionId = referenceTransactionId,
                 ActorId = actorId
             },
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         _logger.LogWarning(
             "Adjusted transaction {ReferenceId} by {Amount} on wallet {WalletId} by actor {ActorId}: {Reason}",
@@ -495,6 +540,18 @@ public class WalletService : IWalletService
             PageSize = pageSize
         };
     }
+
+    /// <summary>
+    /// How many times a fine re-clamps after the ledger finds the balance moved under it. Each
+    /// retry follows another write landing on the same wallet, so a handful is plenty.
+    /// </summary>
+    private const int MaxFineClampAttempts = 5;
+
+    /// <summary>
+    /// Maps a balance the ledger refused a debit at to the same error the pre-check would have given.
+    /// </summary>
+    private static string FloorError(long balance) =>
+        balance < 0 ? CurrencyErrors.InDebt : CurrencyErrors.InsufficientFunds;
 
     /// <summary>
     /// Fines have no caller-supplied key: a moderator issuing the same fine twice means it twice.

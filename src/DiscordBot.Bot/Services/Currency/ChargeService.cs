@@ -265,7 +265,7 @@ public class ChargeService : IChargeService
                 ReferenceTransactionId = spendTransactionId,
                 ActorId = actorId
             },
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         if (appended.WasDuplicate)
         {

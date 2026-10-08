@@ -1,5 +1,6 @@
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Exceptions;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
@@ -131,6 +132,64 @@ public class LedgerRepositoryTests
 
         (await context.BalanceOfAsync(currency.Id, 1UL)).Should().Be(30);
         (await context.BalanceOfAsync(currency.Id, 2UL)).Should().Be(20);
+    }
+
+    [Fact]
+    public async Task AppendAsync_BelowTheCallersMinimum_ThrowsAndWritesNothing()
+    {
+        using var context = new CurrencyTestContext();
+        var currency = await context.SeedCurrencyAsync();
+        var wallet = await context.Wallets.GetOrCreateAsync(currency.Id, 1UL);
+        await context.Ledger.AppendAsync(NewRow(wallet.Id, 50, "seed"));
+
+        var act = () => context.Ledger.AppendAsync(
+            NewRow(wallet.Id, -60, "spend", LedgerTransactionType.Spend), minBalanceAfter: 0);
+
+        var thrown = await act.Should().ThrowAsync<LedgerFloorException>();
+        thrown.Which.Balance.Should().Be(50);
+        thrown.Which.MinBalanceAfter.Should().Be(0);
+
+        (await context.Ledger.GetByIdempotencyKeyAsync("spend")).Should().BeNull();
+        (await context.Ledger.SumForWalletAsync(wallet.Id)).Should().Be(50);
+        context.Db.ChangeTracker.Clear();
+        (await context.BalanceOfAsync(currency.Id, 1UL)).Should().Be(50);
+    }
+
+    [Fact]
+    public async Task AppendAsync_ExactlyAtTheCallersMinimum_IsWritten()
+    {
+        using var context = new CurrencyTestContext();
+        var currency = await context.SeedCurrencyAsync();
+        var wallet = await context.Wallets.GetOrCreateAsync(currency.Id, 1UL);
+        await context.Ledger.AppendAsync(NewRow(wallet.Id, 50, "seed"));
+
+        var result = await context.Ledger.AppendAsync(
+            NewRow(wallet.Id, -80, "fine", LedgerTransactionType.Fine), minBalanceAfter: -30);
+
+        result.Transaction.BalanceAfter.Should().Be(-30);
+    }
+
+    [Fact]
+    public async Task AppendPairAsync_DebitBelowTheCallersMinimum_WritesNeitherHalf()
+    {
+        using var context = new CurrencyTestContext();
+        var currency = await context.SeedCurrencyAsync();
+        var sender = await context.Wallets.GetOrCreateAsync(currency.Id, 1UL);
+        var recipient = await context.Wallets.GetOrCreateAsync(currency.Id, 2UL);
+        await context.Ledger.AppendAsync(NewRow(sender.Id, 50, "seed"));
+
+        var act = () => context.Ledger.AppendPairAsync(
+            NewRow(sender.Id, -60, "pay:out", LedgerTransactionType.TransferOut),
+            NewRow(recipient.Id, 60, "pay:in", LedgerTransactionType.TransferIn),
+            debitMinBalanceAfter: 0);
+
+        await act.Should().ThrowAsync<LedgerFloorException>();
+
+        (await context.Ledger.GetByIdempotencyKeyAsync("pay:out")).Should().BeNull();
+        (await context.Ledger.GetByIdempotencyKeyAsync("pay:in")).Should().BeNull();
+        context.Db.ChangeTracker.Clear();
+        (await context.BalanceOfAsync(currency.Id, 1UL)).Should().Be(50);
+        (await context.BalanceOfAsync(currency.Id, 2UL)).Should().Be(0);
     }
 
     [Fact]
