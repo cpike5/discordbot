@@ -89,11 +89,10 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
     /// <returns>The number of messages processed.</returns>
-    private async Task<int> ProcessDueMessagesAsync(CancellationToken stoppingToken)
+    internal async Task<int> ProcessDueMessagesAsync(CancellationToken stoppingToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IScheduledMessageRepository>();
-        var service = scope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
 
         // Get all due messages
         var dueMessages = await repository.GetDueMessagesAsync(stoppingToken);
@@ -115,8 +114,10 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
             using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
             var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
 
-            // Execute messages concurrently with semaphore and timeout protection
-            // Pass the already-loaded entity directly to avoid N+1 query pattern
+            // Execute messages concurrently with semaphore and timeout protection.
+            // Each execution gets its own DI scope (and so its own DbContext, which is not
+            // thread-safe) and re-reads its message by id inside that scope; the entities
+            // loaded above belong to the outer scope and are only used for their ids.
             var executionTasks = messageList.Select(async message =>
             {
                 await semaphore.WaitAsync(stoppingToken);
@@ -125,7 +126,10 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                     cts.CancelAfter(executionTimeout);
 
-                    await service.ExecuteScheduledMessageAsync(message, cts.Token);
+                    using var messageScope = _scopeFactory.CreateScope();
+                    var service = messageScope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
+
+                    await service.ExecuteScheduledMessageAsync(message.Id, cts.Token);
                 }
                 catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
                 {

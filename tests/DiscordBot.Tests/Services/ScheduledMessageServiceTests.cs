@@ -27,6 +27,9 @@ public class ScheduledMessageServiceTests
     {
         _mockRepository = new Mock<IScheduledMessageRepository>();
         _mockDiscordClient = new Mock<DiscordSocketClient>();
+        // Channel lookups go through IDiscordClient so tests can return mocked channels; the
+        // interface has to be added before the mock object is first created.
+        _mockDiscordClient.As<IDiscordClient>();
         _mockLogger = new Mock<ILogger<ScheduledMessageService>>();
         _mockAuditLogService = new Mock<IAuditLogService>();
 
@@ -562,6 +565,69 @@ public class ScheduledMessageServiceTests
         result.Should().Be(new DateTime(2025, 2, 15, 10, 0, 0, DateTimeKind.Utc));
     }
 
+    [Theory]
+    [InlineData("2025-01-31T09:00:00", 31, "2025-02-28T09:00:00")]
+    [InlineData("2025-02-28T09:00:00", 31, "2025-03-31T09:00:00")]
+    [InlineData("2024-01-31T09:00:00", 31, "2024-02-29T09:00:00")]
+    [InlineData("2025-04-30T09:00:00", 30, "2025-05-30T09:00:00")]
+    [InlineData("2025-02-28T09:00:00", 28, "2025-03-28T09:00:00")]
+    [InlineData("2025-12-31T23:30:00", 31, "2026-01-31T23:30:00")]
+    public void NextMonthly_KeepsAnchorDayClampedToShortMonths(string from, int anchorDay, string expected)
+    {
+        var result = ScheduledMessageService.NextMonthly(
+            DateTime.SpecifyKind(DateTime.Parse(from), DateTimeKind.Utc), anchorDay);
+
+        result.Should().Be(DateTime.SpecifyKind(DateTime.Parse(expected), DateTimeKind.Utc));
+        result.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Theory]
+    [InlineData("2025-02-28", "2025-01-31", 31)] // clamped month end, created on the 31st
+    [InlineData("2025-02-28", "2025-01-15", 28)] // month end, nothing says it was clamped
+    [InlineData("2025-02-15", "2025-01-31", 15)] // not a month end, so never clamped
+    [InlineData("2025-04-30", "2025-03-30", 30)]
+    public void MonthlyAnchorDay_UsesCreationDayOnlyForMonthEndRuns(string lastScheduled, string createdAt, int expected)
+    {
+        ScheduledMessageService.MonthlyAnchorDay(DateTime.Parse(lastScheduled), DateTime.Parse(createdAt))
+            .Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_MonthlyFromClampedMonthEnd_ReturnsToAnchorDay()
+    {
+        // Arrange: a schedule for the 31st that last ran on the last day of the previous month.
+        // Plain AddMonths would keep it on that (possibly clamped) day forever.
+        var now = DateTime.UtcNow;
+        var previousMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-1);
+        var lastRun = previousMonth
+            .AddDays(DateTime.DaysInMonth(previousMonth.Year, previousMonth.Month) - 1)
+            .Add(new TimeSpan(23, 59, 59));
+        var expected = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 23, 59, 59, DateTimeKind.Utc);
+
+        var messageId = Guid.NewGuid();
+        var message = CreateTestScheduledMessage(
+            id: messageId,
+            frequency: ScheduleFrequency.Monthly,
+            nextExecutionAt: lastRun);
+        message.CreatedAt = new DateTime(2025, 1, 31, 12, 0, 0, DateTimeKind.Utc);
+        SetupTextChannel(message.ChannelId);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert
+        result.Should().BeTrue();
+        _mockRepository.Verify(
+            r => r.UpdateAsync(
+                It.Is<ScheduledMessage>(m => m.Id == messageId && m.NextExecutionAt == expected),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     [Fact]
     public async Task CalculateNextExecutionAsync_WithCustomFrequency_AndValidCron_ReturnsNextOccurrence()
     {
@@ -722,9 +788,104 @@ public class ScheduledMessageServiceTests
             Times.Never);
     }
 
-    // Note: ExecuteScheduledMessageAsync_WhenSendMessageFails test removed because
-    // SocketChannel is a concrete class that cannot be mocked with Moq.
-    // This scenario should be covered by integration tests instead.
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_WithNonExistentChannelWhileConnected_DisablesMessage()
+    {
+        // Arrange: the gateway is connected, so a missing channel is really gone (deleted, or the
+        // bot left the guild) and retrying every cycle would never succeed.
+        var messageId = Guid.NewGuid();
+        var message = CreateTestScheduledMessage(id: messageId, nextExecutionAt: DateTime.UtcNow.AddMinutes(-1));
+
+        _mockDiscordClient.SetupGet(c => c.ConnectionState).Returns(ConnectionState.Connected);
+        _mockDiscordClient.As<IDiscordClient>()
+            .Setup(c => c.GetChannelAsync(message.ChannelId, CacheMode.CacheOnly, It.IsAny<RequestOptions>()))
+            .ReturnsAsync((IChannel?)null);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert
+        result.Should().BeFalse();
+        _mockRepository.Verify(
+            r => r.UpdateAsync(
+                It.Is<ScheduledMessage>(m => m.Id == messageId && !m.IsEnabled),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_WhenSavingNextRunFails_DoesNotSend()
+    {
+        // Arrange: the next run is saved before sending, so a failed save skips this send
+        // instead of sending now and sending again next cycle.
+        var messageId = Guid.NewGuid();
+        var message = CreateTestScheduledMessage(id: messageId, nextExecutionAt: DateTime.UtcNow.AddMinutes(-1));
+        var channel = SetupTextChannel(message.ChannelId);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<ScheduledMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert
+        result.Should().BeFalse();
+        channel.Verify(
+            c => c.SendMessageAsync(
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<Embed>(), It.IsAny<RequestOptions>(),
+                It.IsAny<AllowedMentions>(), It.IsAny<MessageReference>(), It.IsAny<MessageComponent>(),
+                It.IsAny<ISticker[]>(), It.IsAny<Embed[]>(), It.IsAny<MessageFlags>(), It.IsAny<PollProperties>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_WhenSendFails_NextRunIsAlreadySaved()
+    {
+        // Arrange
+        var messageId = Guid.NewGuid();
+        var scheduledAt = DateTime.UtcNow.AddMinutes(-1);
+        var message = CreateTestScheduledMessage(id: messageId, nextExecutionAt: scheduledAt);
+        var channel = SetupTextChannel(message.ChannelId);
+        channel
+            .Setup(c => c.SendMessageAsync(
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<Embed>(), It.IsAny<RequestOptions>(),
+                It.IsAny<AllowedMentions>(), It.IsAny<MessageReference>(), It.IsAny<MessageComponent>(),
+                It.IsAny<ISticker[]>(), It.IsAny<Embed[]>(), It.IsAny<MessageFlags>(), It.IsAny<PollProperties>()))
+            .ThrowsAsync(new InvalidOperationException("Missing permissions"));
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert: the row advanced one interval from its original slot even though the send failed
+        result.Should().BeFalse();
+        _mockRepository.Verify(
+            r => r.UpdateAsync(
+                It.Is<ScheduledMessage>(m => m.Id == messageId && m.IsEnabled && m.NextExecutionAt == scheduledAt.AddDays(1)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private Mock<ITextChannel> SetupTextChannel(ulong channelId)
+    {
+        var channel = new Mock<ITextChannel>();
+        channel.SetupGet(c => c.Id).Returns(channelId);
+        _mockDiscordClient.As<IDiscordClient>()
+            .Setup(c => c.GetChannelAsync(channelId, CacheMode.CacheOnly, It.IsAny<RequestOptions>()))
+            .ReturnsAsync(channel.Object);
+        return channel;
+    }
 
     #endregion
 }

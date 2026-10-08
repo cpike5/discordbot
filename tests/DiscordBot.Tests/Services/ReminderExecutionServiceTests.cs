@@ -36,6 +36,9 @@ public class ReminderExecutionServiceTests
         _mockScope = new Mock<IServiceScope>();
         _mockScopeFactory = new Mock<IServiceScopeFactory>();
         _mockClient = new Mock<DiscordSocketClient>();
+        // The REST user lookup goes through IDiscordClient; the interface has to be added before
+        // the mock object is first created.
+        _mockClient.As<IDiscordClient>();
         _mockLogger = new Mock<ILogger<ReminderExecutionService>>();
 
         // Configure options with reasonable test values
@@ -418,6 +421,10 @@ public class ReminderExecutionServiceTests
         _mockClient
             .Setup(c => c.GetUser(reminder.UserId))
             .Returns((SocketUser?)null);
+
+        _mockClient.As<IDiscordClient>()
+            .Setup(c => c.GetUserAsync(reminder.UserId, CacheMode.AllowDownload, It.IsAny<RequestOptions>()))
+            .ReturnsAsync((IUser?)null);
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(reminder.Id, It.IsAny<CancellationToken>()))

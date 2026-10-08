@@ -120,7 +120,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
     /// <returns>The number of reminders processed.</returns>
-    private async Task<int> ProcessDueRemindersAsync(CancellationToken stoppingToken)
+    internal async Task<int> ProcessDueRemindersAsync(CancellationToken stoppingToken)
     {
         _logger.LogDebug("Checking for due reminders");
 
@@ -202,8 +202,24 @@ public class ReminderExecutionService : MonitoredBackgroundService
     {
         try
         {
-            // Get the user
-            var user = _client.GetUser(reminder.UserId);
+            // Get the user. The socket cache only holds users the gateway has sent us
+            // (AlwaysDownloadUsers is off), so fall back to a REST lookup before giving up.
+            IUser? user = _client.GetUser(reminder.UserId);
+            if (user == null)
+            {
+                _logger.LogDebug("User {UserId} not in cache for reminder {ReminderId}, looking up via REST",
+                    reminder.UserId, reminder.Id);
+                try
+                {
+                    user = await ((IDiscordClient)_client).GetUserAsync(reminder.UserId, CacheMode.AllowDownload);
+                }
+                catch (Discord.Net.HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    // Unknown user: treat as not found rather than leaving the reminder pending forever.
+                    user = null;
+                }
+            }
+
             if (user == null)
             {
                 _logger.LogWarning("User {UserId} not found for reminder {ReminderId}, marking as failed",
@@ -268,6 +284,19 @@ public class ReminderExecutionService : MonitoredBackgroundService
         using var scope = _scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IReminderRepository>();
 
+        // Work on the current row, not the snapshot loaded at the start of the cycle: the user
+        // may have cancelled the reminder while the DM was in flight, and a full-row update of
+        // the snapshot would put it back to Pending.
+        var current = await repository.GetByIdAsync(reminder.Id, ct);
+        if (current == null || current.Status != ReminderStatus.Pending)
+        {
+            _logger.LogInformation(
+                "Reminder {ReminderId} is no longer pending ({Status}); not recording delivery failure",
+                reminder.Id, current?.Status.ToString() ?? "deleted");
+            return;
+        }
+
+        reminder = current;
         var newAttemptCount = reminder.DeliveryAttempts + 1;
 
         if (newAttemptCount >= _options.Value.MaxDeliveryAttempts)
@@ -334,6 +363,13 @@ public class ReminderExecutionService : MonitoredBackgroundService
         if (reminder == null)
         {
             _logger.LogWarning("Reminder {ReminderId} not found for failed status update", reminderId);
+            return;
+        }
+
+        if (reminder.Status != ReminderStatus.Pending)
+        {
+            _logger.LogInformation("Reminder {ReminderId} is no longer pending ({Status}); not marking as failed",
+                reminderId, reminder.Status);
             return;
         }
 

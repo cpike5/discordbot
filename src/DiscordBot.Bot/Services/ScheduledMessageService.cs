@@ -420,15 +420,33 @@ public class ScheduledMessageService : IScheduledMessageService
     private async Task<bool> ExecuteScheduledMessageCoreAsync(ScheduledMessage message, CancellationToken cancellationToken)
     {
         var id = message.Id;
+        var phase = "resolve_channel";
 
         try
         {
-            // Get the Discord channel
-            var channel = _client.GetChannel(message.ChannelId) as IMessageChannel;
+            // Get the Discord channel (cache only, as before; through IDiscordClient so it can be tested)
+            var channel = await ((IDiscordClient)_client).GetChannelAsync(message.ChannelId, CacheMode.CacheOnly) as IMessageChannel;
             if (channel == null)
             {
-                _logger.LogError("Channel {ChannelId} not found for scheduled message {MessageId}",
+                if (_client.ConnectionState != ConnectionState.Connected)
+                {
+                    // The cache is not authoritative until the gateway is connected; try again next cycle.
+                    _logger.LogWarning(
+                        "Channel {ChannelId} for scheduled message {MessageId} not available while the Discord client is {ConnectionState}; will retry",
+                        message.ChannelId, id, _client.ConnectionState);
+                    return false;
+                }
+
+                // Connected and the channel is still missing (deleted, not a text channel, or the bot
+                // left the guild). Retrying every cycle can never succeed, so disable the message.
+                _logger.LogError(
+                    "Channel {ChannelId} not found for scheduled message {MessageId}; disabling the message",
                     message.ChannelId, id);
+
+                phase = "disable";
+                message.IsEnabled = false;
+                message.UpdatedAt = DateTime.UtcNow;
+                await _repository.UpdateAsync(message, cancellationToken);
                 return false;
             }
 
@@ -436,7 +454,63 @@ public class ScheduledMessageService : IScheduledMessageService
             // This is used to calculate the next execution time to prevent drift
             var originalScheduledTime = message.NextExecutionAt;
 
+            // Update execution state and save it BEFORE sending, so that a failed save skips
+            // this send rather than sending now and again on the next cycle.
+            message.LastExecutedAt = DateTime.UtcNow;
+
+            // Calculate next execution time or disable if OneTime
+            if (message.Frequency == ScheduleFrequency.Once)
+            {
+                message.IsEnabled = false;
+                message.NextExecutionAt = null;
+                _logger.LogInformation("Scheduled message {MessageId} disabled after one-time execution", id);
+            }
+            else
+            {
+                // Use the ORIGINAL scheduled time as the base for calculating the next execution,
+                // NOT the actual execution time. This prevents time drift when execution is
+                // slightly early or late (e.g., scheduled for 10:58 but runs at 10:56).
+                var baseTime = originalScheduledTime ?? message.LastExecutedAt;
+
+                // Monthly schedules keep their day of month (clamped to short months) instead of
+                // iterating AddMonths, which drifts Jan 31 -> Feb 28 -> Mar 28.
+                int? monthlyAnchorDay = message.Frequency == ScheduleFrequency.Monthly && baseTime.HasValue
+                    ? MonthlyAnchorDay(baseTime.Value, message.CreatedAt)
+                    : null;
+
+                Task<DateTime?> NextAfter(DateTime? from) => monthlyAnchorDay.HasValue
+                    ? Task.FromResult<DateTime?>(NextMonthly(from!.Value, monthlyAnchorDay.Value))
+                    : CalculateNextExecutionAsync(message.Frequency, message.CronExpression, from);
+
+                var nextExecution = await NextAfter(baseTime);
+
+                // If the calculated next time is in the past (e.g., we missed executions),
+                // keep adding intervals until we get a future time
+                while (nextExecution.HasValue && nextExecution.Value <= DateTime.UtcNow)
+                {
+                    nextExecution = await NextAfter(nextExecution.Value);
+                }
+
+                if (nextExecution.HasValue)
+                {
+                    message.NextExecutionAt = nextExecution.Value;
+                    _logger.LogDebug("Next execution for message {MessageId} scheduled at {NextExecution}",
+                        id, nextExecution.Value);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to calculate next execution for message {MessageId}, disabling", id);
+                    message.IsEnabled = false;
+                    message.NextExecutionAt = null;
+                }
+            }
+
+            phase = "save_next_execution";
+            message.UpdatedAt = DateTime.UtcNow;
+            await _repository.UpdateAsync(message, cancellationToken);
+
             // Send the message to Discord
+            phase = "send";
             await channel.SendMessageAsync(message.Content);
 
             _logger.LogInformation("Scheduled message {MessageId} sent successfully to channel {ChannelId}",
@@ -465,62 +539,40 @@ public class ScheduledMessageService : IScheduledMessageService
                 _logger.LogError(ex, "Failed to log audit entry for scheduled message execution {MessageId}", id);
             }
 
-            // Update execution state
-            message.LastExecutedAt = DateTime.UtcNow;
-
-            // Calculate next execution time or disable if OneTime
-            if (message.Frequency == ScheduleFrequency.Once)
-            {
-                message.IsEnabled = false;
-                message.NextExecutionAt = null;
-                _logger.LogInformation("Scheduled message {MessageId} disabled after one-time execution", id);
-            }
-            else
-            {
-                // Use the ORIGINAL scheduled time as the base for calculating the next execution,
-                // NOT the actual execution time. This prevents time drift when execution is
-                // slightly early or late (e.g., scheduled for 10:58 but runs at 10:56).
-                var baseTime = originalScheduledTime ?? message.LastExecutedAt;
-
-                var nextExecution = await CalculateNextExecutionAsync(
-                    message.Frequency,
-                    message.CronExpression,
-                    baseTime);
-
-                // If the calculated next time is in the past (e.g., we missed executions),
-                // keep adding intervals until we get a future time
-                while (nextExecution.HasValue && nextExecution.Value <= DateTime.UtcNow)
-                {
-                    nextExecution = await CalculateNextExecutionAsync(
-                        message.Frequency,
-                        message.CronExpression,
-                        nextExecution.Value);
-                }
-
-                if (nextExecution.HasValue)
-                {
-                    message.NextExecutionAt = nextExecution.Value;
-                    _logger.LogDebug("Next execution for message {MessageId} scheduled at {NextExecution}",
-                        id, nextExecution.Value);
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to calculate next execution for message {MessageId}, disabling", id);
-                    message.IsEnabled = false;
-                    message.NextExecutionAt = null;
-                }
-            }
-
-            message.UpdatedAt = DateTime.UtcNow;
-            await _repository.UpdateAsync(message, cancellationToken);
-
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to execute scheduled message {MessageId}", id);
+            _logger.LogError(ex, "Failed to execute scheduled message {MessageId} during {Phase}", id, phase);
             return false;
         }
+    }
+
+    /// <summary>
+    /// The next monthly run after <paramref name="from"/>: one month later, on
+    /// <paramref name="anchorDay"/> clamped to the length of that month, at the same time of day.
+    /// </summary>
+    internal static DateTime NextMonthly(DateTime from, int anchorDay)
+    {
+        var month = new DateTime(from.Year, from.Month, 1, 0, 0, 0, from.Kind).AddMonths(1);
+        var day = Math.Min(anchorDay, DateTime.DaysInMonth(month.Year, month.Month));
+        return month.AddDays(day - 1).Add(from.TimeOfDay);
+    }
+
+    /// <summary>
+    /// The day of month a monthly schedule runs on, derived from its last scheduled run.
+    /// </summary>
+    /// <remarks>
+    /// The anchor day is not stored. A run that is not on the last day of its month was not
+    /// clamped, so its day is the anchor. A run on the last day of a month may have been clamped
+    /// (Jan 31 runs on Feb 28), so the later of that day and the day the schedule was created is
+    /// used: exact for schedules whose first run was a month after creation, but a schedule
+    /// created on the 15th for the 31st still settles on the 28th after February.
+    /// </remarks>
+    internal static int MonthlyAnchorDay(DateTime lastScheduled, DateTime createdAt)
+    {
+        var isMonthEnd = lastScheduled.Day == DateTime.DaysInMonth(lastScheduled.Year, lastScheduled.Month);
+        return isMonthEnd ? Math.Max(lastScheduled.Day, createdAt.Day) : lastScheduled.Day;
     }
 
     /// <inheritdoc/>
