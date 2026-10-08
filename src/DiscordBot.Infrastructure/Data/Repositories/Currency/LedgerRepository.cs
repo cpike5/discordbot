@@ -216,9 +216,10 @@ public class LedgerRepository : ILedgerRepository
 
     /// <summary>
     /// Writes one row inside an already-open transaction: idempotency check, wallet lock, floor
-    /// check against <paramref name="minBalanceAfter"/>, balance bookkeeping, insert. <c>Existed</c> is true when the idempotency key was already written and
-    /// nothing was inserted; whether that counts as a duplicate is the caller's call, because on a
-    /// retry the rows found are this call's own earlier write.
+    /// check against <paramref name="minBalanceAfter"/>, balance bookkeeping, insert.
+    /// <c>Existed</c> is true when the idempotency key was already written and nothing was
+    /// inserted; whether that counts as a duplicate is the caller's call, because on a retry the
+    /// rows found are this call's own earlier write.
     /// </summary>
     private async Task<(LedgerTransaction Transaction, bool Existed)> AppendCoreAsync(
         LedgerTransaction row,
