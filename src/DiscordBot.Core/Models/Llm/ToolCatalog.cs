@@ -96,7 +96,7 @@ public static class ToolCatalog
             "Reports slash-command usage and failure rates.", ToolScopes.Dm),
 
         new("execute_python", "Code Execution", "Run Python",
-            "Runs a short Python snippet in a sandbox.", ToolScopes.Dm),
+            "Runs a short Python snippet on the bot host, owner only, with a timeout. Not sandboxed: it does not inherit the bot's environment variables, but has the bot's file and network access.", ToolScopes.Dm),
         new("fetch_url", "Web", "Fetch URL",
             "Fetches a web page and returns its readable text.", ToolScopes.Dm),
 

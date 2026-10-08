@@ -39,7 +39,7 @@ public static class CodeExecutionTools
         return new LlmToolDefinition
         {
             Name = ExecutePython,
-            Description = "Executes Python code and returns stdout/stderr output. Use for calculations, data processing, text manipulation, or any task that benefits from scripting. The code runs in an isolated process with a timeout. Print results to stdout.",
+            Description = "Executes Python code and returns stdout/stderr output. Use for calculations, data processing, text manipulation, or any task that benefits from scripting. The code runs in a separate process on the bot host with a timeout and without the bot's environment variables. Print results to stdout.",
             InputSchema = schema.RootElement.Clone()
         };
     }

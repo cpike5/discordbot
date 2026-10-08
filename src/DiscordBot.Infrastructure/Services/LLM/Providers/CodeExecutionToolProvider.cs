@@ -95,6 +95,7 @@ public class CodeExecutionToolProvider : IDmToolProvider
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
+            RestrictEnvironment(psi);
 
             using var process = new Process { StartInfo = psi };
 
@@ -179,6 +180,39 @@ public class CodeExecutionToolProvider : IDmToolProvider
         {
             try { File.Delete(tempFile); }
             catch { /* best-effort cleanup */ }
+        }
+    }
+
+    /// <summary>
+    /// Environment variables the child process gets back after its environment is cleared. In the
+    /// Docker deployment the bot's secrets (Discord token, OAuth secret, OpenRouter key) are
+    /// environment variables, and the code this tool runs is model-written, so it can be steered
+    /// by a prompt injection in a page <c>fetch_url</c> read. <c>PATH</c> lets the code find other
+    /// programs and <c>HOME</c> lets Python resolve <c>~</c> and its user site directory. Nothing
+    /// else is needed on Linux: CPython 3.7+ coerces a missing locale to UTF-8 (PEP 538/540).
+    /// On Windows CPython also needs <c>SYSTEMROOT</c>, without which <c>os.urandom</c> and socket
+    /// initialisation fail.
+    /// </summary>
+    private static readonly IReadOnlyList<string> PassedEnvironmentVariables =
+        OperatingSystem.IsWindows()
+            ? new[] { "PATH", "HOME", "SYSTEMROOT" }
+            : new[] { "PATH", "HOME" };
+
+    /// <summary>
+    /// Clears the inherited environment and copies back only <see cref="PassedEnvironmentVariables"/>.
+    /// This keeps secrets out of <c>os.environ</c>; it is not a sandbox. The child still runs as
+    /// the bot's user, with its filesystem and network access.
+    /// </summary>
+    private static void RestrictEnvironment(ProcessStartInfo psi)
+    {
+        psi.Environment.Clear();
+        foreach (var name in PassedEnvironmentVariables)
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            if (value != null)
+            {
+                psi.Environment[name] = value;
+            }
         }
     }
 
