@@ -207,6 +207,9 @@ try
     // Add Web API services (controllers, Razor Pages, HttpClient)
     builder.Services.AddWebServices();
 
+    // Per-user rate limits for the member portal's upload and play endpoints
+    builder.Services.AddPortalRateLimiting(builder.Configuration);
+
     // Add SignalR for real-time dashboard updates
     builder.Services.AddSignalRServices(builder.Environment);
 
@@ -298,6 +301,9 @@ try
     });
 
     app.UseAuthorization();
+
+    // After authentication, so the per-user policies can see who is calling
+    app.UseRateLimiter();
 
     app.MapControllers();
     app.MapDiscordBotHealthChecks();

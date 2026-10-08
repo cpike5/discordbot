@@ -95,6 +95,7 @@ public class PreviewController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>User preview data with guild-specific information.</returns>
     [HttpGet("users/{userId}/guild/{guildId}")]
+    [Authorize(Policy = "GuildAccess")]
     [ProducesResponseType(typeof(UserPreviewDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
@@ -177,6 +178,7 @@ public class PreviewController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Guild preview data.</returns>
     [HttpGet("guilds/{guildId}")]
+    [Authorize(Policy = "GuildAccess")]
     [ProducesResponseType(typeof(GuildPreviewDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]

@@ -6,6 +6,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DiscordBot.Bot.Controllers;
 
@@ -18,6 +19,13 @@ namespace DiscordBot.Bot.Controllers;
 [Authorize(Policy = "PortalGuildMember")]
 public class PortalSoundboardSoundsController : PortalSoundboardControllerBase
 {
+    /// <summary>
+    /// Ceiling on an upload request: the largest per-file limit a guild can set (50 MB, see the
+    /// range check in Pages/Guilds/AudioSettings) plus room for the multipart envelope. The guild's
+    /// own, usually smaller, limit is checked in the action.
+    /// </summary>
+    private const long MaxUploadRequestBytes = 51L * 1024 * 1024;
+
     private readonly ISoundService _soundService;
     private readonly ISoundFileService _soundFileService;
     private readonly ISoundboardOrchestrationService _orchestrationService;
@@ -218,7 +226,9 @@ public class PortalSoundboardSoundsController : PortalSoundboardControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The created sound metadata.</returns>
     [HttpPost("sounds")]
-    // TODO: Add rate limiting [EnableRateLimiting("portal-upload")] when policy is configured
+    [EnableRateLimiting(PortalRateLimitPolicies.Upload)]
+    [RequestSizeLimit(MaxUploadRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadRequestBytes)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UploadSound(
@@ -252,6 +262,23 @@ public class PortalSoundboardSoundsController : PortalSoundboardControllerBase
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "no_name"
+            });
+        }
+
+        // Enforce the guild's per-file limit, as the admin soundboard page does
+        var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
+        if (file.Length > audioSettings.MaxFileSizeBytes)
+        {
+            var maxSizeMB = audioSettings.MaxFileSizeBytes / (1024.0 * 1024.0);
+            _logger.LogWarning("Sound upload of {FileSize} bytes exceeds the {MaxFileSize} byte limit in guild {GuildId}",
+                file.Length, audioSettings.MaxFileSizeBytes, guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "File too large",
+                Detail = $"That file is larger than the {maxSizeMB:F1} MB limit.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "file_too_large"
             });
         }
 

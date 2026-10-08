@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/[controller]")]
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class WelcomeController : ControllerBase
 {
     private readonly IWelcomeService _welcomeService;

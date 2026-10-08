@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -21,6 +22,7 @@ public class AutocompleteController : ControllerBase
     private readonly IGuildService _guildService;
     private readonly ICommandMetadataService _commandMetadataService;
     private readonly DiscordSocketClient _discordClient;
+    private readonly IAuthorizationService _authorizationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AutocompleteController"/> class.
@@ -30,18 +32,21 @@ public class AutocompleteController : ControllerBase
     /// <param name="guildService">The guild service.</param>
     /// <param name="commandMetadataService">The command metadata service.</param>
     /// <param name="discordClient">The Discord socket client.</param>
+    /// <param name="authorizationService">Checks the caller's access to the guild a channel search names.</param>
     public AutocompleteController(
         ILogger<AutocompleteController> logger,
         IMessageLogRepository messageLogRepository,
         IGuildService guildService,
         ICommandMetadataService commandMetadataService,
-        DiscordSocketClient discordClient)
+        DiscordSocketClient discordClient,
+        IAuthorizationService authorizationService)
     {
         _logger = logger;
         _messageLogRepository = messageLogRepository;
         _guildService = guildService;
         _commandMetadataService = commandMetadataService;
         _discordClient = discordClient;
+        _authorizationService = authorizationService;
     }
 
     /// <summary>
@@ -171,6 +176,21 @@ public class AutocompleteController : ControllerBase
                 Message = "Invalid request",
                 Detail = "Server ID is required for channel search.",
                 StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        // The guild comes from the query string, which the GuildAccess policy never reads; ask about
+        // this guild explicitly, before looking it up, so a caller cannot list another guild's channels
+        // or learn whether the bot is in it.
+        var access = await _authorizationService.AuthorizeAsync(User, guildId.Value, new GuildAccessRequirement());
+        if (!access.Succeeded)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorDto
+            {
+                Message = "Access denied",
+                Detail = "You do not have access to this server.",
+                StatusCode = StatusCodes.Status403Forbidden,
                 TraceId = HttpContext.GetCorrelationId()
             });
         }

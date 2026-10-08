@@ -1,9 +1,12 @@
 using Discord;
+using System.Security.Claims;
 using Discord.WebSocket;
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Controllers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -21,6 +24,7 @@ public class AutocompleteControllerTests
     private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<ICommandMetadataService> _mockCommandMetadataService;
     private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IAuthorizationService> _mockAuthorizationService;
     private readonly AutocompleteController _controller;
 
     public AutocompleteControllerTests()
@@ -30,13 +34,18 @@ public class AutocompleteControllerTests
         _mockGuildService = new Mock<IGuildService>();
         _mockCommandMetadataService = new Mock<ICommandMetadataService>();
         _mockDiscordClient = new Mock<DiscordSocketClient>();
+        _mockAuthorizationService = new Mock<IAuthorizationService>();
+        _mockAuthorizationService
+            .Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<object?>(), It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Success());
 
         _controller = new AutocompleteController(
             _mockLogger.Object,
             _mockMessageLogRepository.Object,
             _mockGuildService.Object,
             _mockCommandMetadataService.Object,
-            _mockDiscordClient.Object);
+            _mockDiscordClient.Object,
+            _mockAuthorizationService.Object);
 
         // Setup HttpContext for correlation ID
         _controller.ControllerContext = new ControllerContext
@@ -436,6 +445,28 @@ public class AutocompleteControllerTests
         error.Detail.Should().Contain(guildId.ToString());
         error.Detail.Should().Contain("connected to the bot");
         error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task SearchChannels_ForAGuildTheCallerCannotAccess_Returns403WithoutLookingItUp()
+    {
+        // Arrange
+        const ulong guildId = 555555555UL;
+        _mockAuthorizationService
+            .Setup(a => a.AuthorizeAsync(
+                It.IsAny<ClaimsPrincipal>(),
+                guildId,
+                It.Is<IEnumerable<IAuthorizationRequirement>>(r => r.OfType<GuildAccessRequirement>().Any())))
+            .ReturnsAsync(AuthorizationResult.Failed());
+
+        // Act
+        var result = await _controller.SearchChannels("general", guildId, CancellationToken.None);
+
+        // Assert
+        var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        _mockDiscordClient.Verify(c => c.GetGuild(It.IsAny<ulong>()), Times.Never,
+            "a caller without access must not learn whether the bot is in the guild");
     }
 
     #endregion

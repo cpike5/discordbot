@@ -95,7 +95,9 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Synthesis result with audio ID, duration, and voices used.</returns>
     [HttpPost("synthesize-ssml")]
-    [Authorize(Policy = "ModeratorAccess")]
+    // Raw SSML is a moderator tool (docs/specs/ssml-implementation-spec.md); this stacks with the
+    // class-level PortalGuildMember policy, so the caller must be a moderator and a member of the guild.
+    [Authorize(Policy = "RequireModerator")]
     [ProducesResponseType(typeof(SsmlSynthesisResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
