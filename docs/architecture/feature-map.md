@@ -151,12 +151,22 @@ Slash and context menu commands for immediate moderation actions (warn, kick, ba
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | `/warn`, `/kick`, `/ban`, `/unban`, `/mute`, `/purge`, `Warn User` (context menu) (ModerationActionModule) |
-| **Services** | `IModerationService`, `IAuditLogService` |
-| **UI Pages** | Admin: Moderation case history pages |
-| **Database Entities** | `ModerationCase`, `AuditLog` |
-| **Key Features** | Reason tracking, case numbering, member audit trail, soft bans, mute duration configuration |
+| **Services** | `IModerationService`, `IAuditLogService`, `IModLogNotifier` (`ModLogNotifier`, Bot/Services/Moderation) |
+| **UI Pages** | Admin: Moderation case history pages; Moderation Settings, Overview tab (mod-log channel and what to post) |
+| **Database Entities** | `ModerationCase`, `AuditLog`, `GuildModerationConfig` (`ModLogChannelId`, `ModLogEvents`) |
+| **Key Features** | Reason tracking, case numbering, member audit trail, soft bans, mute duration configuration, mod-log channel feed |
 
 **Preconditions**: `[RequireGuildActive]`, `[RequireModerationEnabled]`, `[RequireModerator]`
+
+**Mod-log channel feed**: `ModerationService.CreateCaseAsync` is the one path every case creator
+uses (the action runner, the context-menu warn, the portal's case endpoint, the currency fine), so it
+is where the feed hangs: after the row is saved it queues `IModLogNotifier.CaseCreatedAsync` on
+`IBackgroundTaskRunner` in a scope of its own. The notifier reads `GuildModerationConfig`, posts the
+embed `ModLogEmbeds.ForCase` builds (colour by type, user, moderator or "Auto-moderation", reason,
+duration and expiry, context jump link, a "View in portal" button to the member's moderation page)
+and swallows every failure, warning once an hour per guild when the channel is gone or refuses the
+bot. `ModLogSettings` validates the channel and the kinds for both the settings page and the API.
+User guide: `docs/articles/mod-log-channel.md`.
 
 ---
 

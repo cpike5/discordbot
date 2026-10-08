@@ -45,6 +45,16 @@ public class GuildModerationConfigDto
     /// <summary>
     /// Gets or sets the timestamp when the configuration was last updated (UTC).
     /// </summary>
+    /// <summary>
+    /// The text channel that receives the mod-log feed, or null when the feed is off.
+    /// </summary>
+    public ulong? ModLogChannelId { get; set; }
+
+    /// <summary>
+    /// Which kinds of event the mod-log channel receives (a <see cref="ModLogEventKinds"/> flags value).
+    /// </summary>
+    public ModLogEventKinds ModLogEvents { get; set; } = ModLogEventKinds.All;
+
     public DateTime UpdatedAt { get; set; }
 }
 
