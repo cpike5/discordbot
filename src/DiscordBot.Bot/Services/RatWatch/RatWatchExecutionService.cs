@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Components;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
@@ -301,6 +302,14 @@ public class RatWatchExecutionService : MonitoredBackgroundService
     /// <param name="customMessage">Optional custom message.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>True if successful, false otherwise.</returns>
+    /// <summary>
+    /// Posts the voting message. It quotes the accuser's custom message, so mentions are limited to users
+    /// (<see cref="SafeMentions.UsersOnly"/>): the accused is still pinged, <c>@everyone</c>, <c>@here</c>
+    /// and roles in the quote are not.
+    /// </summary>
+    internal static Task<IUserMessage> SendVotingMessageAsync(IMessageChannel channel, string content, MessageComponent components)
+        => channel.SendMessageAsync(content, allowedMentions: SafeMentions.UsersOnly, components: components);
+
     private async Task<bool> PostVotingMessageAsync(
         Guid watchId,
         ulong guildId,
@@ -336,7 +345,7 @@ public class RatWatchExecutionService : MonitoredBackgroundService
                 .Build();
 
             // Post the message
-            var message = await channel.SendMessageAsync(messageContent, components: components);
+            var message = await SendVotingMessageAsync(channel, messageContent, components);
 
             // Start the voting process and set the voting message ID in a single operation
             using var scope = _scopeFactory.CreateScope();

@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
@@ -49,6 +50,14 @@ public class AssistantMessageHandler
     private static bool CallerCanMutate(SocketUser author) =>
         author is SocketGuildUser member
         && (member.GuildPermissions.ManageGuild || member.GuildPermissions.Administrator);
+
+    /// <summary>
+    /// Sends a text reply to the asker's message. The text is model output or admin-configured, so nothing
+    /// in it pings (<see cref="SafeMentions.ReplyOnly"/>); the reply itself still notifies the asker.
+    /// </summary>
+    internal static Task<IUserMessage> SendReplyAsync(IMessageChannel channel, string text, ulong replyToMessageId)
+        => channel.SendMessageAsync(
+            text, allowedMentions: SafeMentions.ReplyOnly, messageReference: new MessageReference(replyToMessageId));
 
     /// <summary>
     /// Handles the MessageReceived event from DiscordSocketClient.
@@ -183,9 +192,10 @@ public class AssistantMessageHandler
                     userId, guildId, rateLimitCheck.Message);
                 activity?.SetTag("assistant.rate_limited", true);
 
-                await message.Channel.SendMessageAsync(
+                await SendReplyAsync(
+                    message.Channel,
                     rateLimitCheck.Message ?? "You've reached your question limit. Please try again later.",
-                    messageReference: new MessageReference(messageId));
+                    messageId);
 
                 BotActivitySource.SetSuccess(activity);
                 return;
@@ -218,9 +228,10 @@ public class AssistantMessageHandler
                 if (result.Success && !string.IsNullOrWhiteSpace(result.Response))
                 {
                     // Send response as reply
-                    await message.Channel.SendMessageAsync(
+                    await SendReplyAsync(
+                        message.Channel,
                         result.Response,
-                        messageReference: new MessageReference(messageId));
+                        messageId);
 
                     _logger.LogInformation(
                         "Sent assistant response to user {UserId} in guild {GuildId}. " +
@@ -233,9 +244,10 @@ public class AssistantMessageHandler
                 else
                 {
                     // Send error message
-                    await message.Channel.SendMessageAsync(
+                    await SendReplyAsync(
+                        message.Channel,
                         _options.Messages.ErrorMessage,
-                        messageReference: new MessageReference(messageId));
+                        messageId);
 
                     _logger.LogWarning(
                         "Assistant request failed for user {UserId} in guild {GuildId}: {Error}",
@@ -260,9 +272,10 @@ public class AssistantMessageHandler
             // Send friendly error message
             try
             {
-                await message.Channel.SendMessageAsync(
+                await SendReplyAsync(
+                    message.Channel,
                     _options.Messages.ErrorMessage,
-                    messageReference: new MessageReference(messageId));
+                    messageId);
             }
             catch (Exception sendEx)
             {

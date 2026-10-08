@@ -1,6 +1,7 @@
 using Cronos;
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -417,6 +418,13 @@ public class ScheduledMessageService : IScheduledMessageService
     /// <summary>
     /// Core execution logic for scheduled messages.
     /// </summary>
+    /// <summary>
+    /// Sends a scheduled message's content. The content is an admin template, so mentions are limited to
+    /// users (<see cref="SafeMentions.UsersOnly"/>): no <c>@everyone</c>, <c>@here</c> or role pings.
+    /// </summary>
+    internal static Task<IUserMessage> SendContentAsync(IMessageChannel channel, string content)
+        => channel.SendMessageAsync(content, allowedMentions: SafeMentions.UsersOnly);
+
     private async Task<bool> ExecuteScheduledMessageCoreAsync(ScheduledMessage message, CancellationToken cancellationToken)
     {
         var id = message.Id;
@@ -511,7 +519,7 @@ public class ScheduledMessageService : IScheduledMessageService
 
             // Send the message to Discord
             phase = "send";
-            await channel.SendMessageAsync(message.Content);
+            await SendContentAsync(channel, message.Content);
 
             _logger.LogInformation("Scheduled message {MessageId} sent successfully to channel {ChannelId}",
                 id, message.ChannelId);
