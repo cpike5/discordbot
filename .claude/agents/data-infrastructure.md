@@ -81,3 +81,5 @@ dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure -
 - **68 DbSets** — new entities need DbSet in BotDbContext + entity configuration
 - **Background services must register** with `BackgroundServiceHealthRegistry`
 - **Large services:** BotHostedService (739), SearchService (919) — search specific methods
+- **Retention:** `DataRetentionService` sweeps command logs, user activity events, connection events, TTS messages, assistant usage metrics and audio playback logs. A new high-volume table gets a batched `DeleteOlderThanAsync(cutoff, batchSize, ct)` (id subquery + `ExecuteDeleteAsync`, batch clamped to 1000) and a line in that service.
+- **Ledger floors:** `LedgerRepository.AppendAsync`/`AppendPairAsync` take an optional minimum balance, re-checked after the wallet row lock and a reload of the wallet (the tracked copy can be stale). Below the floor it throws `LedgerFloorException` and the transaction rolls back. Spend and transfer pass 0; fines pass the currency debt floor.

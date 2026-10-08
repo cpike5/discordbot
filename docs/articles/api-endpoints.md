@@ -12,6 +12,10 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 **Authentication:** The admin portal's sign-in cookie. Without a valid session an API call gets **401** and a problem body (`application/problem+json`, detail "Your session has expired. Sign in again to continue."); without the required role it gets **403**. API calls are never redirected to the sign-in page. The same applies to any request sent with `X-Requested-With: XMLHttpRequest` (Razor Page handlers called from scripts) or accepting only JSON. An unmatched `/api` route answers 404 with a problem body, not the HTML error page.
 
+**Guild access:** every endpoint whose route contains `{guildId}` also requires access to that guild (`GuildAccess` policy, or `PortalGuildMember` on member-portal routes). A SuperAdmin passes; anyone else needs a linked Discord account that is in the guild, and admin endpoints need Discord Administrator there, as the guild pages do. Without it the call gets **403**. `ApiAuthorizationPolicyTests` enforces this for new controllers.
+
+**Rate limits:** the member-portal soundboard upload and play endpoints are limited per user (`PortalRateLimit` options; defaults 10 uploads and 30 plays a minute). Over the limit the call gets **429** with a `Retry-After` header. An upload larger than the guild's `MaxFileSizeBytes` gets **400** with code `file_too_large`.
+
 ---
 
 ## Quick Reference

@@ -216,6 +216,7 @@ from `dotnet run` in the repository root.
 | `AzureSpeechOptions` | `AzureSpeech` | `VoiceServiceExtensions` | `SubscriptionKey` (secret), `Region`, `DefaultVoice` |
 | `AzureSpeechSsmlOptions` | `AzureSpeech:Ssml` | `VoiceServiceExtensions` | `EnableValidation`, `StrictMode`, `MaxComplexityScore` |
 | `VoxOptions` | `Vox` | `VoiceServiceExtensions` | `BasePath`, `DefaultWordGapMs` (50), `MaxMessageWords` (50) |
+| `PortalRateLimitOptions` | `PortalRateLimit` | `RateLimitingServiceExtensions` | `Upload:PermitLimit` (10) / `Upload:WindowSeconds` (60), `Play:PermitLimit` (30) / `Play:WindowSeconds` (60). Per-user fixed windows on the member-portal soundboard upload and play endpoints; a refusal is HTTP 429 with `Retry-After`. |
 
 #### Scheduling / Notifications
 
@@ -230,7 +231,7 @@ from `dotnet run` in the repository root.
 
 | Options Class | Section Key | Registered In | Key Properties |
 |--------------|-------------|---------------|----------------|
-| `ModerationOptions` | `Moderation` | `ModerationServiceExtensions` | `DefaultTempBanDurationDays` (7), `MaxPurgeMessages` (100) |
+| `ModerationOptions` | `Moderation` | `ModerationServiceExtensions` | `DefaultTempBanDurationDays` (7), `MaxPurgeMessages` (100), `TempBanExpiryCheckIntervalSeconds` (60, how often `TemporaryBanExpiryService` lifts expired bans) |
 | `AutoModerationOptions` | `AutoModeration` | `ModerationServiceExtensions` | `DetectionCacheExpiryMinutes`, `FlaggedEventRetentionDays` |
 | `RatWatchOptions` | `RatWatch` | `RatWatchServiceExtensions` | `CheckIntervalSeconds` (30), `DefaultVotingDurationMinutes` (5) |
 | `CurrencyOptions` | `Currency` | `CurrencyServiceExtensions` | `Enabled` (true), `HoldExpirySeconds` (120), `MaxTransferPerMinute` (5), `DefaultDebtFloor` (-100), `HistoryPageSize` (10) |
@@ -242,6 +243,8 @@ from `dotnet run` in the repository root.
 |--------------|-------------|---------------|----------------|
 | `AuditLogRetentionOptions` | `AuditLogRetention` | `LoggingServiceExtensions` | `RetentionDays` (90), `CleanupBatchSize`, `Enabled` |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | `LoggingServiceExtensions` | `RetentionDays` (90), `CleanupBatchSize`, `Enabled` |
+| `DataRetentionOptions` | `DataRetention` | `AnalyticsServiceExtensions` | `Enabled` (true), `CleanupIntervalHours` (24), `InitialDelayMinutes` (10), `CleanupBatchSize` (1000), `CommandLogRetentionDays` (90), `TtsMessageRetentionDays` (90), `AssistantUsageMetricsRetentionDays` (365), `AudioPlaybackLogRetentionDays` (90). `DataRetentionService` sweeps these tables; a value of 0 or less skips a table. Command logs older than the window drop out of all-time command counts. |
+| `UserActivityEventRetentionOptions` | `UserActivityEventRetention` | `AnalyticsServiceExtensions` | `Enabled` (true), `RetentionDays` (90), `CleanupBatchSize`. Swept by `DataRetentionService` on the `DataRetention` interval; its own `CleanupIntervalHours` is not used. |
 
 #### Analytics / Performance / Observability
 
@@ -249,7 +252,7 @@ from `dotnet run` in the repository root.
 |--------------|-------------|---------------|----------------|
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | `AnalyticsServiceExtensions` | `HourlyRetentionDays` (14), `DailyRetentionDays` (365) |
 | `HistoricalMetricsOptions` | `HistoricalMetrics` | `AnalyticsServiceExtensions` | `SampleIntervalSeconds` (60), `RetentionDays` (30) |
-| `PerformanceMetricsOptions` | `PerformanceMetrics` | `PerformanceMetricsServiceExtensions` | Latency sampling, slow query tracking, API tracking |
+| `PerformanceMetricsOptions` | `PerformanceMetrics` | `PerformanceMetricsServiceExtensions` | Latency sampling, slow query tracking, API tracking. `ConnectionEventRetentionDays` (30) is applied by `DataRetentionService`. |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | `PerformanceMetricsServiceExtensions` | `CheckIntervalSeconds`, `ConsecutiveBreachesRequired` |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | `PerformanceMetricsServiceExtensions` | Per-metric-category SignalR broadcast intervals |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | `OpenTelemetryExtensions` | `DefaultRate` (0.1), `ErrorRate` (1.0), `SlowThresholdMs` |

@@ -48,6 +48,8 @@ You are a domain expert for the **Moderation & Safety** stream of a Discord bot 
 - **Moderation settings are per-guild** via `GuildModerationConfig`, not global
 - **Audit logging:** Log moderation actions using the fluent `IAuditLogBuilder` API
 - **Interactive components:** Use `ComponentIdBuilder` for Discord button/select menu IDs
+- **Temporary bans are lifted by `TemporaryBanExpiryService`.** A ban counts as closed once a later Ban or Unban case exists for the same user and guild; `ModerationCaseRepository.GetExpiredCasesAsync` returns only open, expired bans (never mutes, which Discord times out on its own). Lifting a ban records an Unban case with the bot as moderator, so the ban is not picked up again.
+- **All four punitive actions check role hierarchy** in `ModerationActionRunner` (warn included). The message-context Warn modal in `ModerationActionModule` still builds its case inline and has no hierarchy check.
 
 ## Patterns added by the UX polish pass (Phase 7)
 

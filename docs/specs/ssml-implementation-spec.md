@@ -1046,7 +1046,7 @@ public IActionResult ValidateSsml([FromBody] SsmlValidationRequest request)
 /// <param name="guildId">Guild ID</param>
 /// <param name="request">SSML synthesis request</param>
 [HttpPost("guilds/{guildId}/synthesize-ssml")]
-[Authorize(Policy = AuthorizationPolicies.ModeratorAccess)]
+[Authorize(Policy = "RequireModerator")] // shipped name; the spec originally said ModeratorAccess, which was never registered
 [ProducesResponseType(typeof(TtsSynthesisResponse), StatusCodes.Status200OK)]
 [ProducesResponseType(StatusCodes.Status400BadRequest)]
 [ProducesResponseType(StatusCodes.Status403Forbidden)]

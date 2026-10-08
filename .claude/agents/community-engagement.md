@@ -31,3 +31,4 @@ You are a domain expert for the **Community & Engagement** stream of a Discord b
 - **Voting has anti-abuse logic** — understand existing vote validation before modifying
 - **Interactive components** use `ComponentIdBuilder` for Discord button/select IDs
 - **Background execution:** `RatWatchExecutionService` runs periodic checks
+- **Wallet balance checks happen twice:** a fast pre-check in `WalletService`, then the authoritative check under the ledger lock (see the data-infrastructure agent). Do not remove the second one; concurrent `/pay` calls rely on it.

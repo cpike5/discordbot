@@ -228,6 +228,8 @@ Services for moderation cases, notes, tags, and enforcement actions.
 | `FlaggedEventService` | Bot/Services | Records and queries flagged events (join/message/role changes) |
 | `IInvestigationService` | Core Interfaces | Coordinates investigation workflows |
 | `InvestigationService` | Bot/Services | Manages moderation investigations and case escalation |
+| `ModerationActionRunner` | Bot/Services/Moderation | Shared warn/kick/ban/unban/mute flow behind the slash commands: target and role-hierarchy checks (all four punitive actions), DM, case creation, reply |
+| `TemporaryBanExpiryService` | Bot/Services/Moderation | `MonitoredBackgroundService`; every `Moderation:TempBanExpiryCheckIntervalSeconds` (60) lifts temporary bans whose duration has passed and records an Unban case, which closes the ban. A ban already lifted by hand still gets closed; a guild error leaves it for the next cycle |
 
 ---
 
@@ -356,6 +358,7 @@ Long-running services that execute periodic or event-driven tasks.
 | `VerificationCleanupService` | Bot/Services | Cleanup expired verification tokens |
 | `MessageLogCleanupService` | Bot/Services | Purge old message logs |
 | `NotificationRetentionService` | Bot/Services | Purge old user notifications |
+| `DataRetentionService` | Bot/Services | `MonitoredBackgroundService`; daily batched sweep of command logs, user activity events, connection events, TTS messages, assistant usage metrics and audio playback logs (`DataRetention`, `UserActivityEventRetention`, `PerformanceMetrics:ConnectionEventRetentionDays`) |
 | `AudioCacheCleanupService` | Bot/Services | Cleanup stale cached audio files |
 | `ScheduledMessageExecutionService` | Bot/Services | Execute scheduled messages on schedule |
 | `ReminderExecutionService` | Bot/Services | Execute pending reminders |

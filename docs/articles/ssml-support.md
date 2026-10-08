@@ -304,7 +304,7 @@ The `preset` parameter provides autocomplete showing featured presets grouped by
 
 ### Portal API Endpoints
 
-All endpoints require authentication. Guild-specific endpoints require `ModeratorAccess` policy.
+All endpoints require authentication. Guild-specific endpoints require the `PortalGuildMember` policy; `synthesize-ssml` also requires `RequireModerator`.
 
 #### Get Voice Capabilities
 

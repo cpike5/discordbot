@@ -38,3 +38,8 @@ You are a domain expert for the **Scheduling & Notifications** stream of a Disco
 - **DM notifications require** the bot to share a guild with the user
 - **Cron library:** Verify which cron library is used before adding expressions — edge cases vary
 - **Reminder execution** checks periodically; immediate delivery is not guaranteed
+- **One DI scope per scheduled message.** `ScheduledMessageExecutionService` runs sends concurrently; each gets its own scope and re-reads the row by id. Never share a scoped service or `DbContext` across those tasks.
+- **Save before send.** `ScheduledMessageService` saves the next run before it posts, so a failed save skips one post instead of posting twice. `LastExecutedAt` means "attempted". A missing channel disables the message, but only while the client is Connected.
+- **Reminder delivery falls back to REST** when the user is not in the socket cache (`AlwaysDownloadUsers` is false). A REST 404 marks the reminder Failed. Failure handling reloads the row and leaves it alone if it is no longer Pending, so a cancel during delivery sticks.
+- **Monthly schedules keep their day of month** (Jan 31 → Feb 28 → Mar 31). The anchor day is inferred, not stored: a schedule created on the 15th for the 31st settles on the 28th after February. `/schedule-create` takes an optional UTC `start`, required for one-time schedules.
+- **Testing gotcha:** call `.As<IDiscordClient>()` on a `Mock<DiscordSocketClient>` before `.Object` is first read, or the interface setups are silently ignored.
