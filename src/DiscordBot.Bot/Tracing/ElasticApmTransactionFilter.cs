@@ -16,7 +16,10 @@ public class ElasticApmTransactionFilter
 {
     private readonly SamplingOptions _options;
     private readonly ILogger<ElasticApmTransactionFilter> _logger;
-    private readonly Random _random = new();
+    // Random.Shared is thread-safe; a shared `new Random()` called from concurrent spans can
+    // corrupt its state and get stuck returning 0. Tests pass a fixed source through the
+    // internal constructor.
+    private readonly Func<double> _nextDouble;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ElasticApmTransactionFilter"/> class.
@@ -26,7 +29,20 @@ public class ElasticApmTransactionFilter
     public ElasticApmTransactionFilter(
         IOptions<SamplingOptions> options,
         ILogger<ElasticApmTransactionFilter> logger)
+        : this(options, logger, static () => Random.Shared.NextDouble())
     {
+    }
+
+    /// <summary>
+    /// Initializes a new instance with a supplied source of uniform [0, 1) values, so tests can
+    /// make sampling decisions deterministic.
+    /// </summary>
+    internal ElasticApmTransactionFilter(
+        IOptions<SamplingOptions> options,
+        ILogger<ElasticApmTransactionFilter> logger,
+        Func<double> nextDouble)
+    {
+        _nextDouble = nextDouble;
         _options = options.Value;
         _logger = logger;
 
@@ -46,7 +62,7 @@ public class ElasticApmTransactionFilter
         // Determine if this transaction should be sampled based on priority rules
         var samplingRate = DetermineSamplingRate(transaction);
 
-        if (_random.NextDouble() > samplingRate)
+        if (_nextDouble() > samplingRate)
         {
             // Mark transaction as not sampled (will still be counted but not stored)
             _logger.LogTrace(

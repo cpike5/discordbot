@@ -30,12 +30,14 @@ public class ElasticApmTransactionFilterTests
         };
     }
 
-    private ElasticApmTransactionFilter CreateFilter(SamplingOptions? options = null)
+    private ElasticApmTransactionFilter CreateFilter(SamplingOptions? options = null, Func<double>? nextDouble = null)
     {
         var samplingOptions = options ?? _defaultOptions;
         var optionsMock = new Mock<IOptions<SamplingOptions>>();
         optionsMock.Setup(o => o.Value).Returns(samplingOptions);
-        return new ElasticApmTransactionFilter(optionsMock.Object, _mockLogger.Object);
+        return nextDouble is null
+            ? new ElasticApmTransactionFilter(optionsMock.Object, _mockLogger.Object)
+            : new ElasticApmTransactionFilter(optionsMock.Object, _mockLogger.Object, nextDouble);
     }
 
     private Mock<ITransaction> CreateMockTransaction(
@@ -539,30 +541,23 @@ public class ElasticApmTransactionFilterTests
             "regular commands should sample at ~10% (default rate)");
     }
 
-    [Fact(Skip = "Timing-sensitive probabilistic test — flaky by nature")]
-    public void Filter_BackgroundServiceOperation_UsesDefaultRate()
+    [Theory]
+    [InlineData(0.005, true)]
+    [InlineData(0.05, false)]
+    public void Filter_BackgroundServiceOperation_UsesLowPriorityRate(double randomValue, bool expectSampled)
     {
-        // Arrange
-        var filter = CreateFilter();
+        // Arrange - a fixed random source makes the decision deterministic.
+        // background.* transactions are low priority (1%), so 0.005 samples and 0.05 (inside the
+        // 10% default rate) drops.
+        var filter = CreateFilter(nextDouble: () => randomValue);
+        var mockTransaction = CreateMockTransaction("background.metrics_aggregation.execute");
 
-        // Act - Run multiple samples
-        var sampleCount = 1000;
-        var sampledCount = 0;
-
-        for (int i = 0; i < sampleCount; i++)
-        {
-            var mockTransaction = CreateMockTransaction("background.metrics_aggregation.execute");
-            var result = filter.Filter(mockTransaction.Object);
-            if (result != null)
-            {
-                sampledCount++;
-            }
-        }
+        // Act
+        var result = filter.Filter(mockTransaction.Object);
 
         // Assert
-        var actualRate = (double)sampledCount / sampleCount;
-        actualRate.Should().BeInRange(0.05, 0.15,
-            "background service operations should sample at ~10%");
+        (result != null).Should().Be(expectSampled,
+            "background service operations sample at the low-priority rate (1%)");
     }
 
     #endregion
