@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Security.Claims;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
@@ -70,6 +72,12 @@ public class DashboardHub : Hub
     /// </summary>
     private const string SignalRConnectionIdAttribute = "signalr.connection.id";
 
+    /// <summary>
+    /// Tracing attribute for the portal username, used when the user has no linked Discord
+    /// account. <see cref="TracingConstants.Attributes.UserId"/> carries only Discord snowflakes.
+    /// </summary>
+    private const string PortalUserNameAttribute = "portal.user.name";
+
     private readonly IDashboardMetricsService _metricsService;
     private readonly IDashboardAudioStatusService _audioStatusService;
     private readonly IDashboardNotificationQueryService _notificationQueryService;
@@ -107,7 +115,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "on_connected",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -131,7 +139,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "on_disconnected",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -176,7 +184,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "join_guild_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
                 activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
@@ -210,7 +218,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "leave_guild_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
                 activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
@@ -251,7 +259,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "join_alerts_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -275,7 +283,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "leave_alerts_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -299,7 +307,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "join_bulk_purge_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -323,7 +331,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "leave_bulk_purge_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -354,7 +362,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "join_performance_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -382,7 +390,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "leave_performance_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -410,7 +418,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "join_system_health_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -438,7 +446,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "leave_system_health_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
                 var userName = Context.User?.Identity?.Name ?? "unknown";
@@ -495,7 +503,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "join_guild_audio_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
                 activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
@@ -529,7 +537,7 @@ public class DashboardHub : Hub
             "dashboard_hub", "leave_guild_audio_group",
             async activity =>
             {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                TagUser(activity);
                 activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
                 activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
@@ -662,6 +670,28 @@ public class DashboardHub : Hub
     {
         var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         return string.IsNullOrEmpty(userId) ? null : userId;
+    }
+
+    /// <summary>
+    /// Tags the activity with the caller: the Discord snowflake as
+    /// <see cref="TracingConstants.Attributes.UserId"/> when the account is linked, otherwise the
+    /// portal username under its own attribute.
+    /// </summary>
+    private void TagUser(Activity? activity)
+    {
+        if (activity is null)
+        {
+            return;
+        }
+
+        if (Context.User is { } user && user.TryGetDiscordUserId(out var discordUserId))
+        {
+            activity.SetTag(TracingConstants.Attributes.UserId, discordUserId.ToString());
+        }
+        else
+        {
+            activity.SetTag(PortalUserNameAttribute, Context.User?.Identity?.Name);
+        }
     }
 
     /// <summary>
