@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/scheduled-messages")]
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class ScheduledMessagesController : ControllerBase
 {
     private readonly IScheduledMessageService _scheduledMessageService;

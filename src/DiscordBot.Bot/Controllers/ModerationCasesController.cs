@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/cases")]
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class ModerationCasesController : ControllerBase
 {
     private readonly IModerationService _moderationService;

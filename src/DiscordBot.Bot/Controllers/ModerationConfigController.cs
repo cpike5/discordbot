@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/moderation-config")]
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class ModerationConfigController : ControllerBase
 {
     private readonly IGuildModerationConfigService _configService;

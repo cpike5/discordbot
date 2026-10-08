@@ -15,6 +15,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/sounds")]
 [Authorize(Policy = "RequireViewer")]
+[Authorize(Policy = "GuildAccess")]
 public class SoundsController : ControllerBase
 {
     private readonly ISoundService _soundService;

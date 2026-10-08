@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/flagged-events")]
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class FlaggedEventsController : ControllerBase
 {
     private readonly IFlaggedEventService _flaggedEventService;

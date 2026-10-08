@@ -15,6 +15,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/analytics")]
 [Authorize(Policy = "RequireViewer")]
+[Authorize(Policy = "GuildAccess")]
 public class AnalyticsController : ControllerBase
 {
     private readonly IMemberActivityRepository _memberActivityRepo;

@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Controllers;
 /// </summary>
 [ApiController]
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class ModTagsController : ControllerBase
 {
     private readonly IModTagService _modTagService;

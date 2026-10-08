@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/watchlist")]
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class WatchlistController : ControllerBase
 {
     private readonly IWatchlistService _watchlistService;
