@@ -77,6 +77,11 @@ public class AssistantService : IAssistantService
         var stopwatch = Stopwatch.StartNew();
         IAssistantContext? context = null;
 
+        // A slot is taken at check time so parallel requests cannot all pass before any is counted,
+        // and handed back in the finally unless the run succeeded: only successful runs count.
+        var slotReserved = false;
+        var keepSlot = false;
+
         _logger.LogDebug(
             "Processing assistant question from user {UserId} in guild {GuildId}, channel {ChannelId}",
             userId, guildId, channelId);
@@ -116,7 +121,7 @@ public class AssistantService : IAssistantService
             context = await _contextFactory.CreateAsync(
                 guildId, channelId, userId, messageId, rateLimit, question, callerCanMutate, cancellationToken);
 
-            var rateLimitResult = await _rateLimiter.CheckAsync(
+            var rateLimitResult = await _rateLimiter.TryReserveAsync(
                 context.RateLimitCacheKeyPrefix,
                 context.RateLimitScopeKey,
                 context.RateLimit ?? rateLimit,
@@ -127,6 +132,7 @@ public class AssistantService : IAssistantService
                 return AssistantResponseResult.ErrorResult(
                     rateLimitResult.Message ?? "You have exceeded your rate limit. Please try again later.");
             }
+            slotReserved = true;
 
             var formattedMessage = await context.FormatUserMessageAsync(question, cancellationToken);
 
@@ -150,10 +156,7 @@ public class AssistantService : IAssistantService
                 EstimatedCostUsd = pipelineResult.EstimatedCostUsd
             };
 
-            if (pipelineResult.Success)
-            {
-                _rateLimiter.RecordUsage(context.RateLimitCacheKeyPrefix, context.RateLimitScopeKey, context.RateLimitWindowMinutes);
-            }
+            keepSlot = pipelineResult.Success;
 
             await context.RecordUsageAsync(question, pipelineResult, cancellationToken);
 
@@ -191,6 +194,13 @@ public class AssistantService : IAssistantService
             RecordFailedUsage(context, userId, guildId, (int)stopwatch.ElapsedMilliseconds);
 
             return AssistantResponseResult.ErrorResult(_options.Messages.ErrorMessage);
+        }
+        finally
+        {
+            if (slotReserved && !keepSlot)
+            {
+                _rateLimiter.Release(context!.RateLimitCacheKeyPrefix, context.RateLimitScopeKey);
+            }
         }
     }
 
