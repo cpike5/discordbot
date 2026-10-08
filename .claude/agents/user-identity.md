@@ -38,14 +38,14 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 - **Discord OAuth:** External login → callback → account linking → token storage
 - **Verification:** Discord ↔ web account linking via `VerificationCode`
 - **Data export:** `UserDataExportService` generates GDPR-compliant data packages (private `data/exports`, 7-day expiry by last-write time via `UserDataExportCleanupService`)
-- **User purge:** `UserPurgeService` removes all user data across ALL tables — cascading delete — and the user's export directory
+- **User purge:** `UserPurgeService` deletes or anonymises every user-keyed table classified in `docs/articles/user-data-inventory.md`, keeps the retained guild records (moderation cases, flagged events, mod-note targets, wallets and ledger), and removes the user's export directory. `UserDataInventoryTests` fails when a new user-id column is not classified there
 
 ## Gotchas
 
 - **Very large services:** UserManagementService (995), UserDataExportService (762), ConsentService (567) — search for specific methods
 - **OAuth secrets in User Secrets:** `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret` — never commit
 - **OAuth redirect URI** must match environment exactly (`https://localhost:5001/signin-discord` for dev)
-- **User purge is destructive and cascading** — removes data from ALL tables; ensure confirmation workflow
+- **User purge is destructive and cascading** — covers the tables in the user-data inventory; ensure confirmation workflow. `UserActivityLog.ActorUserId` is a Restrict FK, so actor rows are deleted before the account
 - **Consent is per-type** — different `ConsentType` values for different data collection categories
 - **Role hierarchy enforced in authorization policies** — higher roles inherit lower role permissions
 - **SameSite cookie policy** affects Discord OAuth — see commit history for redirect loop fix

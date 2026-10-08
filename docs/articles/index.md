@@ -23,6 +23,7 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Authorization Policies](authorization-policies.md) - Role-based authorization policies and implementation
 - [User Management Guide](user-management.md) - Admin user management feature documentation
 - [Consent & Privacy](consent-privacy.md) - GDPR consent management and user privacy controls
+- [User Data Inventory](user-data-inventory.md) - Every user-keyed table and what purge and export do with it
 
 ## API & Integration
 - [REST API Endpoints](api-endpoints.md) - Complete REST API reference
