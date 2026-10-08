@@ -472,19 +472,23 @@ public class ScheduledMessageService : IScheduledMessageService
                 // slightly early or late (e.g., scheduled for 10:58 but runs at 10:56).
                 var baseTime = originalScheduledTime ?? message.LastExecutedAt;
 
-                var nextExecution = await CalculateNextExecutionAsync(
-                    message.Frequency,
-                    message.CronExpression,
-                    baseTime);
+                // Monthly schedules keep their day of month (clamped to short months) instead of
+                // iterating AddMonths, which drifts Jan 31 -> Feb 28 -> Mar 28.
+                int? monthlyAnchorDay = message.Frequency == ScheduleFrequency.Monthly && baseTime.HasValue
+                    ? MonthlyAnchorDay(baseTime.Value, message.CreatedAt)
+                    : null;
+
+                Task<DateTime?> NextAfter(DateTime? from) => monthlyAnchorDay.HasValue
+                    ? Task.FromResult<DateTime?>(NextMonthly(from!.Value, monthlyAnchorDay.Value))
+                    : CalculateNextExecutionAsync(message.Frequency, message.CronExpression, from);
+
+                var nextExecution = await NextAfter(baseTime);
 
                 // If the calculated next time is in the past (e.g., we missed executions),
                 // keep adding intervals until we get a future time
                 while (nextExecution.HasValue && nextExecution.Value <= DateTime.UtcNow)
                 {
-                    nextExecution = await CalculateNextExecutionAsync(
-                        message.Frequency,
-                        message.CronExpression,
-                        nextExecution.Value);
+                    nextExecution = await NextAfter(nextExecution.Value);
                 }
 
                 if (nextExecution.HasValue)
@@ -542,6 +546,33 @@ public class ScheduledMessageService : IScheduledMessageService
             _logger.LogError(ex, "Failed to execute scheduled message {MessageId} during {Phase}", id, phase);
             return false;
         }
+    }
+
+    /// <summary>
+    /// The next monthly run after <paramref name="from"/>: one month later, on
+    /// <paramref name="anchorDay"/> clamped to the length of that month, at the same time of day.
+    /// </summary>
+    internal static DateTime NextMonthly(DateTime from, int anchorDay)
+    {
+        var month = new DateTime(from.Year, from.Month, 1, 0, 0, 0, from.Kind).AddMonths(1);
+        var day = Math.Min(anchorDay, DateTime.DaysInMonth(month.Year, month.Month));
+        return month.AddDays(day - 1).Add(from.TimeOfDay);
+    }
+
+    /// <summary>
+    /// The day of month a monthly schedule runs on, derived from its last scheduled run.
+    /// </summary>
+    /// <remarks>
+    /// The anchor day is not stored. A run that is not on the last day of its month was not
+    /// clamped, so its day is the anchor. A run on the last day of a month may have been clamped
+    /// (Jan 31 runs on Feb 28), so the later of that day and the day the schedule was created is
+    /// used: exact for schedules whose first run was a month after creation, but a schedule
+    /// created on the 15th for the 31st still settles on the 28th after February.
+    /// </remarks>
+    internal static int MonthlyAnchorDay(DateTime lastScheduled, DateTime createdAt)
+    {
+        var isMonthEnd = lastScheduled.Day == DateTime.DaysInMonth(lastScheduled.Year, lastScheduled.Month);
+        return isMonthEnd ? Math.Max(lastScheduled.Day, createdAt.Day) : lastScheduled.Day;
     }
 
     /// <inheritdoc/>

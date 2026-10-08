@@ -565,6 +565,69 @@ public class ScheduledMessageServiceTests
         result.Should().Be(new DateTime(2025, 2, 15, 10, 0, 0, DateTimeKind.Utc));
     }
 
+    [Theory]
+    [InlineData("2025-01-31T09:00:00", 31, "2025-02-28T09:00:00")]
+    [InlineData("2025-02-28T09:00:00", 31, "2025-03-31T09:00:00")]
+    [InlineData("2024-01-31T09:00:00", 31, "2024-02-29T09:00:00")]
+    [InlineData("2025-04-30T09:00:00", 30, "2025-05-30T09:00:00")]
+    [InlineData("2025-02-28T09:00:00", 28, "2025-03-28T09:00:00")]
+    [InlineData("2025-12-31T23:30:00", 31, "2026-01-31T23:30:00")]
+    public void NextMonthly_KeepsAnchorDayClampedToShortMonths(string from, int anchorDay, string expected)
+    {
+        var result = ScheduledMessageService.NextMonthly(
+            DateTime.SpecifyKind(DateTime.Parse(from), DateTimeKind.Utc), anchorDay);
+
+        result.Should().Be(DateTime.SpecifyKind(DateTime.Parse(expected), DateTimeKind.Utc));
+        result.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Theory]
+    [InlineData("2025-02-28", "2025-01-31", 31)] // clamped month end, created on the 31st
+    [InlineData("2025-02-28", "2025-01-15", 28)] // month end, nothing says it was clamped
+    [InlineData("2025-02-15", "2025-01-31", 15)] // not a month end, so never clamped
+    [InlineData("2025-04-30", "2025-03-30", 30)]
+    public void MonthlyAnchorDay_UsesCreationDayOnlyForMonthEndRuns(string lastScheduled, string createdAt, int expected)
+    {
+        ScheduledMessageService.MonthlyAnchorDay(DateTime.Parse(lastScheduled), DateTime.Parse(createdAt))
+            .Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_MonthlyFromClampedMonthEnd_ReturnsToAnchorDay()
+    {
+        // Arrange: a schedule for the 31st that last ran on the last day of the previous month.
+        // Plain AddMonths would keep it on that (possibly clamped) day forever.
+        var now = DateTime.UtcNow;
+        var previousMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-1);
+        var lastRun = previousMonth
+            .AddDays(DateTime.DaysInMonth(previousMonth.Year, previousMonth.Month) - 1)
+            .Add(new TimeSpan(23, 59, 59));
+        var expected = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 23, 59, 59, DateTimeKind.Utc);
+
+        var messageId = Guid.NewGuid();
+        var message = CreateTestScheduledMessage(
+            id: messageId,
+            frequency: ScheduleFrequency.Monthly,
+            nextExecutionAt: lastRun);
+        message.CreatedAt = new DateTime(2025, 1, 31, 12, 0, 0, DateTimeKind.Utc);
+        SetupTextChannel(message.ChannelId);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert
+        result.Should().BeTrue();
+        _mockRepository.Verify(
+            r => r.UpdateAsync(
+                It.Is<ScheduledMessage>(m => m.Id == messageId && m.NextExecutionAt == expected),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     [Fact]
     public async Task CalculateNextExecutionAsync_WithCustomFrequency_AndValidCron_ReturnsNextOccurrence()
     {
