@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Controllers;
 
@@ -86,6 +87,8 @@ public class PerformanceMetricsControllerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(snapshots);
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = await _controller.GetHistoricalMetrics(24, "all", CancellationToken.None);
 
@@ -97,8 +100,8 @@ public class PerformanceMetricsControllerTests
         response.Should().NotBeNull();
         response!.Snapshots.Should().HaveCount(3);
         response.Granularity.Should().Be("5m", "24 hours should use 5-minute aggregation");
-        response.EndTime.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
-        response.StartTime.Should().BeCloseTo(DateTime.UtcNow.AddHours(-24), TimeSpan.FromSeconds(5));
+        response.EndTime.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
+        response.StartTime.Should().BeOnOrAfter(before.AddHours(-24)).And.BeOnOrBefore(DateTime.UtcNow.AddHours(-24));
 
         _mockMetricSnapshotRepository.Verify(
             r => r.GetRangeAsync(

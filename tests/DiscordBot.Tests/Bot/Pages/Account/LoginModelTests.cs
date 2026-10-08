@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Bot.Pages.Account;
 
@@ -308,6 +309,8 @@ public class LoginModelTests
         _mockUserManager.Setup(um => um.UpdateAsync(It.IsAny<ApplicationUser>()))
             .ReturnsAsync(IdentityResult.Success);
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = await _loginModel.OnPostAsync(returnUrl);
 
@@ -316,7 +319,7 @@ public class LoginModelTests
             .Which.Url.Should().Be(returnUrl);
 
         user.LastLoginAt.Should().NotBeNull();
-        user.LastLoginAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
+        user.LastLoginAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
         _mockUserManager.Verify(
             um => um.UpdateAsync(It.Is<ApplicationUser>(u => u.LastLoginAt != null)),

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DiscordBot.Core.Entities;
 using FluentAssertions;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Core.Entities;
 
@@ -15,6 +16,8 @@ public class ThemeTests
     [Fact]
     public void Constructor_SetsDefaultValues()
     {
+        var before = DbTimestamp.LowerBound();
+
         // Arrange & Act
         var theme = new Theme();
 
@@ -24,7 +27,7 @@ public class ThemeTests
         theme.Description.Should().BeNull("Description should default to null");
         theme.ColorDefinition.Should().Be("{}", "ColorDefinition should default to empty JSON object");
         theme.IsActive.Should().BeTrue("newly created themes should be active by default");
-        theme.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1),
+        theme.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow,
             "CreatedAt should be set to current UTC time");
     }
 

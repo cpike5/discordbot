@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 
 using CoreMessageSource = DiscordBot.Core.Enums.MessageSource;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -550,13 +551,15 @@ public class MessageLoggingHandlerTests
             .Callback<MessageLog, CancellationToken>((log, _) => capturedLog = log)
             .ReturnsAsync((MessageLog log, CancellationToken _) => log);
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         await _handler.HandleMessageAsync(mockMessage.Object);
 
         // Assert
         capturedLog.Should().NotBeNull();
         capturedLog!.Timestamp.Should().Be(timestamp.UtcDateTime, "message timestamp should be captured");
-        capturedLog.LoggedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5), "logged timestamp should be recent");
+        capturedLog.LoggedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "logged timestamp should be recent");
     }
 
     #endregion

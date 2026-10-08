@@ -4,6 +4,7 @@ using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services.Dashboard;
 
@@ -131,6 +132,8 @@ public class DashboardMetricsServiceTests
             .Setup(s => s.GetCurrentState())
             .Returns(GatewayConnectionState.Connected);
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = _service.GetCurrentPerformanceMetrics(ConnectionId, UserName);
 
@@ -143,7 +146,7 @@ public class DashboardMetricsServiceTests
         result.ThreadCount.Should().BeGreaterThan(0, "Thread count should be positive");
         result.Gen2Collections.Should().BeGreaterThanOrEqualTo(0, "Gen2 collections should be non-negative");
         result.CpuUsagePercent.Should().Be(0.0, "CPU usage is currently hardcoded to 0");
-        result.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1), "Timestamp should be current");
+        result.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "Timestamp should be current");
     }
 
     [Fact]
@@ -265,6 +268,8 @@ public class DashboardMetricsServiceTests
             .Setup(m => m.GetAllHealth())
             .Returns(serviceHealth.AsReadOnly());
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = _service.GetCurrentSystemHealth(ConnectionId, UserName);
 
@@ -276,7 +281,7 @@ public class DashboardMetricsServiceTests
         result.CacheStats.Should().NotBeEmpty("Should include cache statistics");
         result.CacheStats.Should().ContainKey("guild:", "Should map cache stats by prefix");
         result.BackgroundServices.Should().HaveCount(1, "Should include background services");
-        result.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1), "Timestamp should be current");
+        result.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "Timestamp should be current");
     }
 
     [Fact]
@@ -506,6 +511,8 @@ public class DashboardMetricsServiceTests
             .Setup(a => a.GetAggregatesAsync(24))
             .ReturnsAsync(aggregates.AsReadOnly());
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = await _service.GetCurrentCommandPerformanceAsync(ConnectionId, UserName, 24);
 
@@ -517,7 +524,7 @@ public class DashboardMetricsServiceTests
         result.P99ResponseTimeMs.Should().BeApproximately(392.5, 0.01, "Should average P99 times");
         result.ErrorRate.Should().BeApproximately(1.25, 0.01, "Should average error rates");
         result.CommandsLastHour.Should().Be(62, "Should calculate commands last hour (1500 / 24 = 62)");
-        result.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1), "Timestamp should be current");
+        result.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "Timestamp should be current");
     }
 
     [Fact]

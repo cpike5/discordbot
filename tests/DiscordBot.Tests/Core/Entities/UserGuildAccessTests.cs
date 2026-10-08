@@ -1,5 +1,6 @@
 using DiscordBot.Core.Entities;
 using FluentAssertions;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Core.Entities;
 
@@ -22,11 +23,13 @@ public class UserGuildAccessTests
     [Fact]
     public void Constructor_SetsGrantedAtToUtcNow()
     {
+        var before = DbTimestamp.LowerBound();
+
         // Arrange & Act
         var access = new UserGuildAccess();
 
         // Assert
-        access.GrantedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1),
+        access.GrantedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow,
             "GrantedAt should be set to current UTC time");
     }
 

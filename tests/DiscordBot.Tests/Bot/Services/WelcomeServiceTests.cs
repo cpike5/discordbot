@@ -7,6 +7,7 @@ using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Bot.Services;
 
@@ -358,7 +359,7 @@ public class WelcomeServiceTests : IAsyncDisposable
             IsEnabled = true
         };
 
-        var beforeUpdate = DateTime.UtcNow;
+        var beforeUpdate = DbTimestamp.LowerBound();
 
         _mockRepository
             .Setup(r => r.GetByGuildIdAsync(guildId, It.IsAny<CancellationToken>()))
@@ -374,7 +375,7 @@ public class WelcomeServiceTests : IAsyncDisposable
         // Assert
         result.Should().NotBeNull();
         result!.UpdatedAt.Should().BeOnOrAfter(beforeUpdate, "UpdatedAt should be set to current time");
-        result.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5), "UpdatedAt should be recent");
+        result.UpdatedAt.Should().BeOnOrBefore(DateTime.UtcNow, "UpdatedAt should be recent");
     }
 
     [Fact]

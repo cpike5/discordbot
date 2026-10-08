@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -430,6 +431,8 @@ public class ConsentServiceTests
             .Callback<UserConsent, CancellationToken>((consent, _) => capturedConsent = consent)
             .ReturnsAsync(It.IsAny<UserConsent>());
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = await _service.GrantConsentAsync(discordUserId, consentType);
 
@@ -445,7 +448,7 @@ public class ConsentServiceTests
         capturedConsent.GrantedVia.Should().Be("WebUI", "consent granted via service should use WebUI source");
         capturedConsent.RevokedAt.Should().BeNull();
         capturedConsent.RevokedVia.Should().BeNull();
-        capturedConsent.GrantedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        capturedConsent.GrantedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
         _mockRepository.Verify(
             r => r.GetActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()),
@@ -605,6 +608,8 @@ public class ConsentServiceTests
             .Callback<UserConsent, CancellationToken>((consent, _) => updatedConsent = consent)
             .Returns(Task.CompletedTask);
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = await _service.RevokeConsentAsync(discordUserId, consentType);
 
@@ -616,7 +621,7 @@ public class ConsentServiceTests
 
         updatedConsent.Should().NotBeNull();
         updatedConsent!.RevokedAt.Should().NotBeNull();
-        updatedConsent.RevokedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        updatedConsent.RevokedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
         updatedConsent.RevokedVia.Should().Be("WebUI", "consent revoked via service should use WebUI source");
 
         _mockRepository.Verify(
