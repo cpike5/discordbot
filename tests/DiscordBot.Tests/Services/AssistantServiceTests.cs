@@ -511,6 +511,73 @@ public class AssistantServiceTests
     }
 
     [Fact]
+    public async Task AskQuestionAsync_ParallelRequestsOverTheLimit_OnlyTheLimitRuns()
+    {
+        // Every request is held inside the agent run until all of them have started, so none has
+        // finished (and, before the fix, recorded usage) when the others check the limit. The slot
+        // has to be taken at check time for the extra requests to be refused.
+        const int limit = 3;
+        const int requests = 8;
+        SetupAllChecksPass();
+        _mockGuildSettingsService
+            .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(limit);
+
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = 0;
+        _mockAgentRunner
+            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                Interlocked.Increment(ref started);
+                await gate.Task.ConfigureAwait(false);
+                return new AgentRunResult
+                {
+                    Success = true,
+                    Response = TestResponse,
+                    TotalUsage = new LlmUsage { InputTokens = 10, OutputTokens = 5 }
+                };
+            });
+
+        var calls = Enumerable.Range(0, requests)
+            .Select(_ => _service.AskQuestionAsync(
+                TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion))
+            .ToList();
+        gate.SetResult();
+        var results = await Task.WhenAll(calls);
+
+        results.Count(r => r.Success).Should().Be(limit);
+        results.Where(r => !r.Success).Should().OnlyContain(r => r.ErrorMessage!.Contains("question limit"));
+        started.Should().Be(limit, "a refused request must never reach the model");
+    }
+
+    [Fact]
+    public async Task AskQuestionAsync_FailedRun_DoesNotUseUpTheLimit()
+    {
+        SetupAllChecksPass();
+        _mockGuildSettingsService
+            .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _mockAgentRunner
+            .SetupSequence(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentRunResult { Success = false, ErrorMessage = "LLM API error", TotalUsage = new LlmUsage() })
+            .ThrowsAsync(new InvalidOperationException("provider unavailable"))
+            .ReturnsAsync(new AgentRunResult { Success = true, Response = TestResponse, TotalUsage = new LlmUsage() })
+            .ReturnsAsync(new AgentRunResult { Success = true, Response = TestResponse, TotalUsage = new LlmUsage() });
+
+        var failed = await _service.AskQuestionAsync(TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
+        var threw = await _service.AskQuestionAsync(TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
+        var succeeded = await _service.AskQuestionAsync(TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
+        var limited = await _service.AskQuestionAsync(TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
+
+        failed.Success.Should().BeFalse();
+        threw.Success.Should().BeFalse();
+        succeeded.Success.Should().BeTrue("neither failure should have used the one slot");
+        limited.Success.Should().BeFalse();
+        limited.ErrorMessage.Should().Contain("question limit");
+    }
+
+    [Fact]
     public async Task AskQuestionAsync_WhenExceptionHappensBeforeContextExists_RecordsFailedUsageLedgerRow_WithUnknownModel()
     {
         // The exception must be raised before GuildAssistantContextFactory.CreateAsync runs, so the

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services.LLM;
 
@@ -49,7 +50,7 @@ public class AssistantMessagePipelineTests
 
         for (var i = 0; i < 3; i++)
         {
-            limiter.RecordUsage(prefix, scopeKey, windowMinutes: 5);
+            await limiter.TryReserveAsync(prefix, scopeKey, limit: 3, windowMinutes: 5);
         }
 
         var result = await limiter.CheckAsync(prefix, scopeKey, limit: 3, windowMinutes: 5);
@@ -71,7 +72,7 @@ public class AssistantMessagePipelineTests
 
         for (var i = 0; i < 5; i++)
         {
-            limiter.RecordUsage(GuildAssistantContext.RateLimitPrefix, scopeKey, windowMinutes: 5);
+            await limiter.TryReserveAsync(GuildAssistantContext.RateLimitPrefix, scopeKey, limit: 5, windowMinutes: 5);
         }
 
         var guildResult = await limiter.CheckAsync(GuildAssistantContext.RateLimitPrefix, scopeKey, limit: 5, windowMinutes: 5);
@@ -80,6 +81,56 @@ public class AssistantMessagePipelineTests
         guildResult.IsAllowed.Should().BeFalse("the guild scope's quota was exhausted");
         dmResult.IsAllowed.Should().BeTrue("the DM prefix tracks a separate cache entry even for the same scope key");
         dmResult.RemainingQuestions.Should().Be(5);
+    }
+
+    [Fact]
+    public void ParallelReservations_ExactlyTheLimitSucceed()
+    {
+        const int limit = 5;
+        const int threads = 20;
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var limiter = new AssistantRateLimiter(cache);
+        var allowed = 0;
+
+        ConcurrencyTestHelper.RunOnDedicatedThreads(threads, _ =>
+        {
+            var result = limiter.TryReserveAsync("assistant_ratelimit:", "guild:1:user:2", limit, windowMinutes: 5)
+                .GetAwaiter().GetResult();
+            if (result.IsAllowed)
+            {
+                Interlocked.Increment(ref allowed);
+            }
+        });
+
+        allowed.Should().Be(limit);
+    }
+
+    [Fact]
+    public async Task Release_GivesTheSlotBack()
+    {
+        var limiter = new AssistantRateLimiter(new MemoryCache(new MemoryCacheOptions()));
+        const string prefix = "assistant_ratelimit:";
+        const string scopeKey = "guild:1:user:2";
+
+        (await limiter.TryReserveAsync(prefix, scopeKey, limit: 1, windowMinutes: 5)).IsAllowed.Should().BeTrue();
+        (await limiter.TryReserveAsync(prefix, scopeKey, limit: 1, windowMinutes: 5)).IsAllowed.Should().BeFalse();
+
+        limiter.Release(prefix, scopeKey);
+
+        (await limiter.CheckAsync(prefix, scopeKey, limit: 1, windowMinutes: 5)).RemainingQuestions.Should().Be(1);
+        (await limiter.TryReserveAsync(prefix, scopeKey, limit: 1, windowMinutes: 5)).IsAllowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CheckAsync_DoesNotReserve()
+    {
+        // The guild message handler peeks before the run; the peek must not cost a slot.
+        var limiter = new AssistantRateLimiter(new MemoryCache(new MemoryCacheOptions()));
+
+        await limiter.CheckAsync("assistant_ratelimit:", "guild:1:user:2", limit: 1, windowMinutes: 5);
+
+        (await limiter.TryReserveAsync("assistant_ratelimit:", "guild:1:user:2", limit: 1, windowMinutes: 5))
+            .IsAllowed.Should().BeTrue();
     }
 
     #endregion
