@@ -138,6 +138,20 @@ public class UserDataExportServiceTests : IDisposable
             UpdatedAt = DateTime.UtcNow
         });
 
+        _context.AssistantThreads.Add(new AssistantThread
+        {
+            ThreadId = 600000000UL,
+            GuildId = guildId,
+            ParentChannelId = 777888999UL,
+            StarterUserId = discordUserId,
+            CreatedAt = DateTime.UtcNow,
+            LastActivityAt = DateTime.UtcNow
+        });
+        _context.AssistantThreadMessages.Add(new AssistantThreadMessage
+        {
+            ThreadId = 600000000UL, UserId = discordUserId, Role = "user", Content = "In a thread", Timestamp = DateTime.UtcNow
+        });
+
         await _context.SaveChangesAsync();
 
         // Act
@@ -153,6 +167,7 @@ public class UserDataExportServiceTests : IDisposable
         result.ExportedCounts["DmAssistantInteractionLogs"].Should().Be(1);
         result.ExportedCounts.Should().ContainKey("DmAssistantUsageMetrics");
         result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(1);
+        result.ExportedCounts["AssistantThreadMessages"].Should().Be(1);
 
         // The zip should contain the new export files.
         var zipPath = Path.Combine(_contentRootPath, "data", "exports", discordUserId.ToString(), $"{result.ExportId}.zip");
@@ -163,7 +178,8 @@ public class UserDataExportServiceTests : IDisposable
             new[]
             {
                 "llm_usage_records.json", "assistant_interaction_logs.json",
-                "dm_assistant_interaction_logs.json", "dm_assistant_usage_metrics.json"
+                "dm_assistant_interaction_logs.json", "dm_assistant_usage_metrics.json",
+                "assistant_thread_messages.json"
             });
 
         var llmUsageEntry = archive.GetEntry("llm_usage_records.json")!;

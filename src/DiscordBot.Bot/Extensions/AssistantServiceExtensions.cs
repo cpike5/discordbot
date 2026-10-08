@@ -62,6 +62,8 @@ public static class AssistantServiceExtensions
         services.AddScoped<IAssistantUsageMetricsRepository, AssistantUsageMetricsRepository>();
         services.AddScoped<IAssistantInteractionLogRepository, AssistantInteractionLogRepository>();
         services.AddScoped<IAssistantGuildSettingsRepository, AssistantGuildSettingsRepository>();
+        services.AddScoped<IAssistantThreadRepository, AssistantThreadRepository>();
+        services.AddScoped<IAssistantThreadMessageRepository, AssistantThreadMessageRepository>();
         services.AddScoped<AssistantGuildSettingsRepository>();
 
         // Register the per-guild tool allow-list resolver ungated: it reads the settings row and the

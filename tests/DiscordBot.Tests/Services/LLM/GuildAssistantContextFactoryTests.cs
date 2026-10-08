@@ -1,4 +1,7 @@
 using DiscordBot.Core.Configuration;
+using DiscordBot.Agents.Contracts.Enums;
+using DiscordBot.Core.Entities;
+using DiscordBot.Core.DTOs.Llm;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -36,7 +39,10 @@ public class GuildAssistantContextFactoryTests
     private static GuildAssistantContextFactory BuildFactory(
         ILlmModelResolver modelResolver,
         AssistantOptions? options = null,
-        IToolAccessResolver? toolAccess = null)
+        IToolAccessResolver? toolAccess = null,
+        StubSkillSessionFactory? skillSessions = null,
+        IAssistantThreadRepository? threads = null,
+        IAssistantThreadMessageRepository? threadMessages = null)
     {
         var mockGuildService = new Mock<IGuildService>();
         var mockPromptTemplate = new Mock<IPromptTemplate>();
@@ -53,8 +59,102 @@ public class GuildAssistantContextFactoryTests
             Mock.Of<ILogger<GuildAssistantContext>>(),
             Options.Create(options ?? new AssistantOptions()),
             Mock.Of<ILlmUsageRecorder>(),
-            new StubSkillSessionFactory());
+            skillSessions ?? new StubSkillSessionFactory(),
+            threads,
+            threadMessages);
     }
+
+    #region Threads
+
+    private const ulong ThreadId = 777UL;
+
+    private static GuildAssistantRequest ThreadRequest(ulong? threadId = ThreadId) =>
+        new(GuildId: 42, ChannelId: threadId ?? 2, ParentChannelId: threadId is null ? null : 2, ThreadId: threadId,
+            UserId: 3, MessageId: 4, Question: "and then?");
+
+    private static (Mock<IAssistantThreadRepository> Threads, Mock<IAssistantThreadMessageRepository> Messages) ThreadRepos(
+        AssistantThread? thread, params AssistantThreadMessage[] turns)
+    {
+        var threads = new Mock<IAssistantThreadRepository>();
+        threads.Setup(r => r.GetByThreadIdAsync(ThreadId, It.IsAny<CancellationToken>())).ReturnsAsync(thread);
+        var messages = new Mock<IAssistantThreadMessageRepository>();
+        messages.Setup(r => r.GetRecentByThreadAsync(ThreadId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AssistantThreadMessage>)turns.ToList());
+        return (threads, messages);
+    }
+
+    [Fact]
+    public async Task CreateAsync_SingleReply_SeedsNoHistory_AndPreActivatesNothing()
+    {
+        var skills = new StubSkillSessionFactory();
+        var (threads, messages) = ThreadRepos(null);
+        var factory = BuildFactory(StubModelResolver(), skillSessions: skills, threads: threads.Object, threadMessages: messages.Object);
+
+        var context = await factory.CreateAsync(ThreadRequest(threadId: null), rateLimit: 5);
+
+        context.ConversationHistory.Should().BeEmpty();
+        skills.LastPreActivatedKeys.Should().BeEmpty();
+        threads.Verify(r => r.GetByThreadIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ThreadTurn_SeedsTheRecentTurnsInOrder_WithinTheWindow()
+    {
+        var thread = new AssistantThread { ThreadId = ThreadId, GuildId = 42 };
+        var (threads, messages) = ThreadRepos(thread,
+            new AssistantThreadMessage { Role = "user", Content = "first" },
+            new AssistantThreadMessage { Role = "assistant", Content = "reply" },
+            new AssistantThreadMessage { Role = "user", Content = "second" });
+        var options = new AssistantOptions { Threads = new() { MaxConversationMessages = 3 } };
+        var factory = BuildFactory(StubModelResolver(), options, threads: threads.Object, threadMessages: messages.Object);
+
+        var context = await factory.CreateAsync(ThreadRequest(), rateLimit: 5);
+
+        context.ConversationHistory.Select(m => (m.Role, m.Content)).Should().Equal(
+            (LlmRole.User, "first"), (LlmRole.Assistant, "reply"), (LlmRole.User, "second"));
+        messages.Verify(r => r.GetRecentByThreadAsync(ThreadId, 3, It.IsAny<CancellationToken>()), Times.Once,
+            "the window is the configured size");
+        context.ExecutionContext.ChannelId.Should().Be(ThreadId, "a tool posting to the current channel posts in the thread");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ThreadTurn_ReplaysTheThreadsLoadedSkills()
+    {
+        var thread = new AssistantThread { ThreadId = ThreadId, GuildId = 42 };
+        thread.SetActiveSkillsList(new[] { "moderation" });
+        var skills = new StubSkillSessionFactory();
+        var (threads, messages) = ThreadRepos(thread);
+        var factory = BuildFactory(StubModelResolver(), skillSessions: skills, threads: threads.Object, threadMessages: messages.Object);
+
+        await factory.CreateAsync(ThreadRequest(), rateLimit: 5);
+
+        skills.LastPreActivatedKeys.Should().Equal("moderation");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ThreadTurn_WithNoThreadRow_FallsBackToASingleReply()
+    {
+        // The row was retained away, or the bot restarted mid-create: answer, do not refuse.
+        var (threads, messages) = ThreadRepos(null);
+        var factory = BuildFactory(StubModelResolver(), threads: threads.Object, threadMessages: messages.Object);
+
+        var context = await factory.CreateAsync(ThreadRequest(), rateLimit: 5);
+
+        context.ConversationHistory.Should().BeEmpty();
+        messages.Verify(r => r.GetRecentByThreadAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ThreadTurn_WithoutThreadRepositories_IsASingleReply()
+    {
+        var factory = BuildFactory(StubModelResolver());
+
+        var context = await factory.CreateAsync(ThreadRequest(), rateLimit: 5);
+
+        context.ConversationHistory.Should().BeEmpty();
+    }
+
+    #endregion
 
     [Fact]
     public async Task CreateAsync_PutsResolvedSlugAndPricing_OnCreatedContext()

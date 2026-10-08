@@ -1,4 +1,8 @@
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.DTOs.Llm;
+using DiscordBot.Core.Entities;
+using DiscordBot.Agents.Contracts;
+using DiscordBot.Agents.Contracts.Enums;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
@@ -24,6 +28,8 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
     private readonly AssistantOptions _options;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ISkillSessionFactory _skillSessions;
+    private readonly IAssistantThreadRepository? _threads;
+    private readonly IAssistantThreadMessageRepository? _threadMessages;
 
     public GuildAssistantContextFactory(
         IGuildService guildService,
@@ -36,7 +42,9 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         ILogger<GuildAssistantContext> logger,
         IOptions<AssistantOptions> options,
         ILlmUsageRecorder usageRecorder,
-        ISkillSessionFactory skillSessions)
+        ISkillSessionFactory skillSessions,
+        IAssistantThreadRepository? threads = null,
+        IAssistantThreadMessageRepository? threadMessages = null)
     {
         _guildService = guildService ?? throw new ArgumentNullException(nameof(guildService));
         _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
@@ -49,10 +57,13 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
         _skillSessions = skillSessions ?? throw new ArgumentNullException(nameof(skillSessions));
+        // Optional so a test or a host without thread support builds single-reply contexts only
+        _threads = threads;
+        _threadMessages = threadMessages;
     }
 
     /// <inheritdoc />
-    public async Task<IAssistantContext> CreateAsync(
+    public Task<IAssistantContext> CreateAsync(
         ulong guildId,
         ulong channelId,
         ulong userId,
@@ -61,8 +72,47 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         string question,
         bool callerCanMutate = false,
         CancellationToken cancellationToken = default)
+        => CreateAsync(
+            GuildAssistantRequest.SingleReply(guildId, channelId, userId, messageId, question, callerCanMutate),
+            rateLimit,
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IAssistantContext> CreateAsync(
+        GuildAssistantRequest request,
+        int rateLimit,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var guildId = request.GuildId;
         var resolved = await _modelResolver.ResolveAsync(LlmMode.GuildAssistant, cancellationToken);
+
+        // A thread turn: the thread row proves it is ours and carries the loaded skills; the recent
+        // turns seed the run. A request naming a thread this host cannot see (no repositories, or
+        // the row was retained away) is answered as a single reply rather than refused.
+        AssistantThread? thread = null;
+        var history = new List<LlmMessage>();
+        if (request.ThreadId is { } threadId && _threads is not null && _threadMessages is not null)
+        {
+            thread = await _threads.GetByThreadIdAsync(threadId, cancellationToken);
+            if (thread is not null)
+            {
+                var recent = await _threadMessages.GetRecentByThreadAsync(
+                    threadId, _options.Threads.MaxConversationMessages, cancellationToken);
+                history = recent
+                    .Select(m => new LlmMessage
+                    {
+                        Role = m.Role == "assistant" ? LlmRole.Assistant : LlmRole.User,
+                        Content = m.Content
+                    })
+                    .ToList();
+            }
+            else
+            {
+                _logger.LogDebug("Thread {ThreadId} has no assistant thread row; answering as a single reply", threadId);
+            }
+        }
 
         // Resolved once per run, then applied as a decorator: the guild's allow-list is shared by
         // every caller in the guild, so narrowing here still leaves one prompt-cache prefix per
@@ -75,19 +125,20 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         }
 
         // Built from the narrowed registry, so a skill can only ever un-hide a tool this guild is
-        // already allowed. Nothing is pre-activated: the guild assistant is single-turn, so there is
-        // no previous turn to replay and a skill costs a round every time it is used.
+        // already allowed. A single reply pre-activates nothing: there is no previous turn to
+        // replay, so a skill costs a round every time. A thread turn replays what the thread has
+        // loaded, which is what makes a skill cost one round per conversation there.
         var skills = await _skillSessions.CreateAsync(
-            _options.Tools.SkillsPath, registry, preActivatedKeys: null, cancellationToken);
+            _options.Tools.SkillsPath, registry, thread?.GetActiveSkillsList(), cancellationToken);
 
         return new GuildAssistantContext(
             guildId,
-            channelId,
-            userId,
-            messageId,
+            request.ChannelId,
+            request.UserId,
+            request.MessageId,
             rateLimit,
-            question,
-            callerCanMutate,
+            request.Question,
+            request.CallerCanMutate,
             registry,
             _guildService,
             _promptTemplate,
@@ -98,6 +149,10 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             resolved.Slug,
             resolved.Pricing,
             _usageRecorder,
-            skills);
+            skills,
+            thread,
+            history,
+            _threads,
+            _threadMessages);
     }
 }

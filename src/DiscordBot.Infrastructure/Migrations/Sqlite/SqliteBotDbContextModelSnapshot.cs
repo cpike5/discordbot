@@ -169,6 +169,11 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasColumnType("TEXT")
                         .HasDefaultValue("[]");
 
+                    b.Property<int>("ConversationMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -266,6 +271,9 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
 
+                    b.Property<long?>("ThreadId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("TEXT");
 
@@ -293,6 +301,88 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasDatabaseName("IX_AssistantInteractionLogs_UserId_Timestamp");
 
                     b.ToTable("AssistantInteractionLogs", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.AssistantThread", b =>
+                {
+                    b.Property<long>("ThreadId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ActiveSkills")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("[]");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ParentChannelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("StarterUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TurnCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("ThreadId");
+
+                    b.HasIndex("GuildId")
+                        .HasDatabaseName("IX_AssistantThreads_GuildId");
+
+                    b.HasIndex("LastActivityAt")
+                        .HasDatabaseName("IX_AssistantThreads_LastActivityAt");
+
+                    b.ToTable("AssistantThreads", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.AssistantThreadMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ThreadId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_AssistantThreadMessages_UserId");
+
+                    b.HasIndex("ThreadId", "Id")
+                        .HasDatabaseName("IX_AssistantThreadMessages_ThreadId_Id");
+
+                    b.ToTable("AssistantThreadMessages", (string)null);
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.AssistantUsageMetrics", b =>
@@ -3749,6 +3839,28 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("Guild");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.AssistantThread", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.AssistantThreadMessage", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.AssistantThread", "Thread")
+                        .WithMany()
+                        .HasForeignKey("ThreadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Thread");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.AssistantUsageMetrics", b =>

@@ -112,6 +112,11 @@ public class AssistantOptions
     /// </summary>
     public AssistantPrivacyOptions Privacy { get; set; } = new();
 
+    /// <summary>
+    /// Thread-mode settings: history window, turn cap, retention, auto-archive.
+    /// </summary>
+    public AssistantThreadOptions Threads { get; set; } = new();
+
     #endregion
 
     #region Obsolete Flat Forwarding Properties (backward-compatible binding)

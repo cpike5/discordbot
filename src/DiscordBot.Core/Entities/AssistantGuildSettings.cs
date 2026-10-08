@@ -38,6 +38,12 @@ public class AssistantGuildSettings
     public string EnabledTools { get; set; } = "[]";
 
     /// <summary>
+    /// How a mention is answered: one reply in the channel, or a thread the conversation continues
+    /// in. Defaults to a single reply so an existing guild's cost does not change.
+    /// </summary>
+    public Enums.AssistantConversationMode ConversationMode { get; set; } = Enums.AssistantConversationMode.SingleReply;
+
+    /// <summary>
     /// Timestamp when these settings were created (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; }

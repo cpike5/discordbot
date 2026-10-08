@@ -194,6 +194,18 @@ no skills and the loader is not advertised at all. The format and the authoring 
 | `DmAssistant:SkillsPath` | `docs/agents/skills/dm` | Where the DM assistant's skill files live. Blank disables skills for the DM assistant. |
 | `Assistant:Tools:SkillsPath` | `docs/agents/skills/guild` | Where the guild assistant's skill files live. Blank disables skills for the guild assistant. The directory ships empty. |
 
+### Guild assistant threads (`Assistant:Threads`)
+
+Thread mode (a mention opens a thread the conversation continues in; per guild, off by default via
+`AssistantGuildSettings.ConversationMode`) is governed by `AssistantThreadOptions`:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `Assistant:Threads:MaxConversationMessages` | `20` | How many of a thread's most recent turns (user and assistant together) seed the next turn. |
+| `Assistant:Threads:MaxTurnsPerThread` | `40` | Turns after which a thread is closed and later messages in it are ignored. |
+| `Assistant:Threads:HistoryRetentionDays` | `30` | Days of inactivity after which a thread and its turns are deleted by the daily retention sweep. `0` disables. |
+| `Assistant:Threads:AutoArchiveMinutes` | `1440` | How long Discord waits before archiving an idle assistant thread; mapped to the nearest duration Discord offers (60, 1440, 4320, 10080). |
+
 The cost is not the same on the two surfaces, and that is what decides where a skill belongs. The
 DM assistant is multi-turn: the turn that loads a skill pays a round, and the activation is replayed
 on every turn after it, so its tools are advertised from the first call and its instructions are

@@ -1,4 +1,5 @@
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.DTOs.Llm;
 using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Core.Interfaces;
@@ -10,22 +11,27 @@ namespace DiscordBot.Core.Interfaces;
 public interface IAssistantService
 {
     /// <summary>
-    /// Processes a user question and returns Claude's response.
+    /// Processes a question and returns the model's response. A request with a
+    /// <see cref="GuildAssistantRequest.ThreadId"/> continues that assistant thread: the run is
+    /// seeded with the thread's recent turns and the skills it loaded, and the turn is saved.
+    /// </summary>
+    /// <param name="request">Where the question was asked, by whom, and the text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result containing the response and metadata.</returns>
+    Task<AssistantResponseResult> AskQuestionAsync(GuildAssistantRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Processes a single-reply question. The same as
+    /// <see cref="AskQuestionAsync(GuildAssistantRequest, CancellationToken)"/> with no thread.
     /// </summary>
     /// <param name="guildId">Discord guild ID where the question was asked.</param>
     /// <param name="channelId">Discord channel ID where the question was asked.</param>
     /// <param name="userId">Discord user ID who asked the question.</param>
     /// <param name="messageId">Discord message ID of the question.</param>
     /// <param name="question">The user's question text.</param>
-    /// <param name="callerCanMutate">
-    /// Whether this caller may use tools that create or change data. Decided by the caller from the
-    /// user's Discord permissions — this layer has no Discord client — and consulted inside a
-    /// mutating tool rather than used to filter the advertised tool list, which would fragment the
-    /// prompt cache per permission level. Defaults to false: a caller that was never assessed gets
-    /// read-only access.
-    /// </param>
+    /// <param name="callerCanMutate">See <see cref="GuildAssistantRequest.CallerCanMutate"/>.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Result containing Claude's response and metadata.</returns>
+    /// <returns>Result containing the response and metadata.</returns>
     Task<AssistantResponseResult> AskQuestionAsync(
         ulong guildId,
         ulong channelId,

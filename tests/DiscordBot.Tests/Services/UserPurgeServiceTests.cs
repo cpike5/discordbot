@@ -574,6 +574,26 @@ public class UserPurgeServiceTests : IDisposable
             Date = DateTime.UtcNow.Date
         });
 
+        // An assistant thread this user started, with a turn of theirs and a turn of someone else's
+        const ulong otherUserId = 912345679UL;
+        _context.AssistantThreads.Add(new AssistantThread
+        {
+            ThreadId = 500000000UL,
+            GuildId = guildId,
+            ParentChannelId = 222222222UL,
+            StarterUserId = discordUserId,
+            CreatedAt = DateTime.UtcNow,
+            LastActivityAt = DateTime.UtcNow
+        });
+        _context.AssistantThreadMessages.Add(new AssistantThreadMessage
+        {
+            ThreadId = 500000000UL, UserId = discordUserId, Role = "user", Content = "mine", Timestamp = DateTime.UtcNow
+        });
+        _context.AssistantThreadMessages.Add(new AssistantThreadMessage
+        {
+            ThreadId = 500000000UL, UserId = otherUserId, Role = "user", Content = "theirs", Timestamp = DateTime.UtcNow
+        });
+
         await _context.SaveChangesAsync();
 
         // Act
@@ -581,6 +601,10 @@ public class UserPurgeServiceTests : IDisposable
 
         // Assert
         result.Success.Should().BeTrue();
+        result.DeletedCounts["AssistantThreadMessages"].Should().Be(1);
+        (await _context.AssistantThreadMessages.CountAsync(m => m.ThreadId == 500000000UL)).Should().Be(1, "the other member's turn stays");
+        (await _context.AssistantThreads.AsNoTracking().SingleAsync(t => t.ThreadId == 500000000UL)).StarterUserId
+            .Should().Be(0, "the thread belongs to the guild; only the pointer at this person goes");
         result.DeletedCounts["LlmUsageRecords"].Should().Be(1);
         result.DeletedCounts["AssistantInteractionLogs"].Should().Be(1);
         result.DeletedCounts["DmAssistantInteractionLogs"].Should().Be(1);
