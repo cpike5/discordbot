@@ -408,14 +408,6 @@ public class WelcomeService : IWelcomeService
     }
 
     /// <summary>
-    /// Replaces template variables in the message with actual values.
-    /// Supported variables: {user}, {username}, {server}, {membercount}
-    /// </summary>
-    /// <param name="template">The message template with variables.</param>
-    /// <param name="guild">The Discord guild.</param>
-    /// <param name="user">The Discord user.</param>
-    /// <returns>The message with template variables replaced.</returns>
-    /// <summary>
     /// Sends the plain-text welcome. The text is an admin template filled with member-controlled values
     /// (<c>{username}</c>), so mentions are limited to users (<see cref="SafeMentions.UsersOnly"/>): the
     /// joiner's <c>{user}</c> mention still pings, <c>@everyone</c>, <c>@here</c> and roles do not.
@@ -423,6 +415,14 @@ public class WelcomeService : IWelcomeService
     internal static Task<IUserMessage> SendPlainTextAsync(IMessageChannel channel, string message)
         => channel.SendMessageAsync(message, allowedMentions: SafeMentions.UsersOnly);
 
+    /// <summary>
+    /// Replaces template variables in the message with actual values.
+    /// Supported variables: {user}, {username}, {server}, {membercount}
+    /// </summary>
+    /// <param name="template">The message template with variables.</param>
+    /// <param name="guild">The Discord guild.</param>
+    /// <param name="user">The Discord user.</param>
+    /// <returns>The message with template variables replaced.</returns>
     private static string ReplaceTemplateVariables(string template, SocketGuild guild, SocketGuildUser user)
     {
         return template

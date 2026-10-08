@@ -292,6 +292,14 @@ public class RatWatchExecutionService : MonitoredBackgroundService
     }
 
     /// <summary>
+    /// Posts the voting message. It quotes the accuser's custom message, so mentions are limited to users
+    /// (<see cref="SafeMentions.UsersOnly"/>): the accused is still pinged, <c>@everyone</c>, <c>@here</c>
+    /// and roles in the quote are not.
+    /// </summary>
+    internal static Task<IUserMessage> SendVotingMessageAsync(IMessageChannel channel, string content, MessageComponent components)
+        => channel.SendMessageAsync(content, allowedMentions: SafeMentions.UsersOnly, components: components);
+
+    /// <summary>
     /// Posts the voting message to Discord with voting buttons.
     /// </summary>
     /// <param name="watchId">The Rat Watch ID.</param>
@@ -302,14 +310,6 @@ public class RatWatchExecutionService : MonitoredBackgroundService
     /// <param name="customMessage">Optional custom message.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>True if successful, false otherwise.</returns>
-    /// <summary>
-    /// Posts the voting message. It quotes the accuser's custom message, so mentions are limited to users
-    /// (<see cref="SafeMentions.UsersOnly"/>): the accused is still pinged, <c>@everyone</c>, <c>@here</c>
-    /// and roles in the quote are not.
-    /// </summary>
-    internal static Task<IUserMessage> SendVotingMessageAsync(IMessageChannel channel, string content, MessageComponent components)
-        => channel.SendMessageAsync(content, allowedMentions: SafeMentions.UsersOnly, components: components);
-
     private async Task<bool> PostVotingMessageAsync(
         Guid watchId,
         ulong guildId,
