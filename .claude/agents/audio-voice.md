@@ -14,7 +14,7 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Entities:** `Sound`, `SoundPlayLog`, `GuildAudioSettings`
 - **Services:** `SoundService`, `SoundCacheService`, `SoundFileService`, `SoundboardOrchestrationService`, `PlaybackService` (918 lines), `AudioService`, `AudioCacheCleanupService`
 - **Commands:** `SoundboardModule`, `VoiceModule` (join/leave)
-- **Controllers:** `SoundsController`, `AudioController`, `PortalSoundboardController`
+- **Controllers:** `SoundsController`, `AudioController`, `PortalSoundboard{Sounds,Categories,Favorites,Playback}Controller` (base `PortalSoundboardControllerBase`)
 - **Pages:** `Guilds/Soundboard/Index.cshtml` (+ `_SoundsList.cshtml`; script `wwwroot/js/soundboard-admin.js`, sort via `ajax-sort.js`), `Portal/Soundboard/Index.cshtml`; also `Guilds/AudioSettings` (`audio-settings.js`, one `SaveAll` handler) and `Guilds/AudioModerationLog`
 - **Config:** `SoundboardOptions`, `AudioCacheOptions`
 - **Member portal access:** portal pages, `PortalGuildMemberAuthorizationHandler` and the portal playback
@@ -80,7 +80,7 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Charge on accepted playback, not on completion.** A sound someone skips half way through is
   still paid for. Anything added between the hold and `PlaybackService.PlayAsync` must leave via a
   `return` or a throw so the `finally` releases the hold — never swallow a failure and carry on.
-- **Portal pages** use separate controllers (PortalSoundboardController, PortalTtsController, PortalVoxController)
+- **Portal pages** use separate controllers (`PortalSoundboard*Controller`, `PortalTts{Synthesis,Playback,Presets,History}Controller`, `PortalVoxController`)
 - **Portal members have no Identity role:** `/api/guilds/{id}/audio/*` and the `DashboardHub` (`RequireViewer`) refuse them,
   and the Viewer role is never granted to members (D10). The voice panel takes `VoiceChannelPanelViewModel.ApiBase`
   (`/api/portal/soundboard/{guildId}`) and reads `GET .../status` for the truth about voice state; portal pages leave the hub

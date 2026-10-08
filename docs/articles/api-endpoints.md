@@ -6299,12 +6299,10 @@ The API includes interactive Swagger/OpenAPI documentation for testing endpoints
 
 ## Rate Limiting
 
-**Current Status:** Not implemented in MVP
-
-**Future Considerations:**
-- Per-IP rate limiting for API endpoints
-- Separate rate limits for read vs write operations
-- Rate limit headers in responses (`X-RateLimit-Limit`, `X-RateLimit-Remaining`)
+The member-portal soundboard upload and play endpoints have per-user fixed-window limits
+(`PortalRateLimit` options, `RateLimitingServiceExtensions`; defaults 10 uploads and 30 plays per 60 seconds).
+The partition key is the Discord user id, then the Identity id, then the IP address. Over the limit the call
+gets **429** with a problem body and a `Retry-After` header. No other endpoint is rate limited.
 
 ---
 
@@ -7083,6 +7081,38 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-mess
 ```
 
 ---
+
+## Analytics API
+
+`api/analytics/{guildId}/...` — guild analytics for the Analytics pages. Policies: `RequireViewer` and `GuildAccess`. All are `GET`.
+
+| Route suffix | Returns |
+|---|---|
+| `summary`, `activity`, `channels`, `growth` | Command and member activity overview |
+| `server/summary`, `server/activity`, `server/heatmap`, `server/contributors` | Server activity analytics |
+| `moderation/summary`, `moderation/trends`, `moderation/distribution`, `moderation/offenders`, `moderation/workload` | Moderation analytics |
+| `engagement/summary`, `engagement/messages`, `engagement/retention` | Engagement analytics |
+
+## Preview API
+
+`api/preview/...` — data for hover preview popups. Policy: `RequireViewer`.
+
+| Method and route | Extra policy | Returns |
+|---|---|---|
+| `GET users/{userId}` | — | User preview |
+| `GET users/{userId}/guild/{guildId}` | `GuildAccess` | User preview with guild membership details |
+| `GET guilds/{guildId}` | `GuildAccess` | Guild preview |
+
+## Member Portal Preferences API
+
+`api/portal/preferences/{guildId}` — per-user, per-guild portal preferences. Policy: `PortalGuildMember`.
+
+| Method and route | Action |
+|---|---|
+| `GET` | All preferences for the caller in the guild |
+| `GET {key}` | One preference |
+| `PUT {key}` | Set one preference |
+| `DELETE {key}` | Remove one preference |
 
 ## Autocomplete API
 

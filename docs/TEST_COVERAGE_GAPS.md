@@ -1,7 +1,7 @@
 # Test Coverage Gaps & Recommended Minimum Cases
 
 **Date:** 2026-04-01
-**Current state:** 3,216 tests across 182 files. Existing tests are high quality (xUnit, Moq, FluentAssertions, AAA pattern, strong isolation). The gap is breadth, not depth.
+**Current state (refreshed 2026-10-08):** about 5,750 tests across about 340 files. The command-module section below is still accurate: only `ConsentModule` and (since the October review fixes) part of `ScheduleModule` have direct tests. Existing tests are high quality (xUnit, Moq, FluentAssertions, AAA pattern, strong isolation). The gap is breadth, not depth.
 
 ---
 

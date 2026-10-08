@@ -6,7 +6,7 @@ on-demand skills, per-tool specs, and a behavioural eval suite). The goal is not
 architecture wholesale: it is to identify what is currently *blocking capability expansion here*
 and propose the smallest set of changes that unblocks it.
 
-**Status**: proposed. Nothing in this document is implemented. The concrete code changes behind
+**Status**: largely implemented (tool contracts, `IAgentTool` scan, timeouts, result caps, skills, evals). Still open as of 2026-10-08: the `section` argument for `get_feature_documentation`, rolling cache markers, and archiving `assistant-tool-catalog.md`. The original note follows: The concrete code changes behind
 it are in [docs/specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md);
 the order the whole overhaul runs in — including the library extraction — is in
 [docs/plans/agent-groundwork-overhaul.md](./agent-groundwork-overhaul.md), which supersedes the

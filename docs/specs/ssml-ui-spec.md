@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Created:** 2026-01-27
 **Target:** TTS Portal (`/Portal/TTS/{guildId}`)
-**Status:** Draft
+**Status:** Implemented (guild Audio Settings page, `audio-settings.js`)
 
 ---
 

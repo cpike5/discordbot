@@ -64,7 +64,7 @@ Reminder ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
 **Response Fields:**
-- **Trigger Time** - Parsed timestamp in user's timezone with relative time
+- **Trigger Time** - Parsed timestamp (UTC) with relative time
 - **Message** - Echo of the reminder message
 - **Reminder ID** - Unique identifier for cancellation
 
@@ -192,7 +192,7 @@ Message: Meeting with team
 
 ## Time Format Reference
 
-The reminder system supports multiple natural language time formats for user convenience. Times are parsed relative to the guild's configured timezone (defaults to UTC if not set).
+The reminder system supports multiple natural language time formats for user convenience. Times are parsed in UTC. Per-user and per-guild time zones are not implemented yet (see `docs/plans/codebase-review-fixes-2026-10.md`, D7).
 
 ### Supported Formats
 
@@ -234,7 +234,7 @@ Relative times are calculated from the current UTC time.
 
 #### Absolute Time (12-Hour)
 
-Times specified in 12-hour format are interpreted in the guild's timezone. If the time has already passed today, it is scheduled for tomorrow.
+Times specified in 12-hour format are interpreted in UTC. If the time has already passed today, it is scheduled for tomorrow.
 
 **Examples:**
 - `10pm` → 10:00 PM today (or tomorrow if past)
@@ -251,7 +251,7 @@ Times specified in 12-hour format are interpreted in the guild's timezone. If th
 
 #### Absolute Time (24-Hour)
 
-Times specified in 24-hour format are interpreted in the guild's timezone. If the time has already passed today, it is scheduled for tomorrow.
+Times specified in 24-hour format are interpreted in UTC. If the time has already passed today, it is scheduled for tomorrow.
 
 **Examples:**
 - `22:00` → 10:00 PM today (or tomorrow if past)
@@ -315,7 +315,7 @@ Full date and time specifications using ISO 8601 or common formats.
 
 **Rules:**
 - Uses .NET's `DateTime.TryParse()` for flexible parsing
-- Interpreted in guild's timezone
+- Interpreted in UTC
 - Supports various date formats based on server culture
 - Year is required
 
@@ -549,12 +549,12 @@ Design documents are available in the `docs/designs/` directory:
 **Symptom:** Reminder scheduled for wrong time
 
 **Possible Causes:**
-1. Guild timezone not configured (defaults to UTC)
+1. The time was meant as local time; reminder times are always UTC
 2. Ambiguous time format (e.g., "10:00" interpreted as AM instead of PM)
 3. Time input uses unexpected format
 
 **Solutions:**
-- Configure guild timezone in guild settings
+- Give the time in UTC, or as a relative time ("in 2 hours")
 - Use explicit 12-hour format with AM/PM (e.g., "10pm" instead of "22:00")
 - Use ISO 8601 format for unambiguous parsing (e.g., "2024-12-31 22:00")
 - Check confirmation embed to verify parsed time before confirming

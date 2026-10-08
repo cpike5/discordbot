@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Created:** 2025-12-27
 **Issue:** [#319 - Date/Time Locale Issues](https://github.com/cpike5/discordbot/issues/319)
-**Status:** Draft
+**Status:** Implemented (scheduled message Create/Edit pages)
 
 ---
 

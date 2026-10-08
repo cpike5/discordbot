@@ -52,8 +52,8 @@ C4Container
 
     System_Boundary(botSystem, "Discord Bot Application") {
         Container(gateway, "Discord Gateway Client", "Discord.Net 3.19", "Manages WebSocket connection, receives events, dispatches slash commands")
-        Container(web, "Web Portal", "ASP.NET Core, Razor Pages, Tailwind CSS", "Admin dashboard, guild management, member portal with HTMX/Alpine.js")
-        Container(api, "REST API Controllers", "ASP.NET Core MVC", "30+ controllers serving AJAX/HTMX backends")
+        Container(web, "Web Portal", "ASP.NET Core, Razor Pages, Tailwind CSS", "Admin dashboard, guild management, member portal with per-page JavaScript modules and SignalR")
+        Container(api, "REST API Controllers", "ASP.NET Core MVC", "40+ controllers serving the pages' fetch calls")
         Container(services, "Application Services", "C# / DI", "Business logic, moderation, scheduling, audio orchestration, AI assistants (guild + DM)")
         Container(bgServices, "Background Services", "IHostedService", "25+ hosted services for scheduling, aggregation, cleanup, metrics")
         Container(signalr, "SignalR Hub", "ASP.NET Core SignalR", "Real-time dashboard updates, notifications, audio status")
@@ -68,7 +68,7 @@ C4Container
     Rel(discord, gateway, "Events", "WebSocket")
     Rel(gateway, discord, "Responses", "REST")
     Rel(admin, web, "Manages", "HTTPS")
-    Rel(web, api, "Calls", "HTTP / HTMX")
+    Rel(web, api, "Calls", "HTTP (fetch)")
     Rel(api, services, "Delegates to")
     Rel(gateway, services, "Delegates to")
     Rel(services, db, "Reads/Writes", "EF Core")
@@ -343,7 +343,7 @@ flowchart TD
     subgraph endpoints["Endpoint Types"]
         direction TB
         razor["Razor Pages\nAdmin dashboard, guild pages"]
-        apiCtrl["API Controllers\nAJAX/HTMX backends"]
+        apiCtrl["API Controllers\nfetch backends"]
         signalr["SignalR Hub\nDashboardHub"]
         swagger["Swagger UI\nOpenAPI docs"]
     end

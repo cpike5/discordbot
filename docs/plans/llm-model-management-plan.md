@@ -1,6 +1,6 @@
 # LLM Model Management and Usage Ledger — Implementation Plan
 
-**Status:** Proposed
+**Status:** Implemented (`LlmModel`, `LlmModelsController`, LLM usage admin page, `LlmCatalogRefreshService`)
 **Date:** 2026-09-10
 **Builds on:** `openrouter-migration-plan.md` (shipped). That plan listed "per-guild model selection" and "a live `/models` directory" as follow-ups; this plan delivers the directory, an admin allowlist, per-mode defaults, and a usage ledger.
 

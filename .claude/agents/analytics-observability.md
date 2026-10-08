@@ -30,7 +30,7 @@ You are a domain expert for the **Analytics & Observability** stream of a Discor
 ### Health & Status
 - **Interfaces:** `IBotStatusService`, `IConnectionStateService`, `IBackgroundServiceHealth`, `IBackgroundServiceHealthRegistry`, `ILatencyHistoryService`, `ICpuHistoryService`, `IMemoryDiagnosticsService`
 - **Services:** `BotStatusService`, `ConnectionStateService`, `LatencyHistoryService`, `CpuHistoryService`, `CpuSamplingService`, `BackgroundServiceHealthRegistry`, `MemoryDiagnosticsService`
-- **Controller:** `HealthController`
+- **Health endpoint:** `/health`, mapped by `Extensions/HealthCheckExtensions.cs` (`DatabaseHealthCheck`, `DiscordGatewayHealthCheck`); there is no health controller
 
 ### Real-Time Broadcasting
 - **SignalR Hub:** `DashboardHub` (Bot/Hubs/) — kept as a single hub/URL so the JS client (`wwwroot/js/dashboard-hub.js` etc.) and all `IHubContext<DashboardHub>` broadcasters keep working unchanged. The hub itself is now thin: it owns only connection/group lifecycle (Join/LeaveGuildGroup, Alerts/Performance/SystemHealth/BulkPurge/GuildAudio groups, OnConnected/OnDisconnected) and the authenticated-user short-circuit for notification methods. Everything else is delegated to per-feature services in `Bot/Services/Dashboard/`:

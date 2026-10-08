@@ -1,7 +1,7 @@
 # Soundboard Export Feature Specification
 
 **Version:** 1.0
-**Status:** Draft
+**Status:** Implemented (export endpoint in `SoundsController`)
 **Target Release:** v0.18.0
 
 ## Overview
