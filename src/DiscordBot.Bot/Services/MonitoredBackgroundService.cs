@@ -49,6 +49,7 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
         _healthRegistry = _serviceProvider.GetService<IBackgroundServiceHealthRegistry>();
         _healthRegistry?.Register(ServiceName, this);
 
+        var faulted = false;
         try
         {
             _status = "Running";
@@ -62,16 +63,24 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
         }
         catch (Exception ex)
         {
+            // The host is configured with BackgroundServiceExceptionBehavior.Ignore
+            // (ApplicationServiceExtensions), so this exception ends only this service. It stays
+            // registered with status "Error" so the health registry reports the bot Unhealthy
+            // instead of the service silently disappearing.
+            faulted = true;
             _lastError = ex.Message;
             _status = "Error";
-            _logger.LogError(ex, "{ServiceName} encountered a fatal error", ServiceName);
+            _logger.LogError(ex, "{ServiceName} encountered a fatal error and has stopped; it stays in health monitoring as Error", ServiceName);
             throw;
         }
         finally
         {
-            _status = "Stopped";
-            _healthRegistry?.Unregister(ServiceName);
-            _logger.LogInformation("{ServiceName} stopped and unregistered from health monitoring", ServiceName);
+            if (!faulted)
+            {
+                _status = "Stopped";
+                _healthRegistry?.Unregister(ServiceName);
+                _logger.LogInformation("{ServiceName} stopped and unregistered from health monitoring", ServiceName);
+            }
         }
     }
 
