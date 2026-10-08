@@ -166,6 +166,11 @@ embed `ModLogEmbeds.ForCase` builds (colour by type, user, moderator or "Auto-mo
 duration and expiry, context jump link, a "View in portal" button to the member's moderation page)
 and swallows every failure, warning once an hour per guild when the channel is gone or refuses the
 bot. `ModLogSettings` validates the channel and the kinds for both the settings page and the API.
+`AutoModerationHandler` posts on the same seam: one post per detection, the automatic action when
+one ran (`AutoActionAsync`, with whether Discord accepted it), else the event when it is High or
+Critical (`FlaggedEventAsync`); both carry the Dismiss, Acknowledge and Take Action buttons that
+`FlaggedEventComponentModule` answers. The handler's old channel-name lookup (`mod-log`,
+`mod-alert`) is gone; the settings page offers such a channel with a "Use it" button instead.
 User guide: `docs/articles/mod-log-channel.md`.
 
 ---

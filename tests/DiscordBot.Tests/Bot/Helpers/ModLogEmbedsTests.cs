@@ -2,6 +2,7 @@ using Discord;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Extensions;
 using FluentAssertions;
 
 namespace DiscordBot.Tests.Bot.Helpers;
@@ -151,4 +152,98 @@ public class ModLogEmbedsTests
         button.Style.Should().Be(ButtonStyle.Link);
         button.Url.Should().Be("https://bot.example/Guilds/100/Members/300/Moderation");
     }
+
+    #region Flagged events and automatic actions
+
+    private static FlaggedEventDto Flagged(Severity severity = Severity.High) => new()
+    {
+        Id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+        GuildId = 100,
+        UserId = 300,
+        ChannelId = 55,
+        RuleType = RuleType.Spam,
+        Severity = severity,
+        Description = "5 messages in 5 seconds",
+        CreatedAt = new DateTime(2026, 10, 8, 12, 0, 0, DateTimeKind.Utc)
+    };
+
+    [Theory]
+    [InlineData(Severity.Low)]
+    [InlineData(Severity.Medium)]
+    [InlineData(Severity.High)]
+    [InlineData(Severity.Critical)]
+    public void ForFlaggedEvent_ColoursBySeverity_AndNamesTheRule(Severity severity)
+    {
+        var embed = ModLogEmbeds.ForFlaggedEvent(Flagged(severity), ModLogFlaggedContext.None);
+
+        embed.Color.Should().Be(ModLogEmbeds.ColorFor(severity));
+        embed.Title.Should().StartWith("Auto-mod flagged:");
+        embed.Description.Should().Be("5 messages in 5 seconds");
+        Field(embed, "User").Value.Should().Be("<@300> (300)");
+        Field(embed, "Severity").Value.Should().Be(severity.DisplayName());
+        Field(embed, "Channel").Value.Should().Be("<#55>");
+        embed.Footer!.Value.Text.Should().Contain("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    }
+
+    [Fact]
+    public void ForFlaggedEvent_WithMessage_QuotesItWithinTheFieldLimit()
+    {
+        var context = new ModLogFlaggedContext(MessageContent: new string('m', 2000));
+
+        var embed = ModLogEmbeds.ForFlaggedEvent(Flagged(), context);
+
+        Field(embed, "Message").Value.Length.Should().BeLessThanOrEqualTo(1024);
+    }
+
+    [Fact]
+    public void ForFlaggedEvent_JoinEvent_ShowsAccountAgeAndJoinTime()
+    {
+        var created = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var joined = new DateTimeOffset(2026, 10, 8, 11, 59, 0, TimeSpan.Zero);
+        var dto = Flagged();
+        dto.ChannelId = null;
+
+        var embed = ModLogEmbeds.ForFlaggedEvent(dto, new ModLogFlaggedContext(AccountCreatedAt: created, JoinedAt: joined));
+
+        Field(embed, "Account created").Value.Should().Be($"<t:{created.ToUnixTimeSeconds()}:R>");
+        Field(embed, "Joined").Value.Should().Be($"<t:{joined.ToUnixTimeSeconds()}:R>");
+        embed.Fields.Should().NotContain(f => f.Name == "Channel");
+        embed.Fields.Should().NotContain(f => f.Name == "Message");
+    }
+
+    [Fact]
+    public void ForAutoAction_Succeeded_LeadsWithTheAction()
+    {
+        var embed = ModLogEmbeds.ForAutoAction(Flagged(), AutoAction.Mute, succeeded: true, ModLogFlaggedContext.None);
+
+        embed.Title.Should().Be("Auto-mod muted: " + RuleType.Spam.DisplayName());
+        embed.Fields[0].Name.Should().Be("Action");
+        embed.Fields[0].Value.Should().Be("Muted for 1 hour");
+        embed.Color.Should().Be(ModLogEmbeds.ColorFor(Severity.High));
+    }
+
+    [Fact]
+    public void ForAutoAction_Failed_SaysSoAndGoesGrey()
+    {
+        var embed = ModLogEmbeds.ForAutoAction(Flagged(), AutoAction.Ban, succeeded: false, ModLogFlaggedContext.None);
+
+        Field(embed, "Action").Value.Should().Contain("Banned").And.Contain("failed");
+        embed.Color.Should().Be(Color.DarkGrey);
+    }
+
+    [Fact]
+    public void FlaggedEventComponents_AreTheThreeReviewButtons_TheComponentModuleAnswers()
+    {
+        var id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+        var row = ModLogEmbeds.FlaggedEventComponents(id).Components.Single().Should().BeOfType<ActionRowComponent>().Subject;
+        var ids = row.Components.Cast<ButtonComponent>().Select(b => b.CustomId).ToList();
+
+        ids.Should().Equal(
+            "automod:dismiss:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "automod:ack:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "automod:action:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    }
+
+    #endregion
 }

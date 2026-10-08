@@ -98,4 +98,60 @@ public class ModLogNotifierTests
         (await act.Should().NotThrowAsync()).Which.Should().BeNull();
         _logger.Invocations.Should().Contain(i => (LogLevel)i.Arguments[0] == LogLevel.Error);
     }
+
+    private static FlaggedEventDto Flagged() => new()
+    {
+        Id = Guid.NewGuid(),
+        GuildId = GuildId,
+        UserId = 300,
+        RuleType = RuleType.Spam,
+        Severity = Severity.High,
+        CreatedAt = DateTime.UtcNow
+    };
+
+    [Fact]
+    public async Task FlaggedEvent_KindDisabled_PostsNothing()
+    {
+        ConfigReturns(555, ModLogEventKinds.Cases | ModLogEventKinds.AutoActions);
+
+        var result = await _notifier.FlaggedEventAsync(Flagged(), ModLogFlaggedContext.None);
+
+        result.Should().BeNull();
+        _logger.Invocations.Should().NotContain(i => (LogLevel)i.Arguments[0] >= LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task AutoAction_KindDisabled_PostsNothing()
+    {
+        ConfigReturns(555, ModLogEventKinds.Cases | ModLogEventKinds.FlaggedEvents);
+
+        var result = await _notifier.AutoActionAsync(Flagged(), AutoAction.Delete, true, ModLogFlaggedContext.None);
+
+        result.Should().BeNull();
+        _logger.Invocations.Should().NotContain(i => (LogLevel)i.Arguments[0] >= LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task FlaggedEvent_NoChannelConfigured_PostsNothing_EvenThoughAChannelMayBeNamedModLog()
+    {
+        // The name heuristic is gone: only the configured channel counts.
+        ConfigReturns(null, ModLogEventKinds.All);
+
+        var result = await _notifier.FlaggedEventAsync(Flagged(), ModLogFlaggedContext.None);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AutoAction_ConfigLookupThrows_IsSwallowedAndLogged()
+    {
+        _configService
+            .Setup(s => s.GetConfigAsync(GuildId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var act = () => _notifier.AutoActionAsync(Flagged(), AutoAction.Kick, true, ModLogFlaggedContext.None);
+
+        (await act.Should().NotThrowAsync()).Which.Should().BeNull();
+        _logger.Invocations.Should().Contain(i => (LogLevel)i.Arguments[0] == LogLevel.Error);
+    }
 }

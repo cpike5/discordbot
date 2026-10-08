@@ -77,6 +77,109 @@ public static class ModLogEmbeds
     public static string PortalCaseUrl(ModerationCaseDto moderationCase, string baseUrl)
         => $"{baseUrl.TrimEnd('/')}/Guilds/{moderationCase.GuildId}/Members/{moderationCase.TargetUserId}/Moderation";
 
+    /// <summary>
+    /// The embed for a flagged event auto-moderation raised and did not act on: what rule, how
+    /// severe, who, where, and the message or account details behind it.
+    /// </summary>
+    public static Embed ForFlaggedEvent(FlaggedEventDto flaggedEvent, ModLogFlaggedContext context)
+        => FlaggedEventBuilder(flaggedEvent, context)
+            .WithTitle($"Auto-mod flagged: {flaggedEvent.RuleType.DisplayName()}")
+            .WithColor(ColorFor(flaggedEvent.Severity))
+            .Build();
+
+    /// <summary>
+    /// The embed for an action auto-moderation took on its own. Same body as the flagged event, with
+    /// the action and whether it went through on top, so one event never posts twice.
+    /// </summary>
+    public static Embed ForAutoAction(FlaggedEventDto flaggedEvent, AutoAction action, bool succeeded, ModLogFlaggedContext context)
+    {
+        var builder = FlaggedEventBuilder(flaggedEvent, context)
+            .WithTitle($"Auto-mod {ActionVerb(action)}: {flaggedEvent.RuleType.DisplayName()}")
+            .WithColor(succeeded ? ColorFor(flaggedEvent.Severity) : Color.DarkGrey);
+
+        builder.Fields.Insert(0, new EmbedFieldBuilder()
+            .WithName("Action")
+            .WithValue(succeeded ? ActionLabel(action) : $"{ActionLabel(action)} (failed; see the bot log)")
+            .WithIsInline(true));
+
+        return builder.Build();
+    }
+
+    /// <summary>
+    /// The review buttons under a flagged event or an automatic action. The custom ids are the ones
+    /// <c>FlaggedEventComponentModule</c> answers; change them together.
+    /// </summary>
+    public static MessageComponent FlaggedEventComponents(Guid eventId)
+        => new ComponentBuilder()
+            .WithButton("Dismiss", $"automod:dismiss:{eventId}", ButtonStyle.Secondary)
+            .WithButton("Acknowledge", $"automod:ack:{eventId}", ButtonStyle.Primary)
+            .WithButton("Take Action", $"automod:action:{eventId}", ButtonStyle.Danger)
+            .Build();
+
+    private static EmbedBuilder FlaggedEventBuilder(FlaggedEventDto flaggedEvent, ModLogFlaggedContext context)
+    {
+        var builder = new EmbedBuilder()
+            .WithDescription(string.IsNullOrWhiteSpace(flaggedEvent.Description) ? null : flaggedEvent.Description)
+            .AddField("User", $"<@{flaggedEvent.UserId}> ({flaggedEvent.UserId})", inline: true)
+            .AddField("Severity", flaggedEvent.Severity.DisplayName(), inline: true)
+            .WithFooter($"Event {flaggedEvent.Id}")
+            .WithTimestamp(new DateTimeOffset(DateTime.SpecifyKind(flaggedEvent.CreatedAt, DateTimeKind.Utc)));
+
+        if (flaggedEvent.ChannelId.HasValue)
+        {
+            builder.AddField("Channel", $"<#{flaggedEvent.ChannelId}>", inline: true);
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.MessageContent))
+        {
+            builder.AddField("Message", TextDisplay.Truncate(context.MessageContent, MaxReasonLength));
+        }
+
+        if (context.AccountCreatedAt.HasValue)
+        {
+            builder.AddField("Account created", $"<t:{context.AccountCreatedAt.Value.ToUnixTimeSeconds()}:R>", inline: true);
+        }
+
+        if (context.JoinedAt.HasValue)
+        {
+            builder.AddField("Joined", $"<t:{context.JoinedAt.Value.ToUnixTimeSeconds()}:R>", inline: true);
+        }
+
+        return builder;
+    }
+
+    /// <summary>Past-tense verb for the title of an automatic action.</summary>
+    public static string ActionVerb(AutoAction action) => action switch
+    {
+        AutoAction.Delete => "deleted a message",
+        AutoAction.Warn => "warned",
+        AutoAction.Mute => "muted",
+        AutoAction.Kick => "kicked",
+        AutoAction.Ban => "banned",
+        _ => "acted"
+    };
+
+    /// <summary>Short label for the Action field of an automatic action.</summary>
+    public static string ActionLabel(AutoAction action) => action switch
+    {
+        AutoAction.Delete => "Message deleted",
+        AutoAction.Warn => "Warning",
+        AutoAction.Mute => "Muted for 1 hour",
+        AutoAction.Kick => "Kicked",
+        AutoAction.Ban => "Banned",
+        _ => action.ToString()
+    };
+
+    /// <summary>Embed colour by severity, the same scale the automod alert used.</summary>
+    public static Color ColorFor(Severity severity) => severity switch
+    {
+        Severity.Low => Color.Blue,
+        Severity.Medium => Color.Gold,
+        Severity.High => Color.Orange,
+        Severity.Critical => Color.Red,
+        _ => Color.Default
+    };
+
     /// <summary>Embed colour by case type: severity reads at a glance in a busy channel.</summary>
     public static Color ColorFor(CaseType type) => type switch
     {
