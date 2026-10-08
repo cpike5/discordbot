@@ -88,3 +88,8 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
   membership check inside `JoinGuildAudioGroup`
 - **Portal error text:** controllers answer with sentences a member can act on; never put `ex.Message` in `Detail` (C-7)
 - **Rate limiting:** VOX commands: 5 per 10 seconds
+- **One playback loop per guild.** `PlaybackService` starts a loop only when `LoopRunning` is false, set and cleared under the guild lock. Do not decide that from `IsPlaying`: two queued `PlayAsync` calls both saw it false and started two loops.
+- **Queue positions are 1-based** in the broadcast, the panel and `DELETE api/guilds/{guildId}/audio/queue/{position}`; position 0 means "skip the sound that is playing".
+- **TTS stop tokens are owned per request.** Use `ITtsSendPipeline.BeginPlaybackAsync`/`EndPlayback`; `EndPlayback` removes the token only if it is still that request's. SSML play-live registers one too, so Stop works and TTS sends and SSML play-live cancel each other.
+- **On cancel, `AudioStreamer` kills FFmpeg** instead of flushing and waiting for stderr; a normal end waits at most 5 s and reads `ExitCode` only after exit.
+- **`/join-channel` is moderator-only.** Members use `/join`, which brings the bot to the caller's own channel. `/leave` still has no precondition.

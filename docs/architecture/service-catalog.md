@@ -96,6 +96,7 @@ Services for Azure Cognitive Services TTS and SSML generation.
 | Service | Location | Purpose |
 |---------|----------|---------|
 | `ITtsService` | Core Interfaces | Text-to-speech conversion using Azure Cognitive Services |
+| `TtsSendPipeline` | Bot/Services/Tts | Shared TTS send flow for the portal and admin pages; owns per-guild playback state and stop tokens. `BeginPlaybackAsync`/`EndPlayback` register and release a request's token, and a request only ever removes its own |
 | `AzureTtsService` | Bot/Services | Azure TTS implementation with caching and error handling |
 | `ITtsPlaybackService` | Bot Interfaces | TTS playback orchestration: PCM streaming, duration calculation, history logging, and observability |
 | `ITtsSettingsService` | Core Interfaces | Guild-level TTS configuration (voices, styles, rates) |

@@ -7103,6 +7103,17 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-mess
 | `GET users/{userId}/guild/{guildId}` | `GuildAccess` | User preview with guild membership details |
 | `GET guilds/{guildId}` | `GuildAccess` | Guild preview |
 
+## Guild Audio API
+
+`api/guilds/{guildId}/audio/...` — voice control for the admin pages (`AudioController`). Policies: `RequireViewer` and `GuildAccess`.
+
+| Method and route | Action |
+|---|---|
+| `POST join/{channelId}` | Join a voice channel |
+| `POST leave` | Leave the voice channel |
+| `POST stop` | Stop playback |
+| `DELETE queue/{position}` | Remove a queued sound. Positions are **1-based**, matching the queue broadcast; `0` skips the sound that is playing |
+
 ## Member Portal Preferences API
 
 `api/portal/preferences/{guildId}` — per-user, per-guild portal preferences. Policy: `PortalGuildMember`.
