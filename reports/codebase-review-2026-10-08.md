@@ -9,7 +9,7 @@
 ## The short version
 
 - **The build and the tests are green.** Debug build: 0 errors, 138 warnings. Tests: 5,651 passed, 0 failed, 21 skipped.
-- **Most of the September refactoring list is done.** Eight of the twelve recommendations from [`architecture-review-2026-09-04.html`](architecture-review-2026-09-04.html) shipped in full or in large part. Section 2 has the scorecard.
+- **Most of the September refactoring list is done.** Ten of the twelve recommendations from [`architecture-review-2026-09-04.html`](architecture-review-2026-09-04.html) shipped in full or in large part; the other two are partly done. Section 2 has the scorecard.
 - **The real risk now is behaviour, not structure.** This pass found 11 high-severity defects. Each one was confirmed by reading the cited lines. The worst ones break user-visible promises: temporary bans never lift, scheduled messages can fail and resend, and wallets can overdraw.
 - **Two assistant tools are too trusting.** `fetch_url` follows redirects to internal addresses. `execute_python` gives its child process the bot's environment variables, and in Docker those hold the secrets.
 - **Six high-volume tables grow forever.** Their retention code is missing or never called.
@@ -20,7 +20,7 @@
 | --- | --- |
 | High-severity findings, verified | **11** |
 | Medium-severity findings | **22** |
-| September recommendations done or mostly done | **8 of 12** |
+| September recommendations done or mostly done | **10 of 12** |
 | Tests passing / skipped | **5,651 / 21** |
 | Command modules with a direct test | **1 of 34** |
 | Build warnings | **138** |
@@ -71,7 +71,7 @@
 **Fix:** count failures and disable the row after N failures. Advance `NextExecutionAt` before sending, or record the send first. **Effort M.**
 
 ### H4. Wallets can overdraw under concurrent spends
-`WalletService.cs:148-160` (spend) and `:229-239` (transfer) check `CachedBalance` **before** taking the row lock. `LedgerRepository.AppendCoreAsync` (`:220-231`) takes `FOR UPDATE`, then writes `wallet.CachedBalance + row.Amount` **without re-checking the balance**. Two spends that arrive together both pass the pre-check, and the wallet goes negative. A double-click is enough. `Wallet` has no concurrency token. The fine path has the same shape (agent: `:322-324`).
+`WalletService.cs:148-160` (spend) and `:229-239` (transfer) check `CachedBalance` **before** taking the row lock. `LedgerRepository.AppendCoreAsync` (`:220-231`) takes `FOR UPDATE`, then writes `wallet.CachedBalance + row.Amount` **without re-checking the balance**. Two spends that arrive together both pass the pre-check, and the wallet goes negative. Each `/pay` mints a fresh GUID idempotency key (`WalletModule.cs:240`), so a quick second command is enough. `Wallet` has no concurrency token. The fine path has the same shape (agent: `:322-324`).
 **Fix:** re-check the balance inside the lock in `AppendCoreAsync`, using a per-row "may not go below X" rule. **Effort M.**
 
 ### H5. `fetch_url` follows redirects to internal addresses
@@ -79,8 +79,8 @@
 **Fix:** disable auto-redirect and follow redirects by hand, re-checking each hop. Better, pin the connection to the checked IP with a `SocketsHttpHandler.ConnectCallback`. **Effort S.**
 
 ### H6. `execute_python` gives its child process the bot's secrets
-`CodeExecutionToolProvider.cs:88-96` starts Python with a default `ProcessStartInfo`, so the child process inherits every environment variable. In the Docker deployment, `Discord__Token` and `OpenRouter__ApiKey` are environment variables (`deployment/discordbot.env.template`). `ToolCatalog.cs` calls this tool "a sandbox". The DM assistant is owner-only. Even so, a page read by `fetch_url` can carry a prompt injection that makes the model run code that reads `os.environ` and sends it out.
-**Fix:** call `psi.Environment.Clear()` and pass only `PATH`. Run Python as a separate low-privilege user or in a container with no network. Otherwise, drop the word "sandbox". **Effort S** (environment), **M** (real sandbox).
+`CodeExecutionToolProvider.cs:88-96` starts Python with a default `ProcessStartInfo`, so the child process inherits every environment variable. In the Docker deployment, secrets are environment variables: `deployment/discordbot.env.template` sets `Discord__Token` and `Discord__OAuth__ClientSecret`, and the OpenRouter key is passed the same way when configured. `ToolCatalog.cs` calls this tool "a sandbox". The DM assistant is owner-only. Even so, a page read by `fetch_url` can carry a prompt injection that makes the model run code that reads `os.environ` and sends it out.
+**Fix:** call `psi.Environment.Clear()` and pass back only `PATH` and `HOME`. Run Python as a separate low-privilege user or in a container with no network. Otherwise, drop the word "sandbox". **Effort S** (environment), **M** (real sandbox).
 
 ### H7. `AudioController` controls voice in any guild
 `Controllers/AudioController.cs:13-15` is `[Route("api/guilds/{guildId}/audio")]` with only `[Authorize(Policy = "RequireViewer")]`. Join, leave, stop and dequeue (`:53`, `:100`, `:145`, `:175`) take `guildId` with **no `GuildAccess` check**. Viewer is a global role that admins grant. So a Viewer for one guild can drive the bot's voice in every guild. Several Viewer-gated read controllers have the same shape (agent: Analytics, Sounds, Preview, Alerts, Autocomplete).
@@ -109,7 +109,7 @@ These tables have no cleanup job:
 **Fix:** one table in the privacy docs that lists every user-keyed entity as *purged*, *anonymised* or *retained (reason)*. Add a test that fails when a new entity with a user ID column is missing from that table. **Effort M.**
 
 ### H11. Reminders fail when the user is not in the socket cache
-`ReminderExecutionService.cs:206-213` calls `_client.GetUser(reminder.UserId)`. That method reads only the gateway cache, and `DiscordServiceExtensions.cs:41` sets `AlwaysDownloadUsers = false`. After a restart, many users are not cached. **The reminder is marked `Failed` on the first try, with no retry.**
+`ReminderExecutionService.cs:206-213` calls `_client.GetUser(reminder.UserId)`. That method reads only the gateway cache. `DiscordServiceExtensions.cs` requests the `GuildMembers` intent but sets `AlwaysDownloadUsers = false`, so the member lists are never downloaded. After a restart, a user who has not appeared in a gateway event is not in the cache. **The reminder is marked `Failed` on the first try, with no retry.**
 **Fix:** fall back to `_client.Rest.GetUserAsync` (or `GetUserAsync` with REST) before failing. **Effort S.**
 
 ---
@@ -166,7 +166,7 @@ These tables have no cleanup job:
 - Build warnings: 48 × `CS8625` and 32 × `CS8602` (nullability), 38 × `CS0618` (26 of them `Role.Color`, which Discord has deprecated; it still returns the primary colour).
 
 **Dead or duplicate code**
-- `Authorization/GuildAccessAuthorizationHandler.cs` is never registered (`GuildAccessHandler` is the live one). Nine skipped tests target it. Delete both.
+- `Authorization/GuildAccessAuthorizationHandler.cs` is never registered: no file in `src/` references it except a doc comment (`GuildAccessHandler` is the live one). Nine skipped tests target it. Delete both.
 - `SsmlSynthesisRequest`, `SsmlValidationRequest` and `SsmlBuildResponse` exist in both `Core/DTOs/` and `Core/DTOs/Tts/`. The root copies are unused.
 - `Serilog.Sinks.Grafana.Loki` is referenced but never configured. `LogSanitizationOptions.Enabled` is never read.
 
