@@ -33,4 +33,10 @@ public class ModerationOptions
     /// Default: true
     /// </summary>
     public bool LogActionsToAudit { get; set; } = true;
+
+    /// <summary>
+    /// Interval in seconds between checks for expired temporary bans, which are then lifted.
+    /// Default: 60 seconds
+    /// </summary>
+    public int TempBanExpiryCheckIntervalSeconds { get; set; } = 60;
 }

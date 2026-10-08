@@ -167,7 +167,13 @@ public class ModerationCaseRepository : Repository<ModerationCase>, IModerationC
             .AsNoTracking()
             .Include(c => c.Guild)
             .Where(c => c.ExpiresAt != null && c.ExpiresAt <= beforeTime)
-            .Where(c => c.Type == CaseType.Ban || c.Type == CaseType.Mute)
+            .Where(c => c.Type == CaseType.Ban)
+            // A later Unban closes the ban; a later Ban replaces it and carries its own expiry.
+            .Where(c => !DbSet.Any(o =>
+                o.GuildId == c.GuildId &&
+                o.TargetUserId == c.TargetUserId &&
+                o.CreatedAt > c.CreatedAt &&
+                (o.Type == CaseType.Ban || o.Type == CaseType.Unban)))
             .ToListAsync(cancellationToken);
 
         _logger.LogDebug("Retrieved {Count} expired moderation cases", results.Count);

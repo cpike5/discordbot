@@ -71,7 +71,9 @@ public interface IModerationCaseRepository : IRepository<ModerationCase>
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets expired temporary bans/mutes that need to be lifted.
+    /// Gets expired temporary bans that still need to be lifted. A ban is left out once a later
+    /// Unban or Ban case exists for the same user in the same guild. Mutes are not returned:
+    /// they are Discord timeouts, which lift themselves.
     /// </summary>
     /// <param name="beforeTime">UTC time to compare against ExpiresAt.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
