@@ -61,6 +61,29 @@ public class ReminderExecutionServiceDatabaseTests
     }
 
     [Fact]
+    public async Task ProcessDueRemindersAsync_RestLookupReturnsNotFound_MarksFailed()
+    {
+        using var database = TestDbContextFactory.CreateDatabase();
+        var reminder = await SeedDueReminderAsync(database);
+
+        var client = NewClient();
+        client.As<IDiscordClient>()
+            .Setup(c => c.GetUserAsync(UserId, CacheMode.AllowDownload, It.IsAny<RequestOptions>()))
+            .ThrowsAsync(new Discord.Net.HttpException(System.Net.HttpStatusCode.NotFound, null));
+
+        var service = NewService(database, client);
+
+        // Act
+        await service.ProcessDueRemindersAsync(CancellationToken.None);
+
+        // Assert: an unknown user is a final answer, not a reason to retry forever
+        using var verify = database.CreateContext();
+        var stored = await verify.Reminders.AsNoTracking().SingleAsync(r => r.Id == reminder.Id);
+        stored.Status.Should().Be(ReminderStatus.Failed);
+        stored.LastError.Should().Be("User not found");
+    }
+
+    [Fact]
     public async Task ProcessDueRemindersAsync_ReminderCancelledDuringFailedDelivery_StaysCancelled()
     {
         using var database = TestDbContextFactory.CreateDatabase();

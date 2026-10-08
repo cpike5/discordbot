@@ -209,7 +209,15 @@ public class ReminderExecutionService : MonitoredBackgroundService
             {
                 _logger.LogDebug("User {UserId} not in cache for reminder {ReminderId}, looking up via REST",
                     reminder.UserId, reminder.Id);
-                user = await ((IDiscordClient)_client).GetUserAsync(reminder.UserId, CacheMode.AllowDownload);
+                try
+                {
+                    user = await ((IDiscordClient)_client).GetUserAsync(reminder.UserId, CacheMode.AllowDownload);
+                }
+                catch (Discord.Net.HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    // Unknown user: treat as not found rather than leaving the reminder pending forever.
+                    user = null;
+                }
             }
 
             if (user == null)
