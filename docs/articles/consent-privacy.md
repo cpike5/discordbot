@@ -459,7 +459,7 @@ Permanently deletes all user data from the system (GDPR "right to be forgotten")
 1. Checks if user can be purged (Admin/SuperAdmin users are blocked)
 2. Defers response (deletion may take several seconds)
 3. Executes purge within a database transaction:
-   - Deletes all user data from all tables
+   - Deletes, anonymizes or retains each user-keyed table as listed in the [User Data Inventory](user-data-inventory.md)
    - Anonymizes RatWatch data (sets UserId to 0)
    - Deletes linked ApplicationUser account (if exists)
    - Creates anonymized audit log entry

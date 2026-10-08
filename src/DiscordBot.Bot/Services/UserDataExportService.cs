@@ -114,6 +114,10 @@ public class UserDataExportService : IUserDataExportService
                 await ExportUserConsentsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportUserProfileAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportApplicationUserAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportPersonalTablesAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportFeatureRequestsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportWalletsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportAccountRecordsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
 
                 // Create README with export info
                 await CreateReadmeFileAsync(discordUserId, exportId, tempExportPath, exportedCounts);
@@ -861,6 +865,158 @@ public class UserDataExportService : IUserDataExportService
         }
     }
 
+    /// <summary>
+    /// The per-user tables added for H10 (docs/articles/user-data-inventory.md): preferences, audio
+    /// favourites, presets and history, the DM assistant's conversation and notes, and activity.
+    /// </summary>
+    private async Task ExportPersonalTablesAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        await WriteSectionAsync(exportPath, counts, "UserPreferences", "user_preferences.json",
+            await _dbContext.UserPreferences.Where(p => p.UserId == userId)
+                .Select(p => new { p.Id, p.GuildId, p.Key, p.Value, p.UpdatedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "UserSoundFavorites", "sound_favorites.json",
+            await _dbContext.UserSoundFavorites.Where(f => f.UserId == userId)
+                .Select(f => new { f.Id, f.GuildId, f.SoundId, SoundName = f.Sound!.Name, f.FavoritedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "UserTtsPresets", "tts_presets.json",
+            await _dbContext.UserTtsPresets.Where(p => p.UserId == userId)
+                .Select(p => new { p.Id, p.Name, p.VoiceName, p.Style, p.Speed, p.Pitch, p.Icon, p.CreatedAt, p.UpdatedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "TtsMessageHistory", "tts_history.json",
+            await _dbContext.TtsMessageHistory.Where(h => h.UserId == userId)
+                .Select(h => new { h.Id, h.GuildId, h.Message, h.VoiceName, h.Style, h.Speed, h.Pitch, h.IsFavorite, h.PlayedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "VoxMessageHistory", "vox_history.json",
+            await _dbContext.VoxMessageHistory.Where(h => h.UserId == userId)
+                .Select(h => new { h.Id, h.GuildId, h.Message, h.ClipGroup, h.WordGapMs, h.IsFavorite, h.PlayedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "AudioPlaybackLogs", "audio_playback_logs.json",
+            await _dbContext.AudioPlaybackLogs.Where(l => l.UserId == userId)
+                .Select(l => new { l.Id, l.GuildId, FeatureType = l.FeatureType.ToString(), l.ContentName, l.ChannelId, l.PlayedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "DmConversationMessages", "dm_conversation_messages.json",
+            await _dbContext.DmConversationMessages.Where(m => m.UserId == userId)
+                .OrderBy(m => m.Timestamp)
+                .Select(m => new { m.Id, m.Role, m.Content, m.Timestamp }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "DmAssistantNotes", "dm_assistant_notes.json",
+            await _dbContext.DmAssistantNotes.Where(n => n.UserId == userId)
+                .Select(n => new { n.Id, n.Tag, n.Content, n.CreatedAt, n.UpdatedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "UserActivityEvents", "activity_events.json",
+            await _dbContext.UserActivityEvents.Where(e => e.UserId == userId)
+                .Select(e => new { e.Id, e.GuildId, e.ChannelId, EventType = e.EventType.ToString(), e.Timestamp, e.LoggedAt }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "MemberActivitySnapshots", "member_activity_snapshots.json",
+            await _dbContext.MemberActivitySnapshots.Where(s => s.UserId == userId)
+                .Select(s => new
+                {
+                    s.Id, s.GuildId, s.PeriodStart, Granularity = s.Granularity.ToString(),
+                    s.MessageCount, s.ReactionCount, s.VoiceMinutes, s.UniqueChannelsActive, s.CreatedAt
+                }).ToListAsync(ct));
+    }
+
+    private async Task ExportFeatureRequestsAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        await WriteSectionAsync(exportPath, counts, "FeatureRequests", "feature_requests.json",
+            await _dbContext.FeatureRequests.Where(r => r.SubmittedByUserId == userId)
+                .Select(r => new
+                {
+                    r.Id, r.GuildId, r.Title, r.Description, r.GatheredRequirements, r.ConsolidatedSummary,
+                    Status = r.Status.ToString(), r.ReviewedAt, r.ReviewNotes, r.CreatedAt, r.UpdatedAt
+                }).ToListAsync(ct));
+
+        await WriteSectionAsync(exportPath, counts, "FeatureRequestRejections", "feature_request_rejections.json",
+            await _dbContext.FeatureRequestRejections.Where(r => r.UserId == userId)
+                .Select(r => new { r.Id, r.GuildId, r.RejectionReason, r.CreatedAt }).ToListAsync(ct));
+    }
+
+    /// <summary>
+    /// The user's wallets and their ledger. The purge retains both (append-only ledger, awaiting the
+    /// owner's decision), but the user still has a right of access to them.
+    /// </summary>
+    private async Task ExportWalletsAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        var wallets = await _dbContext.Wallets.Where(w => w.UserId == userId)
+            .Select(w => new
+            {
+                w.Id,
+                w.CurrencyId,
+                CurrencyName = w.Currency!.Name,
+                CurrencySymbol = w.Currency.Symbol,
+                w.Currency.GuildId,
+                w.CachedBalance,
+                w.CreatedAt,
+                Transactions = w.Transactions.OrderBy(t => t.Id).Select(t => new
+                {
+                    t.Id,
+                    Type = t.Type.ToString(),
+                    Source = t.Source.ToString(),
+                    t.Amount,
+                    t.BalanceAfter,
+                    t.Reason,
+                    t.FeatureKey,
+                    t.ReferenceTransactionId,
+                    t.CreatedAt
+                }).ToList()
+            })
+            .ToListAsync(ct);
+
+        counts["LedgerTransactions"] = wallets.Sum(w => w.Transactions.Count);
+        await WriteSectionAsync(exportPath, counts, "Wallets", "wallets.json", wallets);
+    }
+
+    /// <summary>Notifications and the portal activity log of the linked web account, if there is one.</summary>
+    private async Task ExportAccountRecordsAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        var applicationUserId = await _dbContext.Set<Core.Entities.ApplicationUser>()
+            .Where(u => u.DiscordUserId == userId)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (applicationUserId == null)
+        {
+            counts["UserNotifications"] = 0;
+            counts["UserActivityLogs"] = 0;
+            return;
+        }
+
+        await WriteSectionAsync(exportPath, counts, "UserNotifications", "notifications.json",
+            await _dbContext.UserNotifications.Where(n => n.UserId == applicationUserId)
+                .Select(n => new
+                {
+                    n.Id, Type = n.Type.ToString(), n.Title, n.Message, n.LinkUrl, n.GuildId,
+                    n.IsRead, n.CreatedAt, n.ReadAt, n.DismissedAt
+                }).ToListAsync(ct));
+
+        // Rows where the account acted, and rows where an admin acted on it. Other accounts' ids are not included.
+        await WriteSectionAsync(exportPath, counts, "UserActivityLogs", "account_activity_log.json",
+            await _dbContext.UserActivityLogs
+                .Where(l => l.ActorUserId == applicationUserId || l.TargetUserId == applicationUserId)
+                .OrderBy(l => l.Timestamp)
+                .Select(l => new
+                {
+                    l.Id,
+                    Action = l.Action.ToString(),
+                    ByYou = l.ActorUserId == applicationUserId,
+                    AboutYou = l.TargetUserId == applicationUserId,
+                    // Details of an action on someone else carry their email and names
+                    Details = l.TargetUserId == applicationUserId ? l.Details : null,
+                    l.Timestamp
+                }).ToListAsync(ct));
+    }
+
+    /// <summary>Records the count and writes the file only when there are rows, as every section does.</summary>
+    private async Task WriteSectionAsync<T>(string exportPath, Dictionary<string, int> counts, string key, string fileName, List<T> data)
+    {
+        counts[key] = data.Count;
+        if (data.Count > 0)
+        {
+            await WriteJsonFileAsync(exportPath, fileName, data);
+        }
+    }
+
     private async Task WriteJsonFileAsync(string exportPath, string fileName, object data)
     {
         var filePath = Path.Combine(exportPath, fileName);
@@ -921,6 +1077,21 @@ public class UserDataExportService : IUserDataExportService
         sb.AppendLine("- `guild_members.json` - Your guild membership information (if any)");
         sb.AppendLine("- `consents.json` - Your consent preferences (if any)");
         sb.AppendLine("- `application_user.json` - Your admin account data (if linked)");
+        sb.AppendLine("- `notifications.json` - Your web portal notifications (if linked)");
+        sb.AppendLine("- `account_activity_log.json` - Web account actions by you or on your account (if linked)");
+        sb.AppendLine("- `user_preferences.json` - Your saved preferences (if any)");
+        sb.AppendLine("- `sound_favorites.json` - Soundboard sounds you favorited (if any)");
+        sb.AppendLine("- `tts_presets.json` - Your text-to-speech presets (if any)");
+        sb.AppendLine("- `tts_history.json` - Text-to-speech messages you played from the portal (if any)");
+        sb.AppendLine("- `vox_history.json` - VOX messages you played (if any)");
+        sb.AppendLine("- `audio_playback_logs.json` - Audio you played in voice channels (if any)");
+        sb.AppendLine("- `dm_conversation_messages.json` - Your DM conversation with the AI assistant (if any)");
+        sb.AppendLine("- `dm_assistant_notes.json` - Notes the DM AI assistant keeps about you (if any)");
+        sb.AppendLine("- `activity_events.json` - Message, reaction and voice activity events (if any)");
+        sb.AppendLine("- `member_activity_snapshots.json` - Your hourly and daily activity totals (if any)");
+        sb.AppendLine("- `feature_requests.json` - Feature requests you submitted (if any)");
+        sb.AppendLine("- `feature_request_rejections.json` - Feature requests of yours that were declined (if any)");
+        sb.AppendLine("- `wallets.json` - Your currency wallets and their transactions (if any)");
         sb.AppendLine();
         sb.AppendLine("## Data Format");
         sb.AppendLine();
@@ -962,6 +1133,22 @@ public class UserDataExportService : IUserDataExportService
             "ApplicationUser" => "Admin Account",
             "UserGuildAccess" => "Guild Access Permissions",
             "UserDiscordGuilds" => "Discord Guild Links",
+            "UserNotifications" => "Notifications",
+            "UserActivityLogs" => "Account Activity Log",
+            "UserPreferences" => "Preferences",
+            "UserSoundFavorites" => "Favorite Sounds",
+            "UserTtsPresets" => "TTS Presets",
+            "TtsMessageHistory" => "TTS History",
+            "VoxMessageHistory" => "VOX History",
+            "AudioPlaybackLogs" => "Audio Playback History",
+            "DmConversationMessages" => "AI Assistant DM Conversation",
+            "DmAssistantNotes" => "AI Assistant Notes",
+            "UserActivityEvents" => "Activity Events",
+            "MemberActivitySnapshots" => "Activity Summaries",
+            "FeatureRequests" => "Feature Requests",
+            "FeatureRequestRejections" => "Declined Feature Requests",
+            "Wallets" => "Wallets",
+            "LedgerTransactions" => "Wallet Transactions",
             _ => category
         };
     }
