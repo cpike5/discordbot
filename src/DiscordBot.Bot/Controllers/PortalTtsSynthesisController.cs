@@ -290,11 +290,6 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
 
                 // Extract plain text for display and tracking
                 var plainText = _ssmlValidator.ExtractPlainText(request.Ssml);
-                var truncatedMessage = plainText.Length > _sendPipeline.MaxDisplayMessageLength
-                    ? plainText.Substring(0, _sendPipeline.MaxDisplayMessageLength)
-                    : plainText;
-                _sendPipeline.CurrentMessages.AddOrUpdate(guildId, truncatedMessage, (k, v) => truncatedMessage);
-                _sendPipeline.PlaybackState.AddOrUpdate(guildId, true, (k, v) => true);
 
                 // Reset stream position if seekable, otherwise copy to MemoryStream
                 if (audioStream.CanSeek)
@@ -311,6 +306,10 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
                     audioStream = memoryStream;
                 }
 
+                // Track the message and register a token the stop endpoint can cancel, the same
+                // way the send pipeline does, so Stop ends SSML playback too
+                var playbackCts = await _sendPipeline.BeginPlaybackAsync(guildId, plainText, cancellationToken);
+
                 // Play the audio using the TTS playback service
                 var userId = User.GetDiscordUserId();
                 TtsPlaybackResult playbackResult;
@@ -323,12 +322,17 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
                         plainText,
                         validationResult.DetectedVoices.FirstOrDefault() ?? "SSML (multiple voices)",
                         audioStream,
-                        cancellationToken);
+                        playbackCts.Token);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // Cancelled by the stop endpoint or a newer message, not by HTTP disconnect
+                    _logger.LogInformation("SSML playback was stopped for guild {GuildId}", guildId);
+                    return Ok(new { Message = "Playback stopped" });
                 }
                 finally
                 {
-                    _sendPipeline.PlaybackState.TryRemove(guildId, out _);
-                    _sendPipeline.CurrentMessages.TryRemove(guildId, out _);
+                    _sendPipeline.EndPlayback(guildId, playbackCts);
                 }
 
                 if (!playbackResult.Success)

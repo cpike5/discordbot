@@ -29,6 +29,23 @@ public interface ITtsSendPipeline
     int MaxDisplayMessageLength { get; }
 
     /// <summary>
+    /// Marks TTS as playing in the guild with <paramref name="displayMessage"/> (truncated to
+    /// <see cref="MaxDisplayMessageLength"/>) and registers a playback token, linked to
+    /// <paramref name="requestToken"/>, that the stop endpoint can cancel. A playback already
+    /// registered for the guild is cancelled. Pass the returned source to
+    /// <see cref="EndPlayback"/> when playback ends, whichever way it ends.
+    /// </summary>
+    Task<CancellationTokenSource> BeginPlaybackAsync(ulong guildId, string displayMessage, CancellationToken requestToken);
+
+    /// <summary>
+    /// Ends a playback started by <see cref="BeginPlaybackAsync"/>: removes and disposes
+    /// <paramref name="playbackCts"/> and clears the guild's playing state, but only while that
+    /// token is still the guild's registered one. A newer request or the stop endpoint that has
+    /// taken over keeps its state.
+    /// </summary>
+    void EndPlayback(ulong guildId, CancellationTokenSource playbackCts);
+
+    /// <summary>
     /// Checks if audio features are globally enabled at the bot level.
     /// </summary>
     Task<bool> IsAudioGloballyEnabledAsync();
