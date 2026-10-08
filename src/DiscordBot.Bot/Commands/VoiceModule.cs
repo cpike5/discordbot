@@ -107,6 +107,9 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <param name="channel">The voice channel to join.</param>
     [SlashCommand("join-channel", "Join a specific voice channel")]
+    // Moderators only: /join already brings the bot to the caller's own channel; this command
+    // places it in any channel, the caller's or not, which lets a member pull it away from others.
+    [RequireModerator]
     public async Task JoinChannelAsync(
         [Summary("channel", "The voice channel to join")]
         IVoiceChannel channel)
