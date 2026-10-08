@@ -365,7 +365,8 @@ public class TtsSendPipeline : ITtsSendPipeline
         }
 
         // Track the message and register a token the stop endpoint can cancel
-        var playbackCts = await BeginPlaybackAsync(guildId, request.Message, cancellationToken);
+        var message = request.Message ?? string.Empty;
+        var playbackCts = await BeginPlaybackAsync(guildId, message, cancellationToken);
 
         // Play the audio using the TTS playback service
         TtsPlaybackResult playbackResult;
@@ -375,7 +376,7 @@ public class TtsSendPipeline : ITtsSendPipeline
                 guildId,
                 userId,
                 user.FindFirst("discord:username")?.Value ?? "Portal User",
-                request.Message,
+                message,
                 request.Voice,
                 audioStream,
                 playbackCts.Token);
@@ -407,7 +408,7 @@ public class TtsSendPipeline : ITtsSendPipeline
         _logger.LogInformation("Successfully sent TTS message for guild {GuildId}", guildId);
 
         // Log to audio moderation log (fire-and-forget)
-        audioModerationLogService.LogPlayback(guildId, userId, AudioFeatureType.Tts, request.Message, channelId: null);
+        audioModerationLogService.LogPlayback(guildId, userId, AudioFeatureType.Tts, message, channelId: null);
 
         return new OkObjectResult(new { Message = "TTS message sent successfully", DurationSeconds = playbackResult.DurationSeconds });
     }
