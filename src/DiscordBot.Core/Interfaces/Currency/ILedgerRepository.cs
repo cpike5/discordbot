@@ -1,5 +1,6 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Exceptions;
 
 namespace DiscordBot.Core.Interfaces;
 
@@ -22,8 +23,18 @@ public interface ILedgerRepository
     /// The row to write. <see cref="LedgerTransaction.BalanceAfter"/> is set by the repository and
     /// <see cref="LedgerTransaction.CreatedAt"/> is stamped when left at default.
     /// </param>
+    /// <param name="minBalanceAfter">
+    /// The lowest balance the wallet may be left on, checked against the balance read under the
+    /// wallet lock. Null means no floor (credits, adjustments). When the row would take the wallet
+    /// below it, nothing is written and <see cref="LedgerFloorException"/> is thrown. The caller
+    /// picks the floor; the repository only enforces it.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<LedgerAppendResult> AppendAsync(LedgerTransaction row, CancellationToken cancellationToken = default);
+    /// <exception cref="LedgerFloorException">The row would leave the wallet below <paramref name="minBalanceAfter"/>.</exception>
+    Task<LedgerAppendResult> AppendAsync(
+        LedgerTransaction row,
+        long? minBalanceAfter = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Appends two linked rows in one transaction, setting each row's
@@ -32,10 +43,16 @@ public interface ILedgerRepository
     /// </summary>
     /// <param name="debit">The row that leaves a wallet. Written first.</param>
     /// <param name="credit">The row that enters a wallet.</param>
+    /// <param name="debitMinBalanceAfter">
+    /// The lowest balance the debit may leave its wallet on, checked under the lock as for
+    /// <see cref="AppendAsync"/>. When it fails, neither row is written.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="LedgerFloorException">The debit would leave its wallet below <paramref name="debitMinBalanceAfter"/>.</exception>
     Task<LedgerAppendPairResult> AppendPairAsync(
         LedgerTransaction debit,
         LedgerTransaction credit,
+        long? debitMinBalanceAfter = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Gets one row by id, or null.</summary>

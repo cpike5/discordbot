@@ -1,5 +1,6 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Exceptions;
 using DiscordBot.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -18,7 +19,9 @@ namespace DiscordBot.Infrastructure.Data.Repositories;
 /// </para>
 /// <para>
 /// The repository enforces the idempotency and bookkeeping invariants only. Whether an operation is
-/// <em>allowed</em> — balance floors, debt, transferability — is <c>IWalletService</c>'s job.
+/// <em>allowed</em> — balance floors, debt, transferability — is <c>IWalletService</c>'s job. The
+/// one exception is the minimum balance a caller passes in: the service picks the floor, and the
+/// repository checks it under the wallet lock, because only there is the balance current.
 /// </para>
 /// </summary>
 public class LedgerRepository : ILedgerRepository
@@ -33,7 +36,10 @@ public class LedgerRepository : ILedgerRepository
     }
 
     /// <inheritdoc />
-    public async Task<LedgerAppendResult> AppendAsync(LedgerTransaction row, CancellationToken cancellationToken = default)
+    public async Task<LedgerAppendResult> AppendAsync(
+        LedgerTransaction row,
+        long? minBalanceAfter = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(row);
         RequireIdempotencyKey(row);
@@ -51,7 +57,7 @@ public class LedgerRepository : ILedgerRepository
             {
                 try
                 {
-                    var written = await AppendCoreAsync(row, ct);
+                    var written = await AppendCoreAsync(row, minBalanceAfter, ct);
                     await CommitAsync(owned, ct);
                     return new LedgerAppendResult(written.Transaction, written.Existed && !isRetry);
                 }
@@ -73,6 +79,7 @@ public class LedgerRepository : ILedgerRepository
     public async Task<LedgerAppendPairResult> AppendPairAsync(
         LedgerTransaction debit,
         LedgerTransaction credit,
+        long? debitMinBalanceAfter = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(debit);
@@ -100,7 +107,9 @@ public class LedgerRepository : ILedgerRepository
                         await LockWalletAsync(walletId, ct);
                     }
 
-                    var debitResult = await AppendCoreAsync(debit, ct);
+                    // A refused debit throws before anything is written, and the catch below rolls the
+                    // transaction back, so the credit half is never written on its own.
+                    var debitResult = await AppendCoreAsync(debit, debitMinBalanceAfter, ct);
 
                     // Link forward now that the debit has an id, then back once the credit has one. Both
                     // writes happen before the transaction commits, so no reader ever sees a half-linked
@@ -110,7 +119,7 @@ public class LedgerRepository : ILedgerRepository
                         credit.ReferenceTransactionId = debitResult.Transaction.Id;
                     }
 
-                    var creditResult = await AppendCoreAsync(credit, ct);
+                    var creditResult = await AppendCoreAsync(credit, null, ct);
 
                     if (!debitResult.Existed)
                     {
@@ -206,12 +215,15 @@ public class LedgerRepository : ILedgerRepository
     }
 
     /// <summary>
-    /// Writes one row inside an already-open transaction: idempotency check, wallet lock, balance
-    /// bookkeeping, insert. <c>Existed</c> is true when the idempotency key was already written and
+    /// Writes one row inside an already-open transaction: idempotency check, wallet lock, floor
+    /// check against <paramref name="minBalanceAfter"/>, balance bookkeeping, insert. <c>Existed</c> is true when the idempotency key was already written and
     /// nothing was inserted; whether that counts as a duplicate is the caller's call, because on a
     /// retry the rows found are this call's own earlier write.
     /// </summary>
-    private async Task<(LedgerTransaction Transaction, bool Existed)> AppendCoreAsync(LedgerTransaction row, CancellationToken cancellationToken)
+    private async Task<(LedgerTransaction Transaction, bool Existed)> AppendCoreAsync(
+        LedgerTransaction row,
+        long? minBalanceAfter,
+        CancellationToken cancellationToken)
     {
         var existing = await GetByIdempotencyKeyAsync(row.IdempotencyKey, cancellationToken);
         if (existing != null)
@@ -224,8 +236,32 @@ public class LedgerRepository : ILedgerRepository
 
         await LockWalletAsync(row.WalletId, cancellationToken);
 
-        var wallet = await _context.Wallets.FirstOrDefaultAsync(w => w.Id == row.WalletId, cancellationToken)
-            ?? throw new InvalidOperationException($"Cannot append to wallet {row.WalletId}: it does not exist.");
+        // The caller has usually read this wallet already (the service's balance pre-check), and a
+        // tracking query hands back that instance as it was, not as the database has it now. Reload
+        // it, so the balance below is the one under the lock and not one a concurrent append has
+        // since moved.
+        var wallet = _context.Wallets.Local.FirstOrDefault(w => w.Id == row.WalletId);
+        if (wallet != null)
+        {
+            await _context.Entry(wallet).ReloadAsync(cancellationToken);
+        }
+        else
+        {
+            wallet = await _context.Wallets.FirstOrDefaultAsync(w => w.Id == row.WalletId, cancellationToken);
+        }
+
+        if (wallet == null || _context.Entry(wallet).State == EntityState.Detached)
+        {
+            throw new InvalidOperationException($"Cannot append to wallet {row.WalletId}: it does not exist.");
+        }
+
+        // The pre-check a service makes before calling in can be overtaken by another append; this
+        // is the check that holds. Thrown before anything is written, so the caller's catch only has
+        // to roll back.
+        if (minBalanceAfter.HasValue && wallet.CachedBalance + row.Amount < minBalanceAfter.Value)
+        {
+            throw new LedgerFloorException(row.WalletId, wallet.CachedBalance, row.Amount, minBalanceAfter.Value);
+        }
 
         row.BalanceAfter = wallet.CachedBalance + row.Amount;
         wallet.CachedBalance = row.BalanceAfter;
