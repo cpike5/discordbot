@@ -27,6 +27,9 @@ public class ScheduledMessageServiceTests
     {
         _mockRepository = new Mock<IScheduledMessageRepository>();
         _mockDiscordClient = new Mock<DiscordSocketClient>();
+        // Channel lookups go through IDiscordClient so tests can return mocked channels; the
+        // interface has to be added before the mock object is first created.
+        _mockDiscordClient.As<IDiscordClient>();
         _mockLogger = new Mock<ILogger<ScheduledMessageService>>();
         _mockAuditLogService = new Mock<IAuditLogService>();
 
@@ -722,9 +725,104 @@ public class ScheduledMessageServiceTests
             Times.Never);
     }
 
-    // Note: ExecuteScheduledMessageAsync_WhenSendMessageFails test removed because
-    // SocketChannel is a concrete class that cannot be mocked with Moq.
-    // This scenario should be covered by integration tests instead.
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_WithNonExistentChannelWhileConnected_DisablesMessage()
+    {
+        // Arrange: the gateway is connected, so a missing channel is really gone (deleted, or the
+        // bot left the guild) and retrying every cycle would never succeed.
+        var messageId = Guid.NewGuid();
+        var message = CreateTestScheduledMessage(id: messageId, nextExecutionAt: DateTime.UtcNow.AddMinutes(-1));
+
+        _mockDiscordClient.SetupGet(c => c.ConnectionState).Returns(ConnectionState.Connected);
+        _mockDiscordClient.As<IDiscordClient>()
+            .Setup(c => c.GetChannelAsync(message.ChannelId, CacheMode.CacheOnly, It.IsAny<RequestOptions>()))
+            .ReturnsAsync((IChannel?)null);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert
+        result.Should().BeFalse();
+        _mockRepository.Verify(
+            r => r.UpdateAsync(
+                It.Is<ScheduledMessage>(m => m.Id == messageId && !m.IsEnabled),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_WhenSavingNextRunFails_DoesNotSend()
+    {
+        // Arrange: the next run is saved before sending, so a failed save skips this send
+        // instead of sending now and sending again next cycle.
+        var messageId = Guid.NewGuid();
+        var message = CreateTestScheduledMessage(id: messageId, nextExecutionAt: DateTime.UtcNow.AddMinutes(-1));
+        var channel = SetupTextChannel(message.ChannelId);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<ScheduledMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert
+        result.Should().BeFalse();
+        channel.Verify(
+            c => c.SendMessageAsync(
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<Embed>(), It.IsAny<RequestOptions>(),
+                It.IsAny<AllowedMentions>(), It.IsAny<MessageReference>(), It.IsAny<MessageComponent>(),
+                It.IsAny<ISticker[]>(), It.IsAny<Embed[]>(), It.IsAny<MessageFlags>(), It.IsAny<PollProperties>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteScheduledMessageAsync_WhenSendFails_NextRunIsAlreadySaved()
+    {
+        // Arrange
+        var messageId = Guid.NewGuid();
+        var scheduledAt = DateTime.UtcNow.AddMinutes(-1);
+        var message = CreateTestScheduledMessage(id: messageId, nextExecutionAt: scheduledAt);
+        var channel = SetupTextChannel(message.ChannelId);
+        channel
+            .Setup(c => c.SendMessageAsync(
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<Embed>(), It.IsAny<RequestOptions>(),
+                It.IsAny<AllowedMentions>(), It.IsAny<MessageReference>(), It.IsAny<MessageComponent>(),
+                It.IsAny<ISticker[]>(), It.IsAny<Embed[]>(), It.IsAny<MessageFlags>(), It.IsAny<PollProperties>()))
+            .ThrowsAsync(new InvalidOperationException("Missing permissions"));
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+
+        // Act
+        var result = await _service.ExecuteScheduledMessageAsync(messageId);
+
+        // Assert: the row advanced one interval from its original slot even though the send failed
+        result.Should().BeFalse();
+        _mockRepository.Verify(
+            r => r.UpdateAsync(
+                It.Is<ScheduledMessage>(m => m.Id == messageId && m.IsEnabled && m.NextExecutionAt == scheduledAt.AddDays(1)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private Mock<ITextChannel> SetupTextChannel(ulong channelId)
+    {
+        var channel = new Mock<ITextChannel>();
+        channel.SetupGet(c => c.Id).Returns(channelId);
+        _mockDiscordClient.As<IDiscordClient>()
+            .Setup(c => c.GetChannelAsync(channelId, CacheMode.CacheOnly, It.IsAny<RequestOptions>()))
+            .ReturnsAsync(channel.Object);
+        return channel;
+    }
 
     #endregion
 }

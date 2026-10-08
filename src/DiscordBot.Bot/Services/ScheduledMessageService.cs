@@ -420,15 +420,33 @@ public class ScheduledMessageService : IScheduledMessageService
     private async Task<bool> ExecuteScheduledMessageCoreAsync(ScheduledMessage message, CancellationToken cancellationToken)
     {
         var id = message.Id;
+        var phase = "resolve_channel";
 
         try
         {
-            // Get the Discord channel
-            var channel = _client.GetChannel(message.ChannelId) as IMessageChannel;
+            // Get the Discord channel (cache only, as before; through IDiscordClient so it can be tested)
+            var channel = await ((IDiscordClient)_client).GetChannelAsync(message.ChannelId, CacheMode.CacheOnly) as IMessageChannel;
             if (channel == null)
             {
-                _logger.LogError("Channel {ChannelId} not found for scheduled message {MessageId}",
+                if (_client.ConnectionState != ConnectionState.Connected)
+                {
+                    // The cache is not authoritative until the gateway is connected; try again next cycle.
+                    _logger.LogWarning(
+                        "Channel {ChannelId} for scheduled message {MessageId} not available while the Discord client is {ConnectionState}; will retry",
+                        message.ChannelId, id, _client.ConnectionState);
+                    return false;
+                }
+
+                // Connected and the channel is still missing (deleted, not a text channel, or the bot
+                // left the guild). Retrying every cycle can never succeed, so disable the message.
+                _logger.LogError(
+                    "Channel {ChannelId} not found for scheduled message {MessageId}; disabling the message",
                     message.ChannelId, id);
+
+                phase = "disable";
+                message.IsEnabled = false;
+                message.UpdatedAt = DateTime.UtcNow;
+                await _repository.UpdateAsync(message, cancellationToken);
                 return false;
             }
 
@@ -436,36 +454,8 @@ public class ScheduledMessageService : IScheduledMessageService
             // This is used to calculate the next execution time to prevent drift
             var originalScheduledTime = message.NextExecutionAt;
 
-            // Send the message to Discord
-            await channel.SendMessageAsync(message.Content);
-
-            _logger.LogInformation("Scheduled message {MessageId} sent successfully to channel {ChannelId}",
-                id, message.ChannelId);
-
-            // Audit log
-            try
-            {
-                _auditLogService.CreateBuilder()
-                    .ForCategory(AuditLogCategory.Message)
-                    .WithAction(AuditLogAction.CommandExecuted)
-                    .BySystem()
-                    .InGuild(message.GuildId)
-                    .OnTarget("ScheduledMessage", id.ToString())
-                    .WithDetails(new
-                    {
-                        title = message.Title,
-                        channelId = message.ChannelId,
-                        guildId = message.GuildId,
-                        action = "message_executed"
-                    })
-                    .Enqueue();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to log audit entry for scheduled message execution {MessageId}", id);
-            }
-
-            // Update execution state
+            // Update execution state and save it BEFORE sending, so that a failed save skips
+            // this send rather than sending now and again on the next cycle.
             message.LastExecutedAt = DateTime.UtcNow;
 
             // Calculate next execution time or disable if OneTime
@@ -511,14 +501,45 @@ public class ScheduledMessageService : IScheduledMessageService
                 }
             }
 
+            phase = "save_next_execution";
             message.UpdatedAt = DateTime.UtcNow;
             await _repository.UpdateAsync(message, cancellationToken);
+
+            // Send the message to Discord
+            phase = "send";
+            await channel.SendMessageAsync(message.Content);
+
+            _logger.LogInformation("Scheduled message {MessageId} sent successfully to channel {ChannelId}",
+                id, message.ChannelId);
+
+            // Audit log
+            try
+            {
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.Message)
+                    .WithAction(AuditLogAction.CommandExecuted)
+                    .BySystem()
+                    .InGuild(message.GuildId)
+                    .OnTarget("ScheduledMessage", id.ToString())
+                    .WithDetails(new
+                    {
+                        title = message.Title,
+                        channelId = message.ChannelId,
+                        guildId = message.GuildId,
+                        action = "message_executed"
+                    })
+                    .Enqueue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for scheduled message execution {MessageId}", id);
+            }
 
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to execute scheduled message {MessageId}", id);
+            _logger.LogError(ex, "Failed to execute scheduled message {MessageId} during {Phase}", id, phase);
             return false;
         }
     }
