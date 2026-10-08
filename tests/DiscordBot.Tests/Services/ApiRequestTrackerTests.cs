@@ -4,6 +4,7 @@ using DiscordBot.Core.DTOs;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -534,6 +535,8 @@ public class ApiRequestTrackerTests
         const int retryAfterMs = 2000;
         const bool isGlobal = false;
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         _tracker.RecordRateLimitHit(endpoint, retryAfterMs, isGlobal);
 
@@ -545,7 +548,7 @@ public class ApiRequestTrackerTests
         evt.Endpoint.Should().Be(endpoint, "endpoint should match");
         evt.RetryAfterMs.Should().Be(retryAfterMs, "retry duration should match");
         evt.IsGlobal.Should().Be(isGlobal, "global flag should match");
-        evt.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1),
+        evt.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow,
             "timestamp should be recent");
     }
 

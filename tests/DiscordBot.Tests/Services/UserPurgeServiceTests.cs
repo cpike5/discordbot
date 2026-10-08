@@ -104,6 +104,8 @@ public class UserPurgeServiceTests : IDisposable
         };
         var correlationId = Guid.NewGuid().ToString();
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = UserPurgeResultDto.Succeeded(deletedCounts, correlationId);
 
@@ -113,7 +115,7 @@ public class UserPurgeServiceTests : IDisposable
         result.ErrorCode.Should().BeNull();
         result.DeletedCounts.Should().BeEquivalentTo(deletedCounts);
         result.AuditLogCorrelationId.Should().Be(correlationId);
-        result.PurgedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        result.PurgedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]
@@ -123,6 +125,8 @@ public class UserPurgeServiceTests : IDisposable
         var errorCode = UserPurgeResultDto.UserNotFound;
         var errorMessage = "User not found in database";
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var result = UserPurgeResultDto.Failed(errorCode, errorMessage);
 
@@ -131,7 +135,7 @@ public class UserPurgeServiceTests : IDisposable
         result.ErrorCode.Should().Be(errorCode);
         result.ErrorMessage.Should().Be(errorMessage);
         result.DeletedCounts.Should().BeEmpty();
-        result.PurgedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        result.PurgedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]

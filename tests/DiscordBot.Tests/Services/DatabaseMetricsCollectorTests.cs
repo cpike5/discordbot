@@ -3,6 +3,7 @@ using DiscordBot.Core.Configuration;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -114,6 +115,8 @@ public class DatabaseMetricsCollectorTests
         const double durationMs = 250.0;
         const string parameters = "@id=123";
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         _collector.RecordSlowQuery(commandText, durationMs, parameters);
 
@@ -125,7 +128,7 @@ public class DatabaseMetricsCollectorTests
         slowQuery.CommandText.Should().Be(commandText, "command text should match");
         slowQuery.DurationMs.Should().Be(durationMs, "duration should match");
         slowQuery.Parameters.Should().Be(parameters, "parameters should match");
-        slowQuery.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1), "timestamp should be recent");
+        slowQuery.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "timestamp should be recent");
 
         var metrics = _collector.GetMetrics();
         metrics.SlowQueryCount.Should().Be(1, "slow query count should be tracked");

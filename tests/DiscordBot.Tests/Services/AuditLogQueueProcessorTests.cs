@@ -723,6 +723,8 @@ public class AuditLogQueueProcessorTests
 
         using var cts = new CancellationTokenSource();
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         var executeTask = service.StartAsync(cts.Token);
         await LogTestHelper.WaitUntilAsync(() => capturedEntities != null);
@@ -745,7 +747,7 @@ public class AuditLogQueueProcessorTests
         entity.Details.Should().Be(dto.Details);
         entity.IpAddress.Should().Be(dto.IpAddress);
         entity.CorrelationId.Should().Be(dto.CorrelationId);
-        entity.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5),
+        entity.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow,
             "timestamp should be set to current UTC time");
     }
 

@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -79,6 +80,8 @@ public class ConnectionStateServiceTests
     [Fact]
     public void RecordConnected_UpdatesCurrentStateToConnected()
     {
+        var before = DbTimestamp.LowerBound();
+
         // Act
         _service.RecordConnected();
 
@@ -91,7 +94,7 @@ public class ConnectionStateServiceTests
 
         var lastConnectedTime = _service.GetLastConnectedTime();
         lastConnectedTime.Should().NotBeNull("last connected time should be set");
-        lastConnectedTime.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1), "timestamp should be recent");
+        lastConnectedTime.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "timestamp should be recent");
     }
 
     [Fact]
@@ -100,6 +103,8 @@ public class ConnectionStateServiceTests
         // Arrange
         _service.RecordConnected();
         Thread.Sleep(50);
+
+        var before = DbTimestamp.LowerBound();
 
         // Act
         _service.RecordDisconnected(exception: null);
@@ -111,7 +116,7 @@ public class ConnectionStateServiceTests
 
         var lastDisconnectedTime = _service.GetLastDisconnectedTime();
         lastDisconnectedTime.Should().NotBeNull("last disconnected time should be set");
-        lastDisconnectedTime.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1), "timestamp should be recent");
+        lastDisconnectedTime.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "timestamp should be recent");
     }
 
     [Fact]

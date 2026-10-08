@@ -1,5 +1,6 @@
 using DiscordBot.Core.Entities;
 using FluentAssertions;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Core.Entities;
 
@@ -11,12 +12,14 @@ public class ApplicationUserTests
     [Fact]
     public void Constructor_SetsDefaultValues()
     {
+        var before = DbTimestamp.LowerBound();
+
         // Arrange & Act
         var user = new ApplicationUser();
 
         // Assert
         user.IsActive.Should().BeTrue("newly created users should be active by default");
-        user.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1),
+        user.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow,
             "CreatedAt should be set to current UTC time");
     }
 

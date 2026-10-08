@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -930,13 +931,15 @@ public class SettingsServiceTests
             .Callback<ApplicationSetting, CancellationToken>((s, _) => capturedSetting = s)
             .Returns(Task.CompletedTask);
 
+        var before = DbTimestamp.LowerBound();
+
         // Act
         await _service.UpdateSettingsAsync(updates, userId);
 
         // Assert
         capturedSetting.Should().NotBeNull();
         capturedSetting!.LastModifiedBy.Should().Be(userId, "user ID should be set");
-        capturedSetting.LastModifiedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5), "timestamp should be recent");
+        capturedSetting.LastModifiedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "timestamp should be recent");
     }
 
     [Fact]
