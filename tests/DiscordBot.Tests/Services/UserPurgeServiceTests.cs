@@ -636,6 +636,167 @@ public class UserPurgeServiceTests : IDisposable
 
     #endregion
 
+    #region Personal tables added for H10 (see docs/articles/user-data-inventory.md)
+
+    private static readonly string[] NewlyDeletedKeys =
+    {
+        "UserPreferences", "UserSoundFavorites", "UserTtsPresets", "TtsMessageHistory", "VoxMessageHistory",
+        "AudioPlaybackLogs", "DmConversationMessages", "DmAssistantNotes", "UserActivityEvents",
+        "MemberActivitySnapshots", "FeatureRequestRejections"
+    };
+
+    /// <summary>Makes the mocked UserManager really delete the row, so the database FKs are exercised.</summary>
+    private void DeleteApplicationUsersForReal()
+    {
+        _userManagerMock.Setup(m => m.DeleteAsync(It.IsAny<ApplicationUser>()))
+            .Returns(async (ApplicationUser user) =>
+            {
+                _context.Set<ApplicationUser>().Remove(user);
+                await _context.SaveChangesAsync();
+                return IdentityResult.Success;
+            });
+    }
+
+    [Fact]
+    public async Task PurgeUserDataAsync_PurgesThePersonalTables_AndLeavesOtherUsersRows()
+    {
+        const ulong guildId = 940000000UL, userId = 940000001UL, otherId = 940000002UL;
+        var (_, sound, currency) = await PersonalDataSeeder.SeedSharedAsync(_context, guildId);
+        await PersonalDataSeeder.SeedUserAsync(_context, userId, guildId, sound.Id, currency.Id);
+        await PersonalDataSeeder.SeedUserAsync(_context, otherId, guildId, sound.Id, currency.Id);
+
+        var result = await _service.PurgeUserDataAsync(userId, PurgeInitiator.User);
+
+        result.Success.Should().BeTrue(result.ErrorMessage);
+        foreach (var key in NewlyDeletedKeys)
+        {
+            result.DeletedCounts.Should().ContainKey(key).WhoseValue.Should().Be(1, $"{key} holds one row for the user");
+        }
+        result.DeletedCounts.Should().ContainKey("FeatureRequests_Anonymized").WhoseValue.Should().Be(1);
+
+        _context.ChangeTracker.Clear();
+        (await _context.UserPreferences.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.UserSoundFavorites.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.UserTtsPresets.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.TtsMessageHistory.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.VoxMessageHistory.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.AudioPlaybackLogs.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.DmConversationMessages.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.DmAssistantNotes.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.UserActivityEvents.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.MemberActivitySnapshots.CountAsync(x => x.UserId == userId)).Should().Be(0);
+        (await _context.FeatureRequestRejections.CountAsync(x => x.UserId == userId)).Should().Be(0);
+
+        // The feature request stays for the guild, without its author
+        (await _context.FeatureRequests.CountAsync(x => x.SubmittedByUserId == userId)).Should().Be(0);
+        (await _context.FeatureRequests.CountAsync(x => x.SubmittedByUserId == 0UL && x.Title == $"request {userId}")).Should().Be(1);
+
+        // Retained, awaiting the owner's decision: the wallet and its append-only ledger
+        (await _context.Wallets.CountAsync(x => x.UserId == userId)).Should().Be(1);
+        (await _context.LedgerTransactions.CountAsync(x => x.Wallet!.UserId == userId)).Should().Be(1);
+
+        // Every other user's rows survive
+        (await _context.UserPreferences.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.UserSoundFavorites.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.UserTtsPresets.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.TtsMessageHistory.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.VoxMessageHistory.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.AudioPlaybackLogs.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.DmConversationMessages.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.DmAssistantNotes.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.UserActivityEvents.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.MemberActivitySnapshots.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.FeatureRequestRejections.CountAsync(x => x.UserId == otherId)).Should().Be(1);
+        (await _context.FeatureRequests.CountAsync(x => x.SubmittedByUserId == otherId)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PurgeUserDataAsync_WithLinkedAccount_PurgesNotificationsAndActivityLog()
+    {
+        // The account acted in the portal (actor rows have a Restrict FK) and an admin acted on it (target rows)
+        const ulong guildId = 941000000UL, userId = 941000001UL, otherId = 941000002UL;
+        var appUserId = Guid.NewGuid().ToString();
+        var otherAppUserId = Guid.NewGuid().ToString();
+        var (_, sound, currency) = await PersonalDataSeeder.SeedSharedAsync(_context, guildId);
+        await PersonalDataSeeder.SeedUserAsync(_context, userId, guildId, sound.Id, currency.Id, appUserId);
+        await PersonalDataSeeder.SeedUserAsync(_context, otherId, guildId, sound.Id, currency.Id, otherAppUserId);
+        _context.UserActivityLogs.Add(new UserActivityLog
+        {
+            Id = Guid.NewGuid(),
+            ActorUserId = otherAppUserId,
+            TargetUserId = appUserId,
+            Action = UserActivityAction.UserCreated,
+            Details = "{\"Email\":\"target@example.com\"}",
+            Timestamp = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+        // As in a real request scope: nothing seeded is tracked, so the delete is the database's alone
+        _context.ChangeTracker.Clear();
+        DeleteApplicationUsersForReal();
+
+        var result = await _service.PurgeUserDataAsync(userId, PurgeInitiator.Admin, "admin");
+
+        result.Success.Should().BeTrue(result.ErrorMessage);
+        result.DeletedCounts["ApplicationUser"].Should().Be(1);
+        result.DeletedCounts["UserNotifications"].Should().Be(1);
+        result.DeletedCounts["UserActivityLogs"].Should().Be(1);
+        result.DeletedCounts["UserActivityLogs_Anonymized"].Should().Be(1);
+
+        _context.ChangeTracker.Clear();
+        (await _context.Set<ApplicationUser>().AnyAsync(u => u.Id == appUserId)).Should().BeFalse();
+        (await _context.UserNotifications.CountAsync(n => n.UserId == appUserId)).Should().Be(0);
+        (await _context.UserActivityLogs.CountAsync(l => l.ActorUserId == appUserId || l.TargetUserId == appUserId)).Should().Be(0);
+
+        // The other admin's record of acting stays, without the purged user's id or details
+        var adminTrail = await _context.UserActivityLogs.SingleAsync(l => l.Action == UserActivityAction.UserCreated);
+        adminTrail.ActorUserId.Should().Be(otherAppUserId);
+        adminTrail.TargetUserId.Should().BeNull();
+        adminTrail.Details.Should().BeNull();
+
+        (await _context.UserNotifications.CountAsync(n => n.UserId == otherAppUserId)).Should().Be(1);
+        (await _context.UserActivityLogs.CountAsync(l => l.ActorUserId == otherAppUserId && l.Action == UserActivityAction.UserUpdated)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PurgeUserDataAsync_RetainsModerationRecordsAboutTheUser()
+    {
+        const ulong guildId = 942000000UL, userId = 942000001UL, moderatorId = 942000002UL;
+        _context.Guilds.Add(new Guild { Id = guildId, Name = "Mod Guild", JoinedAt = DateTime.UtcNow });
+        _context.Users.Add(new User { Id = userId });
+        var flagged = new FlaggedEvent { Id = Guid.NewGuid(), GuildId = guildId, UserId = userId, Description = "spam", Evidence = "{}", CreatedAt = DateTime.UtcNow };
+        _context.FlaggedEvents.Add(flagged);
+        _context.ModerationCases.Add(new ModerationCase { Id = Guid.NewGuid(), CaseNumber = 1, GuildId = guildId, TargetUserId = userId, ModeratorUserId = moderatorId, CreatedAt = DateTime.UtcNow, RelatedFlaggedEventId = flagged.Id });
+        _context.ModNotes.Add(new ModNote { Id = Guid.NewGuid(), GuildId = guildId, TargetUserId = userId, AuthorUserId = moderatorId, Content = "watch", CreatedAt = DateTime.UtcNow });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.PurgeUserDataAsync(userId, PurgeInitiator.User);
+
+        result.Success.Should().BeTrue(result.ErrorMessage);
+        _context.ChangeTracker.Clear();
+        (await _context.ModerationCases.CountAsync(c => c.TargetUserId == userId)).Should().Be(1);
+        (await _context.FlaggedEvents.CountAsync(f => f.UserId == userId)).Should().Be(1);
+        (await _context.ModNotes.CountAsync(n => n.TargetUserId == userId)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PreviewPurgeAsync_CountsThePersonalTables()
+    {
+        const ulong guildId = 943000000UL, userId = 943000001UL;
+        var (_, sound, currency) = await PersonalDataSeeder.SeedSharedAsync(_context, guildId);
+        await PersonalDataSeeder.SeedUserAsync(_context, userId, guildId, sound.Id, currency.Id, Guid.NewGuid().ToString());
+
+        var result = await _service.PreviewPurgeAsync(userId);
+
+        result.Success.Should().BeTrue(result.ErrorMessage);
+        foreach (var key in NewlyDeletedKeys.Append("FeatureRequests_Anonymized").Append("UserNotifications").Append("UserActivityLogs"))
+        {
+            result.DeletedCounts.Should().ContainKey(key).WhoseValue.Should().Be(1, key);
+        }
+        result.DeletedCounts.Should().ContainKey("UserActivityLogs_Anonymized").WhoseValue.Should().Be(0);
+    }
+
+    #endregion
+
     #region CanPurgeUserAsync Tests
 
     [Fact]

@@ -255,6 +255,66 @@ public class UserDataExportServiceTests : IDisposable
         result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(0, "should not include other users' DM usage metrics");
     }
 
+    // ---- Personal tables added for H10 (see docs/articles/user-data-inventory.md)
+
+    [Fact]
+    public async Task ExportUserDataAsync_IncludesThePersonalTables_AndOnlyTheUsersRows()
+    {
+        const ulong guildId = 950000000UL, userId = 950000001UL, otherId = 950000002UL;
+        var (_, sound, currency) = await PersonalDataSeeder.SeedSharedAsync(_context, guildId);
+        await PersonalDataSeeder.SeedUserAsync(_context, userId, guildId, sound.Id, currency.Id, Guid.NewGuid().ToString());
+        await PersonalDataSeeder.SeedUserAsync(_context, otherId, guildId, sound.Id, currency.Id, Guid.NewGuid().ToString());
+
+        var result = await _service.ExportUserDataAsync(userId);
+
+        result.Success.Should().BeTrue(result.ErrorMessage);
+        var expected = new Dictionary<string, string>
+        {
+            ["UserPreferences"] = "user_preferences.json",
+            ["UserSoundFavorites"] = "sound_favorites.json",
+            ["UserTtsPresets"] = "tts_presets.json",
+            ["TtsMessageHistory"] = "tts_history.json",
+            ["VoxMessageHistory"] = "vox_history.json",
+            ["AudioPlaybackLogs"] = "audio_playback_logs.json",
+            ["DmConversationMessages"] = "dm_conversation_messages.json",
+            ["DmAssistantNotes"] = "dm_assistant_notes.json",
+            ["UserActivityEvents"] = "activity_events.json",
+            ["MemberActivitySnapshots"] = "member_activity_snapshots.json",
+            ["FeatureRequests"] = "feature_requests.json",
+            ["FeatureRequestRejections"] = "feature_request_rejections.json",
+            ["Wallets"] = "wallets.json",
+            ["UserNotifications"] = "notifications.json",
+            ["UserActivityLogs"] = "account_activity_log.json"
+        };
+        foreach (var key in expected.Keys)
+        {
+            result.ExportedCounts.Should().ContainKey(key).WhoseValue.Should().Be(1, key);
+        }
+        result.ExportedCounts.Should().ContainKey("LedgerTransactions").WhoseValue.Should().Be(1);
+
+        var zipPath = Path.Combine(_contentRootPath, "data", "exports", userId.ToString(), $"{result.ExportId}.zip");
+        using var archive = ZipFile.OpenRead(zipPath);
+        archive.Entries.Select(e => e.Name).Should().Contain(expected.Values);
+
+        var tts = await ReadEntryAsync(archive, "tts_history.json");
+        tts.RootElement.GetArrayLength().Should().Be(1);
+        tts.RootElement[0].GetProperty("message").GetString().Should().Be($"tts {userId}");
+
+        var wallets = await ReadEntryAsync(archive, "wallets.json");
+        wallets.RootElement.GetArrayLength().Should().Be(1);
+        wallets.RootElement[0].GetProperty("cachedBalance").GetInt64().Should().Be(50);
+        wallets.RootElement[0].GetProperty("transactions").GetArrayLength().Should().Be(1);
+
+        var readme = await new StreamReader(archive.GetEntry("README.txt")!.Open()).ReadToEndAsync();
+        readme.Should().Contain("wallets.json").And.Contain("dm_conversation_messages.json");
+    }
+
+    private static async Task<JsonDocument> ReadEntryAsync(ZipArchive archive, string name)
+    {
+        using var reader = new StreamReader(archive.GetEntry(name)!.Open());
+        return JsonDocument.Parse(await reader.ReadToEndAsync());
+    }
+
     // ---- Where exports live, and who can reach them
 
     [Fact]

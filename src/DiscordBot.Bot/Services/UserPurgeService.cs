@@ -217,6 +217,43 @@ public class UserPurgeService : IUserPurgeService
                         .ExecuteDeleteAsync(ct);
                     counts["UserConsents"] = userConsents;
 
+                    // 13a. Personal tables added for H10 (docs/articles/user-data-inventory.md).
+                    // DmConversationMessages, DmAssistantNotes and MemberActivitySnapshots also cascade
+                    // from Users; deleting them first is what makes their counts real.
+                    counts["UserPreferences"] = await _dbContext.UserPreferences
+                        .Where(p => p.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["UserSoundFavorites"] = await _dbContext.UserSoundFavorites
+                        .Where(f => f.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["UserTtsPresets"] = await _dbContext.UserTtsPresets
+                        .Where(p => p.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["TtsMessageHistory"] = await _dbContext.TtsMessageHistory
+                        .Where(h => h.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["VoxMessageHistory"] = await _dbContext.VoxMessageHistory
+                        .Where(h => h.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["AudioPlaybackLogs"] = await _dbContext.AudioPlaybackLogs
+                        .Where(l => l.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["DmConversationMessages"] = await _dbContext.DmConversationMessages
+                        .Where(m => m.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["DmAssistantNotes"] = await _dbContext.DmAssistantNotes
+                        .Where(n => n.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["UserActivityEvents"] = await _dbContext.UserActivityEvents
+                        .Where(e => e.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["MemberActivitySnapshots"] = await _dbContext.MemberActivitySnapshots
+                        .Where(s => s.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["FeatureRequestRejections"] = await _dbContext.FeatureRequestRejections
+                        .Where(r => r.UserId == discordUserId).ExecuteDeleteAsync(ct);
+                    counts["VerificationCodes"] = await _dbContext.VerificationCodes
+                        .Where(v => v.DiscordUserId == discordUserId).ExecuteDeleteAsync(ct);
+
+                    // 13b. FeatureRequests - ANONYMIZE: the request, the admin's review and any generated
+                    // docs stay with the guild; only the author link goes (set to 0, as RatRecords).
+                    counts["FeatureRequests_Anonymized"] = await _dbContext.FeatureRequests
+                        .Where(r => r.SubmittedByUserId == discordUserId)
+                        .ExecuteUpdateAsync(setters => setters.SetProperty(r => r.SubmittedByUserId, (ulong)0), ct);
+
+                    // Retained, awaiting the owner's decision (D5): ModerationCases, FlaggedEvents,
+                    // ModNotes about the user, and Wallets with their append-only LedgerTransactions.
+
                     // 14. Users (the User entity itself)
                     var users = await _dbContext.Users
                         .Where(u => u.Id == discordUserId)
@@ -244,6 +281,26 @@ public class UserPurgeService : IUserPurgeService
                             .Where(t => t.ApplicationUserId == applicationUser.Id)
                             .ExecuteDeleteAsync(ct);
                         counts["DiscordOAuthTokens"] = discordOAuthTokens;
+
+                        counts["UserNotifications"] = await _dbContext.UserNotifications
+                            .Where(n => n.UserId == applicationUser.Id)
+                            .ExecuteDeleteAsync(ct);
+
+                        // The account's own portal activity. ActorUserId is a Restrict FK, so these rows
+                        // must go before the account or the delete below fails.
+                        counts["UserActivityLogs"] = await _dbContext.UserActivityLogs
+                            .Where(l => l.ActorUserId == applicationUser.Id)
+                            .ExecuteDeleteAsync(ct);
+
+                        // ANONYMIZE what other admins did to the account: their record of acting stays,
+                        // without the target or the details (which carry the target's email and names).
+                        counts["UserActivityLogs_Anonymized"] = await _dbContext.UserActivityLogs
+                            .Where(l => l.TargetUserId == applicationUser.Id)
+                            .ExecuteUpdateAsync(
+                                setters => setters
+                                    .SetProperty(l => l.TargetUserId, (string?)null)
+                                    .SetProperty(l => l.Details, (string?)null),
+                                ct);
 
                         // Delete the ApplicationUser via UserManager (handles roles, claims, etc.)
                         var result = await _userManager.DeleteAsync(applicationUser);
@@ -389,7 +446,20 @@ public class UserPurgeService : IUserPurgeService
                 ["DmAssistantUsageMetrics"] = await _dbContext.DmAssistantUsageMetrics.CountAsync(m => m.UserId == discordUserId, cancellationToken),
                 ["GuildMembers"] = await _dbContext.GuildMembers.CountAsync(g => g.UserId == discordUserId, cancellationToken),
                 ["UserConsents"] = await _dbContext.UserConsents.CountAsync(c => c.DiscordUserId == discordUserId, cancellationToken),
-                ["Users"] = await _dbContext.Users.CountAsync(u => u.Id == discordUserId, cancellationToken)
+                ["UserPreferences"] = await _dbContext.UserPreferences.CountAsync(p => p.UserId == discordUserId, cancellationToken),
+                ["UserSoundFavorites"] = await _dbContext.UserSoundFavorites.CountAsync(f => f.UserId == discordUserId, cancellationToken),
+                ["UserTtsPresets"] = await _dbContext.UserTtsPresets.CountAsync(p => p.UserId == discordUserId, cancellationToken),
+                ["TtsMessageHistory"] = await _dbContext.TtsMessageHistory.CountAsync(h => h.UserId == discordUserId, cancellationToken),
+                ["VoxMessageHistory"] = await _dbContext.VoxMessageHistory.CountAsync(h => h.UserId == discordUserId, cancellationToken),
+                ["AudioPlaybackLogs"] = await _dbContext.AudioPlaybackLogs.CountAsync(l => l.UserId == discordUserId, cancellationToken),
+                ["DmConversationMessages"] = await _dbContext.DmConversationMessages.CountAsync(m => m.UserId == discordUserId, cancellationToken),
+                ["DmAssistantNotes"] = await _dbContext.DmAssistantNotes.CountAsync(n => n.UserId == discordUserId, cancellationToken),
+                ["UserActivityEvents"] = await _dbContext.UserActivityEvents.CountAsync(e => e.UserId == discordUserId, cancellationToken),
+                ["MemberActivitySnapshots"] = await _dbContext.MemberActivitySnapshots.CountAsync(s => s.UserId == discordUserId, cancellationToken),
+                ["FeatureRequestRejections"] = await _dbContext.FeatureRequestRejections.CountAsync(r => r.UserId == discordUserId, cancellationToken),
+                ["VerificationCodes"] = await _dbContext.VerificationCodes.CountAsync(v => v.DiscordUserId == discordUserId, cancellationToken),
+                ["FeatureRequests_Anonymized"] = await _dbContext.FeatureRequests.CountAsync(r => r.SubmittedByUserId == discordUserId, cancellationToken),
+                ["Users"] =await _dbContext.Users.CountAsync(u => u.Id == discordUserId, cancellationToken)
             };
 
             // Check for linked ApplicationUser
@@ -401,6 +471,9 @@ public class UserPurgeService : IUserPurgeService
                 counts["UserGuildAccess"] = await _dbContext.UserGuildAccess.CountAsync(uga => uga.ApplicationUserId == applicationUser.Id, cancellationToken);
                 counts["UserDiscordGuilds"] = await _dbContext.UserDiscordGuilds.CountAsync(udg => udg.ApplicationUserId == applicationUser.Id, cancellationToken);
                 counts["DiscordOAuthTokens"] = await _dbContext.DiscordOAuthTokens.CountAsync(t => t.ApplicationUserId == applicationUser.Id, cancellationToken);
+                counts["UserNotifications"] = await _dbContext.UserNotifications.CountAsync(n => n.UserId == applicationUser.Id, cancellationToken);
+                counts["UserActivityLogs"] = await _dbContext.UserActivityLogs.CountAsync(l => l.ActorUserId == applicationUser.Id, cancellationToken);
+                counts["UserActivityLogs_Anonymized"] = await _dbContext.UserActivityLogs.CountAsync(l => l.TargetUserId == applicationUser.Id && l.ActorUserId != applicationUser.Id, cancellationToken);
                 counts["ApplicationUser"] = 1;
             }
 

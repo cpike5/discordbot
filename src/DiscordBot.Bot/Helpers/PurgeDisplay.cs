@@ -31,7 +31,22 @@ public static class PurgeDisplay
         ["UserGuildAccess"] = "Portal server access",
         ["UserDiscordGuilds"] = "Linked Discord servers",
         ["DiscordOAuthTokens"] = "Discord sign-in tokens",
-        ["ApplicationUser"] = "Linked web account"
+        ["ApplicationUser"] = "Linked web account",
+        ["UserPreferences"] = "Preferences",
+        ["UserSoundFavorites"] = "Favorite sounds",
+        ["UserTtsPresets"] = "Text-to-speech presets",
+        ["TtsMessageHistory"] = "Text-to-speech history",
+        ["VoxMessageHistory"] = "VOX history",
+        ["AudioPlaybackLogs"] = "Audio playback history",
+        ["DmConversationMessages"] = "Assistant DM history",
+        ["DmAssistantNotes"] = "Assistant notes",
+        ["UserActivityEvents"] = "Activity events",
+        ["MemberActivitySnapshots"] = "Activity summaries",
+        ["FeatureRequests"] = "Feature requests",
+        ["FeatureRequestRejections"] = "Declined feature requests",
+        ["VerificationCodes"] = "Verification codes",
+        ["UserNotifications"] = "Notifications",
+        ["UserActivityLogs"] = "Account activity log"
     };
 
     private const string AnonymizedSuffix = "_Anonymized";
