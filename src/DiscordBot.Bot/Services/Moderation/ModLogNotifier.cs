@@ -48,37 +48,71 @@ public class ModLogNotifier : IModLogNotifier
     }
 
     /// <inheritdoc />
-    public async Task<ulong?> CaseCreatedAsync(ModerationCaseDto moderationCase, CancellationToken ct = default)
+    public Task<ulong?> CaseCreatedAsync(ModerationCaseDto moderationCase, CancellationToken ct = default)
+        => PostAsync(
+            moderationCase.GuildId,
+            ModLogEventKinds.Cases,
+            $"case #{moderationCase.CaseNumber}",
+            () => ModLogEmbeds.ForCase(moderationCase, _client.CurrentUser?.Id ?? 0),
+            () => ModLogEmbeds.CaseComponents(moderationCase, _application.BaseUrl),
+            ct);
+
+    /// <inheritdoc />
+    public Task<ulong?> FlaggedEventAsync(FlaggedEventDto flaggedEvent, ModLogFlaggedContext context, CancellationToken ct = default)
+        => PostAsync(
+            flaggedEvent.GuildId,
+            ModLogEventKinds.FlaggedEvents,
+            $"flagged event {flaggedEvent.Id}",
+            () => ModLogEmbeds.ForFlaggedEvent(flaggedEvent, context),
+            () => ModLogEmbeds.FlaggedEventComponents(flaggedEvent.Id),
+            ct);
+
+    /// <inheritdoc />
+    public Task<ulong?> AutoActionAsync(FlaggedEventDto flaggedEvent, AutoAction action, bool succeeded, ModLogFlaggedContext context, CancellationToken ct = default)
+        => PostAsync(
+            flaggedEvent.GuildId,
+            ModLogEventKinds.AutoActions,
+            $"auto-action {action} for event {flaggedEvent.Id}",
+            () => ModLogEmbeds.ForAutoAction(flaggedEvent, action, succeeded, context),
+            () => ModLogEmbeds.FlaggedEventComponents(flaggedEvent.Id),
+            ct);
+
+    /// <summary>
+    /// The one delivery path: resolve the channel for this kind, build, send, and turn every failure
+    /// into a log line. <paramref name="what"/> names the item in those lines.
+    /// </summary>
+    private async Task<ulong?> PostAsync(
+        ulong guildId,
+        ModLogEventKinds kind,
+        string what,
+        Func<Embed> embed,
+        Func<MessageComponent> components,
+        CancellationToken ct)
     {
         try
         {
-            var channel = await ResolveChannelAsync(moderationCase.GuildId, ModLogEventKinds.Cases, ct);
+            var channel = await ResolveChannelAsync(guildId, kind, ct);
             if (channel is null)
             {
                 return null;
             }
 
-            var botUserId = _client.CurrentUser?.Id ?? 0;
-            var message = await channel.SendMessageAsync(
-                embed: ModLogEmbeds.ForCase(moderationCase, botUserId),
-                components: ModLogEmbeds.CaseComponents(moderationCase, _application.BaseUrl));
+            var message = await channel.SendMessageAsync(embed: embed(), components: components());
 
-            _logger.LogDebug("Posted case #{CaseNumber} to mod-log channel {ChannelId} in guild {GuildId}",
-                moderationCase.CaseNumber, channel.Id, moderationCase.GuildId);
+            _logger.LogDebug("Posted {What} to mod-log channel {ChannelId} in guild {GuildId}", what, channel.Id, guildId);
 
             return message.Id;
         }
         catch (HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.Forbidden)
         {
-            WarnOnce(moderationCase.GuildId,
+            WarnOnce(guildId,
                 "The bot may not post in the mod-log channel of guild {GuildId}: {Reason}. Give it Send Messages and Embed Links there, or choose another channel.",
-                ex.Reason ?? ex.Message);
+                guildId, ex.Reason ?? ex.Message);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to post case #{CaseNumber} to the mod-log channel of guild {GuildId}",
-                moderationCase.CaseNumber, moderationCase.GuildId);
+            _logger.LogError(ex, "Failed to post {What} to the mod-log channel of guild {GuildId}", what, guildId);
             return null;
         }
     }
@@ -108,14 +142,14 @@ public class ModLogNotifier : IModLogNotifier
         {
             WarnOnce(guildId,
                 "The mod-log channel {ChannelId} of guild {GuildId} no longer exists or is not visible to the bot. Choose another channel in Moderation Settings.",
-                channelId);
+                channelId, guildId);
             return null;
         }
 
         return channel;
     }
 
-    private void WarnOnce(ulong guildId, string messageTemplate, object detail)
+    private void WarnOnce(ulong guildId, string messageTemplate, params object[] args)
     {
         var key = WarnedCacheKeyPrefix + guildId;
         if (_cache.TryGetValue(key, out _))
@@ -125,7 +159,7 @@ public class ModLogNotifier : IModLogNotifier
 
         _cache.Set(key, true, new MemoryCacheEntryOptions().SetAbsoluteExpiration(WarnInterval).SetSize(1));
 #pragma warning disable CA2254 // The template is one of two constants above
-        _logger.LogWarning(messageTemplate, detail, guildId);
+        _logger.LogWarning(messageTemplate, args);
 #pragma warning restore CA2254
     }
 }

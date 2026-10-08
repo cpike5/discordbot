@@ -1,6 +1,6 @@
 # Implementation Plan — Mod-log Channel Feed and Multi-turn Guild Assistant in Threads
 
-> **Status:** Proposed
+> **Status:** Part A PR 1 and PR 2 shipped to `feature/mod-log-and-threaded-assistant`; the rest proposed
 > **Date:** 2026-10-08
 > **Source:** items 2 and 23 of `enhancement-candidates-2026-10.md`
 > **Baseline:** v1.5.1-dev

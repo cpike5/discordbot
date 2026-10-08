@@ -107,6 +107,12 @@ public class IndexModel : GuildPageModelBase
     public bool ModLogChannelMissing { get; set; }
 
     /// <summary>
+    /// A channel named like a mod log, offered when no channel is saved. Until this setting existed
+    /// the automod alert posted to a channel by that name, so the server probably wants it here.
+    /// </summary>
+    public ChannelOption? SuggestedModLogChannel { get; set; }
+
+    /// <summary>
     /// Handles GET requests for the Moderation Settings page.
     /// </summary>
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -162,6 +168,11 @@ public class IndexModel : GuildPageModelBase
 
         ModLogChannelMissing = config.ModLogChannelId.HasValue
             && AvailableChannels.All(c => c.Id != config.ModLogChannelId.Value);
+
+        if (!config.ModLogChannelId.HasValue)
+        {
+            SuggestedModLogChannel = AvailableChannels.FirstOrDefault(c => LooksLikeModLog(c.Name));
+        }
 
         // Load statistics for the last 24 hours
         await LoadStatisticsAsync(GuildId, cancellationToken);
@@ -525,6 +536,11 @@ public class IndexModel : GuildPageModelBase
             _logger.LogWarning(ex, "Failed to load statistics for guild {GuildId}", guildId);
         }
     }
+
+    /// <summary>The names the retired automod alert used to look for.</summary>
+    public static bool LooksLikeModLog(string channelName) =>
+        channelName.Contains("mod-log", StringComparison.OrdinalIgnoreCase)
+        || channelName.Contains("mod-alert", StringComparison.OrdinalIgnoreCase);
 
     private static int CalculateActiveRulesCount(GuildModerationConfigDto config)
     {

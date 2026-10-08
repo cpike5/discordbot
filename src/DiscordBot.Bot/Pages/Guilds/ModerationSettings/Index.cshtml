@@ -104,6 +104,13 @@
                         HelpText = "The bot needs Send Messages and Embed Links in this channel.",
                         AdditionalAttributes = new() { ["data-field"] = "modLogChannelId" } }' />
                 </div>
+                @if (Model.SuggestedModLogChannel is { } suggested)
+                {
+                    <p class="text-sm text-text-secondary mt-2" id="modlog-suggestion">
+                        Looks like this server has <span class="font-mono">#@suggested.Name</span>.
+                        <button type="button" class="btn btn-ghost btn-sm" data-suggest-modlog="@suggested.Id">Use it</button>
+                    </p>
+                }
                 @if (Model.ModLogChannelMissing)
                 {
                     <p class="text-sm text-warning mt-2" role="status">

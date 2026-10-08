@@ -312,6 +312,19 @@
                 clearFieldError(e.target);
             }
         });
+
+        // "Looks like this server has #mod-log. Use it": pick it, then the admin still saves
+        form.addEventListener('click', function (e) {
+            var suggest = e.target.closest && e.target.closest('[data-suggest-modlog]');
+            if (!suggest) return;
+            var select = byId('modlog-channel');
+            if (!select) return;
+            select.value = suggest.dataset.suggestModlog;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            var note = byId('modlog-suggestion');
+            if (note) note.remove();
+            select.focus();
+        });
     }
 
     function presetRadios() {

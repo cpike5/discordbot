@@ -503,6 +503,45 @@ public class IndexModelTests
         _indexModel.ModLogChannelMissing.Should().BeTrue("the socket client is not connected, so no channel is visible");
     }
 
+    [Theory]
+    [InlineData("mod-log", true)]
+    [InlineData("Mod-Alerts", true)]
+    [InlineData("staff-mod-log-2", true)]
+    [InlineData("general", false)]
+    [InlineData("moderators", false)]
+    public void LooksLikeModLog_MatchesTheNamesTheOldAlertLookedFor(string name, bool expected)
+    {
+        IndexModel.LooksLikeModLog(name).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_WithAChannelSaved_OffersNoSuggestion()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        var config = CreateModerationConfig(guildId);
+        config.ModLogChannelId = 555;
+
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateGuildDto(guildId, "Test Guild"));
+        _mockConfigService
+            .Setup(s => s.GetConfigAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+        _mockModTagService
+            .Setup(s => s.GetGuildTagsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ModTagDto>());
+        SetupFlaggedEventService(guildId, 0, 0, 0);
+
+        // Act
+        await _indexModel.OnGetAsync(CancellationToken.None);
+
+        // Assert
+        _indexModel.SuggestedModLogChannel.Should().BeNull();
+    }
+
     [Fact]
     public async Task OnPostSaveOverviewAsync_WhenServiceThrowsException_Returns500()
     {
