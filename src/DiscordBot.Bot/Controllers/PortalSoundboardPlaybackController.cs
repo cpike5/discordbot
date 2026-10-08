@@ -6,6 +6,7 @@ using DiscordBot.Core.Interfaces;
 using Elastic.Apm;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DiscordBot.Bot.Controllers;
 
@@ -44,7 +45,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
     }
 
     [HttpPost("play/{soundId}")]
-    // TODO: Add rate limiting [EnableRateLimiting("portal-play")] when policy is configured
+    [EnableRateLimiting(PortalRateLimitPolicies.Play)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status402PaymentRequired)]

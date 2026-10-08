@@ -524,7 +524,7 @@ public class AzureTtsService : ITtsService
     /// <param name="text">The text to synthesize.</param>
     /// <param name="options">TTS options for voice, speed, pitch, and volume.</param>
     /// <returns>SSML string.</returns>
-    private static string BuildSsml(string text, Core.Models.TtsOptions options)
+    internal static string BuildSsml(string text, Core.Models.TtsOptions options)
     {
         // Escape XML special characters in the text
         var escapedText = System.Security.SecurityElement.Escape(text);
@@ -541,7 +541,9 @@ public class AzureTtsService : ITtsService
 
         var ssml = new StringBuilder();
         ssml.AppendLine("<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"en-US\">");
-        ssml.AppendLine($"  <voice name=\"{options.Voice}\">");
+        // The voice name reaches here from callers too; escape it like the text so a quote cannot end the attribute
+        var escapedVoice = System.Security.SecurityElement.Escape(options.Voice) ?? options.Voice;
+        ssml.AppendLine($"  <voice name=\"{escapedVoice}\">");
         ssml.AppendLine($"    <prosody rate=\"{speedStr}\" pitch=\"{pitchStr}\" volume=\"{volumePercent}\">");
         ssml.AppendLine($"      {escapedText}");
         ssml.AppendLine("    </prosody>");

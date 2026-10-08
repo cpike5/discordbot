@@ -4,6 +4,10 @@ using System.Text.Json;
 using DiscordBot.Core.Entities;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace DiscordBot.Tests.Integration;
@@ -127,6 +131,48 @@ public class MemberPortalTests : IClassFixture<MemberPortalTests.AppFixture>
         // member is let in (not 401/403) and told why in plain language.
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await response.Content.ReadAsStringAsync()).Should().Contain("channel_not_found");
+    }
+
+    [Fact]
+    public async Task Member_UploadingAFileOverTheGuildsSizeLimit_IsRefused()
+    {
+        // The seeded guild keeps the default 5 MB per-file limit
+        var oversized = new byte[(int)new GuildAudioSettings().MaxFileSizeBytes + 1];
+        using var form = new MultipartFormDataContent
+        {
+            { new ByteArrayContent(oversized), "file", "too-big.mp3" },
+            { new StringContent("too-big"), "name" }
+        };
+
+        var response = await _app.Member.PostAsync($"/api/portal/soundboard/{GuildId}/sounds", form);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("file_too_large");
+    }
+
+    [Theory]
+    [InlineData("PortalSoundboardSounds", "UploadSound", "portal-upload")]
+    [InlineData("PortalSoundboardPlayback", "PlaySound", "portal-play")]
+    public void PortalUploadAndPlay_AreRateLimited(string controller, string action, string policy)
+    {
+        var descriptor = _app.Host.Services.GetRequiredService<IActionDescriptorCollectionProvider>()
+            .ActionDescriptors.Items
+            .OfType<ControllerActionDescriptor>()
+            .Single(a => a.ControllerName == controller && a.ActionName == action);
+
+        descriptor.EndpointMetadata.OfType<EnableRateLimitingAttribute>()
+            .Select(a => a.PolicyName)
+            .Should().Contain(policy);
+    }
+
+    [Fact]
+    public async Task Member_PlayingAnUnknownSound_IsAnsweredByTheAction_NotARateLimiterError()
+    {
+        // The play action names the "portal-play" rate-limit policy; a missing policy would throw (500)
+        var response = await _app.Member.PostAsync($"/api/portal/soundboard/{GuildId}/play/{Guid.NewGuid()}", content: null);
+
+        response.StatusCode.Should().NotBe(HttpStatusCode.InternalServerError);
+        response.StatusCode.Should().NotBe(HttpStatusCode.TooManyRequests);
     }
 
     [Theory]
