@@ -350,3 +350,4 @@ once for the group. Full pattern in `docs/architecture/patterns.md` § Agent Too
 - **`fetch_url` follows redirects by hand.** The `DmAssistantWebFetch` client has `AllowAutoRedirect = false`; `WebFetchToolProvider` follows up to 5 hops and re-runs `CheckSsrfAsync` on each. DNS rebinding is still open (connection pinning is deferred).
 - **`execute_python` runs with a cleared environment** (`PATH`, `HOME`, plus `SYSTEMROOT` on Windows). It is not a sandbox: the child runs as the bot's user and can read files the bot can read.
 - **The guild rate limiter reserves at check time.** `IAssistantRateLimiter.TryReserveAsync` checks and counts under one lock; `AssistantService` calls `Release` in a `finally` unless the run succeeded, so only successful runs count. `CheckAsync` is a read-only peek.
+- **Mentions:** template, user and model text goes out with `SafeMentions.UsersOnly` or `ReplyOnly` (`Bot/Helpers/SafeMentions.cs`); see `patterns.md` § Mentions in Bot Messages.

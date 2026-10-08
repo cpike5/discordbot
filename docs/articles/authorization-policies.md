@@ -783,7 +783,7 @@ Guild-specific authorization allows fine-grained access control per Discord serv
 
 1. **User Authentication**: User logs in via ASP.NET Identity
 2. **Guild Access Linking**: `UserGuildAccess` records are created linking users to guilds
-3. **Authorization Check**: `GuildAccessAuthorizationHandler` verifies user has access to specific guild
+3. **Authorization Check**: `GuildAccessHandler` verifies the user is a member of the guild (and, for Admins, has Discord Administrator there)
 4. **SuperAdmin Bypass**: SuperAdmins automatically have access to all guilds
 
 ### UserGuildAccess Entity
@@ -888,53 +888,24 @@ public class GuildSettingsModel : PageModel { }
 
 ---
 
-### GuildAccessAuthorizationHandler
+### GuildAccessHandler
 
-Custom authorization handler that enforces guild-specific access control.
+Custom authorization handler for the `GuildAccess` policy. It checks the caller's live Discord membership, not the database.
 
-**Location:** `DiscordBot.Bot/Authorization/GuildAccessAuthorizationHandler.cs`
+**Location:** `DiscordBot.Bot/Authorization/GuildAccessHandler.cs` (registered in `Extensions/IdentityServiceExtensions.cs`)
 
 **Authorization Flow:**
 
-1. **Check SuperAdmin**: If user is SuperAdmin → Grant access immediately
-2. **Extract Guild ID**: Read `guildId` from route parameters or query string
-3. **Validate Guild ID**: Ensure valid ulong Discord snowflake
-4. **Query Database**: Look up `UserGuildAccess` for user + guild combination
-5. **Compare Access Levels**: Verify user's access level >= required minimum level
-6. **Grant or Deny**: Succeed or fail the authorization requirement
+1. **SuperAdmin**: granted immediately.
+2. **Guild id**: from the route value `guildId`, or from the resource when code calls `AuthorizeAsync(User, guildId, new GuildAccessRequirement())` (used where the guild is not in the route, such as channel autocomplete). A query-string `guildId` is never used: the caller controls it.
+3. **Linked account**: the user needs a linked Discord account (`ApplicationUser.DiscordUserId`).
+4. **Membership**: the bot must know the guild, and the user must be a member of it (`DiscordSocketClient.GetGuild(...).GetUser(...)`).
+5. **Admins**: a user in the Identity `Admin` role also needs Discord `Administrator` permission in that guild.
+6. **Everyone else** who is a member is granted access.
 
-**Code Example:**
-```csharp
-protected override async Task HandleRequirementAsync(
-    AuthorizationHandlerContext context,
-    GuildAccessRequirement requirement)
-{
-    // SuperAdmins bypass guild-specific checks
-    if (context.User.IsInRole(Roles.SuperAdmin))
-    {
-        context.Succeed(requirement);
-        return;
-    }
+The policy applies to guild Razor pages and, since October 2026, to every API action whose route contains `{guildId}`. `ApiAuthorizationPolicyTests` fails when a new controller forgets it.
 
-    // Extract guildId from route: /Guilds/{guildId}/Settings
-    var guildIdString = _httpContext.Request.RouteValues["guildId"]?.ToString();
-    if (!ulong.TryParse(guildIdString, out var guildId))
-    {
-        return; // Fail silently - no valid guild ID
-    }
-
-    // Check database for access grant
-    var access = await _dbContext.Set<UserGuildAccess>()
-        .FirstOrDefaultAsync(a =>
-            a.ApplicationUserId == userId &&
-            a.GuildId == guildId);
-
-    if (access?.AccessLevel >= requirement.MinimumLevel)
-    {
-        context.Succeed(requirement);
-    }
-}
-```
+> **History:** an older `GuildAccessAuthorizationHandler` read `UserGuildAccess` rows and also accepted a query-string guild id. It was never registered and was deleted in October 2026. `UserGuildAccess` rows no longer grant access on their own; the sections below that create them describe data that the purge, export and privacy code still read.
 
 ---
 
@@ -990,12 +961,7 @@ public async Task<IActionResult> OnPostGrantAccessAsync(
 
 ### Route Parameter Detection
 
-The `GuildAccessAuthorizationHandler` automatically detects guild IDs from:
-
-1. **Route parameters**: `/Guilds/{guildId}/Settings`
-2. **Query strings**: `/Guilds/Settings?guildId=123456789`
-
-**Recommended Pattern:** Use route parameters for cleaner URLs and better SEO.
+`GuildAccessHandler` reads the guild id from the route only (`/Guilds/{guildId}/Settings`). Query strings are ignored, so put the guild id in the route.
 
 ```csharp
 // Razor Page route configuration
@@ -1383,7 +1349,7 @@ public class DebugAuthModel : PageModel
 
 **Unit Testing Authorization Handlers:**
 ```csharp
-public class GuildAccessAuthorizationHandlerTests
+public class GuildAccessHandlerTests
 {
     [Fact]
     public async Task HandleRequirementAsync_SuperAdmin_GrantsAccess()
@@ -1428,7 +1394,7 @@ public class GuildAccessAuthorizationHandlerTests
 | Role constants | `src/DiscordBot.Core/Authorization/Roles.cs` | Role name definitions |
 | UserGuildAccess entity | `src/DiscordBot.Core/Entities/UserGuildAccess.cs` | Guild access linking table |
 | GuildAccessRequirement | `src/DiscordBot.Bot/Authorization/GuildAccessRequirement.cs` | Authorization requirement |
-| GuildAccessHandler | `src/DiscordBot.Bot/Authorization/GuildAccessAuthorizationHandler.cs` | Authorization handler |
+| GuildAccessHandler | `src/DiscordBot.Bot/Authorization/GuildAccessHandler.cs` | Authorization handler |
 | DiscordClaimsTransformation | `src/DiscordBot.Bot/Authorization/DiscordClaimsTransformation.cs` | Claims enrichment |
 | AuthorizeViewTagHelper | `src/DiscordBot.Bot/TagHelpers/AuthorizeTagHelper.cs` | Tag helpers |
 | PortalPageModelBase | `src/DiscordBot.Bot/Pages/Portal/PortalPageModelBase.cs` | Portal authorization base class |

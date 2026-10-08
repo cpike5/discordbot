@@ -704,7 +704,7 @@ Add or update the OpenTelemetry section:
     "ServiceVersion": "0.5.0",
     "Tracing": {
       "Enabled": true,
-      "SamplingRatio": 0.1,
+      "Sampling": { "DefaultRate": 0.1 },
       "EnableConsoleExporter": false,
       "OtlpEndpoint": "http://localhost:4317",
       "OtlpProtocol": "grpc"

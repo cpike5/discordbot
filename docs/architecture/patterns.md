@@ -528,6 +528,10 @@ var items = allItems
     .ToList();
 ```
 
+### Mentions in Bot Messages
+
+Text built from an admin template or from user or model content is sent with restricted mentions: `SafeMentions.UsersOnly` (user mentions ping; `@everyone`, `@here` and roles do not) or `SafeMentions.ReplyOnly` (nothing pings except the replied-to user). Discord.Net 3.20 has no client-wide default, so pass `allowedMentions:` on each such send. Embeds never ping, so embed-only sends need nothing.
+
 ### User Data in Markup and Scripts
 
 Names, messages, tags and file names are typed by guild members and admins, so treat every
@@ -1892,8 +1896,10 @@ IHostedService
 2. Lazily resolves `IBackgroundServiceHealthRegistry` and calls `Register(ServiceName, this)`.
 3. Sets Status to `"Running"` and calls `ExecuteMonitoredAsync(stoppingToken)`.
 4. On `OperationCanceledException`: logs graceful stop (normal shutdown path).
-5. On any other exception: records the error, sets Status to `"Error"`, re-throws.
-6. In `finally`: sets Status to `"Stopped"`, calls `Unregister(ServiceName)`.
+5. On any other exception: records the error, sets Status to `"Error"`, re-throws. The service **stays registered** with status `"Error"`, so the health registry reports it as unhealthy.
+6. On a clean stop or cancellation: sets Status to `"Stopped"` and calls `Unregister(ServiceName)`.
+
+The host sets `BackgroundServiceExceptionBehavior.Ignore` (`Extensions/ApplicationServiceExtensions.cs`). One faulted service no longer stops the bot and the web portal. A fault is visible only through the health registry, so a hosted service that does not derive from `MonitoredBackgroundService` fails silently apart from the host's error log. Derive from this base class.
 
 ### Implementation Pattern
 

@@ -43,3 +43,4 @@ You are a domain expert for the **Scheduling & Notifications** stream of a Disco
 - **Reminder delivery falls back to REST** when the user is not in the socket cache (`AlwaysDownloadUsers` is false). A REST 404 marks the reminder Failed. Failure handling reloads the row and leaves it alone if it is no longer Pending, so a cancel during delivery sticks.
 - **Monthly schedules keep their day of month** (Jan 31 → Feb 28 → Mar 31). The anchor day is inferred, not stored: a schedule created on the 15th for the 31st settles on the 28th after February. `/schedule-create` takes an optional UTC `start`, required for one-time schedules.
 - **Testing gotcha:** call `.As<IDiscordClient>()` on a `Mock<DiscordSocketClient>` before `.Object` is first read, or the interface setups are silently ignored.
+- **Mentions:** template, user and model text goes out with `SafeMentions.UsersOnly` or `ReplyOnly` (`Bot/Helpers/SafeMentions.cs`); see `patterns.md` § Mentions in Bot Messages.

@@ -44,3 +44,4 @@ You are a domain expert for the **Guild & Configuration Management** stream of a
 - **Settings vs Configuration:** `ApplicationSetting` = runtime-changeable (DB); `IOptions<T>` = startup config (appsettings.json)
 - **Themes:** `Theme` entity + `ThemeService`/`ThemeRepository` exist for UI customization
 - **PageMetadataService is 609 lines** — search for specific methods
+- **Mentions:** template, user and model text goes out with `SafeMentions.UsersOnly` or `ReplyOnly` (`Bot/Helpers/SafeMentions.cs`); see `patterns.md` § Mentions in Bot Messages.

@@ -350,7 +350,7 @@ flowchart TD
 
     subgraph authz["Authorization"]
         viewer["RequireViewer Policy"]
-        guildAccess["GuildAccessAuthorizationHandler\nValidate guild portal access"]
+        guildAccess["GuildAccessHandler\nValidate guild access"]
         memberAccess["PortalGuildMemberAuthorizationHandler\nValidate guild membership"]
     end
 
@@ -607,7 +607,7 @@ flowchart TD
 
     subgraph authz["Authorization"]
         viewerPolicy["RequireViewer Policy"]
-        guildHandler["GuildAccessAuthorizationHandler"]
+        guildHandler["GuildAccessHandler"]
         memberHandler["PortalGuildMemberAuthorizationHandler"]
         tokenRefresh["DiscordTokenRefreshService\n30m background refresh"]
     end
