@@ -8,7 +8,8 @@ namespace DiscordBot.Core.DTOs;
 public class QueueItemDto
 {
     /// <summary>
-    /// Gets or sets the position in the queue (0-based).
+    /// Gets or sets the position in the queue. Waiting sounds are numbered from 1; position 0 is
+    /// the sound that is playing, which is not part of the queue.
     /// </summary>
     public int Position { get; set; }
 

@@ -30,6 +30,11 @@ public class AudioStreamer : IAudioStreamer
     private const int BufferSize = 3840;
 
     /// <summary>
+    /// How long to wait, once FFmpeg's stdout has ended, for its stderr to close and the process to exit.
+    /// </summary>
+    internal static readonly TimeSpan FfmpegExitTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AudioStreamer"/> class.
     /// </summary>
     /// <param name="transcoder">The FFmpeg transcoder for starting transcode sessions.</param>
@@ -271,7 +276,11 @@ public class AudioStreamer : IAudioStreamer
                     guildId, sound.Id, durationSeconds, cancellationToken);
             }
 
-            await discord.FlushAsync(cancellationToken);
+            // A stopped sound is not flushed: that would wait for the buffered audio to play out
+            if (!wasCancelled)
+            {
+                await discord.FlushAsync(cancellationToken);
+            }
 
             // Record streaming metrics
             BotActivitySource.RecordAudioStreamMetrics(
@@ -297,9 +306,46 @@ public class AudioStreamer : IAudioStreamer
             throw;
         }
 
+        if (wasCancelled)
+        {
+            // Stdout was not read to the end, so FFmpeg may be blocked writing to a full pipe and
+            // would never close stderr or exit. Kill it rather than wait for either; its exit code
+            // says nothing about the sound, and a cancelled play must not fall back to a retry
+            // without the filter.
+            session.KillIfRunning();
+            cacheBuffer?.Dispose();
+            transcodeScope.SetSuccess();
+            return (true, false, true);
+        }
+
         // Check for FFmpeg errors (only non-zero exit code is a real failure;
-        // FFmpeg writes harmless warnings like "Estimating duration from bitrate" to stderr)
-        var errorOutput = await session.ReadErrorOutputAsync();
+        // FFmpeg writes harmless warnings like "Estimating duration from bitrate" to stderr).
+        // Stdout has ended, so FFmpeg is finishing; wait a bounded time for stderr and the exit.
+        var errorOutput = string.Empty;
+        using (var exitTimeout = new CancellationTokenSource(FfmpegExitTimeout))
+        {
+            try
+            {
+                errorOutput = await session.ReadErrorOutputAsync(exitTimeout.Token);
+                await session.WaitForExitAsync(exitTimeout.Token);
+            }
+            catch (OperationCanceledException) when (exitTimeout.IsCancellationRequested)
+            {
+                _logger.LogWarning("FFmpeg (PID: {ProcessId}) did not exit within {Timeout} after its output ended for sound {SoundName} in guild {GuildId}; killing it",
+                    session.ProcessId, FfmpegExitTimeout, sound.Name, guildId);
+                session.KillIfRunning();
+            }
+        }
+
+        if (!session.HasExited)
+        {
+            // The audio has been streamed in full; only the exit status is unknown. Do not cache
+            // output from a process whose result we could not check.
+            cacheBuffer?.Dispose();
+            transcodeScope.SetSuccess();
+            return (true, false, false);
+        }
+
         var hasError = session.ExitCode != 0;
 
         // Record FFmpeg completion

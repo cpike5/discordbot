@@ -58,6 +58,51 @@ public class TtsSendPipeline : ITtsSendPipeline
     }
 
     /// <inheritdoc />
+    public async Task<CancellationTokenSource> BeginPlaybackAsync(ulong guildId, string displayMessage, CancellationToken requestToken)
+    {
+        var truncatedMessage = displayMessage.Length > MaxDisplayMessageLength
+            ? displayMessage.Substring(0, MaxDisplayMessageLength)
+            : displayMessage;
+        CurrentMessages.AddOrUpdate(guildId, truncatedMessage, (_, _) => truncatedMessage);
+        PlaybackState.AddOrUpdate(guildId, true, (_, _) => true);
+
+        // Linked to the request token so both an HTTP disconnect and the stop endpoint cancel it.
+        // Not disposed with 'using': whoever removes it from PlaybackCancellationTokens disposes it.
+        var playbackCts = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
+
+        // Atomically swap in the new CTS. The superseded request's token is now ours to cancel
+        // and dispose, because we removed it from the dictionary.
+        CancellationTokenSource? previousCts = null;
+        PlaybackCancellationTokens.AddOrUpdate(guildId, playbackCts, (_, existing) =>
+        {
+            previousCts = existing;
+            return playbackCts;
+        });
+        if (previousCts != null)
+        {
+            await previousCts.CancelAsync();
+            previousCts.Dispose();
+        }
+
+        return playbackCts;
+    }
+
+    /// <inheritdoc />
+    public void EndPlayback(ulong guildId, CancellationTokenSource playbackCts)
+    {
+        // Remove the entry only while it is still this request's token. If a newer request has
+        // replaced it, or the stop endpoint has taken it, the guild's entry and its playing state
+        // belong to them: removing by key here would dispose the newer request's token and leave
+        // Stop with nothing to cancel.
+        if (PlaybackCancellationTokens.TryRemove(new KeyValuePair<ulong, CancellationTokenSource>(guildId, playbackCts)))
+        {
+            playbackCts.Dispose();
+            PlaybackState.TryRemove(guildId, out _);
+            CurrentMessages.TryRemove(guildId, out _);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<bool> IsAudioGloballyEnabledAsync()
     {
         return await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
@@ -319,32 +364,9 @@ public class TtsSendPipeline : ITtsSendPipeline
             });
         }
 
-        // Update current message tracking (truncate to MaxDisplayMessageLength characters)
-        var truncatedMessage = request.Message.Length > MaxDisplayMessageLength
-            ? request.Message.Substring(0, MaxDisplayMessageLength)
-            : request.Message;
-        CurrentMessages.AddOrUpdate(guildId, truncatedMessage, (k, v) => truncatedMessage);
-
-        // Mark TTS as playing
-        PlaybackState.AddOrUpdate(guildId, true, (k, v) => true);
-
-        // Create a cancellation token that can be triggered by the stop endpoint
-        // Link it with the request token so both HTTP disconnect and stop button work
-        // Do NOT use 'using' — lifetime is managed explicitly via TryRemove in finally/StopPlayback
-        var playbackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        // Atomically swap in the new CTS, capturing any previous one for disposal
-        CancellationTokenSource? previousCts = null;
-        PlaybackCancellationTokens.AddOrUpdate(guildId, playbackCts, (_, existing) =>
-        {
-            previousCts = existing;
-            return playbackCts;
-        });
-        if (previousCts != null)
-        {
-            await previousCts.CancelAsync();
-            previousCts.Dispose();
-        }
+        // Track the message and register a token the stop endpoint can cancel
+        var message = request.Message ?? string.Empty;
+        var playbackCts = await BeginPlaybackAsync(guildId, message, cancellationToken);
 
         // Play the audio using the TTS playback service
         TtsPlaybackResult playbackResult;
@@ -354,7 +376,7 @@ public class TtsSendPipeline : ITtsSendPipeline
                 guildId,
                 userId,
                 user.FindFirst("discord:username")?.Value ?? "Portal User",
-                request.Message,
+                message,
                 request.Voice,
                 audioStream,
                 playbackCts.Token);
@@ -367,11 +389,7 @@ public class TtsSendPipeline : ITtsSendPipeline
         }
         finally
         {
-            // Whoever wins TryRemove owns disposal — prevents double-dispose with StopPlayback
-            if (PlaybackCancellationTokens.TryRemove(guildId, out var removedCts))
-                removedCts.Dispose();
-            PlaybackState.TryRemove(guildId, out _);
-            CurrentMessages.TryRemove(guildId, out _);
+            EndPlayback(guildId, playbackCts);
         }
 
         if (!playbackResult.Success)
@@ -390,7 +408,7 @@ public class TtsSendPipeline : ITtsSendPipeline
         _logger.LogInformation("Successfully sent TTS message for guild {GuildId}", guildId);
 
         // Log to audio moderation log (fire-and-forget)
-        audioModerationLogService.LogPlayback(guildId, userId, AudioFeatureType.Tts, request.Message, channelId: null);
+        audioModerationLogService.LogPlayback(guildId, userId, AudioFeatureType.Tts, message, channelId: null);
 
         return new OkObjectResult(new { Message = "TTS message sent successfully", DurationSeconds = playbackResult.DurationSeconds });
     }

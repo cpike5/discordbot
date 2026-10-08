@@ -694,6 +694,147 @@ public class PortalTtsControllerTests
 
     #endregion
 
+    #region Playback token ownership
+
+    private static readonly TimeSpan PlaybackWait = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Makes every TTS playback run until its token is cancelled, recording each token in order.
+    /// </summary>
+    private System.Collections.Concurrent.ConcurrentQueue<CancellationToken> PlayUntilCancelled()
+    {
+        var tokens = new System.Collections.Concurrent.ConcurrentQueue<CancellationToken>();
+        _mockTtsPlaybackService
+            .Setup(s => s.PlayAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns<ulong, ulong, string, string, string, Stream, CancellationToken>(async (_, _, _, _, _, _, ct) =>
+            {
+                tokens.Enqueue(ct);
+                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
+                return new DiscordBot.Core.DTOs.Tts.TtsPlaybackResult { Success = true };
+            });
+        return tokens;
+    }
+
+    private static async Task WaitForCountAsync<T>(IReadOnlyCollection<T> items, int count)
+    {
+        var deadline = DateTime.UtcNow + PlaybackWait;
+        while (items.Count < count)
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new TimeoutException($"Expected {count} playback(s) to start; saw {items.Count}.");
+            }
+
+            await Task.Delay(10).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<bool> WaitForCancellationAsync(CancellationToken token)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (!token.IsCancellationRequested)
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                return false;
+            }
+
+            await Task.Delay(10).ConfigureAwait(false);
+        }
+
+        return true;
+    }
+
+    [Fact]
+    public async Task SendTts_SupersededRequestFinishing_DoesNotBreakStopForTheNewerRequest()
+    {
+        // A second message cancels the first. The first request's finally used to remove and
+        // dispose whatever token was registered for the guild, which by then was the second
+        // request's, so Stop found nothing to cancel and the second message played on.
+        const ulong guildId = 123456789UL;
+        _mockTtsSettingsService
+            .Setup(s => s.GetOrCreateSettingsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildTtsSettings { GuildId = guildId, TtsEnabled = true, MaxMessageLength = 500, RateLimitPerMinute = 5 });
+        _mockTtsSettingsService
+            .Setup(s => s.IsUserRateLimitedAsync(guildId, It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _mockAudioService.Setup(s => s.IsConnected(guildId)).Returns(true);
+        _mockTtsService
+            .Setup(s => s.SynthesizeSpeechAsync(It.IsAny<string>(), It.IsAny<TtsOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new MemoryStream(new byte[192000]));
+        var tokens = PlayUntilCancelled();
+
+        var first = _controller.SendTts(guildId, new SendTtsRequest { Message = "first", Voice = "en-US-JennyNeural" }, CancellationToken.None);
+        await WaitForCountAsync(tokens, 1).ConfigureAwait(false);
+        var second = _controller.SendTts(guildId, new SendTtsRequest { Message = "second", Voice = "en-US-JennyNeural" }, CancellationToken.None);
+        await WaitForCountAsync(tokens, 2).ConfigureAwait(false);
+
+        // The first request is cancelled by the second and has run its finally.
+        var firstResult = await first.WaitAsync(PlaybackWait).ConfigureAwait(false);
+        firstResult.Should().BeOfType<OkObjectResult>();
+        var secondToken = tokens.Last();
+        secondToken.IsCancellationRequested.Should().BeFalse();
+        _sendPipeline.PlaybackState.ContainsKey(guildId).Should().BeTrue("the second message is still playing");
+
+        await _controller.StopPlayback(guildId, CancellationToken.None).ConfigureAwait(false);
+
+        (await WaitForCancellationAsync(secondToken).ConfigureAwait(false))
+            .Should().BeTrue("Stop must cancel the message that is playing");
+        (await second.WaitAsync(PlaybackWait).ConfigureAwait(false)).Should().BeOfType<OkObjectResult>();
+        _sendPipeline.PlaybackCancellationTokens.Should().NotContainKey(guildId);
+        _sendPipeline.PlaybackState.Should().NotContainKey(guildId);
+    }
+
+    [Fact]
+    public async Task SynthesizeSsml_PlayInVoiceChannel_CanBeStopped()
+    {
+        // SSML "play live" set the playing state but registered no token, so Stop cleared the
+        // state and the audio played on.
+        const ulong guildId = 123456789UL;
+        _mockTtsSettingsService
+            .Setup(s => s.GetOrCreateSettingsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildTtsSettings { GuildId = guildId, TtsEnabled = true, SsmlEnabled = true, MaxSsmlComplexity = 1000 });
+        _mockAudioService.Setup(s => s.IsConnected(guildId)).Returns(true);
+        _mockSsmlValidator
+            .Setup(v => v.Validate(It.IsAny<string>()))
+            .Returns(new SsmlValidationResult { IsValid = true, DetectedVoices = new[] { "en-US-JennyNeural" } });
+        _mockSsmlValidator.Setup(v => v.ExtractPlainText(It.IsAny<string>())).Returns("hello");
+        _mockTtsService
+            .Setup(s => s.SynthesizeSpeechAsync(It.IsAny<string>(), It.IsAny<TtsOptions?>(), DiscordBot.Core.Enums.SynthesisMode.Ssml, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new MemoryStream(new byte[192000]));
+        var tokens = PlayUntilCancelled();
+
+        var synthesisController = new PortalTtsSynthesisController(
+            _sendPipeline,
+            _mockSsmlBuilder.Object,
+            _mockTtsSettingsService.Object,
+            _mockAudioService.Object,
+            _mockTtsPlaybackService.Object,
+            _mockTtsService.Object,
+            _mockSsmlValidator.Object,
+            _mockVoiceCapabilityProvider.Object,
+            new Mock<ILogger<PortalTtsSynthesisController>>().Object)
+        {
+            ControllerContext = _controller.ControllerContext
+        };
+
+        var play = synthesisController.SynthesizeSsml(
+            guildId,
+            new DiscordBot.Core.DTOs.Tts.SsmlSynthesisRequest { Ssml = "<speak>hello</speak>", PlayInVoiceChannel = true },
+            CancellationToken.None);
+        await WaitForCountAsync(tokens, 1).ConfigureAwait(false);
+
+        await _controller.StopPlayback(guildId, CancellationToken.None).ConfigureAwait(false);
+
+        (await WaitForCancellationAsync(tokens.Single()).ConfigureAwait(false))
+            .Should().BeTrue("Stop must cancel SSML playback");
+        (await play.WaitAsync(PlaybackWait).ConfigureAwait(false)).Should().BeOfType<OkObjectResult>();
+        _sendPipeline.PlaybackCancellationTokens.Should().NotContainKey(guildId);
+        _sendPipeline.PlaybackState.Should().NotContainKey(guildId);
+    }
+
+    #endregion
+
     /// <summary>
     /// Mock implementation of IReadOnlyCollection for testing.
     /// </summary>

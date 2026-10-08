@@ -61,12 +61,14 @@ public interface IPlaybackService
     /// Removes a sound from the queue at the specified position.
     /// </summary>
     /// <param name="guildId">Discord guild snowflake ID.</param>
-    /// <param name="position">Zero-based position in the queue to remove.</param>
+    /// <param name="position">
+    /// Queue position as numbered in queue broadcasts: 0 is the sound that is playing, 1 is the
+    /// first waiting sound, and so on.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>True if the item was removed, false if the position was invalid.</returns>
+    /// <returns>True if the item was removed or skipped, false if the position was invalid.</returns>
     /// <remarks>
-    /// If the position is 0 and a sound is currently playing, the current sound will be skipped.
-    /// Position 0 represents the currently playing or next-to-play sound.
+    /// Position 0 skips the sound that is playing (false when nothing is playing).
     /// </remarks>
     Task<bool> RemoveFromQueueAsync(ulong guildId, int position, CancellationToken cancellationToken = default);
 }

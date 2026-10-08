@@ -63,6 +63,21 @@ public sealed class FfmpegTranscodeSession : IDisposable
     public Task<string> ReadErrorOutputAsync() => Process.StandardError.ReadToEndAsync();
 
     /// <summary>
+    /// Reads any error output from FFmpeg stderr, giving up when <paramref name="cancellationToken"/> is cancelled.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The stderr output.</returns>
+    public Task<string> ReadErrorOutputAsync(CancellationToken cancellationToken) =>
+        Process.StandardError.ReadToEndAsync(cancellationToken);
+
+    /// <summary>
+    /// Waits for the FFmpeg process to exit, giving up when <paramref name="cancellationToken"/> is cancelled.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait.</param>
+    public Task WaitForExitAsync(CancellationToken cancellationToken) =>
+        Process.WaitForExitAsync(cancellationToken);
+
+    /// <summary>
     /// Gets the FFmpeg process exit code.
     /// </summary>
     public int ExitCode => Process.ExitCode;

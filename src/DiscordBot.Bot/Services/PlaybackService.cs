@@ -135,10 +135,13 @@ public class PlaybackService : IPlaybackService
                     BroadcastQueueUpdate(guildId, state);
                 }
 
-                // Start playback loop if not already running
-                if (!state.IsPlaying)
+                // Start playback loop if not already running. LoopRunning, not IsPlaying, decides:
+                // a loop that has been started but has not yet taken the lock has IsPlaying false,
+                // and a second PlayAsync waiting on the lock would otherwise start another loop.
+                if (!state.LoopRunning)
                 {
                     _logger.LogDebug("Starting playback loop for guild {GuildId}", guildId);
+                    state.LoopRunning = true;
                     _ = PlaybackLoopAsync(guildId);
                 }
             }
@@ -236,14 +239,8 @@ public class PlaybackService : IPlaybackService
             return 0;
         }
 
-        // Don't count the currently playing sound
-        var queueLength = state.Queue.Count;
-        if (state.IsPlaying && queueLength > 0)
-        {
-            queueLength--;
-        }
-
-        return Math.Max(0, queueLength);
+        // The playing sound has already been dequeued, so the queue holds only waiting sounds
+        return state.Queue.Count;
     }
 
     /// <inheritdoc/>
@@ -275,9 +272,15 @@ public class PlaybackService : IPlaybackService
                     return false;
                 }
 
-                // Position 0 with active playback means skip current sound
-                if (position == 0 && state.IsPlaying)
+                // Position 0 is the sound that is playing: removing it means skipping it
+                if (position == 0)
                 {
+                    if (!state.IsPlaying)
+                    {
+                        _logger.LogDebug("Nothing playing to skip in guild {GuildId}", guildId);
+                        return false;
+                    }
+
                     _logger.LogInformation("Skipping current sound in guild {GuildId}", guildId);
                     state.CancellationTokenSource?.Cancel();
                     activity?.SetTag("playback.skipped_current", true);
@@ -285,17 +288,19 @@ public class PlaybackService : IPlaybackService
                     return true;
                 }
 
-                // Convert to queue array for position-based removal
+                // Positions 1..n are the waiting sounds, numbered as BroadcastQueueUpdate numbers them.
+                // The playing sound is no longer in the queue, so position n is queue index n - 1.
                 var queueList = state.Queue.ToList();
-                if (position >= queueList.Count)
+                var index = position - 1;
+                if (index >= queueList.Count)
                 {
                     _logger.LogWarning("Queue position {Position} out of range (queue size: {QueueSize}) for guild {GuildId}",
                         position, queueList.Count, guildId);
                     return false;
                 }
 
-                var removedItem = queueList[position];
-                queueList.RemoveAt(position);
+                var removedItem = queueList[index];
+                queueList.RemoveAt(index);
 
                 // Rebuild the queue
                 state.Queue.Clear();
@@ -371,11 +376,16 @@ public class PlaybackService : IPlaybackService
         var guildLock = _guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
         var loopFailed = false;
 
+        // Set once the empty-queue branch has handed the guild's state back under the lock.
+        // From then on a new loop may own the state, so this loop must not touch it again.
+        var releasedState = false;
+
         try
         {
             while (true)
             {
                 QueuedSound? queuedSound = null;
+                CancellationToken playToken;
 
                 // Get next sound from queue
                 await guildLock.WaitAsync();
@@ -385,11 +395,13 @@ public class PlaybackService : IPlaybackService
                     if (state.Queue.Count == 0)
                     {
                         // Queue empty, stop playback loop
+                        state.LoopRunning = false;
                         state.IsPlaying = false;
                         state.CurrentSound = null;
                         state.CurrentRequestedByDisplayName = null;
                         state.CancellationTokenSource?.Dispose();
                         state.CancellationTokenSource = null;
+                        releasedState = true;
                         _logger.LogDebug("Playback queue empty, stopping playback loop for guild {GuildId}", guildId);
                         loopScope.SetSuccess();
                         return;
@@ -401,6 +413,7 @@ public class PlaybackService : IPlaybackService
                     state.CurrentRequestedByDisplayName = queuedSound.RequestedByDisplayName;
                     state.CancellationTokenSource?.Dispose();
                     state.CancellationTokenSource = new CancellationTokenSource();
+                    playToken = state.CancellationTokenSource.Token;
 
                     // Broadcast queue update (sound dequeued)
                     BroadcastQueueUpdate(guildId, state);
@@ -418,7 +431,7 @@ public class PlaybackService : IPlaybackService
                 // Play the sound
                 try
                 {
-                    await PlaySoundAsync(guildId, queuedSound.Sound, queuedSound.Filter, queuedSound.RequestedByDisplayName, state.CancellationTokenSource.Token);
+                    await PlaySoundAsync(guildId, queuedSound.Sound, queuedSound.Filter, queuedSound.RequestedByDisplayName, playToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -445,17 +458,24 @@ public class PlaybackService : IPlaybackService
             if (!loopFailed)
                 loopScope.SetSuccess();
 
-            // Clean up state when loop exits
-            await guildLock.WaitAsync();
-            try
+            // A normal exit already cleaned up under the lock in the empty-queue branch, and a
+            // PlayAsync may have started a new loop since; clearing the state here would dispose
+            // that loop's token and mark it not playing. Only an exception exit, which never gave
+            // the state back, still owns it.
+            if (!releasedState)
             {
-                state.IsPlaying = false;
-                state.CancellationTokenSource?.Dispose();
-                state.CancellationTokenSource = null;
-            }
-            finally
-            {
-                guildLock.Release();
+                await guildLock.WaitAsync();
+                try
+                {
+                    state.LoopRunning = false;
+                    state.IsPlaying = false;
+                    state.CancellationTokenSource?.Dispose();
+                    state.CancellationTokenSource = null;
+                }
+                finally
+                {
+                    guildLock.Release();
+                }
             }
         }
     }
@@ -552,7 +572,8 @@ public class PlaybackService : IPlaybackService
         var queueItems = state.Queue
             .Select((queuedSound, index) => new QueueItemDto
             {
-                Position = index,
+                // 1-based: position 0 is reserved for the sound that is playing (RemoveFromQueueAsync)
+                Position = index + 1,
                 SoundId = queuedSound.Sound.Id,
                 Name = queuedSound.Sound.Name,
                 DurationSeconds = queuedSound.Sound.DurationSeconds
@@ -587,6 +608,13 @@ public class PlaybackService : IPlaybackService
         /// Whether a sound is currently playing.
         /// </summary>
         public bool IsPlaying { get; set; }
+
+        /// <summary>
+        /// Whether a playback loop has been started and has not yet exited. Set by
+        /// <see cref="PlayAsync"/> when it starts the loop and cleared by the loop when it gives
+        /// the state back, both under the guild lock, so at most one loop runs per guild.
+        /// </summary>
+        public bool LoopRunning { get; set; }
 
         /// <summary>
         /// Cancellation token source for the current playback.
