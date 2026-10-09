@@ -1,6 +1,6 @@
 # Codebase Review Fixes (October 2026)
 
-**Status:** Waves 1–3 done (2026-10-09). Deferred items and owner decisions remain; see below.
+**Status:** Waves 1–3 done (2026-10-09). Debug and Release builds have 0 errors; tests green on PostgreSQL. Deferred items and owner decisions remain; see below.
 **Date:** 2026-10-08
 **Source:** [`reports/codebase-review-2026-10-08.md`](../../reports/codebase-review-2026-10-08.md). Finding IDs (H1–H11) refer to that report.
 **Branch:** `claude/nice-bohr-il9uyg`
@@ -85,6 +85,7 @@ wave agents, so the agents do not conflict.
 - Connection pinning for `fetch_url` (closes DNS rebinding; the redirect fix closes the main hole).
 - Anti-forgery validation on cookie-authenticated API controllers. It needs every JS caller checked first.
 - Trigram indexes for log search.
+- Data Protection key ring at rest (`IdentityServiceExtensions.cs:45-46`, report §4). Keys are written to disk unencrypted, so anyone who can read that directory can decrypt the stored Discord OAuth tokens. Options: `ProtectKeysWithCertificate` with a certificate from configuration, or tight filesystem permissions plus documentation. This is a deployment decision.
 - Command-module test coverage beyond the tests added here.
 
 ## Status notes

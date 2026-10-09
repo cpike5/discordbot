@@ -151,7 +151,7 @@ Slash and context menu commands for immediate moderation actions (warn, kick, ba
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | `/warn`, `/kick`, `/ban`, `/unban`, `/mute`, `/purge`, `Warn User` (context menu) (ModerationActionModule) |
-| **Services** | `IModerationService`, `IAuditLogService` |
+| **Services** | `IModerationService`, `ModerationActionRunner`, `TemporaryBanExpiryService` (lifts temporary bans when they expire), `IAuditLogService` |
 | **UI Pages** | Admin: Moderation case history pages |
 | **Database Entities** | `ModerationCase`, `AuditLog` |
 | **Key Features** | Reason tracking, case numbering, member audit trail, soft bans, mute duration configuration |
@@ -783,7 +783,7 @@ Long-running background tasks for maintenance and scheduled operations.
 
 | Aspect | Components |
 |--------|------------|
-| **Services** | `BotHostedService` (main bot lifecycle), `ReminderExecutionService`, `ScheduledMessageExecutionService`, `AnalyticsRetentionService`, `InteractionStateCleanupService`, `MessageLogCleanupService`, `AudioCacheCleanupService`, `VerificationCleanupService`, `SoundPlayLogRetentionService` |
+| **Services** | `BotHostedService` (main bot lifecycle), `ReminderExecutionService`, `ScheduledMessageExecutionService`, `AnalyticsRetentionService`, `InteractionStateCleanupService`, `MessageLogCleanupService`, `AudioCacheCleanupService`, `VerificationCleanupService`, `SoundPlayLogRetentionService`, `DataRetentionService`, `TemporaryBanExpiryService` |
 | **Monitoring** | `MonitoredBackgroundService` (base class with health checks), `BackgroundServiceHealthRegistry` |
 | **Key Features** | Lifecycle management, health monitoring, graceful shutdown |
 
@@ -892,12 +892,17 @@ Custom authorization attributes enforce feature availability:
 
 | Entity | Retention | Service |
 |--------|-----------|---------|
-| CommandLog | 90 days | `MessageLogCleanupService` |
+| CommandLog | 90 days (`DataRetention:CommandLogRetentionDays`) | `DataRetentionService` (until October 2026 nothing swept it) |
 | MessageLog | 365 days | `MessageLogCleanupService` |
 | SoundPlayLog | 90 days | `SoundPlayLogRetentionService` |
 | UserNotification | 30 days | `NotificationRetentionService` |
 | MetricSnapshot | 90 days | `AnalyticsRetentionService` |
 | InteractionState | Ephemeral | `InteractionStateCleanupService` |
+| UserActivityEvent | 90 days (`UserActivityEventRetention:RetentionDays`) | `DataRetentionService` |
+| ConnectionEvent | 30 days (`PerformanceMetrics:ConnectionEventRetentionDays`) | `DataRetentionService` |
+| TtsMessage | 90 days | `DataRetentionService` |
+| AssistantUsageMetrics | 365 days | `DataRetentionService` |
+| AudioPlaybackLog | 90 days | `DataRetentionService` |
 
 ---
 
