@@ -1,6 +1,6 @@
 # Codebase Review Fixes (October 2026)
 
-**Status:** In progress. Wave 1 done; wave 2 and the wave 3 code items started 2026-10-08.
+**Status:** Waves 1–3 done (2026-10-09). Deferred items and owner decisions remain; see below.
 **Date:** 2026-10-08
 **Source:** [`reports/codebase-review-2026-10-08.md`](../../reports/codebase-review-2026-10-08.md). Finding IDs (H1–H11) refer to that report.
 **Branch:** `claude/nice-bohr-il9uyg`
@@ -101,3 +101,17 @@ All 15 items landed. Full suite on the merged branch: 5,730 passed, 0 failed, 21
 - **1i–1k (assistant).** `fetch_url` follows up to 5 redirects by hand and checks each hop. `execute_python` gets a cleared environment and no longer claims to be a sandbox. The rate limiter reserves at check time and releases on failure.
 - **1l–1n (web).** Twelve controllers got `GuildAccess` at class level; Preview got it on its two guild actions, and Autocomplete checks access by hand. **Behaviour change:** on admin API controllers, an Identity Admin now needs Discord Administrator in that guild, as the guild pages already require. `ModeratorAccess` is now `RequireModerator`. Portal upload enforces the per-file size limit. Upload and play have per-user rate limits (`PortalRateLimit`). The voice name is escaped. **Open:** Admin Logs' channel picker returns 403 for guilds the admin does not administer. Preview popups show their error state for guilds the viewer is not in.
 - **1o (data).** `DataRetentionService` covers the six tables. `PerformanceMetrics:ConnectionEventRetentionDays` was never read before; it is now applied, and its default went from 7 to 30 to match the 30-day uptime view. **Note:** command logs older than 90 days drop out of all-time command counts.
+
+### Waves 2 and 3: done (2026-10-09)
+
+Full suite on the merged branch: 5,768 passed, 0 failed, 10 skipped (was 21 skipped). PostgreSQL only.
+
+- **2a–2d, 2h (audio).** `PlaybackService` starts a loop only when `LoopRunning` is false, set under the guild lock. A second race also existed: two queued `PlayAsync` calls both started loops. Queue positions are 1-based end to end, and 0 skips the playing sound. The old code removed the item after the one clicked. TTS stop tokens are per request, and SSML play-live registers one. On cancel, FFmpeg is killed instead of waited on. `/join-channel` is moderator-only. **Open:** `/leave` has no precondition.
+- **2e (mentions).** `SafeMentions.UsersOnly`/`ReplyOnly` on scheduled messages, plain-text welcome, the Rat Watch vote message, and assistant replies. **Behaviour change:** existing scheduled templates that use `@everyone`, `@here` or role mentions no longer ping.
+- **2f (observability).** Samplers use `Random.Shared` through a seam, and two skipped tests are now deterministic. The sampling key in the production and development settings is fixed. `BackgroundServiceExceptionBehavior.Ignore` is set, and a faulted `MonitoredBackgroundService` now stays registered as Error; before, it unregistered and vanished. Hub spans carry the Discord id. **Open:** four hosted services still bypass the base class.
+- **2g (privacy).** Purge and export cover the personal tables, plus `DmAssistantNote`, `FeatureRequestRejection` and `VerificationCode`. `FeatureRequest` and `UserActivityLog` targets are anonymised. Moderation cases, flagged events, mod-note targets and wallets are retained (D5, **awaiting decision**). `docs/articles/user-data-inventory.md` plus `UserDataInventoryTests` keep the list honest. **Bug fixed:** purging a former admin with portal activity always rolled back on a Restrict FK.
+- **3a.** The unregistered `GuildAccessAuthorizationHandler` and its tests are gone. The live `GuildAccessHandler` got 9 tests (it had none). `UserGuildAccess` rows never granted access through the live handler, and the docs now say so. The duplicate SSML DTOs are gone. **Kept:** `Serilog.Sinks.Grafana.Loki`. The review called it unused, but the deployment env template loads it by name.
+- **3b.** OpenTelemetry 1.14.0 → 1.15.3 (advisories cleared). NU1603 pins added. `dependabot.yml` added. **Still reported by the vulnerability scan:** SharpCompress and Snappier (via MongoDB.Driver.Core) and System.Text.Json 8.0.0.
+- **3c.** All 21 `BeCloseTo(DateTime.UtcNow, …)` sites now use `DbTimestamp.LowerBound()`.
+- **3d.** Docs pass done: API endpoints, service catalog, agent definitions, spec status lines, reminder time zones, authorization policies, patterns (mentions, background-service faults), configuration guide.
+
