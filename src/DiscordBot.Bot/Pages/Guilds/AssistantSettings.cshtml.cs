@@ -4,6 +4,8 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.Llm;
+using Discord;
+using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -23,6 +25,7 @@ public class AssistantSettingsModel : GuildPageModelBase
     private readonly IDiscordChannelResolver _channelResolver;
     private readonly IOptions<AssistantOptions> _assistantOptions;
     private readonly ISettingsService _globalSettingsService;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<AssistantSettingsModel> _logger;
 
     public AssistantSettingsModel(
@@ -31,6 +34,7 @@ public class AssistantSettingsModel : GuildPageModelBase
         IDiscordChannelResolver channelResolver,
         IOptions<AssistantOptions> assistantOptions,
         ISettingsService globalSettingsService,
+        DiscordSocketClient discordClient,
         ILogger<AssistantSettingsModel> logger)
     {
         _settingsService = settingsService;
@@ -38,6 +42,7 @@ public class AssistantSettingsModel : GuildPageModelBase
         _channelResolver = channelResolver;
         _assistantOptions = assistantOptions;
         _globalSettingsService = globalSettingsService;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -80,6 +85,13 @@ public class AssistantSettingsModel : GuildPageModelBase
     public bool GloballyEnabled { get; set; }
 
     /// <summary>
+    /// Allowed channels (or every text channel, when none is chosen) where the bot cannot open a
+    /// thread or post in one. Shown under the Threads option; saving is still allowed, the handler
+    /// answers in the channel for those.
+    /// </summary>
+    public List<string> ThreadPermissionGaps { get; set; } = new();
+
+    /// <summary>
     /// Input model for form binding with validation attributes.
     /// </summary>
     public class InputModel
@@ -96,6 +108,9 @@ public class AssistantSettingsModel : GuildPageModelBase
 
         [Display(Name = "Enabled Tools")]
         public List<string> EnabledTools { get; set; } = new();
+
+        [Display(Name = "Conversation mode")]
+        public AssistantConversationMode ConversationMode { get; set; } = AssistantConversationMode.SingleReply;
     }
 
     public class ToolCategoryGroup
@@ -149,7 +164,8 @@ public class AssistantSettingsModel : GuildPageModelBase
             IsEnabled = settings.IsEnabled,
             AllowedChannelIds = settings.GetAllowedChannelIdsList().Select(id => id.ToString()).ToList(),
             RateLimitOverride = settings.RateLimitOverride,
-            EnabledTools = settings.GetEnabledToolsList()
+            EnabledTools = settings.GetEnabledToolsList(),
+            ConversationMode = settings.ConversationMode
         };
 
         await LoadPageAsync(guild.Id, guild.Name, guild.IconUrl, cancellationToken);
@@ -184,6 +200,9 @@ public class AssistantSettingsModel : GuildPageModelBase
 
         settings.IsEnabled = Input.IsEnabled;
         settings.RateLimitOverride = Input.RateLimitOverride;
+        settings.ConversationMode = Enum.IsDefined(Input.ConversationMode)
+            ? Input.ConversationMode
+            : AssistantConversationMode.SingleReply;
 
         var channelIds = new List<ulong>();
         foreach (var channelIdStr in Input.AllowedChannelIds ?? new List<string>())
@@ -227,6 +246,8 @@ public class AssistantSettingsModel : GuildPageModelBase
         var enabledTools = Input.EnabledTools ?? new List<string>();
         UsingDefaultToolSet = enabledTools.Count == 0;
         ToolCategories = BuildToolCategories(enabledTools);
+
+        ThreadPermissionGaps = FindThreadPermissionGaps(guildId, selectedChannels);
 
         DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
         RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;
@@ -279,6 +300,34 @@ public class AssistantSettingsModel : GuildPageModelBase
 
         return channels;
     }
+
+    /// <summary>
+    /// The names of channels where thread mode would fall back to a channel reply because the bot
+    /// lacks Create Public Threads or Send Messages in Threads. Empty while the bot cannot see the
+    /// guild (offline mode), since nothing can be checked.
+    /// </summary>
+    private List<string> FindThreadPermissionGaps(ulong guildId, List<ulong> selectedChannelIds)
+    {
+        var guild = _discordClient.GetGuild(guildId);
+        if (guild?.CurrentUser is null)
+        {
+            return new List<string>();
+        }
+
+        var channels = selectedChannelIds.Count == 0
+            ? guild.TextChannels.AsEnumerable()
+            : selectedChannelIds.Select(guild.GetTextChannel).Where(c => c is not null)!;
+
+        return channels
+            .Where(c => !CanHostAssistantThread(guild.CurrentUser.GetPermissions(c)))
+            .OrderBy(c => c.Position)
+            .Select(c => c.Name)
+            .ToList();
+    }
+
+    /// <summary>What a channel needs for the bot to open a thread there and answer in it.</summary>
+    public static bool CanHostAssistantThread(ChannelPermissions permissions) =>
+        permissions.CreatePublicThreads && permissions.SendMessagesInThreads;
 
     private static List<ToolCategoryGroup> BuildToolCategories(List<string> enabledTools)
     {

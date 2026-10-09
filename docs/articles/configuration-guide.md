@@ -209,9 +209,10 @@ Thread mode (a mention opens a thread the conversation continues in; per guild, 
 The cost is not the same on the two surfaces, and that is what decides where a skill belongs. The
 DM assistant is multi-turn: the turn that loads a skill pays a round, and the activation is replayed
 on every turn after it, so its tools are advertised from the first call and its instructions are
-already in the prompt. The guild assistant is single-turn, so there is no previous turn to replay
-and a skill there costs its round **every** time it is used — which is why the shipped skills are
-all on the DM side, and why a guild skill is only worth it for something rare and heavy.
+already in the prompt. The guild assistant's single-reply mode is single-turn, so there is no
+previous turn to replay and a skill there costs its round **every** time it is used — which is why
+the shipped skills are all on the DM side. A guild in thread mode (see `Assistant:Threads` above)
+replays the thread's activations, so a skill costs one round per conversation there.
 
 Either path may be absolute, or relative to the application directory or the working directory —
 the same resolution a prompt path gets, so one relative path works both from a published output and

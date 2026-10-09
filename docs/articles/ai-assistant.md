@@ -86,6 +86,36 @@ The assistant enforces per-user rate limits to prevent abuse and control API cos
 
 ---
 
+### Thread mode
+
+A server can switch the assistant from one reply per mention to a conversation. In thread mode:
+
+- A mention in a text channel opens a **public thread** off the member's message, named after the
+  question, and the answer is posted in it. The channel reply is not sent.
+- **Anyone who has consented** can continue the conversation by posting in that thread, with no
+  mention. Each person is rate-limited as before. Someone without consent gets the consent prompt
+  once per thread, not on every message.
+- The thread keeps a **short history**: the last `Assistant:Threads:MaxConversationMessages`
+  turns (default 20) are sent with each question, and a skill the assistant loads in a thread stays
+  loaded for the rest of it. Two members posting at once take their turns one after the other.
+- After `Assistant:Threads:MaxTurnsPerThread` turns (default 40) the bot says the conversation has
+  reached its limit and stops answering in that thread. Mention it in the channel for a new one.
+- Discord archives an idle thread after `Assistant:Threads:AutoArchiveMinutes` (default a day); a
+  message in an archived thread un-archives it and the conversation continues. The bot deletes a
+  thread's history after `Assistant:Threads:HistoryRetentionDays` (default 30) of inactivity.
+- A mention inside someone else's thread is answered with a single reply, because Discord cannot
+  nest threads.
+- If the bot **cannot open a thread** in that channel (it needs Create Public Threads and Send
+  Messages in Threads), it answers in the channel instead and logs a warning once an hour. The
+  settings page lists such channels.
+
+The allowed-channel list applies to where a conversation may *start*; a thread inherits its parent
+channel's permission. Thread history is included in a member's data export and deleted by a purge.
+
+Why threads matter beyond follow-ups: the guild assistant used to be single-turn, so a loaded skill
+cost a round on every question and `docs/agents/skills/guild/` shipped empty. In a thread a skill
+costs one round per conversation, which makes guild skills affordable.
+
 ## Slash Commands
 
 ### /consent
@@ -154,6 +184,10 @@ If you ask about private data, the assistant will politely decline and suggest c
   call. **Selecting nothing means the default set**, not "no tools" — the page says so, and shows
   the default ticked. The choice applies to every caller in the server, which is what keeps it from
   fragmenting the prompt cache.
+- **Conversation mode** - **Single reply** (the default: one answer in the channel, no memory) or
+  **Threads** (a mention opens a thread and the answer goes there; see [Thread mode](#thread-mode)).
+  With Threads chosen, the page lists any allowed channel where the bot lacks Create Public Threads
+  or Send Messages in Threads; members there get a single reply until the permission is granted.
 - **Rate Limit Override** - Set a custom questions-per-window limit for your guild (leave blank to use global default)
 - **Save** - Apply changes and return to page
 

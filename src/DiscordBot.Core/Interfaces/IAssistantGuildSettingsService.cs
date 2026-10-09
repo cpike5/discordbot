@@ -74,6 +74,13 @@ public interface IAssistantGuildSettingsService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// How this guild's assistant answers a mention. A guild with no settings row is a single reply.
+    /// </summary>
+    Task<Enums.AssistantConversationMode> GetConversationModeAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets the rate limit for a guild (guild override or global default).
     /// </summary>
     /// <param name="guildId">Discord guild ID.</param>
