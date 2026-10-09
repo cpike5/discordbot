@@ -46,4 +46,11 @@ public class AssistantTelemetryReader : IAssistantTelemetryReader
     {
         return _metricsRepository.IncrementFailedRequestAsync(guildId, DateTime.UtcNow.Date, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<Core.DTOs.Llm.Reporting.AssistantConversationStats> GetConversationStatsAsync(
+        ulong guildId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    {
+        return _interactionLogRepository.GetConversationStatsAsync(guildId, startDate, endDate, cancellationToken);
+    }
 }

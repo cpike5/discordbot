@@ -64,6 +64,15 @@ public interface IAssistantInteractionLogRepository : IRepository<AssistantInter
     /// <param name="cutoffDate">The cutoff date. Entries with Timestamp &lt; cutoffDate will be deleted.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of entries deleted.</returns>
+    /// <summary>
+    /// Counts the distinct assistant threads with a logged turn in the period, and those turns.
+    /// </summary>
+    Task<AssistantConversationStats> GetConversationStatsAsync(
+        ulong guildId,
+        DateTime from,
+        DateTime to,
+        CancellationToken cancellationToken = default);
+
     Task<int> DeleteOlderThanAsync(
         DateTime cutoffDate,
         CancellationToken cancellationToken = default);

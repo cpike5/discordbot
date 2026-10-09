@@ -205,6 +205,8 @@ If you ask about private data, the assistant will politely decline and suggest c
   - Total estimated cost in USD
   - Average response latency in milliseconds
   - Cache hit rate percentage
+  - Conversations: distinct threads that took a turn in the window and the average turns each
+    (thread mode; a single-reply server reads "No threads")
 
 - **Daily Metrics Table:**
   - Date
@@ -660,9 +662,17 @@ Two skills ship, both on the DM side:
 Those five tools are no longer advertised to the DM assistant on every message; they arrive when the
 owner asks something moderation- or analytics-shaped and the model loads the skill that owns them.
 Everything else the surface offers — the documentation tools, the memory tools, the rest — is
-advertised exactly as before. `docs/agents/skills/guild/` ships empty, and deliberately: the DM
+advertised exactly as before. `docs/agents/skills/guild/` holds one skill, `rat-watch` (see below); the DM
 assistant is multi-turn, so an activation is replayed on later turns and a skill is paid for once,
 while the guild assistant is single-turn and would pay the loading round every time.
+
+**The guild skill.** `rat-watch` hides the three Rat Watch tools (`get_rat_watch_leaderboard`,
+`get_rat_watch_user_stats`, `get_rat_watch_summary`) behind a one-line summary. Measured on the
+shipped guild tool array: the trio is 1,381 of 5,533 schema characters, 25% of what every question
+paid for before it was read, and the one-line roster entry plus the loader costs a fraction of that.
+The trade: a Rat Watch question in a single-reply server costs one extra round to load the skill; in
+a thread the load is paid once per conversation. Every other question is a quarter cheaper on the
+tool array.
 
 Adding a skill is one markdown file in the right directory. There is no catalogue entry, no DI
 registration, and no code; the file is picked up without a restart, on the same cache terms as a

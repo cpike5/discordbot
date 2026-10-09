@@ -20,4 +20,11 @@ public interface IAssistantTelemetryReader
 
     /// <summary>Records a failed request against today's usage metrics (best-effort).</summary>
     Task IncrementFailedRequestAsync(ulong guildId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// How many assistant threads took a turn in the period, and how many turns: the thread-mode
+    /// figures the metrics page shows beside the question count.
+    /// </summary>
+    Task<DTOs.Llm.Reporting.AssistantConversationStats> GetConversationStatsAsync(
+        ulong guildId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
 }

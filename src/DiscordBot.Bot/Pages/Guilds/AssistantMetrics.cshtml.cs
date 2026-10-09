@@ -117,6 +117,12 @@ public class AssistantMetricsModel : GuildPageModelBase
     public int TotalToolCalls { get; set; }
 
     /// <summary>
+    /// Thread-mode conversations in the period and the turns they took. Zero for a guild on single
+    /// replies, which is what the tile says.
+    /// </summary>
+    public AssistantConversationStats Conversations { get; set; } = AssistantConversationStats.Empty;
+
+    /// <summary>
     /// Top spenders in this guild over the same 30-day window, from the LLM usage ledger
     /// (<see cref="ILlmUsageRepository"/>), newest ledger data source - not the daily
     /// <see cref="AssistantUsageMetrics"/> aggregates above, which carry no per-user breakdown.
@@ -246,6 +252,9 @@ public class AssistantMetricsModel : GuildPageModelBase
 
         Metrics = (await _telemetryReader.GetUsageMetricsRangeAsync(
             GuildId, startDate, endDate, cancellationToken)).ToList();
+
+        Conversations = await _telemetryReader.GetConversationStatsAsync(
+            GuildId, startDate, endDate.AddDays(1).AddTicks(-1), cancellationToken);
 
         var toolUsage = await _interactionLogRepository.GetToolUsageAsync(
             GuildId, startDate, endDate.AddDays(1).AddTicks(-1), cancellationToken);

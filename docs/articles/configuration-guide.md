@@ -192,7 +192,7 @@ no skills and the loader is not advertised at all. The format and the authoring 
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `DmAssistant:SkillsPath` | `docs/agents/skills/dm` | Where the DM assistant's skill files live. Blank disables skills for the DM assistant. |
-| `Assistant:Tools:SkillsPath` | `docs/agents/skills/guild` | Where the guild assistant's skill files live. Blank disables skills for the guild assistant. The directory ships empty. |
+| `Assistant:Tools:SkillsPath` | `docs/agents/skills/guild` | Where the guild assistant's skill files live. Blank disables skills for the guild assistant. Ships with `rat-watch`. |
 
 ### Guild assistant threads (`Assistant:Threads`)
 
