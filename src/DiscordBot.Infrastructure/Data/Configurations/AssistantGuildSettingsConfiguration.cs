@@ -39,6 +39,12 @@ public class AssistantGuildSettingsConfiguration : IEntityTypeConfiguration<Assi
         // Nullable integer for rate limit override
         builder.Property(s => s.RateLimitOverride);
 
+        // Single reply (0) unless a guild opts into threads
+        builder.Property(s => s.ConversationMode)
+            .HasConversion<int>()
+            .IsRequired()
+            .HasDefaultValue(Core.Enums.AssistantConversationMode.SingleReply);
+
         // DateTime properties - stored as UTC
         builder.Property(s => s.CreatedAt)
             .IsRequired();

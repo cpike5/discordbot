@@ -36,6 +36,10 @@ public class AssistantInteractionLogConfiguration : IEntityTypeConfiguration<Ass
             .HasConversion<long>()
             .IsRequired();
 
+        // Null for a single reply; the thread a turn belongs to otherwise
+        builder.Property(l => l.ThreadId)
+            .HasConversion<long?>();
+
         // DateTime property
         builder.Property(l => l.Timestamp)
             .IsRequired();

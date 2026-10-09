@@ -27,6 +27,8 @@ erDiagram
     GUILD ||--o| GUILD_RAT_WATCH_SETTINGS : configures
     GUILD ||--o{ ASSISTANT_USAGE_METRICS : tracks
     GUILD ||--o{ ASSISTANT_INTERACTION_LOG : logs
+    GUILD ||--o{ ASSISTANT_THREAD : holds
+    ASSISTANT_THREAD ||--o{ ASSISTANT_THREAD_MESSAGE : has
     GUILD ||--o{ LLM_USAGE_RECORD : logs
 
     USER ||--o{ GUILD_MEMBER : member_of
@@ -110,7 +112,7 @@ erDiagram
 |--------|---------|-----------|-----------------|
 | **GuildModerationConfig** | Auto-moderation rule configuration per guild | `GuildId` (ulong, PK), `Mode` (enum: Simple/Advanced), `SimplePreset` (nullable), `SpamConfig` (JSON), `ContentFilterConfig` (JSON), `RaidProtectionConfig` (JSON), `ModLogChannelId` (ulong, nullable: the mod-log feed channel, null = off), `ModLogEvents` (int, `ModLogEventKinds` flags: Cases, FlaggedEvents, AutoActions), `UpdatedAt` | Belongs to Guild |
 | **GuildAudioSettings** | Soundboard feature configuration per guild | `GuildId` (ulong, PK), `AudioEnabled`, `AutoLeaveTimeoutMinutes`, `QueueEnabled`, `MaxDurationSeconds`, `MaxFileSizeBytes`, `MaxSoundsPerGuild`, `MaxStorageBytes`, `EnableMemberPortal`, `SilentPlayback`, `CreatedAt`, `UpdatedAt` | Belongs to Guild, has CommandRoleRestrictions |
-| **AssistantGuildSettings** | AI assistant feature configuration per guild | `GuildId` (ulong, PK), `IsEnabled`, `AllowedChannelIds` (JSON array), `EnabledTools` (JSON array of tool names; `[]` = house default set), `RateLimitOverride` (nullable), `CreatedAt`, `UpdatedAt` | Belongs to Guild |
+| **AssistantGuildSettings** | AI assistant feature configuration per guild | `GuildId` (ulong, PK), `IsEnabled`, `AllowedChannelIds` (JSON array), `EnabledTools` (JSON array of tool names; `[]` = house default set), `RateLimitOverride` (nullable), `ConversationMode` (enum: SingleReply/Thread, default SingleReply), `CreatedAt`, `UpdatedAt` | Belongs to Guild |
 
 **Notes:**
 - Configuration entities use Guild ID as primary key (one config per guild).
@@ -245,9 +247,12 @@ erDiagram
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
 | **AssistantUsageMetrics** | Aggregated daily AI usage per guild | `Id` (long, PK), `GuildId`, `Date` (UTC date), `TotalQuestions`, `TotalInputTokens`, `TotalOutputTokens`, `TotalCachedTokens`, `TotalCacheWriteTokens`, `TotalCacheHits`, `TotalCacheMisses`, `TotalToolCalls`, `EstimatedCostUsd`, `FailedRequests`, `AverageLatencyMs`, `UpdatedAt` | Belongs to Guild |
-| **AssistantInteractionLog** | Per-interaction detail log for debugging and audit | `Id` (long, PK), `Timestamp`, `UserId`, `GuildId`, `ChannelId`, `MessageId`, `Question`, `Response` (nullable), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheCreationTokens`, `CacheHit`, `ToolCalls`, `ToolNames` (nullable, comma-joined, 512 chars), `LatencyMs`, `Success`, `ErrorMessage` (nullable), `EstimatedCostUsd`, `Model` (nullable, OpenRouter slug that answered) | References User, Guild |
+| **AssistantInteractionLog** | Per-interaction detail log for debugging and audit | `Id` (long, PK), `Timestamp`, `UserId`, `GuildId`, `ChannelId`, `MessageId`, `Question`, `Response` (nullable), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheCreationTokens`, `CacheHit`, `ToolCalls`, `ToolNames` (nullable, comma-joined, 512 chars), `LatencyMs`, `Success`, `ErrorMessage` (nullable), `EstimatedCostUsd`, `Model` (nullable, OpenRouter slug that answered), `ThreadId` (nullable: the assistant thread a turn belongs to) | References User, Guild |
+| **AssistantThread** | One conversation the guild assistant holds in a Discord thread it created | `ThreadId` (ulong, PK = the Discord thread id), `GuildId`, `ParentChannelId`, `StarterUserId` (0 once that member is purged), `CreatedAt`, `LastActivityAt` (indexed; retention sweeps on it), `TurnCount`, `Status` (enum: Active/Closed), `ActiveSkills` (JSON array of skill keys replayed into the next turn) | Belongs to Guild |
+| **AssistantThreadMessage** | One turn of a thread's history, user or assistant | `Id` (long, PK), `ThreadId` (FK, cascade), `UserId` (indexed for purge), `Role` ("user"/"assistant"), `Content` (4096), `Timestamp` | Belongs to AssistantThread |
 
 **Notes:**
+- `AssistantThread` and `AssistantThreadMessage` are the guild assistant's thread mode (see `docs/plans/mod-log-feed-and-threaded-assistant.md`, Part B). The thread's most recent `Assistant:Threads:MaxConversationMessages` turns seed the next turn; the rest are trimmed after each save. Skills live on the thread row rather than in memory so a thread survives a restart. Retention deletes threads by `LastActivityAt` on `Assistant:Threads:HistoryRetentionDays`; a user purge deletes their turns and zeroes `StarterUserId`.
 - `AssistantUsageMetrics` is aggregated per guild per calendar day; updated by the AI assistant service on each interaction.
 - `AssistantInteractionLog` stores individual question/response pairs with full token accounting.
 - Both tables use `long` primary keys to support high-volume logging at scale.

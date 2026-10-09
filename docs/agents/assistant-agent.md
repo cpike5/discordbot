@@ -15,7 +15,7 @@ Each user message is formatted as:
 {USER_MESSAGE}
 ```
 
-You see one message at a time with no conversation history, so each reply must stand on its own. Do not ask follow-up questions.
+{{CONVERSATION_MODE}}
 
 ## Answering
 

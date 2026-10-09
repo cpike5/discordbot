@@ -678,6 +678,23 @@ Structured logging with Serilog and optional Seq/Elasticsearch aggregation.
 
 ---
 
+### Guild Assistant Threads
+
+The guild assistant's conversation state (Part B of `docs/plans/mod-log-feed-and-threaded-assistant.md`).
+The data and context layer is in place; the Discord handler that opens threads and routes turns is
+the next PR, so no guild sees a thread yet.
+
+| Aspect | Components |
+|--------|------------|
+| **Request** | `GuildAssistantRequest` (`Core/DTOs/Llm`): guild, channel, parent channel, thread id, user, message, question, write access. `IAssistantService.AskQuestionAsync(request)` and `IGuildAssistantContextFactory.CreateAsync(request, rateLimit)`; the positional overloads forward with no thread. The allowed-channel check runs against `EffectiveChannelId` (the parent for a thread turn) |
+| **Context** | `GuildAssistantContextFactory` loads the thread row and the last `Assistant:Threads:MaxConversationMessages` turns as history, and replays the thread's `ActiveSkills` into the skill session. `GuildAssistantContext` renders `{{CONVERSATION_MODE}}` in the prompt (single-reply or thread paragraph), and on a successful thread turn saves both messages, trims to the window, stores the loaded skills, bumps `TurnCount`/`LastActivityAt`, and stamps `ThreadId` on the interaction log |
+| **Database Entities** | `AssistantThread`, `AssistantThreadMessage`; `AssistantGuildSettings.ConversationMode`; `AssistantInteractionLog.ThreadId` |
+| **Repositories** | `IAssistantThreadRepository` (get, delete inactive in batches, anonymise starter), `IAssistantThreadMessageRepository` (recent by thread, trim, delete by user); registered without an API key like the settings repository |
+| **Configuration** | `AssistantThreadOptions` (`Assistant:Threads`: window, turn cap, retention days, auto-archive) |
+| **Retention and GDPR** | `AssistantInteractionLogRetentionService` sweeps threads by `LastActivityAt`; `UserPurgeService` deletes a user's turns and zeroes `StarterUserId`; `UserDataExportService` writes `assistant_thread_messages.json` |
+
+---
+
 ### DM Assistant
 
 Owner-only DM assistant with multi-turn conversation history.

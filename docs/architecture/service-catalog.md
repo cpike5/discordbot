@@ -435,6 +435,9 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `IToolRegistry` | Agents/Abstractions | Available tools registry |
 | `ToolRegistry` | Agents | Default registry — aggregates the registered `IToolProvider`s and dispatches a call to the owning provider |
 | `FilteredToolRegistry` | Agents | Decorator narrowing a registry to a named allow-list; refuses a call outside the set as well as hiding it, so a tool remembered from an earlier cached prefix cannot be invoked |
+| `GuildAssistantRequest` | Core/DTOs/Llm | One question to the guild assistant: where, by whom, the text, and the thread it continues (null for a single reply). `EffectiveChannelId` is what the allowed-channel list is checked against |
+| `IAssistantThreadRepository` / `AssistantThreadRepository` | Core Interfaces, Infrastructure/Data/Repositories | `AssistantThread` rows: lookup by Discord thread id, batched delete of inactive threads (turns cascade), zero the starter on purge |
+| `IAssistantThreadMessageRepository` / `AssistantThreadMessageRepository` | Core Interfaces, Infrastructure/Data/Repositories | A thread's turns: the newest N oldest-first, trim to a window, delete by user |
 | `IToolAccessResolver` | Core Interfaces/LLM | Resolves a guild's allowed tool set from `AssistantGuildSettings.EnabledTools`, falling back to the house default set |
 | `ToolAccessResolver` | Infrastructure/Services/LLM | Implementation over the settings repository and `IMemoryCache`; invalidated by `AssistantGuildSettingsService` on save |
 | `ToolCatalog` | Core/Models/Llm | Static name → category/label/description/scope table behind the settings checklist and the per-tool metrics table; an uncatalogued tool falls into a visible **Other** bucket. Also **routes** an `IAgentTool` to its surface, so a tool without an entry is advertised nowhere |

@@ -13,8 +13,9 @@ using DiscordBot.Infrastructure.Abstractions.LLM;
 namespace DiscordBot.Infrastructure.Services.LLM;
 
 /// <summary>
-/// Guild-scoped <see cref="IAssistantContext"/>: rate limited per guild+user, no conversation
-/// history, and logs to the guild assistant's metrics/interaction-log tables.
+/// Guild-scoped <see cref="IAssistantContext"/>: rate limited per guild+user, and logs to the guild
+/// assistant's metrics/interaction-log tables. A single reply has no history; a thread turn is
+/// seeded with the thread's recent turns and saves its own.
 /// </summary>
 public class GuildAssistantContext : IAssistantContext
 {
@@ -35,6 +36,20 @@ public class GuildAssistantContext : IAssistantContext
     private readonly LlmCatalogPricing? _resolvedPricing;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ISkillActivationState? _skills;
+    private readonly AssistantThread? _thread;
+    private readonly IAssistantThreadRepository? _threads;
+    private readonly IAssistantThreadMessageRepository? _threadMessages;
+
+    /// <summary>The prompt variable the "how messages arrive" paragraph is rendered from.</summary>
+    public const string ConversationModeVariable = "CONVERSATION_MODE";
+
+    /// <summary>The paragraph a single reply gets: no history, no follow-ups.</summary>
+    public const string SingleReplyParagraph =
+        "You see one message at a time with no conversation history, so each reply must stand on its own. Do not ask follow-up questions.";
+
+    /// <summary>The paragraph a thread turn gets: history is present and may come from several people.</summary>
+    public const string ThreadParagraph =
+        "You are in a thread with one or more members. Earlier turns are in your history; later messages may come from different people, each shown with the same header. You may ask one short clarifying question when the request is ambiguous. Keep answers as short as before.";
 
     public GuildAssistantContext(
         ulong guildId,
@@ -54,7 +69,11 @@ public class GuildAssistantContext : IAssistantContext
         string resolvedModel,
         LlmCatalogPricing? resolvedPricing = null,
         ILlmUsageRecorder? usageRecorder = null,
-        ISkillActivationState? skills = null)
+        ISkillActivationState? skills = null,
+        AssistantThread? thread = null,
+        List<LlmMessage>? conversationHistory = null,
+        IAssistantThreadRepository? threads = null,
+        IAssistantThreadMessageRepository? threadMessages = null)
     {
         _guildId = guildId;
         _channelId = channelId;
@@ -72,6 +91,10 @@ public class GuildAssistantContext : IAssistantContext
         _resolvedPricing = resolvedPricing;
         _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
         _skills = skills;
+        _thread = thread;
+        _threads = threads;
+        _threadMessages = threadMessages;
+        ConversationHistory = conversationHistory ?? new List<LlmMessage>();
         RateLimit = rateLimit;
 
         ExecutionContext = new ToolContext
@@ -103,13 +126,16 @@ public class GuildAssistantContext : IAssistantContext
 
     public IToolRegistry? ToolRegistry { get; }
     public ToolContext ExecutionContext { get; }
-    public List<LlmMessage> ConversationHistory { get; } = new();
+    public List<LlmMessage> ConversationHistory { get; }
+
+    /// <summary>The assistant thread this exchange is a turn of, or null for a single reply.</summary>
+    public ulong? ThreadId => _thread?.ThreadId;
 
     /// <inheritdoc />
     /// <remarks>
-    /// The guild assistant is single-turn, so nothing is ever pre-activated here: a skill costs a
-    /// round every time it is used. That is the trade this surface makes deliberately - keep its
-    /// common tools always-on and put only the rare, heavy ones behind a skill.
+    /// A single reply pre-activates nothing, so a skill costs a round every time it is used; keep
+    /// the common tools always-on and put only the rare, heavy ones behind a skill. A thread turn
+    /// replays the thread's activations, so there a skill costs one round per conversation.
     /// </remarks>
     public ISkillActivationState? Skills => _skills;
 
@@ -144,6 +170,10 @@ public class GuildAssistantContext : IAssistantContext
         {
             variables["BASE_URL"] = _options.BaseUrl;
         }
+
+        // Everything above this paragraph is byte-identical between the two modes, so the cached
+        // prefix is shared up to it; the two variants are two prefixes per guild, no more.
+        variables[ConversationModeVariable] = _thread is null ? SingleReplyParagraph : ThreadParagraph;
 
         // The roster goes after the prompt, so everything above it is byte-identical to what it
         // was before skills existed - and a surface with no skill files appends nothing at all.
@@ -211,6 +241,11 @@ public class GuildAssistantContext : IAssistantContext
     /// <inheritdoc />
     public async Task RecordUsageAsync(string inputMessage, AssistantPipelineResult result, CancellationToken cancellationToken)
     {
+        if (_thread is not null && result.Success)
+        {
+            await SaveThreadTurnAsync(inputMessage, result, cancellationToken);
+        }
+
         if (_options.Cost.EnableCostTracking)
         {
             try
@@ -262,7 +297,8 @@ public class GuildAssistantContext : IAssistantContext
                     Success = result.Success,
                     ErrorMessage = result.ErrorMessage,
                     EstimatedCostUsd = result.EstimatedCostUsd,
-                    Model = result.Model
+                    Model = result.Model,
+                    ThreadId = _thread?.ThreadId
                 };
 
                 await _interactionLogRepository.AddAsync(log, cancellationToken);
@@ -282,6 +318,57 @@ public class GuildAssistantContext : IAssistantContext
         {
             result.UsageRecord.LatencyMs = result.LatencyMs;
             _usageRecorder.Record(result.UsageRecord);
+        }
+    }
+
+    /// <summary>
+    /// Appends this turn to the thread's history, trims it to the window, and carries the skills
+    /// the run loaded into the next turn. Never throws: a history write that fails costs the next
+    /// turn its memory of this one, not the member their answer.
+    /// </summary>
+    private async Task SaveThreadTurnAsync(string inputMessage, AssistantPipelineResult result, CancellationToken cancellationToken)
+    {
+        if (_thread is null || _threads is null || _threadMessages is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            await _threadMessages.AddAsync(new AssistantThreadMessage
+            {
+                ThreadId = _thread.ThreadId,
+                UserId = _userId,
+                Role = "user",
+                Content = inputMessage,
+                Timestamp = now
+            }, cancellationToken);
+
+            await _threadMessages.AddAsync(new AssistantThreadMessage
+            {
+                ThreadId = _thread.ThreadId,
+                UserId = _userId,
+                Role = "assistant",
+                Content = result.Response ?? string.Empty,
+                Timestamp = now
+            }, cancellationToken);
+
+            await _threadMessages.DeleteOldestByThreadAsync(
+                _thread.ThreadId, _options.Threads.MaxConversationMessages, cancellationToken);
+
+            _thread.LastActivityAt = now;
+            _thread.TurnCount++;
+            if (_skills is not null)
+            {
+                _thread.SetActiveSkillsList(_skills.Activated.Select(skill => skill.Key));
+            }
+
+            await _threads.UpdateAsync(_thread, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save assistant thread turn for thread {ThreadId}", _thread.ThreadId);
         }
     }
 }

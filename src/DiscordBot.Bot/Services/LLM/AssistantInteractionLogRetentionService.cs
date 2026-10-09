@@ -112,7 +112,7 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
     }
 
     /// <summary>
-    /// Sweeps each of the three tables in turn, skipping any whose configured retention window
+    /// Sweeps each table in turn, skipping any whose configured retention window
     /// is zero or negative. Each table deletes in batches of <see cref="LlmOptions.RetentionBatchSize"/>
     /// rows until nothing more is deleted, with a brief inter-batch delay so a large backlog
     /// doesn't hold a long-running transaction.
@@ -123,9 +123,11 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
         var assistantInteractionLogRepo = scope.ServiceProvider.GetRequiredService<IAssistantInteractionLogRepository>();
         var dmAssistantInteractionLogRepo = scope.ServiceProvider.GetRequiredService<IDmAssistantInteractionLogRepository>();
         var llmUsageRepo = scope.ServiceProvider.GetRequiredService<ILlmUsageRepository>();
+        var threadRepo = scope.ServiceProvider.GetRequiredService<IAssistantThreadRepository>();
 
         var guildRetentionDays = _assistantOptions.Value.Privacy.InteractionLogRetentionDays;
         var dmRetentionDays = _dmAssistantOptions.Value.InteractionLogRetentionDays;
+        var threadRetentionDays = _assistantOptions.Value.Threads.HistoryRetentionDays;
         var batchSize = _llmOptions.Value.RetentionBatchSize;
 
         var sweeps = new (string Name, int RetentionDays, Func<DateTime, int, CancellationToken, Task<int>> DeleteBatchAsync)[]
@@ -137,7 +139,10 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
             // Per the plan (Design > 3 > Retention and purge): the usage ledger follows the guild
             // assistant's interaction-log retention window rather than a new option.
             ("LLM usage records", guildRetentionDays,
-                (cutoff, batch, ct) => llmUsageRepo.DeleteOlderThanAsync(cutoff, batch, ct))
+                (cutoff, batch, ct) => llmUsageRepo.DeleteOlderThanAsync(cutoff, batch, ct)),
+            // Assistant threads by last activity; their turns go by cascade.
+            ("assistant threads", threadRetentionDays,
+                (cutoff, batch, ct) => threadRepo.DeleteInactiveOlderThanAsync(cutoff, batch, ct))
         };
 
         var totalDeleted = 0;

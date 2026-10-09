@@ -109,6 +109,7 @@ public class UserDataExportService : IUserDataExportService
                 await ExportTtsMessagesAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportLlmUsageRecordsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportAssistantInteractionsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportAssistantThreadMessagesAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportDmAssistantUsageMetricsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportGuildMembersAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportUserConsentsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
@@ -619,6 +620,30 @@ public class UserDataExportService : IUserDataExportService
         if (data.Count > 0)
         {
             await WriteJsonFileAsync(exportPath, "llm_usage_records.json", data);
+        }
+    }
+
+    private async Task ExportAssistantThreadMessagesAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        // The user's turns in assistant threads, and the replies to them, with the thread they
+        // belong to so the conversation can be followed.
+        var data = await _dbContext.AssistantThreadMessages
+            .Where(m => m.UserId == userId)
+            .OrderBy(m => m.Id)
+            .Select(m => new
+            {
+                m.Id,
+                m.ThreadId,
+                m.Role,
+                m.Content,
+                m.Timestamp
+            })
+            .ToListAsync(ct);
+
+        counts["AssistantThreadMessages"] = data.Count;
+        if (data.Count > 0)
+        {
+            await WriteJsonFileAsync(exportPath, "assistant_thread_messages.json", data);
         }
     }
 
