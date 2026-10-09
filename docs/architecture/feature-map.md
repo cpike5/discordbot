@@ -680,12 +680,14 @@ Structured logging with Serilog and optional Seq/Elasticsearch aggregation.
 
 ### Guild Assistant Threads
 
-The guild assistant's conversation state (Part B of `docs/plans/mod-log-feed-and-threaded-assistant.md`).
-The data and context layer is in place; the Discord handler that opens threads and routes turns is
-the next PR, so no guild sees a thread yet.
+Thread mode for the guild assistant (Part B of `docs/plans/mod-log-feed-and-threaded-assistant.md`):
+a mention opens a public thread and the conversation continues there, per guild, off by default.
+User guide: `docs/articles/ai-assistant.md` § Thread mode.
 
 | Aspect | Components |
 |--------|------------|
+| **Discord Entry Point** | `AssistantMessageHandler`: one decision up front in `AssistantTriggerRules.Classify` (Ignore, NewQuestion, NewThreadQuestion, ThreadTurn) from the mention, whether the channel is a thread the bot owns, whether an `AssistantThread` row exists, and the guild's mode. A new thread question creates the thread (`ITextChannel.CreateThreadAsync`, archive duration from `Assistant:Threads:AutoArchiveMinutes`), saves the row before asking so a second message is already a turn, and falls back to a channel reply on a 403 with one warning an hour. A turn needs no mention, is checked against the parent channel, prompts for consent once per person per thread, takes a per-thread lock so two members' turns run one after the other, and closes the thread at `MaxTurnsPerThread`. Replies go through `DiscordReplyChunker` (Bot/Helpers), shared with the DM handler |
+| **Settings** | `Pages/Guilds/AssistantSettings`: a Conversation mode radio group (Single reply, Threads); with Threads chosen, an alert lists allowed channels where the bot lacks Create Public Threads or Send Messages in Threads (`AssistantSettingsModel.CanHostAssistantThread`). `IAssistantGuildSettingsService.GetConversationModeAsync` |
 | **Request** | `GuildAssistantRequest` (`Core/DTOs/Llm`): guild, channel, parent channel, thread id, user, message, question, write access. `IAssistantService.AskQuestionAsync(request)` and `IGuildAssistantContextFactory.CreateAsync(request, rateLimit)`; the positional overloads forward with no thread. The allowed-channel check runs against `EffectiveChannelId` (the parent for a thread turn) |
 | **Context** | `GuildAssistantContextFactory` loads the thread row and the last `Assistant:Threads:MaxConversationMessages` turns as history, and replays the thread's `ActiveSkills` into the skill session. `GuildAssistantContext` renders `{{CONVERSATION_MODE}}` in the prompt (single-reply or thread paragraph), and on a successful thread turn saves both messages, trims to the window, stores the loaded skills, bumps `TurnCount`/`LastActivityAt`, and stamps `ThreadId` on the interaction log |
 | **Database Entities** | `AssistantThread`, `AssistantThreadMessage`; `AssistantGuildSettings.ConversationMode`; `AssistantInteractionLog.ThreadId` |
