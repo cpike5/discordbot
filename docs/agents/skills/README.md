@@ -11,9 +11,10 @@ This directory is not itself scanned. Each assistant surface reads one subdirect
 | DM assistant | `dm/` | `DmAssistant:SkillsPath` |
 | Guild assistant | `guild/` | `Assistant:Tools:SkillsPath` |
 
-`guild/` ships empty for now — see the cost note below, and the thread-mode caveat in it. A missing or empty directory is not an
-error; it is a surface with no skills, and it costs nothing (the `load_skill` tool is not advertised
-there either).
+`guild/` holds one skill, `rat-watch`, which the measured prompt surface justified (the three Rat
+Watch tools were a quarter of the guild tool array). See the cost note below before adding another. A
+missing or empty directory is not an error; it is a surface with no skills, and it costs nothing (the
+`load_skill` tool is not advertised there either).
 
 Two directories rather than a `surfaces:` field in each file, because the two surfaces want
 different wording anyway: they advertise different tools, and one of them is multi-turn.
@@ -58,8 +59,8 @@ Three things follow from that, and they are the whole of what you need to know t
 - **Loading costs a round trip and a prompt-cache write.** On the DM assistant that is paid once:
   the activation is replayed on the next turn, so the tools are advertised from the first call and
   the instructions are already in the prompt. The guild assistant's single-reply mode is
-  single-turn, so there it is paid *every time* — which is why `guild/` ships empty and should only
-  hold rare, heavy capabilities. In a guild's **thread mode** the activation lives on the thread
+  single-turn, so there it is paid *every time* — which is why `guild/` holds only `rat-watch`, a tool
+  group that is a quarter of the array and rarely needed, and should only ever hold capabilities like it. In a guild's **thread mode** the activation lives on the thread
   row and is replayed into every later turn, so there a skill costs one round per conversation,
   the same as on the DM surface.
 

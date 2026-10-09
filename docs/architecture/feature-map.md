@@ -693,6 +693,8 @@ User guide: `docs/articles/ai-assistant.md` § Thread mode.
 | **Database Entities** | `AssistantThread`, `AssistantThreadMessage`; `AssistantGuildSettings.ConversationMode`; `AssistantInteractionLog.ThreadId` |
 | **Repositories** | `IAssistantThreadRepository` (get, delete inactive in batches, anonymise starter), `IAssistantThreadMessageRepository` (recent by thread, trim, delete by user); registered without an API key like the settings repository |
 | **Configuration** | `AssistantThreadOptions` (`Assistant:Threads`: window, turn cap, retention days, auto-archive) |
+| **Metrics** | `Guilds/AssistantMetrics` shows Conversations (distinct threads with a turn in the 30-day window) and average turns per conversation, from `IAssistantTelemetryReader.GetConversationStatsAsync` over `AssistantInteractionLog.ThreadId` |
+| **First guild skill** | `docs/agents/skills/guild/rat-watch.md` holds the three Rat Watch tools: measured at 25% of the guild tool array (1,381 of 5,533 schema characters) and rarely called, so they now cost a one-line roster entry until a question needs them |
 | **Retention and GDPR** | `AssistantInteractionLogRetentionService` sweeps threads by `LastActivityAt`; `UserPurgeService` deletes a user's turns and zeroes `StarterUserId`; `UserDataExportService` writes `assistant_thread_messages.json` |
 
 ---

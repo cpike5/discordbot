@@ -138,6 +138,28 @@ public class AssistantInteractionLogRepository : Repository<AssistantInteraction
     }
 
     /// <inheritdoc />
+    public async Task<AssistantConversationStats> GetConversationStatsAsync(
+        ulong guildId,
+        DateTime from,
+        DateTime to,
+        CancellationToken cancellationToken = default)
+    {
+        var turns = await DbSet
+            .AsNoTracking()
+            .Where(l => l.GuildId == guildId
+                && l.Timestamp >= from
+                && l.Timestamp <= to
+                && l.ThreadId != null)
+            .GroupBy(l => l.ThreadId)
+            .Select(g => g.Count())
+            .ToListAsync(cancellationToken);
+
+        return turns.Count == 0
+            ? AssistantConversationStats.Empty
+            : new AssistantConversationStats(turns.Count, turns.Sum());
+    }
+
+    /// <inheritdoc />
     public async Task<int> DeleteOlderThanAsync(
         DateTime cutoffDate,
         CancellationToken cancellationToken = default)

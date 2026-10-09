@@ -122,7 +122,7 @@ a skill.
 - **Two directories, not a `surfaces:` field.** A field would have put this bot's guild/DM taxonomy
   inside the engine's file format — the same mistake `[DmOnlyTool]` would have been. The surface is
   the directory, and the engine's loader only ever knows about *a* directory:
-  `Assistant:Tools:SkillsPath` (default `docs/agents/skills/guild`, ships empty) and
+  `Assistant:Tools:SkillsPath` (default `docs/agents/skills/guild`, ships `rat-watch`) and
   `DmAssistant:SkillsPath` (default `docs/agents/skills/dm`). Blank disables skills for that surface.
 - **`load_skill` is an ordinary tool**, `Infrastructure/Services/LLM/Tools/LoadSkillTool.cs`, with an
   ordinary `ToolCatalog` entry (category **Skills**, `Guild | Dm`, default-on). It could not live in
