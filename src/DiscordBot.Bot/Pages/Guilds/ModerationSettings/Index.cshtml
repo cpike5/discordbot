@@ -66,6 +66,15 @@
     };
 
     var categories = new[] { TagCategory.Positive, TagCategory.Negative, TagCategory.Neutral };
+
+    // Mod-log channel picker: the saved channel stays listed even when the bot cannot see it
+    var modLogOptions = new List<SelectOption> { new() { Value = string.Empty, Text = "Off (no channel)" } };
+    if (Model.ModLogChannelMissing && vm.ModLogChannelId.HasValue)
+    {
+        modLogOptions.Add(new SelectOption { Value = vm.ModLogChannelId.Value.ToString(), Text = $"Unknown channel ({vm.ModLogChannelId.Value})" });
+    }
+    modLogOptions.AddRange(Model.AvailableChannels.Select(c => new SelectOption { Value = c.Id.ToString(), Text = "# " + c.Name }));
+    var modLogOn = vm.ModLogChannelId.HasValue;
 }
 
 @section Styles {
@@ -80,6 +89,54 @@
     <div data-tab-panel-for="modSettingsTabs" data-tab-id="overview" id="modSettingsTabs-panel-overview" role="tabpanel" aria-labelledby="modSettingsTabs-tab-overview" class="p-4 sm:p-6">
         <form id="overviewForm" method="post" novalidate data-unsaved-changes data-settings-form="overview" class="mb-8">
             <partial name="Shared/Components/_RadioCardGroup" model="modeGroup" />
+
+            <!-- Mod-log channel feed -->
+            <section class="mt-6 pt-6 border-t border-border-secondary" aria-labelledby="modLogHeading">
+                <h3 id="modLogHeading" class="text-lg font-semibold text-text-primary mb-1">Mod-log channel</h3>
+                <p class="text-sm text-text-secondary mb-4">
+                    Post an embed to a channel for each moderation case. Pick a channel only moderators can read: the
+                    embed names the member and shows the reason. The portal stays the record either way.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <partial name="Shared/Components/_FormSelect" model='new FormSelectViewModel {
+                        Id = "modlog-channel", Name = "modLogChannelId", Label = "Channel", Placeholder = null,
+                        SelectedValue = vm.ModLogChannelId?.ToString() ?? string.Empty, Options = modLogOptions,
+                        HelpText = "The bot needs Send Messages and Embed Links in this channel.",
+                        AdditionalAttributes = new() { ["data-field"] = "modLogChannelId" } }' />
+                </div>
+                @if (Model.SuggestedModLogChannel is { } suggested)
+                {
+                    <p class="text-sm text-text-secondary mt-2" id="modlog-suggestion">
+                        Looks like this server has <span class="font-mono">#@suggested.Name</span>.
+                        <button type="button" class="btn btn-ghost btn-sm" data-suggest-modlog="@suggested.Id">Use it</button>
+                    </p>
+                }
+                @if (Model.ModLogChannelMissing)
+                {
+                    <p class="text-sm text-warning mt-2" role="status">
+                        The saved channel is not one the bot can see right now. It may have been deleted, or the bot is offline. Nothing will be posted until you choose another.
+                    </p>
+                }
+                <fieldset class="mt-4 space-y-3" id="modlog-kinds">
+                    <legend class="text-sm font-semibold text-text-primary mb-1">What to post</legend>
+                    <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                        Id = "modlog-kind-cases", Name = "modLogCases", Label = "Moderation cases",
+                        Description = "Every warn, mute, kick, ban, unban and note, whether from a command, the portal or a fine.",
+                        IsChecked = vm.ModLogEvents.HasFlag(ModLogEventKinds.Cases), IsDisabled = !modLogOn, PostsFalseWhenOff = false,
+                        AdditionalAttributes = new() { ["data-modlog-kind"] = ((int)ModLogEventKinds.Cases).ToString() } }' />
+                    <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                        Id = "modlog-kind-flagged", Name = "modLogFlagged", Label = "Flagged events",
+                        Description = "Auto-moderation flagged something for review and took no action.",
+                        IsChecked = vm.ModLogEvents.HasFlag(ModLogEventKinds.FlaggedEvents), IsDisabled = !modLogOn, PostsFalseWhenOff = false,
+                        AdditionalAttributes = new() { ["data-modlog-kind"] = ((int)ModLogEventKinds.FlaggedEvents).ToString() } }' />
+                    <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                        Id = "modlog-kind-auto", Name = "modLogAuto", Label = "Automatic actions",
+                        Description = "Auto-moderation deleted a message, or muted, kicked or banned someone on its own.",
+                        IsChecked = vm.ModLogEvents.HasFlag(ModLogEventKinds.AutoActions), IsDisabled = !modLogOn, PostsFalseWhenOff = false,
+                        AdditionalAttributes = new() { ["data-modlog-kind"] = ((int)ModLogEventKinds.AutoActions).ToString() } }' />
+                </fieldset>
+            </section>
+
             <div class="mt-6 pt-6 border-t border-border-secondary flex flex-wrap items-center justify-end gap-3">
                 <span class="text-sm text-warning hidden" data-unsaved-indicator>Unsaved changes</span>
                 <button type="submit" class="btn btn-primary" data-loading-text="Saving…">Save overview</button>
@@ -415,7 +472,9 @@
         window.moderationData = {
             guildId: '@Model.GuildId',
             mode: @((int)vm.Mode),
-            simplePreset: @Json.Serialize(vm.SimplePreset ?? string.Empty)
+            simplePreset: @Json.Serialize(vm.SimplePreset ?? string.Empty),
+            modLogChannelId: '@(vm.ModLogChannelId?.ToString() ?? string.Empty)',
+            modLogEvents: @((int)vm.ModLogEvents)
         };
     </script>
     <script src="~/js/moderation-settings.js" asp-append-version="true"></script>

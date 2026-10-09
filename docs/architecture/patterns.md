@@ -1022,10 +1022,14 @@ Expect a cache-miss spike after a `load_skill` on the metrics page; it is the me
   into the session, so from turn 2 the skill's tools are advertised on the first call and its
   instructions are already in the prompt (the tool result that carried them the first time is not in
   the sliding-window history, which is why `SkillRoster` re-renders them). A skill is paid for once.
-- **Guild assistant** — single-turn by design: `ConversationHistory` is always empty, so there is no
-  previous turn to replay. A skill there costs a round **every** time it is used. That is still the
-  right trade for a rare, heavy tool group and the wrong one for anything else, which is why
-  `docs/agents/skills/guild/` ships empty.
+- **Guild assistant, single-reply mode** — single-turn: `ConversationHistory` is empty, so there is
+  no previous turn to replay. A skill there costs a round **every** time it is used. That is still
+  the right trade for a rare, heavy tool group and the wrong one for anything else, which is why
+  `docs/agents/skills/guild/` holds only `rat-watch` (three tools, a quarter of the guild array).
+- **Guild assistant, thread mode** — multi-turn like the DM surface: `GuildAssistantContextFactory`
+  replays `AssistantThread.ActiveSkills` into the session and `GuildAssistantContext` writes the
+  run's activations back to the row, so a skill costs one round per conversation. The row rather
+  than a cache because a thread can be resumed days later and after a restart.
 
 ### Adding a skill
 

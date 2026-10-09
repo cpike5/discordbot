@@ -14,6 +14,14 @@ public static class EvalPaths
     public static string DmSkillsDirectory { get; } =
         Path.Combine(RepositoryRoot(), "docs", "agents", "skills", "dm");
 
+    /// <summary>The guild assistant's skill directory as shipped.</summary>
+    public static string GuildSkillsDirectory { get; } =
+        Path.Combine(RepositoryRoot(), "docs", "agents", "skills", "guild");
+
+    /// <summary>The guild assistant's prompt as shipped.</summary>
+    public static string GuildAgentPrompt { get; } =
+        Path.Combine(RepositoryRoot(), "docs", "agents", "assistant-agent.md");
+
     private static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

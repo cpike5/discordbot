@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.DTOs.Llm;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -65,7 +66,7 @@ public class AssistantService : IAssistantService
     }
 
     /// <inheritdoc />
-    public async Task<AssistantResponseResult> AskQuestionAsync(
+    public Task<AssistantResponseResult> AskQuestionAsync(
         ulong guildId,
         ulong channelId,
         ulong userId,
@@ -73,7 +74,20 @@ public class AssistantService : IAssistantService
         string question,
         bool callerCanMutate = false,
         CancellationToken cancellationToken = default)
+        => AskQuestionAsync(
+            GuildAssistantRequest.SingleReply(guildId, channelId, userId, messageId, question, callerCanMutate),
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<AssistantResponseResult> AskQuestionAsync(GuildAssistantRequest request, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var guildId = request.GuildId;
+        var channelId = request.ChannelId;
+        var userId = request.UserId;
+        var question = request.Question;
+
         var stopwatch = Stopwatch.StartNew();
         IAssistantContext? context = null;
 
@@ -100,7 +114,9 @@ public class AssistantService : IAssistantService
                     "The AI assistant is not enabled for this server.");
             }
 
-            if (!await IsAllowedInChannelAsync(guildId, channelId, cancellationToken))
+            // A thread inherits its parent channel's permission: the allowed list is about where a
+            // conversation may start, and a thread id is never on it.
+            if (!await IsAllowedInChannelAsync(guildId, request.EffectiveChannelId, cancellationToken))
             {
                 return AssistantResponseResult.ErrorResult(
                     "The AI assistant is not allowed in this channel.");
@@ -113,8 +129,7 @@ public class AssistantService : IAssistantService
             }
 
             var rateLimit = await _accessGate.GetRateLimitAsync(guildId, cancellationToken);
-            context = await _contextFactory.CreateAsync(
-                guildId, channelId, userId, messageId, rateLimit, question, callerCanMutate, cancellationToken);
+            context = await _contextFactory.CreateAsync(request, rateLimit, cancellationToken);
 
             var rateLimitResult = await _rateLimiter.CheckAsync(
                 context.RateLimitCacheKeyPrefix,

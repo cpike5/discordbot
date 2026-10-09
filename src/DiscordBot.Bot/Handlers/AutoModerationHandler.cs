@@ -201,26 +201,39 @@ public class AutoModerationHandler
             "Auto-mod flagged event created: {EventId} for user {UserId} in guild {GuildId}, type: {RuleType}, severity: {Severity}",
             flaggedEvent.Id, userId, guildId, result.RuleType, result.Severity);
 
-        // Execute auto-action if configured
+        // One post per event in the mod-log channel: the action taken, or, when nothing was done on
+        // its own, the event itself for a moderator to review. Low and Medium events that needed no
+        // action stay in the portal's flagged-events list only; they would flood the channel.
+        var modLog = scope.ServiceProvider.GetRequiredService<IModLogNotifier>();
+        var context = new ModLogFlaggedContext(
+            MessageContent: message?.Content,
+            AccountCreatedAt: joinedUser?.CreatedAt,
+            JoinedAt: joinedUser?.JoinedAt);
+
         if (result.ShouldAutoAction && result.RecommendedAction != AutoAction.None)
         {
-            await ExecuteAutoActionAsync(guildId, userId, result.RecommendedAction, message, joinedUser);
+            var succeeded = await ExecuteAutoActionAsync(guildId, userId, result.RecommendedAction, message, joinedUser);
+            await modLog.AutoActionAsync(flaggedEvent, result.RecommendedAction, succeeded, context);
         }
-
-        // Send alert to mod channel if High or Critical
-        if (result.Severity >= Severity.High)
+        else if (result.Severity >= Severity.High)
         {
-            await SendModAlertAsync(guildId, flaggedEvent, message, joinedUser);
+            await modLog.FlaggedEventAsync(flaggedEvent, context);
         }
     }
 
-    private async Task ExecuteAutoActionAsync(
+    /// <summary>
+    /// Performs the configured automatic action. Returns whether Discord accepted it; a failure is
+    /// logged here and reported to the mod-log feed by the caller, never thrown.
+    /// </summary>
+    private async Task<bool> ExecuteAutoActionAsync(
         ulong guildId,
         ulong userId,
         AutoAction action,
         SocketMessage? message,
         SocketGuildUser? user)
     {
+        var succeeded = false;
+
         using var activity = BotActivitySource.StartEventActivity(
             TracingConstants.Spans.ServiceAutoModExecuteAction,
             guildId: guildId,
@@ -238,7 +251,7 @@ public class AutoModerationHandler
                     action, userId, guildId);
                 activity?.SetTag("guild.found", false);
                 BotActivitySource.SetSuccess(activity);
-                return;
+                return false;
             }
 
             activity?.SetTag("guild.found", true);
@@ -253,6 +266,7 @@ public class AutoModerationHandler
                             "Auto-action: Deleted message {MessageId} from user {UserId} in guild {GuildId}",
                             message.Id, userId, guildId);
                         activity?.SetTag("action.success", true);
+                    succeeded = true;
                     }
                     else
                     {
@@ -283,6 +297,7 @@ public class AutoModerationHandler
                             "Auto-action: Muted user {UserId} ({Username}) in guild {GuildId} for 1 hour",
                             userId, guildUser.Username, guildId);
                         activity?.SetTag("action.success", true);
+                    succeeded = true;
                         activity?.SetTag("action.timeout_hours", 1);
                     }
                     else
@@ -305,6 +320,7 @@ public class AutoModerationHandler
                             "Auto-action: Kicked user {UserId} ({Username}) from guild {GuildId}",
                             userId, kickUser.Username, guildId);
                         activity?.SetTag("action.success", true);
+                    succeeded = true;
                     }
                     else
                     {
@@ -323,6 +339,7 @@ public class AutoModerationHandler
                         "Auto-action: Banned user {UserId} from guild {GuildId}",
                         userId, guildId);
                     activity?.SetTag("action.success", true);
+                    succeeded = true;
                     break;
 
                 default:
@@ -335,6 +352,7 @@ public class AutoModerationHandler
             }
 
             BotActivitySource.SetSuccess(activity);
+            return succeeded;
         }
         catch (Exception ex)
         {
@@ -342,106 +360,8 @@ public class AutoModerationHandler
                 "Failed to execute auto-action {Action} for user {UserId} in guild {GuildId}",
                 action, userId, guildId);
             BotActivitySource.RecordException(activity, ex);
+            return false;
         }
-    }
-
-    private async Task SendModAlertAsync(
-        ulong guildId,
-        FlaggedEventDto flaggedEvent,
-        SocketMessage? message,
-        SocketGuildUser? user)
-    {
-        try
-        {
-            var guild = _client.GetGuild(guildId);
-            if (guild == null)
-            {
-                _logger.LogWarning(
-                    "Cannot send mod alert for event {EventId} in guild {GuildId}: guild not found",
-                    flaggedEvent.Id, guildId);
-                return;
-            }
-
-            // Try to find a channel named "mod-log" or "mod-alerts"
-            var modChannel = guild.TextChannels
-                .FirstOrDefault(c => c.Name.Contains("mod-log", StringComparison.OrdinalIgnoreCase) ||
-                                    c.Name.Contains("mod-alert", StringComparison.OrdinalIgnoreCase));
-
-            if (modChannel == null)
-            {
-                _logger.LogDebug(
-                    "No mod channel found for guild {GuildId}, skipping alert for event {EventId}",
-                    guildId, flaggedEvent.Id);
-                return;
-            }
-
-            var embed = BuildAlertEmbed(flaggedEvent, message, user);
-            var components = BuildAlertComponents(flaggedEvent.Id);
-
-            await modChannel.SendMessageAsync(embed: embed, components: components);
-
-            _logger.LogInformation(
-                "Sent mod alert for flagged event {EventId} to channel {ChannelId} in guild {GuildId}",
-                flaggedEvent.Id, modChannel.Id, guildId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "Failed to send mod alert for flagged event {EventId} in guild {GuildId}",
-                flaggedEvent.Id, guildId);
-        }
-    }
-
-    private Embed BuildAlertEmbed(FlaggedEventDto flaggedEvent, SocketMessage? message, SocketGuildUser? user)
-    {
-        var severityColor = flaggedEvent.Severity switch
-        {
-            Severity.Low => Color.Blue,
-            Severity.Medium => Color.Gold,
-            Severity.High => Color.Orange,
-            Severity.Critical => Color.Red,
-            _ => Color.Default
-        };
-
-        var embed = new EmbedBuilder()
-            .WithTitle($"⚠️ Auto-Mod Alert: {flaggedEvent.RuleType}")
-            .WithColor(severityColor)
-            .WithDescription(flaggedEvent.Description)
-            .AddField("User", $"<@{flaggedEvent.UserId}> ({flaggedEvent.UserId})", true)
-            .AddField("Severity", flaggedEvent.Severity.ToString(), true)
-            .WithTimestamp(flaggedEvent.CreatedAt);
-
-        if (flaggedEvent.ChannelId.HasValue)
-        {
-            embed.AddField("Channel", $"<#{flaggedEvent.ChannelId}>", true);
-        }
-
-        if (message != null && !string.IsNullOrEmpty(message.Content))
-        {
-            var content = message.Content.Length > 1000
-                ? message.Content[..1000] + "..."
-                : message.Content;
-            embed.AddField("Message Content", content);
-        }
-
-        if (user != null)
-        {
-            embed.AddField("Account Age", $"<t:{user.CreatedAt.ToUnixTimeSeconds()}:R>", true);
-            embed.AddField("Joined Server", $"<t:{user.JoinedAt?.ToUnixTimeSeconds() ?? 0}:R>", true);
-        }
-
-        embed.WithFooter($"Event ID: {flaggedEvent.Id}");
-
-        return embed.Build();
-    }
-
-    private MessageComponent BuildAlertComponents(Guid eventId)
-    {
-        return new ComponentBuilder()
-            .WithButton("Dismiss", $"automod:dismiss:{eventId}", ButtonStyle.Secondary)
-            .WithButton("Acknowledge", $"automod:ack:{eventId}", ButtonStyle.Primary)
-            .WithButton("Take Action", $"automod:action:{eventId}", ButtonStyle.Danger)
-            .Build();
     }
 
     private async Task CheckWatchlistActivityAsync(ulong guildId, ulong userId, SocketMessage message)

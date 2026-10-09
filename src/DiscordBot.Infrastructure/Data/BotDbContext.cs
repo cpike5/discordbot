@@ -69,6 +69,8 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<AssistantGuildSettings> AssistantGuildSettings => Set<AssistantGuildSettings>();
     public DbSet<AssistantUsageMetrics> AssistantUsageMetrics => Set<AssistantUsageMetrics>();
     public DbSet<AssistantInteractionLog> AssistantInteractionLogs => Set<AssistantInteractionLog>();
+    public DbSet<AssistantThread> AssistantThreads => Set<AssistantThread>();
+    public DbSet<AssistantThreadMessage> AssistantThreadMessages => Set<AssistantThreadMessage>();
     public DbSet<ConnectionEvent> ConnectionEvents => Set<ConnectionEvent>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public DbSet<DmConversationMessage> DmConversationMessages => Set<DmConversationMessage>();

@@ -1,5 +1,6 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.DTOs.Llm;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -251,6 +252,32 @@ public class AssistantServiceTests
         // Assert
         result.Success.Should().BeFalse();
         result.ErrorMessage.Should().Contain("not enabled");
+    }
+
+    [Fact]
+    public async Task AskQuestionAsync_ThreadTurn_ChecksTheParentChannel_NotTheThread()
+    {
+        // Arrange: the parent is allowed; the thread id itself is on no list
+        SetupSuccessfulRun();
+        const ulong threadId = 999001UL;
+        _mockGuildSettingsService
+            .Setup(s => s.IsChannelAllowedAsync(TestGuildId, threadId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _mockGuildSettingsService
+            .Setup(s => s.IsChannelAllowedAsync(TestGuildId, TestChannelId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _service.AskQuestionAsync(new GuildAssistantRequest(
+            TestGuildId, ChannelId: threadId, ParentChannelId: TestChannelId, ThreadId: threadId,
+            TestUserId, TestMessageId, TestQuestion));
+
+        // Assert
+        result.Success.Should().BeTrue();
+        _mockGuildSettingsService.Verify(
+            s => s.IsChannelAllowedAsync(TestGuildId, TestChannelId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockGuildSettingsService.Verify(
+            s => s.IsChannelAllowedAsync(TestGuildId, threadId, It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

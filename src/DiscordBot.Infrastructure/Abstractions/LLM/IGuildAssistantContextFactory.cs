@@ -1,3 +1,5 @@
+using DiscordBot.Core.DTOs.Llm;
+
 namespace DiscordBot.Infrastructure.Abstractions.LLM;
 
 /// <summary>
@@ -8,8 +10,20 @@ namespace DiscordBot.Infrastructure.Abstractions.LLM;
 public interface IGuildAssistantContextFactory
 {
     /// <summary>
-    /// Builds the context, resolving the guild assistant's effective model slug (see
-    /// <see cref="ILlmModelResolver"/>) as part of the build - hence async.
+    /// Builds the context for one request, resolving the guild assistant's effective model slug
+    /// (see <see cref="ILlmModelResolver"/>) as part of the build - hence async. A request with a
+    /// thread id is seeded with that thread's recent turns and the skills it has loaded.
+    /// </summary>
+    /// <param name="request">Where the question was asked, by whom, and the text.</param>
+    /// <param name="rateLimit">Effective questions-per-window limit for this guild.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IAssistantContext> CreateAsync(
+        GuildAssistantRequest request,
+        int rateLimit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Builds a single-reply context. The same as the request overload with no thread.
     /// </summary>
     /// <param name="guildId">Discord guild the question was asked in.</param>
     /// <param name="channelId">Discord channel the question was asked in.</param>
@@ -31,5 +45,9 @@ public interface IGuildAssistantContextFactory
         int rateLimit,
         string question,
         bool callerCanMutate = false,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default)
+        => CreateAsync(
+            GuildAssistantRequest.SingleReply(guildId, channelId, userId, messageId, question, callerCanMutate),
+            rateLimit,
+            cancellationToken);
 }

@@ -30,6 +30,7 @@ public class AssistantInteractionLogRetentionServiceTests
     private readonly Mock<IAssistantInteractionLogRepository> _assistantInteractionLogRepoMock;
     private readonly Mock<IDmAssistantInteractionLogRepository> _dmAssistantInteractionLogRepoMock;
     private readonly Mock<ILlmUsageRepository> _llmUsageRepoMock;
+    private readonly Mock<IAssistantThreadRepository> _threadRepoMock;
     private readonly Mock<ILogger<AssistantInteractionLogRetentionService>> _loggerMock;
     private readonly FakeTimeProvider _fakeTime;
 
@@ -41,6 +42,7 @@ public class AssistantInteractionLogRetentionServiceTests
         _assistantInteractionLogRepoMock = new Mock<IAssistantInteractionLogRepository>();
         _dmAssistantInteractionLogRepoMock = new Mock<IDmAssistantInteractionLogRepository>();
         _llmUsageRepoMock = new Mock<ILlmUsageRepository>();
+        _threadRepoMock = new Mock<IAssistantThreadRepository>();
         _loggerMock = new Mock<ILogger<AssistantInteractionLogRetentionService>>();
         _fakeTime = new FakeTimeProvider();
 
@@ -52,6 +54,8 @@ public class AssistantInteractionLogRetentionServiceTests
             .Returns(_dmAssistantInteractionLogRepoMock.Object);
         _serviceProviderMock.Setup(x => x.GetService(typeof(ILlmUsageRepository)))
             .Returns(_llmUsageRepoMock.Object);
+        _serviceProviderMock.Setup(x => x.GetService(typeof(IAssistantThreadRepository)))
+            .Returns(_threadRepoMock.Object);
 
         // Default: every table's delete returns 0 (nothing to delete), so a batch loop stops
         // after one call unless a test overrides it.
@@ -64,6 +68,9 @@ public class AssistantInteractionLogRetentionServiceTests
         _llmUsageRepoMock
             .Setup(x => x.DeleteOlderThanAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
+        _threadRepoMock
+            .Setup(x => x.DeleteInactiveOlderThanAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
     }
 
     private static IOptions<LlmOptions> LlmOptions(
@@ -75,10 +82,11 @@ public class AssistantInteractionLogRetentionServiceTests
             RetentionSweepInitialDelayMinutes = initialDelayMinutes
         });
 
-    private static IOptions<AssistantOptions> AssistantOptions(int guildRetentionDays) =>
+    private static IOptions<AssistantOptions> AssistantOptions(int guildRetentionDays, int threadRetentionDays = 30) =>
         Options.Create(new AssistantOptions
         {
-            Privacy = new AssistantPrivacyOptions { InteractionLogRetentionDays = guildRetentionDays }
+            Privacy = new AssistantPrivacyOptions { InteractionLogRetentionDays = guildRetentionDays },
+            Threads = new AssistantThreadOptions { HistoryRetentionDays = threadRetentionDays }
         });
 
     private static IOptions<DmAssistantOptions> DmAssistantOptions(int dmRetentionDays) =>
@@ -89,12 +97,13 @@ public class AssistantInteractionLogRetentionServiceTests
         int guildRetentionDays = 90,
         int dmRetentionDays = 90,
         int batchSize = 1000,
-        int initialDelayMinutes = 5) =>
+        int initialDelayMinutes = 5,
+        int threadRetentionDays = 30) =>
         new(
             _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             LlmOptions(intervalHours, batchSize, initialDelayMinutes),
-            AssistantOptions(guildRetentionDays),
+            AssistantOptions(guildRetentionDays, threadRetentionDays),
             DmAssistantOptions(dmRetentionDays),
             _loggerMock.Object,
             _fakeTime);
@@ -266,6 +275,51 @@ public class AssistantInteractionLogRetentionServiceTests
         guildCutoff.Should().BeCloseTo(before.AddDays(-30), TimeSpan.FromMinutes(2));
         llmCutoff.Should().BeCloseTo(before.AddDays(-30), TimeSpan.FromMinutes(2));
         dmCutoff.Should().BeCloseTo(before.AddDays(-10), TimeSpan.FromMinutes(2));
+    }
+
+    [Fact]
+    public async Task PerformCleanupAsync_SweepsAssistantThreads_OnTheirOwnWindow()
+    {
+        // Arrange - threads keep their own retention, separate from the interaction logs'
+        var service = CreateService(guildRetentionDays: 30, dmRetentionDays: 10, initialDelayMinutes: 1, threadRetentionDays: 7);
+        using var cts = new CancellationTokenSource();
+        var before = DateTime.UtcNow;
+
+        // Act
+        var executeTask = service.StartAsync(cts.Token);
+        await AdvanceUntilAsync(_fakeTime, () => _scopeFactoryMock.Invocations.Count > 0);
+        await LogTestHelper.WaitUntilAsync(() =>
+            _threadRepoMock.Invocations.Any(i => i.Method.Name == nameof(IAssistantThreadRepository.DeleteInactiveOlderThanAsync)));
+        cts.Cancel();
+        await service.StopAsync(CancellationToken.None);
+        try { await executeTask; } catch (OperationCanceledException) { }
+
+        // Assert
+        var threadCutoff = (DateTime)_threadRepoMock.Invocations
+            .First(i => i.Method.Name == nameof(IAssistantThreadRepository.DeleteInactiveOlderThanAsync)).Arguments[0];
+        threadCutoff.Should().BeCloseTo(before.AddDays(-7), TimeSpan.FromMinutes(2));
+    }
+
+    [Fact]
+    public async Task PerformCleanupAsync_WhenThreadRetentionIsZeroOrLess_SkipsThreadsOnly()
+    {
+        var service = CreateService(guildRetentionDays: 30, dmRetentionDays: 10, initialDelayMinutes: 1, threadRetentionDays: 0);
+        using var cts = new CancellationTokenSource();
+
+        var executeTask = service.StartAsync(cts.Token);
+        await AdvanceUntilAsync(_fakeTime, () => _scopeFactoryMock.Invocations.Count > 0);
+        await LogTestHelper.WaitUntilAsync(() =>
+            _llmUsageRepoMock.Invocations.Any(i => i.Method.Name == nameof(ILlmUsageRepository.DeleteOlderThanAsync)));
+        cts.Cancel();
+        await service.StopAsync(CancellationToken.None);
+        try { await executeTask; } catch (OperationCanceledException) { }
+
+        _threadRepoMock.Verify(
+            x => x.DeleteInactiveOlderThanAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _assistantInteractionLogRepoMock.Verify(
+            x => x.DeleteOlderThanAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
     }
 
     [Fact]

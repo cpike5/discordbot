@@ -3,6 +3,7 @@
 @using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @using Microsoft.AspNetCore.Http
+@using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Assistant Settings - {Model.Guild.Name}";
     Layout = "_GuildLayout";
@@ -13,6 +14,23 @@
     var selectedChannelCount = Model.AvailableChannels.Count(c => c.IsSelected);
     var toolCount = Model.ToolCategories.Sum(c => c.Tools.Count);
     var selectedToolCount = Model.ToolCategories.Sum(c => c.Tools.Count(t => t.IsSelected));
+
+    var modeGroup = new RadioCardGroupViewModel
+    {
+        Name = "Input.ConversationMode",
+        Id = "Input_ConversationMode",
+        Legend = "Conversation mode",
+        HelpText = "How a mention is answered. Threads let members follow up; each thread keeps its own short history and closes after a set number of turns.",
+        SelectedValue = ((int)Model.Input.ConversationMode).ToString(),
+        Columns = 2,
+        Options = new List<RadioCardViewModel>
+        {
+            new() { Value = ((int)AssistantConversationMode.SingleReply).ToString(), Title = "Single reply",
+                    Description = "One answer in the channel. No memory of earlier questions." },
+            new() { Value = ((int)AssistantConversationMode.Thread).ToString(), Title = "Threads",
+                    Description = "A mention opens a thread and the answer goes there. Anyone who has consented can continue it without mentioning the bot. The bot needs Create Public Threads and Send Messages in Threads." }
+        }
+    };
 }
 
 @if (!Model.GloballyEnabled)
@@ -93,6 +111,21 @@
                             </p>
                         }
                     </fieldset>
+
+                    <!-- Conversation mode -->
+                    <div class="min-w-0">
+                        <partial name="Shared/Components/_RadioCardGroup" model="modeGroup" />
+                        @if (Model.Input.ConversationMode == AssistantConversationMode.Thread && Model.ThreadPermissionGaps.Count > 0)
+                        {
+                            <div class="mt-3">
+                                <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                                    Variant = AlertVariant.Warning,
+                                    Title = "Threads will fall back to a channel reply in some channels",
+                                    Message = "The bot cannot open a thread or post in one in: " + string.Join(", ", Model.ThreadPermissionGaps.Select(n => "#" + n)) + ". Give it Create Public Threads and Send Messages in Threads there, or members in those channels get a single reply."
+                                }' />
+                            </div>
+                        }
+                    </div>
 
                     <!-- Tool Access -->
                     <fieldset class="min-w-0" aria-describedby="tools-help">

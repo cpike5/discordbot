@@ -192,14 +192,27 @@ no skills and the loader is not advertised at all. The format and the authoring 
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `DmAssistant:SkillsPath` | `docs/agents/skills/dm` | Where the DM assistant's skill files live. Blank disables skills for the DM assistant. |
-| `Assistant:Tools:SkillsPath` | `docs/agents/skills/guild` | Where the guild assistant's skill files live. Blank disables skills for the guild assistant. The directory ships empty. |
+| `Assistant:Tools:SkillsPath` | `docs/agents/skills/guild` | Where the guild assistant's skill files live. Blank disables skills for the guild assistant. Ships with `rat-watch`. |
+
+### Guild assistant threads (`Assistant:Threads`)
+
+Thread mode (a mention opens a thread the conversation continues in; per guild, off by default via
+`AssistantGuildSettings.ConversationMode`) is governed by `AssistantThreadOptions`:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `Assistant:Threads:MaxConversationMessages` | `20` | How many of a thread's most recent turns (user and assistant together) seed the next turn. |
+| `Assistant:Threads:MaxTurnsPerThread` | `40` | Turns after which a thread is closed and later messages in it are ignored. |
+| `Assistant:Threads:HistoryRetentionDays` | `30` | Days of inactivity after which a thread and its turns are deleted by the daily retention sweep. `0` disables. |
+| `Assistant:Threads:AutoArchiveMinutes` | `1440` | How long Discord waits before archiving an idle assistant thread; mapped to the nearest duration Discord offers (60, 1440, 4320, 10080). |
 
 The cost is not the same on the two surfaces, and that is what decides where a skill belongs. The
 DM assistant is multi-turn: the turn that loads a skill pays a round, and the activation is replayed
 on every turn after it, so its tools are advertised from the first call and its instructions are
-already in the prompt. The guild assistant is single-turn, so there is no previous turn to replay
-and a skill there costs its round **every** time it is used — which is why the shipped skills are
-all on the DM side, and why a guild skill is only worth it for something rare and heavy.
+already in the prompt. The guild assistant's single-reply mode is single-turn, so there is no
+previous turn to replay and a skill there costs its round **every** time it is used — which is why
+the shipped skills are all on the DM side. A guild in thread mode (see `Assistant:Threads` above)
+replays the thread's activations, so a skill costs one round per conversation there.
 
 Either path may be absolute, or relative to the application directory or the working directory —
 the same resolution a prompt path gets, so one relative path works both from a published output and

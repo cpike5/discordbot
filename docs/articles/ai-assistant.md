@@ -86,6 +86,36 @@ The assistant enforces per-user rate limits to prevent abuse and control API cos
 
 ---
 
+### Thread mode
+
+A server can switch the assistant from one reply per mention to a conversation. In thread mode:
+
+- A mention in a text channel opens a **public thread** off the member's message, named after the
+  question, and the answer is posted in it. The channel reply is not sent.
+- **Anyone who has consented** can continue the conversation by posting in that thread, with no
+  mention. Each person is rate-limited as before. Someone without consent gets the consent prompt
+  once per thread, not on every message.
+- The thread keeps a **short history**: the last `Assistant:Threads:MaxConversationMessages`
+  turns (default 20) are sent with each question, and a skill the assistant loads in a thread stays
+  loaded for the rest of it. Two members posting at once take their turns one after the other.
+- After `Assistant:Threads:MaxTurnsPerThread` turns (default 40) the bot says the conversation has
+  reached its limit and stops answering in that thread. Mention it in the channel for a new one.
+- Discord archives an idle thread after `Assistant:Threads:AutoArchiveMinutes` (default a day); a
+  message in an archived thread un-archives it and the conversation continues. The bot deletes a
+  thread's history after `Assistant:Threads:HistoryRetentionDays` (default 30) of inactivity.
+- A mention inside someone else's thread is answered with a single reply, because Discord cannot
+  nest threads.
+- If the bot **cannot open a thread** in that channel (it needs Create Public Threads and Send
+  Messages in Threads), it answers in the channel instead and logs a warning once an hour. The
+  settings page lists such channels.
+
+The allowed-channel list applies to where a conversation may *start*; a thread inherits its parent
+channel's permission. Thread history is included in a member's data export and deleted by a purge.
+
+Why threads matter beyond follow-ups: the guild assistant used to be single-turn, so a loaded skill
+cost a round on every question and `docs/agents/skills/guild/` shipped empty. In a thread a skill
+costs one round per conversation, which makes guild skills affordable.
+
 ## Slash Commands
 
 ### /consent
@@ -154,6 +184,10 @@ If you ask about private data, the assistant will politely decline and suggest c
   call. **Selecting nothing means the default set**, not "no tools" — the page says so, and shows
   the default ticked. The choice applies to every caller in the server, which is what keeps it from
   fragmenting the prompt cache.
+- **Conversation mode** - **Single reply** (the default: one answer in the channel, no memory) or
+  **Threads** (a mention opens a thread and the answer goes there; see [Thread mode](#thread-mode)).
+  With Threads chosen, the page lists any allowed channel where the bot lacks Create Public Threads
+  or Send Messages in Threads; members there get a single reply until the permission is granted.
 - **Rate Limit Override** - Set a custom questions-per-window limit for your guild (leave blank to use global default)
 - **Save** - Apply changes and return to page
 
@@ -171,6 +205,8 @@ If you ask about private data, the assistant will politely decline and suggest c
   - Total estimated cost in USD
   - Average response latency in milliseconds
   - Cache hit rate percentage
+  - Conversations: distinct threads that took a turn in the window and the average turns each
+    (thread mode; a single-reply server reads "No threads")
 
 - **Daily Metrics Table:**
   - Date
@@ -626,9 +662,17 @@ Two skills ship, both on the DM side:
 Those five tools are no longer advertised to the DM assistant on every message; they arrive when the
 owner asks something moderation- or analytics-shaped and the model loads the skill that owns them.
 Everything else the surface offers — the documentation tools, the memory tools, the rest — is
-advertised exactly as before. `docs/agents/skills/guild/` ships empty, and deliberately: the DM
+advertised exactly as before. `docs/agents/skills/guild/` holds one skill, `rat-watch` (see below); the DM
 assistant is multi-turn, so an activation is replayed on later turns and a skill is paid for once,
 while the guild assistant is single-turn and would pay the loading round every time.
+
+**The guild skill.** `rat-watch` hides the three Rat Watch tools (`get_rat_watch_leaderboard`,
+`get_rat_watch_user_stats`, `get_rat_watch_summary`) behind a one-line summary. Measured on the
+shipped guild tool array: the trio is 1,381 of 5,533 schema characters, 25% of what every question
+paid for before it was read, and the one-line roster entry plus the loader costs a fraction of that.
+The trade: a Rat Watch question in a single-reply server costs one extra round to load the skill; in
+a thread the load is paid once per conversation. Every other question is a quarter cheaper on the
+tool array.
 
 Adding a skill is one markdown file in the right directory. There is no catalogue entry, no DI
 registration, and no code; the file is picked up without a restart, on the same cache terms as a

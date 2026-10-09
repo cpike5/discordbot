@@ -16,15 +16,21 @@ public class ModerationService : IModerationService
 {
     private readonly IModerationCaseRepository _caseRepository;
     private readonly IDiscordUserResolver _userResolver;
+    private readonly IBackgroundTaskRunner _backgroundTaskRunner;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ModerationService> _logger;
 
     public ModerationService(
         IModerationCaseRepository caseRepository,
         IDiscordUserResolver userResolver,
+        IBackgroundTaskRunner backgroundTaskRunner,
+        IServiceScopeFactory scopeFactory,
         ILogger<ModerationService> logger)
     {
         _caseRepository = caseRepository;
         _userResolver = userResolver;
+        _backgroundTaskRunner = backgroundTaskRunner;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -65,10 +71,27 @@ public class ModerationService : IModerationService
                 _logger.LogInformation("Moderation case {CaseNumber} created successfully for user {TargetUserId} in guild {GuildId}",
                     caseNumber, dto.TargetUserId, dto.GuildId);
 
-                return await MapToDtoAsync(moderationCase, ct);
+                var caseDto = await MapToDtoAsync(moderationCase, ct);
+                PostToModLog(caseDto);
+                return caseDto;
             },
             guildId: dto.GuildId,
             userId: dto.TargetUserId);
+    }
+
+    /// <summary>
+    /// Hands the new case to the mod-log feed without holding up the caller. The notifier is resolved
+    /// in its own scope because this one ends when the command or request that created the case
+    /// returns, usually before Discord has answered.
+    /// </summary>
+    private void PostToModLog(ModerationCaseDto caseDto)
+    {
+        _backgroundTaskRunner.Run(async ct =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var notifier = scope.ServiceProvider.GetRequiredService<IModLogNotifier>();
+            await notifier.CaseCreatedAsync(caseDto, ct);
+        }, "modlog.case_created");
     }
 
     /// <inheritdoc/>

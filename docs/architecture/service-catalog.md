@@ -213,7 +213,10 @@ Services for moderation cases, notes, tags, and enforcement actions.
 | Service | Location | Purpose |
 |---------|----------|---------|
 | `IModerationService` | Core Interfaces | High-level moderation case management |
-| `IGuildModerationConfigService` | Core Interfaces | Guild moderation settings (warnings, timeouts, etc.) |
+| `IGuildModerationConfigService` | Core Interfaces | Guild moderation settings (warnings, timeouts, etc.), including the mod-log channel; applying a preset keeps the mod-log settings |
+| `IModLogNotifier` | Core Interfaces | Posts a moderation outcome to the guild's mod-log channel when one is configured and the kind is enabled. Never throws; returns the posted message id or null |
+| `ModLogNotifier` | Bot/Services/Moderation | Implementation over the socket client: resolves the channel from `GuildModerationConfig`, posts the `ModLogEmbeds` embed, warns once per guild per hour (an `IMemoryCache` key) when the channel is missing or refuses the bot. Queued from `ModerationService.CreateCaseAsync` on `IBackgroundTaskRunner` |
+| `ModLogEmbeds` / `ModLogSettings` | Bot/Helpers | The case embed and its portal link button as pure functions; the channel and kinds validation shared by the Moderation Settings page and `ModerationConfigController` |
 | `IModNoteService` | Core Interfaces | User moderation notes (admins document issues) |
 | `IModTagService` | Core Interfaces | Moderation tag management (categorization) |
 | `IWatchlistService` | Core Interfaces | User watchlist for monitoring suspicious accounts |
@@ -432,6 +435,9 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `IToolRegistry` | Agents/Abstractions | Available tools registry |
 | `ToolRegistry` | Agents | Default registry — aggregates the registered `IToolProvider`s and dispatches a call to the owning provider |
 | `FilteredToolRegistry` | Agents | Decorator narrowing a registry to a named allow-list; refuses a call outside the set as well as hiding it, so a tool remembered from an earlier cached prefix cannot be invoked |
+| `GuildAssistantRequest` | Core/DTOs/Llm | One question to the guild assistant: where, by whom, the text, and the thread it continues (null for a single reply). `EffectiveChannelId` is what the allowed-channel list is checked against |
+| `IAssistantThreadRepository` / `AssistantThreadRepository` | Core Interfaces, Infrastructure/Data/Repositories | `AssistantThread` rows: lookup by Discord thread id, batched delete of inactive threads (turns cascade), zero the starter on purge |
+| `IAssistantThreadMessageRepository` / `AssistantThreadMessageRepository` | Core Interfaces, Infrastructure/Data/Repositories | A thread's turns: the newest N oldest-first, trim to a window, delete by user |
 | `IToolAccessResolver` | Core Interfaces/LLM | Resolves a guild's allowed tool set from `AssistantGuildSettings.EnabledTools`, falling back to the house default set |
 | `ToolAccessResolver` | Infrastructure/Services/LLM | Implementation over the settings repository and `IMemoryCache`; invalidated by `AssistantGuildSettingsService` on save |
 | `ToolCatalog` | Core/Models/Llm | Static name → category/label/description/scope table behind the settings checklist and the per-tool metrics table; an uncatalogued tool falls into a visible **Other** bucket. Also **routes** an `IAgentTool` to its surface, so a tool without an entry is advertised nowhere |

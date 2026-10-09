@@ -202,6 +202,15 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
         return allowedChannels.Contains(channelId);
     }
 
+    /// <inheritdoc />
+    public async Task<Core.Enums.AssistantConversationMode> GetConversationModeAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
+        return settings?.ConversationMode ?? Core.Enums.AssistantConversationMode.SingleReply;
+    }
+
     /// <summary>
     /// Gets the rate limit for a guild (guild override or global default).
     /// </summary>

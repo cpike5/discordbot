@@ -79,6 +79,8 @@ public class GuildModerationConfigService : IGuildModerationConfigService
                 config.SpamConfig = JsonSerializer.Serialize(configDto.SpamConfig, JsonOptions);
                 config.ContentFilterConfig = JsonSerializer.Serialize(configDto.ContentFilterConfig, JsonOptions);
                 config.RaidProtectionConfig = JsonSerializer.Serialize(configDto.RaidProtectionConfig, JsonOptions);
+                config.ModLogChannelId = configDto.ModLogChannelId;
+                config.ModLogEvents = configDto.ModLogEvents;
                 config.UpdatedAt = DateTime.UtcNow;
 
                 if (await _configRepository.GetByGuildIdAsync(guildId, ct) == null)
@@ -116,6 +118,11 @@ public class GuildModerationConfigService : IGuildModerationConfigService
 
                 configDto.SimplePreset = presetName;
                 configDto.Mode = ConfigMode.Simple;
+
+                // A preset replaces the rules, not the feed: keep the mod-log channel the guild chose.
+                var current = await GetConfigAsync(guildId, ct);
+                configDto.ModLogChannelId = current.ModLogChannelId;
+                configDto.ModLogEvents = current.ModLogEvents;
 
                 var result = await UpdateConfigAsync(guildId, configDto, ct);
 
@@ -278,6 +285,8 @@ public class GuildModerationConfigService : IGuildModerationConfigService
             SpamConfig = spamConfig ?? new SpamDetectionConfigDto(),
             ContentFilterConfig = contentFilterConfig ?? new ContentFilterConfigDto(),
             RaidProtectionConfig = raidProtectionConfig ?? new RaidProtectionConfigDto(),
+            ModLogChannelId = config.ModLogChannelId,
+            ModLogEvents = config.ModLogEvents,
             UpdatedAt = config.UpdatedAt
         };
     }

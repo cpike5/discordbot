@@ -5709,6 +5709,8 @@ Returns the moderation configuration for a guild.
 | `toxicityThreshold` | decimal | Toxicity score threshold (0.0-1.0) |
 | `capsDetectionEnabled` | boolean | Whether caps lock detection is enabled |
 | `capsThresholdPercent` | integer | Percentage of caps to trigger flag (0-100) |
+| `modLogChannelId` | ulong? | The mod-log feed channel, or null when the feed is off |
+| `modLogEvents` | integer | `ModLogEventKinds` flags: 1 cases, 2 flagged events, 4 automatic actions (default 7) |
 | `updatedAt` | datetime | Last update timestamp |
 
 ---
@@ -5737,9 +5739,14 @@ Updates the moderation configuration for a guild.
   "toxicityDetectionEnabled": true,
   "toxicityThreshold": 0.8,
   "capsDetectionEnabled": false,
-  "capsThresholdPercent": 70
+  "capsThresholdPercent": 70,
+  "modLogChannelId": 987654321098765432,
+  "modLogEvents": 7
 }
 ```
+
+`modLogChannelId` must be a text channel of the guild the bot can see (the check is skipped while the
+bot is offline), and `modLogEvents` may only carry the known bits; otherwise the response is 400.
 
 **Response: 200 OK**
 

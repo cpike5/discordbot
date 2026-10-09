@@ -112,6 +112,12 @@ public class AssistantInteractionLog
     public string? Model { get; set; }
 
     /// <summary>
+    /// The assistant thread this question was a turn of, or null for a single reply. Lets the
+    /// metrics page count conversations and trace a question to its thread.
+    /// </summary>
+    public ulong? ThreadId { get; set; }
+
+    /// <summary>
     /// Navigation property for the user.
     /// </summary>
     public User? User { get; set; }

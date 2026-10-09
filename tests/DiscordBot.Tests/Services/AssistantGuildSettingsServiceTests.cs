@@ -1,5 +1,6 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Services;
@@ -1083,6 +1084,34 @@ public class AssistantGuildSettingsServiceTests
         initialState.Should().BeFalse();
         enabledState.Should().BeTrue();
         finalState.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region GetConversationModeAsync
+
+    [Fact]
+    public async Task GetConversationModeAsync_NoSettingsRow_IsASingleReply()
+    {
+        _mockRepository
+            .Setup(r => r.GetByGuildIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AssistantGuildSettings?)null);
+
+        var mode = await _service.GetConversationModeAsync(123);
+
+        mode.Should().Be(AssistantConversationMode.SingleReply);
+    }
+
+    [Fact]
+    public async Task GetConversationModeAsync_ReturnsTheSavedMode()
+    {
+        _mockRepository
+            .Setup(r => r.GetByGuildIdAsync(123UL, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantGuildSettings { GuildId = 123, ConversationMode = AssistantConversationMode.Thread });
+
+        var mode = await _service.GetConversationModeAsync(123);
+
+        mode.Should().Be(AssistantConversationMode.Thread);
     }
 
     #endregion

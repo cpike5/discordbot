@@ -335,6 +335,214 @@ public class IndexModelTests
     }
 
     [Fact]
+    public async Task OnPostSaveOverviewAsync_WithModLogChannel_SavesChannelAndKinds()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        var config = CreateModerationConfig(guildId);
+        var request = new OverviewUpdateDto
+        {
+            ModLogChannelId = "987654321098765432",
+            ModLogEvents = (int)(ModLogEventKinds.Cases | ModLogEventKinds.AutoActions)
+        };
+
+        _mockConfigService
+            .Setup(s => s.GetConfigAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+        _mockConfigService
+            .Setup(s => s.UpdateConfigAsync(guildId, It.IsAny<GuildModerationConfigDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ulong _, GuildModerationConfigDto c, CancellationToken _) => c);
+
+        // Act
+        var result = await _indexModel.OnPostSaveOverviewAsync(request, CancellationToken.None);
+
+        // Assert
+        var response = ((JsonResult)result).Value as dynamic;
+        ((bool)response!.success).Should().BeTrue();
+        ((string)response.modLogChannelId).Should().Be("987654321098765432", "snowflakes go back as strings");
+        ((int)response.modLogEvents).Should().Be(5);
+
+        _mockConfigService.Verify(
+            s => s.UpdateConfigAsync(
+                guildId,
+                It.Is<GuildModerationConfigDto>(c =>
+                    c.ModLogChannelId == 987654321098765432UL
+                    && c.ModLogEvents == (ModLogEventKinds.Cases | ModLogEventKinds.AutoActions)
+                    && c.Mode == ConfigMode.Simple),
+                It.IsAny<CancellationToken>()),
+            Times.Once,
+            "the channel and kinds change and the mode that was not sent stays as it was");
+    }
+
+    [Fact]
+    public async Task OnPostSaveOverviewAsync_WithEmptyModLogChannel_TurnsTheFeedOff()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        var config = CreateModerationConfig(guildId);
+        config.ModLogChannelId = 555;
+
+        _mockConfigService
+            .Setup(s => s.GetConfigAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+        _mockConfigService
+            .Setup(s => s.UpdateConfigAsync(guildId, It.IsAny<GuildModerationConfigDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ulong _, GuildModerationConfigDto c, CancellationToken _) => c);
+
+        // Act
+        await _indexModel.OnPostSaveOverviewAsync(new OverviewUpdateDto { ModLogChannelId = string.Empty }, CancellationToken.None);
+
+        // Assert
+        _mockConfigService.Verify(
+            s => s.UpdateConfigAsync(guildId, It.Is<GuildModerationConfigDto>(c => c.ModLogChannelId == null), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task OnPostSaveOverviewAsync_WithoutModLogFields_LeavesTheFeedAlone()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        var config = CreateModerationConfig(guildId);
+        config.ModLogChannelId = 555;
+        config.ModLogEvents = ModLogEventKinds.Cases;
+
+        _mockConfigService
+            .Setup(s => s.GetConfigAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+        _mockConfigService
+            .Setup(s => s.UpdateConfigAsync(guildId, It.IsAny<GuildModerationConfigDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ulong _, GuildModerationConfigDto c, CancellationToken _) => c);
+
+        // Act
+        await _indexModel.OnPostSaveOverviewAsync(new OverviewUpdateDto { Mode = ConfigMode.Advanced }, CancellationToken.None);
+
+        // Assert
+        _mockConfigService.Verify(
+            s => s.UpdateConfigAsync(
+                guildId,
+                It.Is<GuildModerationConfigDto>(c => c.ModLogChannelId == 555 && c.ModLogEvents == ModLogEventKinds.Cases && c.Mode == ConfigMode.Advanced),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData("not-a-channel")]
+    [InlineData("0")]
+    public async Task OnPostSaveOverviewAsync_WithUnparseableModLogChannel_Returns400WithoutSaving(string channel)
+    {
+        // Arrange
+        _indexModel.GuildId = 123456789UL;
+
+        // Act
+        var result = await _indexModel.OnPostSaveOverviewAsync(new OverviewUpdateDto { ModLogChannelId = channel }, CancellationToken.None);
+
+        // Assert
+        var jsonResult = (JsonResult)result;
+        jsonResult.StatusCode.Should().Be(400);
+        var response = jsonResult.Value as dynamic;
+        ((bool)response!.success).Should().BeFalse();
+        ((IReadOnlyDictionary<string, string>)response.errors).Should().ContainKey("modLogChannelId");
+
+        _mockConfigService.Verify(
+            s => s.UpdateConfigAsync(It.IsAny<ulong>(), It.IsAny<GuildModerationConfigDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostSaveOverviewAsync_WithUnknownEventBits_Returns400WithoutSaving()
+    {
+        // Arrange
+        _indexModel.GuildId = 123456789UL;
+
+        // Act
+        var result = await _indexModel.OnPostSaveOverviewAsync(new OverviewUpdateDto { ModLogEvents = 64 }, CancellationToken.None);
+
+        // Assert
+        var jsonResult = (JsonResult)result;
+        jsonResult.StatusCode.Should().Be(400);
+        ((IReadOnlyDictionary<string, string>)((dynamic)jsonResult.Value!).errors).Should().ContainKey("modLogEvents");
+
+        _mockConfigService.Verify(
+            s => s.UpdateConfigAsync(It.IsAny<ulong>(), It.IsAny<GuildModerationConfigDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_SavedModLogChannelTheBotCannotSee_IsFlaggedAsMissing()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        var config = CreateModerationConfig(guildId);
+        config.ModLogChannelId = 555;
+
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateGuildDto(guildId, "Test Guild"));
+        _mockConfigService
+            .Setup(s => s.GetConfigAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+        _mockModTagService
+            .Setup(s => s.GetGuildTagsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ModTagDto>());
+        SetupFlaggedEventService(guildId, 0, 0, 0);
+
+        // Act
+        await _indexModel.OnGetAsync(CancellationToken.None);
+
+        // Assert
+        _indexModel.ViewModel.ModLogChannelId.Should().Be(555);
+        _indexModel.ModLogChannelMissing.Should().BeTrue("the socket client is not connected, so no channel is visible");
+    }
+
+    [Theory]
+    [InlineData("mod-log", true)]
+    [InlineData("Mod-Alerts", true)]
+    [InlineData("staff-mod-log-2", true)]
+    [InlineData("general", false)]
+    [InlineData("moderators", false)]
+    public void LooksLikeModLog_MatchesTheNamesTheOldAlertLookedFor(string name, bool expected)
+    {
+        IndexModel.LooksLikeModLog(name).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_WithAChannelSaved_OffersNoSuggestion()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        _indexModel.GuildId = guildId;
+
+        var config = CreateModerationConfig(guildId);
+        config.ModLogChannelId = 555;
+
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateGuildDto(guildId, "Test Guild"));
+        _mockConfigService
+            .Setup(s => s.GetConfigAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+        _mockModTagService
+            .Setup(s => s.GetGuildTagsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ModTagDto>());
+        SetupFlaggedEventService(guildId, 0, 0, 0);
+
+        // Act
+        await _indexModel.OnGetAsync(CancellationToken.None);
+
+        // Assert
+        _indexModel.SuggestedModLogChannel.Should().BeNull();
+    }
+
+    [Fact]
     public async Task OnPostSaveOverviewAsync_WhenServiceThrowsException_Returns500()
     {
         // Arrange

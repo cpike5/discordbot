@@ -199,6 +199,16 @@ public class UserPurgeService : IUserPurgeService
                         .ExecuteDeleteAsync(ct);
                     counts["DmAssistantInteractionLogs"] = dmAssistantInteractionLogs;
 
+                    // 11c2. AssistantThreadMessages (UserId = discordUserId); the threads
+                    // themselves belong to the guild and only lose their pointer at this person
+                    var assistantThreadMessages = await _dbContext.AssistantThreadMessages
+                        .Where(m => m.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["AssistantThreadMessages"] = assistantThreadMessages;
+                    await _dbContext.AssistantThreads
+                        .Where(t => t.StarterUserId == discordUserId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(t => t.StarterUserId, 0UL), ct);
+
                     // 11d. DmAssistantUsageMetrics (UserId = discordUserId)
                     var dmAssistantUsageMetrics = await _dbContext.DmAssistantUsageMetrics
                         .Where(m => m.UserId == discordUserId)
@@ -386,6 +396,7 @@ public class UserPurgeService : IUserPurgeService
                 ["LlmUsageRecords"] = await _dbContext.LlmUsageRecords.CountAsync(r => r.UserId == discordUserId, cancellationToken),
                 ["AssistantInteractionLogs"] = await _dbContext.AssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId, cancellationToken),
                 ["DmAssistantInteractionLogs"] = await _dbContext.DmAssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId, cancellationToken),
+                ["AssistantThreadMessages"] = await _dbContext.AssistantThreadMessages.CountAsync(m => m.UserId == discordUserId, cancellationToken),
                 ["DmAssistantUsageMetrics"] = await _dbContext.DmAssistantUsageMetrics.CountAsync(m => m.UserId == discordUserId, cancellationToken),
                 ["GuildMembers"] = await _dbContext.GuildMembers.CountAsync(g => g.UserId == discordUserId, cancellationToken),
                 ["UserConsents"] = await _dbContext.UserConsents.CountAsync(c => c.DiscordUserId == discordUserId, cancellationToken),

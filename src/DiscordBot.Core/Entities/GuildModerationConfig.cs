@@ -44,6 +44,18 @@ public class GuildModerationConfig
     public string RaidProtectionConfig { get; set; } = string.Empty;
 
     /// <summary>
+    /// The text channel that receives the mod-log feed: an embed per moderation case, flagged event
+    /// and automatic action. Null means the feed is off.
+    /// </summary>
+    public ulong? ModLogChannelId { get; set; }
+
+    /// <summary>
+    /// Which kinds of event the mod-log channel receives. Ignored while <see cref="ModLogChannelId"/>
+    /// is null.
+    /// </summary>
+    public ModLogEventKinds ModLogEvents { get; set; } = ModLogEventKinds.All;
+
+    /// <summary>
     /// Timestamp when this configuration was last updated (UTC).
     /// </summary>
     public DateTime UpdatedAt { get; set; }

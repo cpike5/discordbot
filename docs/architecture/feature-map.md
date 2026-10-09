@@ -151,12 +151,27 @@ Slash and context menu commands for immediate moderation actions (warn, kick, ba
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | `/warn`, `/kick`, `/ban`, `/unban`, `/mute`, `/purge`, `Warn User` (context menu) (ModerationActionModule) |
-| **Services** | `IModerationService`, `IAuditLogService` |
-| **UI Pages** | Admin: Moderation case history pages |
-| **Database Entities** | `ModerationCase`, `AuditLog` |
-| **Key Features** | Reason tracking, case numbering, member audit trail, soft bans, mute duration configuration |
+| **Services** | `IModerationService`, `IAuditLogService`, `IModLogNotifier` (`ModLogNotifier`, Bot/Services/Moderation) |
+| **UI Pages** | Admin: Moderation case history pages; Moderation Settings, Overview tab (mod-log channel and what to post) |
+| **Database Entities** | `ModerationCase`, `AuditLog`, `GuildModerationConfig` (`ModLogChannelId`, `ModLogEvents`) |
+| **Key Features** | Reason tracking, case numbering, member audit trail, soft bans, mute duration configuration, mod-log channel feed |
 
 **Preconditions**: `[RequireGuildActive]`, `[RequireModerationEnabled]`, `[RequireModerator]`
+
+**Mod-log channel feed**: `ModerationService.CreateCaseAsync` is the one path every case creator
+uses (the action runner, the context-menu warn, the portal's case endpoint, the currency fine), so it
+is where the feed hangs: after the row is saved it queues `IModLogNotifier.CaseCreatedAsync` on
+`IBackgroundTaskRunner` in a scope of its own. The notifier reads `GuildModerationConfig`, posts the
+embed `ModLogEmbeds.ForCase` builds (colour by type, user, moderator or "Auto-moderation", reason,
+duration and expiry, context jump link, a "View in portal" button to the member's moderation page)
+and swallows every failure, warning once an hour per guild when the channel is gone or refuses the
+bot. `ModLogSettings` validates the channel and the kinds for both the settings page and the API.
+`AutoModerationHandler` posts on the same seam: one post per detection, the automatic action when
+one ran (`AutoActionAsync`, with whether Discord accepted it), else the event when it is High or
+Critical (`FlaggedEventAsync`); both carry the Dismiss, Acknowledge and Take Action buttons that
+`FlaggedEventComponentModule` answers. The handler's old channel-name lookup (`mod-log`,
+`mod-alert`) is gone; the settings page offers such a channel with a "Use it" button instead.
+User guide: `docs/articles/mod-log-channel.md`.
 
 ---
 
@@ -660,6 +675,27 @@ Structured logging with Serilog and optional Seq/Elasticsearch aggregation.
 | **Tracing** | Jaeger/OpenTelemetry (optional) |
 | **Key Services** | `ILogger<T>` dependency injection throughout |
 | **Key Features** | Structured logging, correlation IDs, performance profiling, log aggregation |
+
+---
+
+### Guild Assistant Threads
+
+Thread mode for the guild assistant (Part B of `docs/plans/mod-log-feed-and-threaded-assistant.md`):
+a mention opens a public thread and the conversation continues there, per guild, off by default.
+User guide: `docs/articles/ai-assistant.md` § Thread mode.
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Entry Point** | `AssistantMessageHandler`: one decision up front in `AssistantTriggerRules.Classify` (Ignore, NewQuestion, NewThreadQuestion, ThreadTurn) from the mention, whether the channel is a thread the bot owns, whether an `AssistantThread` row exists, and the guild's mode. A new thread question creates the thread (`ITextChannel.CreateThreadAsync`, archive duration from `Assistant:Threads:AutoArchiveMinutes`), saves the row before asking so a second message is already a turn, and falls back to a channel reply on a 403 with one warning an hour. A turn needs no mention, is checked against the parent channel, prompts for consent once per person per thread, takes a per-thread lock so two members' turns run one after the other, and closes the thread at `MaxTurnsPerThread`. Replies go through `DiscordReplyChunker` (Bot/Helpers), shared with the DM handler |
+| **Settings** | `Pages/Guilds/AssistantSettings`: a Conversation mode radio group (Single reply, Threads); with Threads chosen, an alert lists allowed channels where the bot lacks Create Public Threads or Send Messages in Threads (`AssistantSettingsModel.CanHostAssistantThread`). `IAssistantGuildSettingsService.GetConversationModeAsync` |
+| **Request** | `GuildAssistantRequest` (`Core/DTOs/Llm`): guild, channel, parent channel, thread id, user, message, question, write access. `IAssistantService.AskQuestionAsync(request)` and `IGuildAssistantContextFactory.CreateAsync(request, rateLimit)`; the positional overloads forward with no thread. The allowed-channel check runs against `EffectiveChannelId` (the parent for a thread turn) |
+| **Context** | `GuildAssistantContextFactory` loads the thread row and the last `Assistant:Threads:MaxConversationMessages` turns as history, and replays the thread's `ActiveSkills` into the skill session. `GuildAssistantContext` renders `{{CONVERSATION_MODE}}` in the prompt (single-reply or thread paragraph), and on a successful thread turn saves both messages, trims to the window, stores the loaded skills, bumps `TurnCount`/`LastActivityAt`, and stamps `ThreadId` on the interaction log |
+| **Database Entities** | `AssistantThread`, `AssistantThreadMessage`; `AssistantGuildSettings.ConversationMode`; `AssistantInteractionLog.ThreadId` |
+| **Repositories** | `IAssistantThreadRepository` (get, delete inactive in batches, anonymise starter), `IAssistantThreadMessageRepository` (recent by thread, trim, delete by user); registered without an API key like the settings repository |
+| **Configuration** | `AssistantThreadOptions` (`Assistant:Threads`: window, turn cap, retention days, auto-archive) |
+| **Metrics** | `Guilds/AssistantMetrics` shows Conversations (distinct threads with a turn in the 30-day window) and average turns per conversation, from `IAssistantTelemetryReader.GetConversationStatsAsync` over `AssistantInteractionLog.ThreadId` |
+| **First guild skill** | `docs/agents/skills/guild/rat-watch.md` holds the three Rat Watch tools: measured at 25% of the guild tool array (1,381 of 5,533 schema characters) and rarely called, so they now cost a one-line roster entry until a question needs them |
+| **Retention and GDPR** | `AssistantInteractionLogRetentionService` sweeps threads by `LastActivityAt`; `UserPurgeService` deletes a user's turns and zeroes `StarterUserId`; `UserDataExportService` writes `assistant_thread_messages.json` |
 
 ---
 
