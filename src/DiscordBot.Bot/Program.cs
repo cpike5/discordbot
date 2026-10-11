@@ -15,6 +15,7 @@ using Elastic.Ingest.Elasticsearch.DataStreams;
 using Elastic.Transport;
 using Serilog;
 using Serilog.Exceptions;
+using Serilog.Sinks.OpenTelemetry;
 using System.Reflection;
 
 // Npgsql 6+ defaults to timestamp with time zone for DateTime, which breaks existing
@@ -101,6 +102,23 @@ try
         if (!string.IsNullOrEmpty(seqUrl))
         {
             configuration.WriteTo.Seq(seqUrl);
+        }
+
+        // Add OTLP sink if an OTLP endpoint is configured (OpenTelemetry:Otlp:Endpoint or
+        // OTEL_EXPORTER_OTLP_ENDPOINT). Logs carry the active trace and span IDs, and the same
+        // resource attributes as traces and metrics, so Grafana can jump between them.
+        var (otlp, otlpEndpoint) = OpenTelemetryExtensions.ResolveOtlp(context.Configuration);
+        if (otlp.ExportLogs && otlpEndpoint is not null)
+        {
+            var resourceAttributes = OpenTelemetryExtensions.BuildResourceAttributes(context.Configuration);
+            configuration.WriteTo.OpenTelemetry(options =>
+            {
+                options.Endpoint = null;
+                options.LogsEndpoint = otlp.GetSignalEndpoint(otlpEndpoint, "logs").ToString();
+                options.Protocol = otlp.UseHttpProtobuf ? OtlpProtocol.HttpProtobuf : OtlpProtocol.Grpc;
+                options.Headers = new Dictionary<string, string>(otlp.ParseHeaders());
+                options.ResourceAttributes = new Dictionary<string, object>(resourceAttributes);
+            });
         }
     });
 

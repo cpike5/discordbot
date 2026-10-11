@@ -6,6 +6,10 @@
 #   docker compose --profile seq up -d                      # Bot + Seq logging
 #   docker compose --profile postgres --profile seq up -d   # Everything
 #
+# Observability: the bot joins the external "observability" network and ships logs, traces and
+# metrics over OTLP to the Grafana stack. Start that stack first so the network exists:
+#   docker compose -f deployment/observability/docker-compose.yml up -d
+#
 # PostgreSQL workflow:
 #   1. Copy .env.example to .env and set DATABASE_PROVIDER=PostgreSql
 #   2. Set CONNECTION_STRING to the PostgreSQL connection string (use 'postgres' as hostname)
@@ -22,8 +26,11 @@ services:
     networks:
       - elastic-network
       - db-network
+      - observability
     environment:
       Observability__SeqUrl: ${SEQ_URL:-}
+      Observability__GrafanaUrl: ${GRAFANA_URL:-}
+      OpenTelemetry__Otlp__Endpoint: ${OTLP_ENDPOINT-http://otel-collector:4317}
       Database__Provider: ${DATABASE_PROVIDER:-}
       ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:-Data Source=data/discordbot.db}
       DmAssistant__Model: ${DmAssistant__Model:-}
@@ -100,3 +107,5 @@ networks:
     external: false
   seq-network:
     external: false
+  observability:
+    external: true

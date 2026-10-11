@@ -1,0 +1,160 @@
+# Prometheus alert rules for the Discord bot. Firing alerts show on the Overview dashboard's
+# "Firing alerts" panel and in Grafana > Alerting > Alert rules (data source-managed).
+# There is no Alertmanager in this stack; add one and point Prometheus at it to get notifications.
+groups:
+  - name: discordbot-availability
+    rules:
+      - alert: BotNotReporting
+        expr: absent_over_time(discordbot_process_uptime_seconds{service_name="discordbot"}[5m])
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: The bot has sent no metrics for 5 minutes
+          description: The process is down, or it cannot reach the OTLP collector.
+
+      - alert: GatewayDisconnected
+        expr: |
+          max by (service_instance_id, deployment_environment) (discordbot_gateway_connected) == 0
+            unless on (service_instance_id) (discordbot_process_uptime_seconds < 300)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Discord gateway disconnected on {{ $labels.service_instance_id }}"
+          description: The bot has not been connected to Discord for 5 minutes. Expected on hosts running with Discord:OfflineMode=true.
+
+      - alert: GatewayFlapping
+        expr: sum by (service_instance_id) (increase(discordbot_gateway_connection_events_total{event="disconnected"}[30m])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gateway disconnected {{ $value | printf \"%.0f\" }} times in 30 minutes"
+
+      - alert: GatewayLatencyHigh
+        expr: max by (service_instance_id) (discordbot_gateway_latency_milliseconds) > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gateway heartbeat latency {{ $value | printf \"%.0f\" }} ms"
+
+      - alert: HealthCheckUnhealthy
+        expr: min by (service_instance_id, check) (discordbot_health_status{check!="overall"}) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Health check {{ $labels.check }} is unhealthy"
+
+  - name: discordbot-errors
+    rules:
+      - alert: CommandFailureRateHigh
+        expr: |
+          sum by (deployment_environment) (rate(discordbot_command_count_total{status="failure"}[10m]))
+            / sum by (deployment_environment) (rate(discordbot_command_count_total[10m])) > 0.05
+          and sum by (deployment_environment) (increase(discordbot_command_count_total[10m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of slash commands are failing"
+
+      - alert: Http5xxRateHigh
+        expr: |
+          sum by (deployment_environment) (rate(http_server_request_duration_seconds_count{service_name="discordbot", http_response_status_code=~"5.."}[10m]))
+            / sum by (deployment_environment) (rate(http_server_request_duration_seconds_count{service_name="discordbot"}[10m])) > 0.05
+          and sum by (deployment_environment) (increase(http_server_request_duration_seconds_count{service_name="discordbot"}[10m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of portal requests return 5xx"
+
+      - alert: DiscordRestRateLimited
+        expr: sum by (deployment_environment) (increase(discordbot_discord_rest_ratelimits_total{kind="hit"}[15m])) > 10
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | printf \"%.0f\" }} Discord REST 429s in 15 minutes"
+          description: See the Rate-limited routes table on the Gateway, Commands & Features dashboard.
+
+      - alert: BackgroundServiceInError
+        expr: max by (service_instance_id, service) (discordbot_background_up) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Background service {{ $labels.service }} reports an error"
+
+      - alert: BackgroundServiceStopped
+        expr: sum by (service_instance_id, service) (increase(discordbot_background_errors_total{fatal="true"}[15m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Background service {{ $labels.service }} stopped with a fatal error"
+
+      - alert: WorkQueueBacklog
+        expr: max by (service_instance_id, queue) (discordbot_queue_depth) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.queue }} queue holds {{ $value | printf \"%.0f\" }} items"
+
+  - name: discordbot-assistant
+    rules:
+      - alert: AssistantFailureRateHigh
+        expr: |
+          sum by (deployment_environment) (rate(discordbot_llm_request_count_total{status="failure"}[15m]))
+            / sum by (deployment_environment) (rate(discordbot_llm_request_count_total[15m])) > 0.2
+          and sum by (deployment_environment) (increase(discordbot_llm_request_count_total[15m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of assistant requests are failing"
+
+      - alert: AssistantSpendHigh
+        # Adjust the hourly budget to taste.
+        expr: sum by (deployment_environment) (increase(discordbot_llm_cost_usd_total[1h])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "Assistant spent ${{ $value | printf \"%.2f\" }} in the last hour"
+
+      - alert: AssistantUsageRecordsDropped
+        expr: sum by (deployment_environment) (increase(discordbot_llm_usage_records_dropped_total[15m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Assistant usage ledger rows are being dropped
+          description: The usage write queue is full; the portal's usage and cost pages will undercount.
+
+  - name: discordbot-resources
+    rules:
+      - alert: HighCpu
+        expr: max by (service_instance_id) (discordbot_process_cpu_usage_percent) > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU at {{ $value | printf \"%.0f\" }}% on {{ $labels.service_instance_id }}"
+
+      - alert: ThreadPoolStarvation
+        expr: max by (service_instance_id) (process_runtime_dotnet_thread_pool_queue_length{service_name="discordbot"}) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Thread pool queue at {{ $value | printf \"%.0f\" }} work items"
+
+      - alert: DatabasePoolExhausted
+        expr: |
+          sum by (service_instance_id, pool_name) (db_client_connections_usage{service_name="discordbot"})
+            >= max by (service_instance_id, pool_name) (db_client_connections_max{service_name="discordbot"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: The Npgsql connection pool is exhausted

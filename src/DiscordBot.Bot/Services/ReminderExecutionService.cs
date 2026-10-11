@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
@@ -17,6 +18,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<ReminderOptions> _options;
     private readonly DiscordSocketClient _client;
+    private readonly FeatureMetrics? _featureMetrics;
 
     public override string ServiceName => "Reminder Execution Service";
 
@@ -44,6 +46,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
         _scopeFactory = scopeFactory;
         _options = options;
         _client = client;
+        _featureMetrics = serviceProvider.GetService<FeatureMetrics>();
     }
 
     /// <inheritdoc/>
@@ -209,6 +212,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
                 _logger.LogWarning("User {UserId} not found for reminder {ReminderId}, marking as failed",
                     reminder.UserId, reminder.Id);
                 await UpdateReminderFailedAsync(reminder.Id, "User not found", ct);
+                _featureMetrics?.RecordReminderDelivery("user_not_found");
                 return;
             }
 
@@ -230,6 +234,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
 
                 // Mark as delivered
                 await UpdateReminderDeliveredAsync(reminder.Id, ct);
+                _featureMetrics?.RecordReminderDelivery("delivered");
 
                 _logger.LogInformation("Successfully delivered reminder {ReminderId} to user {UserId}",
                     reminder.Id, reminder.UserId);
@@ -240,6 +245,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
                 _logger.LogWarning("Failed to deliver reminder {ReminderId} to user {UserId}: DMs disabled (attempt {Attempt}/{MaxAttempts})",
                     reminder.Id, reminder.UserId, reminder.DeliveryAttempts + 1, _options.Value.MaxDeliveryAttempts);
 
+                _featureMetrics?.RecordReminderDelivery("dm_disabled");
                 await HandleDeliveryFailureAsync(reminder, "User has DMs disabled", ct);
             }
             catch (Exception ex)
@@ -248,6 +254,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
                 _logger.LogError(ex, "Failed to deliver reminder {ReminderId} to user {UserId} (attempt {Attempt}/{MaxAttempts})",
                     reminder.Id, reminder.UserId, reminder.DeliveryAttempts + 1, _options.Value.MaxDeliveryAttempts);
 
+                _featureMetrics?.RecordReminderDelivery("failed");
                 await HandleDeliveryFailureAsync(reminder, ex.Message, ct);
             }
         }

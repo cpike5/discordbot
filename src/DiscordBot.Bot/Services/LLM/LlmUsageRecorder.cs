@@ -4,6 +4,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Agents.Abstractions;
+using DiscordBot.Bot.Metrics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -25,11 +26,13 @@ public class LlmUsageRecorder : ILlmUsageRecorder
     private readonly Channel<LlmUsageRecord> _channel;
     private readonly ILogger<LlmUsageRecorder> _logger;
     private readonly int _capacity;
+    private readonly LlmMetrics? _metrics;
     private long _totalDropped;
 
-    public LlmUsageRecorder(IOptions<LlmOptions> options, ILogger<LlmUsageRecorder> logger)
+    public LlmUsageRecorder(IOptions<LlmOptions> options, ILogger<LlmUsageRecorder> logger, LlmMetrics? metrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _metrics = metrics;
 
         _capacity = options?.Value.UsageQueueCapacity ?? 10000;
 
@@ -39,12 +42,18 @@ public class LlmUsageRecorder : ILlmUsageRecorder
             SingleReader = true,
             SingleWriter = false
         });
+
+        _metrics?.ObserveUsageQueue(() => _channel.Reader.Count);
     }
 
     /// <inheritdoc />
     public void Record(LlmUsageRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
+
+        // Metrics come first: they describe the request, which happened whether or not the ledger
+        // row survives the queue.
+        _metrics?.RecordUsage(record);
 
         // With FullMode.DropOldest, TryWrite only ever returns false once the channel's writer has
         // been completed (never happens in normal operation) - a full queue instead silently
@@ -66,6 +75,7 @@ public class LlmUsageRecorder : ILlmUsageRecorder
         if (countBefore >= _capacity)
         {
             var dropped = Interlocked.Increment(ref _totalDropped);
+            _metrics?.RecordUsageRecordDropped();
             if (dropped == 1 || dropped % LogEveryNDrops == 0)
             {
                 _logger.LogWarning(

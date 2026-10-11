@@ -8,6 +8,10 @@
 #   docker compose -f docker-compose.ghcr.yml --profile seq up -d                      # Bot + Seq logging
 #   docker compose -f docker-compose.ghcr.yml --profile postgres --profile seq up -d   # Everything
 #
+# Observability: the bot joins the external "observability" network and ships logs, traces and
+# metrics over OTLP to the Grafana stack. Start that stack first so the network exists:
+#   docker compose -f deployment/observability/docker-compose.yml up -d
+#
 # To use a specific version, set IMAGE_TAG in .env (default: latest):
 #   IMAGE_TAG=1.1.0
 #
@@ -24,8 +28,13 @@ services:
   bot:
     image: ghcr.io/cpike5/discordbot:${IMAGE_TAG:-latest}
     env_file: .env
+    networks:
+      - default
+      - observability
     environment:
       Observability__SeqUrl: ${SEQ_URL:-}
+      Observability__GrafanaUrl: ${GRAFANA_URL:-}
+      OpenTelemetry__Otlp__Endpoint: ${OTLP_ENDPOINT-http://otel-collector:4317}
       Database__Provider: ${DATABASE_PROVIDER:-}
       ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:-Data Source=data/discordbot.db}
     volumes:
@@ -88,3 +97,7 @@ volumes:
   bot-data:
   postgres-data:
   seq-data:
+
+networks:
+  observability:
+    external: true

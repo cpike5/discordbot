@@ -336,6 +336,25 @@ Services for tracking performance metrics, latency, and system health.
 | `IPerformanceMetricsQueryService` / `PerformanceMetricsQueryService` | Core Interfaces, Bot/Services/Performance (scoped) | Historical and statistical calculations (time-range bucketing, database and memory history, command error rates) behind the thin `PerformanceMetricsController` endpoints |
 | `PerformanceAlertService.ValidateThresholds` | Bot/Services | Rejects alert thresholds where warning is not below critical; the Alerts tab validates the same rule in the browser |
 
+### OpenTelemetry metrics
+
+Meter classes are singletons registered in `OpenTelemetryExtensions.AddOpenTelemetryMetrics`; each
+owns one `Meter` (name in `MeterName`) that is also added to the meter provider. Exported over OTLP
+to the Grafana stack (`deployment/observability`) and on `/metrics`. Catalogue:
+[grafana-observability.md](../articles/grafana-observability.md#metric-reference).
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `BotMetrics`, `ApiMetrics`, `BusinessMetrics`, `SloMetrics`, `VoxMetrics` | Bot/Metrics | Commands and components, portal API, business KPIs, SLO gauges, VOX |
+| `DiscordGatewayMetrics` | Bot/Metrics | Gateway state and latency, gateway events, Discord.NET log events, REST responses and rate limits |
+| `DiscordGatewayMetricsService` | Bot/Services | Hosted service subscribing `DiscordGatewayMetrics` to socket client events (rate limits come from `DefaultRatelimitCallback`) |
+| `LlmMetrics` | Bot/Metrics | Assistant requests, latency, tokens, cost; recorded by `LlmUsageRecorder.Record` |
+| `AgentsMetrics` | Agents | Static meter: every model completion and tool call in `AgentRunner` |
+| `BackgroundServiceMetrics` | Bot/Metrics | Heartbeats and errors from `MonitoredBackgroundService`, status and heartbeat age from the health registry |
+| `FeatureMetrics` | Bot/Metrics | Auto-mod, reminder deliveries, scheduled message executions, soundboard and TTS playback |
+| `AppStateMetrics` | Bot/Metrics | Observable gauges over existing in-process state: queues, interaction state, voice connections, cache, DB interceptor totals, CPU, memory, uptime, SignalR subscribers |
+| `HealthCheckMetricsPublisher` | Bot/Health | `IHealthCheckPublisher` exposing each health check's last result as a gauge (every 30 s) |
+
 ---
 
 ## Background Services

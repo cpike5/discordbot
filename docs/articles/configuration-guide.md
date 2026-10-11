@@ -160,7 +160,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 | `CachingOptions` | `Caching` | `Program.cs` | 9 TTL properties for guild, user, interaction, consent, dashboard caches |
 | `GuildMembershipCacheOptions` | `GuildMembershipCache` | `Program.cs` | `StoredGuildMembershipDurationMinutes` (30) |
 | `BackgroundServicesOptions` | `BackgroundServices` | `Program.cs` | 20+ properties for all background service intervals, batch sizes, delays |
-| `ObservabilityOptions` | `Observability` | `Program.cs` | `KibanaUrl`, `SeqUrl` |
+| `ObservabilityOptions` | `Observability` | `Program.cs` | `GrafanaUrl`, `KibanaUrl`, `SeqUrl` (sidebar links) |
 | `VerificationOptions` | `Verification` | `Program.cs` | `CodeCharset`, `CodeLength`, `CodeExpiryMinutes`, `MaxCodesPerHour` |
 
 #### Discord Bot / Authentication
@@ -253,6 +253,7 @@ from `dotnet run` in the repository root.
 | `PerformanceAlertOptions` | `PerformanceAlerts` | `PerformanceMetricsServiceExtensions` | `CheckIntervalSeconds`, `ConsecutiveBreachesRequired` |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | `PerformanceMetricsServiceExtensions` | Per-metric-category SignalR broadcast intervals |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | `OpenTelemetryExtensions` | `DefaultRate` (0.1), `ErrorRate` (1.0), `SlowThresholdMs` |
+| `OtlpOptions` | `OpenTelemetry:Otlp` | `OpenTelemetryExtensions.ResolveOtlp` (bound directly, also read by the Serilog sink in `Program.cs`) | `Endpoint` (falls back to `OTEL_EXPORTER_OTLP_ENDPOINT`; empty = no OTLP export), `Protocol` (`grpc`/`http`), `Headers`, `ExportLogs`/`ExportMetrics`/`ExportTraces` (true), `MetricExportIntervalSeconds` (15). See [Grafana Observability Stack](grafana-observability.md) |
 
 #### Performance alert thresholds
 

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Constants;
@@ -23,6 +24,7 @@ public class AudioStreamer : IAudioStreamer
     private readonly IAudioNotifier _audioNotifier;
     private readonly ILogger<AudioStreamer> _logger;
     private readonly AudioCacheOptions _cacheOptions;
+    private readonly FeatureMetrics? _featureMetrics;
 
     /// <summary>
     /// 20ms of audio at 48kHz stereo 16-bit PCM.
@@ -37,13 +39,16 @@ public class AudioStreamer : IAudioStreamer
     /// <param name="audioNotifier">The audio notifier for SignalR progress broadcasts.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="cacheOptions">Audio cache configuration options.</param>
+    /// <param name="featureMetrics">Optional playback metrics.</param>
     public AudioStreamer(
         IFfmpegTranscoder transcoder,
         ISoundCacheService soundCacheService,
         IAudioNotifier audioNotifier,
         ILogger<AudioStreamer> logger,
-        IOptions<AudioCacheOptions> cacheOptions)
+        IOptions<AudioCacheOptions> cacheOptions,
+        FeatureMetrics? featureMetrics = null)
     {
+        _featureMetrics = featureMetrics;
         _transcoder = transcoder;
         _soundCacheService = soundCacheService;
         _audioNotifier = audioNotifier;
@@ -53,6 +58,34 @@ public class AudioStreamer : IAudioStreamer
 
     /// <inheritdoc/>
     public async Task<AudioStreamResult> StreamAsync(
+        ulong guildId,
+        Sound sound,
+        string filePath,
+        AudioFilter filter,
+        Stream discord,
+        CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        try
+        {
+            var result = await StreamWithFallbackAsync(guildId, sound, filePath, filter, discord, cancellationToken);
+            _featureMetrics?.RecordAudioPlayback(
+                "soundboard", result.WasCancelled ? "cancelled" : "success", Stopwatch.GetElapsedTime(started));
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            _featureMetrics?.RecordAudioPlayback("soundboard", "cancelled", Stopwatch.GetElapsedTime(started));
+            throw;
+        }
+        catch (Exception)
+        {
+            _featureMetrics?.RecordAudioPlayback("soundboard", "failure", Stopwatch.GetElapsedTime(started));
+            throw;
+        }
+    }
+
+    private async Task<AudioStreamResult> StreamWithFallbackAsync(
         ulong guildId,
         Sound sound,
         string filePath,

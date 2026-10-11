@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Bot.Services.DiscordIntegration;
@@ -42,6 +43,17 @@ public static class DiscordServiceExtensions
                 MessageCacheSize = 100,
                 EnableVoiceDaveEncryption = true
             };
+
+            // Every REST response's rate-limit headers, for 429 and exhausted-bucket metrics.
+            var gatewayMetrics = provider.GetService<DiscordGatewayMetrics>();
+            if (gatewayMetrics is not null)
+            {
+                config.DefaultRatelimitCallback = info =>
+                {
+                    gatewayMetrics.RecordRateLimitInfo(info);
+                    return Task.CompletedTask;
+                };
+            }
 
             return new DiscordSocketClient(config);
         });
@@ -143,6 +155,7 @@ public static class DiscordServiceExtensions
         services.AddHostedService<MemberSyncService>();
         services.AddHostedService(sp => sp.GetRequiredService<SlashCommandRegistrationService>());
         services.AddHostedService<BotHostedService>();
+        services.AddHostedService<DiscordGatewayMetricsService>();
         services.AddHostedService<InteractionStateCleanupService>();
 
         return services;

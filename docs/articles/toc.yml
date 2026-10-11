@@ -66,6 +66,8 @@
       href: ssml-support.md
 - name: Operations
   items:
+    - name: Grafana Observability Stack
+      href: grafana-observability.md
     - name: Metrics
       href: metrics.md
     - name: Distributed Tracing
