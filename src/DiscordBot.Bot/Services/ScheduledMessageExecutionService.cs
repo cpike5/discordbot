@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
@@ -13,6 +14,7 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<ScheduledMessagesOptions> _options;
+    private readonly FeatureMetrics? _featureMetrics;
 
     public override string ServiceName => "ScheduledMessageExecutionService";
 
@@ -37,6 +39,7 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
     {
         _scopeFactory = scopeFactory;
         _options = options;
+        _featureMetrics = serviceProvider.GetService<FeatureMetrics>();
     }
 
     /// <inheritdoc/>
@@ -125,15 +128,18 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                     cts.CancelAfter(executionTimeout);
 
-                    await service.ExecuteScheduledMessageAsync(message, cts.Token);
+                    var executed = await service.ExecuteScheduledMessageAsync(message, cts.Token);
+                    _featureMetrics?.RecordScheduledMessageExecution(executed ? "success" : "failure");
                 }
                 catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
                 {
                     // Timeout
+                    _featureMetrics?.RecordScheduledMessageExecution("timeout");
                 }
                 catch (Exception)
                 {
                     // Logged by service
+                    _featureMetrics?.RecordScheduledMessageExecution("error");
                 }
                 finally
                 {

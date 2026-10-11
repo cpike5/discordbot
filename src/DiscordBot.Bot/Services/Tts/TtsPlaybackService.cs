@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs.Tts;
 using DiscordBot.Core.Entities;
@@ -17,6 +18,7 @@ public class TtsPlaybackService : ITtsPlaybackService
     private readonly IAudioNotifier _audioNotifier;
     private readonly ITtsHistoryService _ttsHistoryService;
     private readonly ILogger<TtsPlaybackService> _logger;
+    private readonly FeatureMetrics? _featureMetrics;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TtsPlaybackService"/> class.
@@ -29,8 +31,10 @@ public class TtsPlaybackService : ITtsPlaybackService
         IAudioService audioService,
         IAudioNotifier audioNotifier,
         ITtsHistoryService ttsHistoryService,
-        ILogger<TtsPlaybackService> logger)
+        ILogger<TtsPlaybackService> logger,
+        FeatureMetrics? featureMetrics = null)
     {
+        _featureMetrics = featureMetrics;
         _audioService = audioService;
         _audioNotifier = audioNotifier;
         _ttsHistoryService = ttsHistoryService;
@@ -93,6 +97,7 @@ public class TtsPlaybackService : ITtsPlaybackService
                 guildId: guildId,
                 durationSeconds: durationSeconds);
             var streamActivity = streamScope.Activity;
+            var streamStarted = Stopwatch.GetTimestamp();
 
             try
             {
@@ -135,15 +140,18 @@ public class TtsPlaybackService : ITtsPlaybackService
                     guildId, bytesWritten);
 
                 streamScope.SetSuccess();
+                _featureMetrics?.RecordAudioPlayback("tts", "success", Stopwatch.GetElapsedTime(streamStarted));
             }
             catch (OperationCanceledException)
             {
+                _featureMetrics?.RecordAudioPlayback("tts", "cancelled", Stopwatch.GetElapsedTime(streamStarted));
                 _ = _audioNotifier.NotifyPlaybackFinishedAsync(guildId, playbackId, wasCancelled: true, CancellationToken.None);
                 _logger.LogInformation("TTS audio streaming cancelled for guild {GuildId}", guildId);
                 throw; // Let the caller decide how to handle cancellation
             }
             catch (Exception ex)
             {
+                _featureMetrics?.RecordAudioPlayback("tts", "failure", Stopwatch.GetElapsedTime(streamStarted));
                 _ = _audioNotifier.NotifyPlaybackFinishedAsync(guildId, playbackId, wasCancelled: false, CancellationToken.None);
                 _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
                 streamScope.RecordException(ex);

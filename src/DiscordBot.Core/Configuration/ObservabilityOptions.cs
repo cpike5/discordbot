@@ -11,6 +11,13 @@ public class ObservabilityOptions
     public const string SectionName = "Observability";
 
     /// <summary>
+    /// Gets or sets the URL to Grafana (the observability stack in deployment/observability).
+    /// When configured, a link to Grafana will appear in the admin sidebar.
+    /// Leave null or empty to hide the link.
+    /// </summary>
+    public string? GrafanaUrl { get; set; }
+
+    /// <summary>
     /// Gets or sets the URL to the Kibana dashboard.
     /// When configured, a link to Kibana will appear in the admin sidebar.
     /// Leave null or empty to hide the link.
@@ -27,6 +34,7 @@ public class ObservabilityOptions
     /// <summary>
     /// Gets a value indicating whether any observability URLs are configured.
     /// </summary>
-    public bool HasAnyUrls => !string.IsNullOrEmpty(KibanaUrl)
+    public bool HasAnyUrls => !string.IsNullOrEmpty(GrafanaUrl)
+                            || !string.IsNullOrEmpty(KibanaUrl)
                             || !string.IsNullOrEmpty(SeqUrl);
 }

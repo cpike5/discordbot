@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Hosting;
 
@@ -13,6 +14,7 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
     private readonly IServiceProvider _serviceProvider;
     protected readonly ILogger _logger;
     private IBackgroundServiceHealthRegistry? _healthRegistry;
+    private BackgroundServiceMetrics? _metrics;
 
     private DateTime? _lastHeartbeat;
     private string? _lastError;
@@ -48,6 +50,7 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
         // Lazy resolve to avoid circular DI
         _healthRegistry = _serviceProvider.GetService<IBackgroundServiceHealthRegistry>();
         _healthRegistry?.Register(ServiceName, this);
+        _metrics = _serviceProvider.GetService<BackgroundServiceMetrics>();
 
         try
         {
@@ -64,6 +67,7 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
         {
             _lastError = ex.Message;
             _status = "Error";
+            _metrics?.RecordError(ServiceName, fatal: true);
             _logger.LogError(ex, "{ServiceName} encountered a fatal error", ServiceName);
             throw;
         }
@@ -81,6 +85,7 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
     protected void UpdateHeartbeat()
     {
         _lastHeartbeat = DateTime.UtcNow;
+        _metrics?.RecordHeartbeat(ServiceName);
     }
 
     /// <summary>
@@ -90,6 +95,7 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
     {
         _lastError = ex.Message;
         _status = "Error";
+        _metrics?.RecordError(ServiceName);
     }
 
     /// <summary>
@@ -99,6 +105,7 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
     {
         _lastError = errorMessage;
         _status = "Error";
+        _metrics?.RecordError(ServiceName);
     }
 
     /// <summary>

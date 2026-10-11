@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -19,6 +20,7 @@ public class AutoModerationHandler
     private readonly DiscordSocketClient _client;
     private readonly ILogger<AutoModerationHandler> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly FeatureMetrics? _featureMetrics;
 
     public AutoModerationHandler(
         ISpamDetectionService spamService,
@@ -26,8 +28,10 @@ public class AutoModerationHandler
         IRaidDetectionService raidService,
         DiscordSocketClient client,
         IServiceScopeFactory scopeFactory,
-        ILogger<AutoModerationHandler> logger)
+        ILogger<AutoModerationHandler> logger,
+        FeatureMetrics? featureMetrics = null)
     {
+        _featureMetrics = featureMetrics;
         _spamService = spamService;
         _contentFilterService = contentFilterService;
         _raidService = raidService;
@@ -183,6 +187,8 @@ public class AutoModerationHandler
         SocketMessage? message,
         SocketGuildUser? joinedUser = null)
     {
+        _featureMetrics?.RecordAutomodDetection(result.RuleType.ToString(), result.Severity.ToString());
+
         // Create flagged event
         using var scope = _scopeFactory.CreateScope();
         var flaggedEventService = scope.ServiceProvider.GetRequiredService<IFlaggedEventService>();
@@ -225,6 +231,7 @@ public class AutoModerationHandler
             TracingConstants.Spans.ServiceAutoModExecuteAction,
             guildId: guildId,
             userId: userId);
+        var actionSucceeded = false;
 
         try
         {
@@ -253,6 +260,7 @@ public class AutoModerationHandler
                             "Auto-action: Deleted message {MessageId} from user {UserId} in guild {GuildId}",
                             message.Id, userId, guildId);
                         activity?.SetTag("action.success", true);
+                        actionSucceeded = true;
                     }
                     else
                     {
@@ -283,6 +291,7 @@ public class AutoModerationHandler
                             "Auto-action: Muted user {UserId} ({Username}) in guild {GuildId} for 1 hour",
                             userId, guildUser.Username, guildId);
                         activity?.SetTag("action.success", true);
+                        actionSucceeded = true;
                         activity?.SetTag("action.timeout_hours", 1);
                     }
                     else
@@ -305,6 +314,7 @@ public class AutoModerationHandler
                             "Auto-action: Kicked user {UserId} ({Username}) from guild {GuildId}",
                             userId, kickUser.Username, guildId);
                         activity?.SetTag("action.success", true);
+                        actionSucceeded = true;
                     }
                     else
                     {
@@ -323,6 +333,7 @@ public class AutoModerationHandler
                         "Auto-action: Banned user {UserId} from guild {GuildId}",
                         userId, guildId);
                     activity?.SetTag("action.success", true);
+                    actionSucceeded = true;
                     break;
 
                 default:
@@ -335,9 +346,11 @@ public class AutoModerationHandler
             }
 
             BotActivitySource.SetSuccess(activity);
+            _featureMetrics?.RecordAutomodAction(action.ToString(), actionSucceeded ? "success" : "failure");
         }
         catch (Exception ex)
         {
+            _featureMetrics?.RecordAutomodAction(action.ToString(), "failure");
             _logger.LogError(ex,
                 "Failed to execute auto-action {Action} for user {UserId} in guild {GuildId}",
                 action, userId, guildId);

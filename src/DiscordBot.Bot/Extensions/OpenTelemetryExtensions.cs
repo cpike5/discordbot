@@ -1,8 +1,11 @@
 using System.Reflection;
+using DiscordBot.Bot.Health;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -16,7 +19,25 @@ namespace DiscordBot.Bot.Extensions;
 public static class OpenTelemetryExtensions
 {
     /// <summary>
-    /// Adds OpenTelemetry metrics with Prometheus exporter to the service collection.
+    /// Built-in .NET meters worth exporting beyond what the instrumentation packages add:
+    /// SignalR connections, Kestrel connections and the Npgsql connection pool.
+    /// </summary>
+    private static readonly string[] FrameworkMeters =
+    {
+        "Microsoft.AspNetCore.Hosting",
+        "Microsoft.AspNetCore.Server.Kestrel",
+        "Microsoft.AspNetCore.Http.Connections",
+        "Microsoft.AspNetCore.Routing",
+        "Microsoft.AspNetCore.Diagnostics",
+        "Microsoft.AspNetCore.RateLimiting",
+        "System.Net.Http",
+        "System.Net.NameResolution",
+        "Npgsql"
+    };
+
+    /// <summary>
+    /// Adds OpenTelemetry metrics with the Prometheus scrape endpoint and, when an OTLP endpoint is
+    /// configured, an OTLP push exporter.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configuration">The application configuration.</param>
@@ -25,8 +46,7 @@ public static class OpenTelemetryExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "discordbot";
-        var serviceVersion = GetAssemblyVersion();
+        var (otlp, otlpEndpoint) = ResolveOtlp(configuration);
 
         // Register custom metrics classes as singletons
         services.AddSingleton<BotMetrics>();
@@ -34,14 +54,13 @@ public static class OpenTelemetryExtensions
         services.AddSingleton<BusinessMetrics>();
         services.AddSingleton<SloMetrics>();
         services.AddSingleton<VoxMetrics>();
+        services.AddSingleton<DiscordGatewayMetrics>();
+        services.AddSingleton<LlmMetrics>();
+        services.AddSingleton<BackgroundServiceMetrics>();
+        services.AddSingleton<FeatureMetrics>();
+        services.AddSingleton<AppStateMetrics>();
 
-        // Configure OpenTelemetry
         services.AddOpenTelemetry()
-            .ConfigureResource(resource => resource
-                .AddService(
-                    serviceName: serviceName,
-                    serviceVersion: serviceVersion,
-                    serviceInstanceId: Environment.MachineName))
             .WithMetrics(metrics =>
             {
                 // Add custom meters
@@ -50,6 +69,19 @@ public static class OpenTelemetryExtensions
                 metrics.AddMeter(BusinessMetrics.MeterName);
                 metrics.AddMeter(SloMetrics.MeterName);
                 metrics.AddMeter(VoxMetrics.MeterName);
+                metrics.AddMeter(DiscordGatewayMetrics.MeterName);
+                metrics.AddMeter(LlmMetrics.MeterName);
+                metrics.AddMeter(BackgroundServiceMetrics.MeterName);
+                metrics.AddMeter(FeatureMetrics.MeterName);
+                metrics.AddMeter(AppStateMetrics.MeterName);
+                metrics.AddMeter(HealthCheckMetricsPublisher.MeterName);
+                metrics.AddMeter(AgentsMetrics.MeterName);
+                metrics.AddMeter(FrameworkMeters);
+
+                // Observable gauges exist only once their class is constructed, and nothing else
+                // resolves these two; build them with the meter provider.
+                metrics.AddInstrumentation(sp => sp.GetRequiredService<AppStateMetrics>());
+                metrics.AddInstrumentation(sp => sp.GetRequiredService<BackgroundServiceMetrics>());
 
                 // Add ASP.NET Core instrumentation
                 metrics.AddAspNetCoreInstrumentation();
@@ -148,9 +180,67 @@ public static class OpenTelemetryExtensions
                         }
                     });
 
-                // Add Prometheus exporter
+                // Millisecond buckets for the new duration histograms (LLM calls run to seconds).
+                var slowCallBuckets = new ExplicitBucketHistogramConfiguration
+                {
+                    Boundaries = new double[]
+                    {
+                        50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000, 60000, 120000
+                    }
+                };
+                metrics.AddView("discordbot.llm.request.duration", slowCallBuckets);
+                metrics.AddView("discordbot.agent.completion.duration", slowCallBuckets);
+                metrics.AddView(
+                    instrumentName: "discordbot.agent.tool.duration",
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = new double[] { 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000 }
+                    });
+                metrics.AddView(
+                    instrumentName: "discordbot.audio.playback.duration",
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = new double[] { 0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300, 600 }
+                    });
+
+                // Npgsql's second-based histograms carry no bucket advice, so the SDK's default
+                // (millisecond-scale) boundaries would put every query in the first bucket.
+                var dbSecondsBuckets = new ExplicitBucketHistogramConfiguration
+                {
+                    Boundaries = new double[]
+                    {
+                        0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10
+                    }
+                };
+                metrics.AddView("db.client.commands.duration", dbSecondsBuckets);
+                metrics.AddView("db.client.connections.create_time", dbSecondsBuckets);
+                metrics.AddView("db.client.connections.wait_time", dbSecondsBuckets);
+                metrics.AddView("db.client.connections.use_time", dbSecondsBuckets);
+
+                // Prometheus scrape endpoint (/metrics), kept for existing scrapers
                 metrics.AddPrometheusExporter();
+
+                // OTLP push, the path the Grafana stack uses
+                if (otlp.ExportMetrics && otlpEndpoint is not null)
+                {
+                    metrics.AddOtlpExporter((exporterOptions, readerOptions) =>
+                    {
+                        ConfigureOtlpExporter(exporterOptions, otlp, otlpEndpoint, "metrics");
+                        readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
+                            Math.Max(1, otlp.MetricExportIntervalSeconds) * 1000;
+                        // Cumulative is what Prometheus expects from OTLP.
+                        readerOptions.TemporalityPreference = MetricReaderTemporalityPreference.Cumulative;
+                    });
+                }
             });
+
+        // Push health check results into the Health meter every 30 seconds.
+        services.AddSingleton<IHealthCheckPublisher, HealthCheckMetricsPublisher>();
+        services.Configure<HealthCheckPublisherOptions>(options =>
+        {
+            options.Delay = TimeSpan.FromSeconds(10);
+            options.Period = TimeSpan.FromSeconds(30);
+        });
 
         return services;
     }
@@ -165,9 +255,6 @@ public static class OpenTelemetryExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "discordbot";
-        var serviceVersion = GetAssemblyVersion();
-
         // Configure sampling options
         services.Configure<SamplingOptions>(
             configuration.GetSection($"OpenTelemetry:Tracing:{SamplingOptions.SectionName}"));
@@ -186,14 +273,18 @@ public static class OpenTelemetryExtensions
         });
 
         var enableConsoleExporter = configuration.GetValue<bool>("OpenTelemetry:Tracing:EnableConsoleExporter");
-        var otlpEndpoint = configuration["OpenTelemetry:Tracing:OtlpEndpoint"];
+        var (otlp, sharedEndpoint) = ResolveOtlp(configuration);
+
+        // The shared OTLP endpoint wins; the older tracing-only setting is honoured when it is absent.
+        var legacyEndpoint = configuration["OpenTelemetry:Tracing:OtlpEndpoint"];
+        var otlpEndpoint = sharedEndpoint ?? (string.IsNullOrWhiteSpace(legacyEndpoint) ? null : legacyEndpoint);
+        if (sharedEndpoint is null && otlpEndpoint is not null
+            && configuration["OpenTelemetry:Tracing:OtlpProtocol"] is { Length: > 0 } legacyProtocol)
+        {
+            otlp.Protocol = legacyProtocol;
+        }
 
         services.AddOpenTelemetry()
-            .ConfigureResource(resource => resource
-                .AddService(
-                    serviceName: serviceName,
-                    serviceVersion: serviceVersion,
-                    serviceInstanceId: Environment.MachineName))
             .WithTracing(tracing =>
             {
                 // Add custom activity sources
@@ -261,19 +352,10 @@ public static class OpenTelemetryExtensions
                 }
 
                 // Add OTLP exporter if configured
-                if (!string.IsNullOrEmpty(otlpEndpoint))
+                if (otlp.ExportTraces && otlpEndpoint is not null)
                 {
                     tracing.AddOtlpExporter(options =>
-                    {
-                        options.Endpoint = new Uri(otlpEndpoint);
-
-                        // Use gRPC by default, can be configured via settings
-                        var protocol = configuration["OpenTelemetry:Tracing:OtlpProtocol"];
-                        if (protocol?.Equals("http", StringComparison.OrdinalIgnoreCase) == true)
-                        {
-                            options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf;
-                        }
-                    });
+                        ConfigureOtlpExporter(options, otlp, otlpEndpoint, "traces"));
                 }
             });
 
@@ -307,11 +389,72 @@ public static class OpenTelemetryExtensions
         services.Configure<ObservabilityOptions>(
             configuration.GetSection(ObservabilityOptions.SectionName));
 
+        // One resource for every signal, matching the attributes the Serilog OTLP sink sends with logs.
+        var resourceAttributes = BuildResourceAttributes(configuration);
+        services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddAttributes(resourceAttributes));
+
         services.AddOpenTelemetryMetrics(configuration);
         services.AddOpenTelemetryTracing(configuration);
         services.AddElasticApmWithPrioritySampling(configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// Binds <see cref="OtlpOptions"/> and resolves the endpoint all signals export to:
+    /// <c>OpenTelemetry:Otlp:Endpoint</c>, then the standard <c>OTEL_EXPORTER_OTLP_ENDPOINT</c>.
+    /// </summary>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>The bound options and the endpoint, or a null endpoint when OTLP is not configured.</returns>
+    public static (OtlpOptions Options, string? Endpoint) ResolveOtlp(IConfiguration configuration)
+    {
+        var options = configuration.GetSection(OtlpOptions.SectionName).Get<OtlpOptions>() ?? new OtlpOptions();
+
+        var endpoint = options.Endpoint;
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            endpoint = configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+        }
+
+        return (options, string.IsNullOrWhiteSpace(endpoint) ? null : endpoint.Trim());
+    }
+
+    /// <summary>
+    /// Builds the resource attributes shared by logs, traces and metrics.
+    /// </summary>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>service.name, service.version, service.instance.id and deployment.environment.</returns>
+    public static IReadOnlyDictionary<string, object> BuildResourceAttributes(IConfiguration configuration)
+    {
+        var environment = configuration[HostDefaults.EnvironmentKey]
+            ?? configuration["ASPNETCORE_ENVIRONMENT"]
+            ?? configuration["DOTNET_ENVIRONMENT"]
+            ?? "Production";
+
+        return new Dictionary<string, object>
+        {
+            ["service.name"] = configuration["OpenTelemetry:ServiceName"] ?? "discordbot",
+            ["service.version"] = GetAssemblyVersion(),
+            ["service.instance.id"] = Environment.MachineName,
+            ["deployment.environment"] = environment.ToLowerInvariant()
+        };
+    }
+
+    private static void ConfigureOtlpExporter(
+        OtlpExporterOptions exporterOptions,
+        OtlpOptions otlp,
+        string endpoint,
+        string signal)
+    {
+        exporterOptions.Protocol = otlp.UseHttpProtobuf ? OtlpExportProtocol.HttpProtobuf : OtlpExportProtocol.Grpc;
+        exporterOptions.Endpoint = otlp.GetSignalEndpoint(endpoint, signal);
+
+        var headers = otlp.ParseHeaders();
+        if (headers.Count > 0)
+        {
+            exporterOptions.Headers = string.Join(",", headers.Select(h => $"{h.Key}={h.Value}"));
+        }
     }
 
     /// <summary>

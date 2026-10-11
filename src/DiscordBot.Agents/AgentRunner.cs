@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using DiscordBot.Agents.Contracts;
@@ -136,6 +137,7 @@ public class AgentRunner : IAgentRunner
             // means that row, and the tokens already spent on this run, are silently lost. Catching
             // it here keeps every exit from this loop going through the normal AgentRunResult path.
             LlmResponse response;
+            var completionStarted = Stopwatch.GetTimestamp();
             try
             {
                 response = await _llmClient.CompleteAsync(request, cancellationToken);
@@ -146,6 +148,9 @@ public class AgentRunner : IAgentRunner
             }
             catch (Exception ex)
             {
+                AgentsMetrics.RecordCompletion(
+                    request.Model, "exception", null, Stopwatch.GetElapsedTime(completionStarted));
+
                 _logger.LogError(ex,
                     "LLM client threw calling CompleteAsync on iteration {Iteration}",
                     loopCount);
@@ -161,6 +166,12 @@ public class AgentRunner : IAgentRunner
                     Model = lastModel
                 };
             }
+
+            AgentsMetrics.RecordCompletion(
+                response.Model ?? request.Model,
+                response.Success ? "success" : "failure",
+                response.Success ? response.StopReason.ToString() : null,
+                Stopwatch.GetElapsedTime(completionStarted));
 
             // Check for LLM failure
             if (!response.Success)
@@ -309,6 +320,7 @@ public class AgentRunner : IAgentRunner
                             toolCall.Name,
                             toolCall.Id,
                             context.ToolRegistry.FindProviderName(toolCall.Name));
+                        var toolStarted = Stopwatch.GetTimestamp();
 
                         if (IsRefusedAsDuplicate(toolCall, context, duplicateCallCounts, out var refusal))
                         {
@@ -316,6 +328,8 @@ public class AgentRunner : IAgentRunner
                             // does not reach ToolNames: nothing ran.
                             AgentsActivitySource.SetToolOutcome(
                                 toolActivity, ToolOutcomes.RepeatedCall, MeasureJson(refusal.Content));
+                            AgentsMetrics.RecordToolCall(
+                                toolCall.Name, ToolOutcomes.RepeatedCall, Stopwatch.GetElapsedTime(toolStarted));
                             toolResults.Add(refusal);
                             continue;
                         }
@@ -364,15 +378,17 @@ public class AgentRunner : IAgentRunner
                             // The outcome reads the result rather than only ToolExecutionResult.Success:
                             // house style returns an expected failure as a successful result, and those
                             // are the majority of what is worth counting.
+                            var outcome = timedOut
+                                ? ToolOutcomes.Timeout
+                                : executionResult.Success
+                                    ? ToolOutcomes.Classify(contentElement)
+                                    : ToolOutcomes.Error;
                             AgentsActivitySource.SetToolOutcome(
                                 toolActivity,
-                                timedOut
-                                    ? ToolOutcomes.Timeout
-                                    : executionResult.Success
-                                        ? ToolOutcomes.Classify(contentElement)
-                                        : ToolOutcomes.Error,
+                                outcome,
                                 MeasureJson(contentElement),
                                 timedOut ? $"{context.ToolExecutionTimeoutMs}ms" : null);
+                            AgentsMetrics.RecordToolCall(toolCall.Name, outcome, Stopwatch.GetElapsedTime(toolStarted));
 
                             toolResults.Add(new LlmToolResult
                             {
@@ -423,11 +439,13 @@ public class AgentRunner : IAgentRunner
                             // A tool the registry does not own is a different fault from a tool that
                             // threw: the first says the advertised list and the allow-list disagree,
                             // the second says the tool is broken.
+                            var outcome = ex is NotSupportedException ? ToolOutcomes.UnknownTool : ToolOutcomes.Error;
                             AgentsActivitySource.SetToolOutcome(
                                 toolActivity,
-                                ex is NotSupportedException ? ToolOutcomes.UnknownTool : ToolOutcomes.Error,
+                                outcome,
                                 MeasureJson(errorElement),
                                 ex.GetType().Name);
+                            AgentsMetrics.RecordToolCall(toolCall.Name, outcome, Stopwatch.GetElapsedTime(toolStarted));
 
                             toolResults.Add(new LlmToolResult
                             {
