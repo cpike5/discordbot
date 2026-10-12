@@ -61,6 +61,7 @@ Discord__OfflineMode=true \
 OpenTelemetry__Otlp__Endpoint=http://localhost:4317 \
 ElasticApm__Enabled=false \
 nohup dotnet run --no-build --project src/DiscordBot.Bot > /tmp/bot.log 2>&1 &
+echo $! > /tmp/bot.pid
 ```
 
 Wait for `curl -s http://localhost:5124/health` to answer. What to expect:
@@ -256,10 +257,13 @@ Keep scripts like this in the scratchpad, not the repository.
 ## 10. Clean up
 
 ```bash
-pkill -f DiscordBot.Bot                                              # the app
+kill "$(cat /tmp/bot.pid)"                                            # the app (dotnet run stops its child)
 docker compose -f deployment/observability/docker-compose.yml down   # keeps the data volumes
 docker compose -f deployment/observability/docker-compose.yml down -v  # and deletes them
 ```
+
+Stop the app by PID, not with `pkill -f DiscordBot.Bot`: that pattern also matches the shell
+running the `pkill`, so the command kills itself (exit 144).
 
 Data persists in named volumes between `up` runs, so old runs show up in queries until you `down
 -v` or narrow the time range. Restarting the bot gives it a new process but the same
