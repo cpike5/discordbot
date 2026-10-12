@@ -142,6 +142,9 @@ dotnet run --project src/DiscordBot.Bot     # web UI on http://localhost:5124
 ```
 
 All UI verification (screenshots, console checks, route sweeps) happens on that setup.
+To see server-side logs, traces and metrics for what you just exercised, run the Grafana stack
+alongside it and query it over HTTP: `docs/articles/grafana-agent-debugging.md` (in a web session,
+start `dockerd` first; add `OpenTelemetry__Otlp__Endpoint=http://localhost:4317` to the command above).
 The default connection string in `appsettings.json` still points at SQLite
 (`data/discordbot.db`) until SQLite is removed; do not rely on it. Set
 `Discord:TestGuildId` for development; without it, global slash commands take up

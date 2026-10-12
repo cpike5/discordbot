@@ -53,6 +53,7 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Centralized Logging (Seq)](log-aggregation.md) - Log aggregation with Seq
 - [Jaeger & Loki Setup](jaeger-loki-setup.md) - Distributed tracing and log aggregation on Linux VPS
 - [Grafana Dashboards](grafana-dashboards-specification.md) - Dashboard design and configuration
+- [Debugging with Grafana (Agents)](grafana-agent-debugging.md) - Start the stack, follow a request across logs and traces, and query metrics over HTTP while testing
 
 ## Deployment
 - [Docker Deployment](docker-deployment.md) - Docker and Docker Compose deployment guide

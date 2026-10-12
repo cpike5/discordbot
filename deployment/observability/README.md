@@ -3,7 +3,9 @@
 Grafana, Loki, Tempo and Prometheus behind an OpenTelemetry Collector, with anonymous Grafana
 access and dashboards for the bot provisioned on startup. The bot sends logs, traces and metrics
 over OTLP. Full reference (architecture, configuration, metric catalogue):
-[docs/articles/grafana-observability.md](../../docs/articles/grafana-observability.md).
+[docs/articles/grafana-observability.md](../../docs/articles/grafana-observability.md). Querying it from
+scripts or agent sessions (follow one request across logs and traces, check a new metric):
+[docs/articles/grafana-agent-debugging.md](../../docs/articles/grafana-agent-debugging.md).
 
 ## Run it
 

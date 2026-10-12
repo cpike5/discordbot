@@ -174,5 +174,6 @@ dashboard shows the real figures computed from histograms and from `discordbot.g
 ## Related
 
 - [`deployment/observability/README.md`](../../deployment/observability/README.md): running the stack
+- [Debugging with Grafana (Agents)](grafana-agent-debugging.md): querying the stack over HTTP while testing a change
 - [Metrics](metrics.md), [Distributed Tracing](tracing.md), [Log Aggregation](log-aggregation.md)
 - [Configuration Guide](configuration-guide.md)
