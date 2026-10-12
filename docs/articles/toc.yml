@@ -68,6 +68,8 @@
   items:
     - name: Grafana Observability Stack
       href: grafana-observability.md
+    - name: Debugging with Grafana (Agents)
+      href: grafana-agent-debugging.md
     - name: Metrics
       href: metrics.md
     - name: Distributed Tracing
