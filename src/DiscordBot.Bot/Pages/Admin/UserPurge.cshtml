@@ -43,7 +43,7 @@
             </svg>
             <div>
                 <p class="text-sm font-semibold text-error">Warning: this cannot be undone</p>
-                <p class="text-sm text-error/90 mt-1">
+                <p class="text-sm text-error mt-1">
                     A purge permanently deletes the user's data from the system. Use it with care.
                 </p>
             </div>
@@ -60,7 +60,7 @@
                 </svg>
                 <div class="flex-1 min-w-0">
                     <h2 class="text-lg font-semibold text-success mb-2">Purge complete</h2>
-                    <p class="text-sm text-success/90 mb-4 break-words">
+                    <p class="text-sm text-success mb-4 break-words">
                         Deleted all data for @(string.IsNullOrEmpty(outcome.Username) ? "the user" : outcome.Username)
                         (ID <span class="font-mono">@outcome.DiscordUserId</span>).
                     </p>
@@ -84,7 +84,7 @@
 
                     @if (!string.IsNullOrEmpty(outcome.CorrelationId))
                     {
-                        <p class="text-xs text-success/80 mt-4 break-all">
+                        <p class="text-xs text-success mt-4 break-all">
                             Audit reference: <span class="font-mono">@outcome.CorrelationId</span>
                         </p>
                     }
@@ -207,7 +207,7 @@
                             </svg>
                             <div class="text-sm text-info">
                                 <p class="font-semibold mb-1">About anonymized records</p>
-                                <p class="text-info/90">
+                                <p class="text-info">
                                     Rat Watch records and watches are anonymized instead of deleted, so the history stays complete. The user's ID in them is replaced with 0.
                                 </p>
                             </div>
@@ -258,7 +258,7 @@
             </svg>
             <div class="text-sm text-info">
                 <p class="font-semibold mb-1">GDPR compliance</p>
-                <p class="text-info/90">
+                <p class="text-info">
                     This tool covers the "right to be forgotten". All of the user's data is deleted or anonymized, and the purge is recorded in the audit log.
                     Users can also ask for deletion themselves with the <code class="px-1.5 py-0.5 bg-info/20 rounded font-mono text-xs">/privacy</code> command in Discord.
                 </p>

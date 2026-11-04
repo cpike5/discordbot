@@ -4887,6 +4887,15 @@
   opacity: 0.55;
 }
 
+/* A row or card shown for completeness but with no activity (a tool nobody called, a tool not
+   offered here). It is quieter in tertiary ink rather than with opacity: opacity takes every
+   colour in the row below 4.5:1, while the tertiary token passes on every surface. */
+.row-inactive .text-text-primary,
+.row-inactive .text-text-secondary,
+.row-inactive .text-accent-orange {
+  color: var(--color-text-tertiary);
+}
+
 /* Discord message replica used by the Welcome and Scheduled Messages previews. The hex values
    copy Discord's own dark theme on purpose: the preview shows what the message looks like in
    Discord, not in this portal, so it does not follow the portal's theme tokens. */

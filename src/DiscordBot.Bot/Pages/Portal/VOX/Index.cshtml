@@ -274,7 +274,7 @@
         .vox-play-btn {
             width: 100%;
             padding: 0.75rem 1.5rem;
-            background-color: var(--color-accent-orange);
+            background-color: var(--color-accent-orange-fill);
             border: none;
             border-radius: 0.375rem;
             color: white;
@@ -298,7 +298,7 @@
         }
 
         .vox-play-btn:hover:not(:disabled) {
-            background-color: var(--color-accent-orange-hover);
+            background-color: var(--color-accent-orange-fill-hover);
             box-shadow: 0 4px 12px rgba(var(--color-accent-orange-rgb), 0.3);
         }
 
@@ -477,8 +477,8 @@
         }
 
         .vox-word-gap-preset.active {
-            background-color: var(--color-accent-orange);
-            border-color: var(--color-accent-orange);
+            background-color: var(--color-accent-orange-fill);
+            border-color: var(--color-accent-orange-fill);
             color: white;
         }
 
@@ -519,7 +519,7 @@
         }
 
         .vox-clip-badge {
-            background-color: var(--color-accent-orange);
+            background-color: var(--color-accent-orange-fill);
             color: white;
             padding: 0.25rem 0.6rem;
             border-radius: 9999px;
@@ -958,8 +958,8 @@
 
             .vox-mobile-letter-btn.active {
                 color: white;
-                background-color: var(--color-accent-orange);
-                border-color: var(--color-accent-orange);
+                background-color: var(--color-accent-orange-fill);
+                border-color: var(--color-accent-orange-fill);
                 font-weight: 700;
             }
 
@@ -1066,7 +1066,7 @@
         }
 
         .vox-history-badge {
-            background-color: var(--color-accent-orange);
+            background-color: var(--color-accent-orange-fill);
             color: white;
             padding: 0.1rem 0.45rem;
             border-radius: 9999px;
@@ -1206,37 +1206,21 @@
         }
 
         /* ==========================================
-           WCAG 2.1 AA COLOR CONTRAST FIXES
-           Scoped to VOX page to avoid affecting shared tokens.
-           Dark theme: bg-primary=var(--color-bg-primary), bg-secondary=var(--color-bg-secondary), bg-tertiary=var(--color-bg-tertiary)
-           Original --color-text-tertiary (var(--color-text-tertiary)) fails 4.5:1 on most backgrounds.
-           These overrides provide >=4.5:1 contrast ratios.
+           Text colours. These used to be hex values chosen because the old tertiary token
+           failed 4.5:1; the tokens now pass on every surface in both themes
+           (DesignTokenContrastTests), and hex values could not follow the light theme.
            ========================================== */
 
-        /* Accessible secondary text: #b0adab provides ~8.2:1 on bg-primary, ~6.8:1 on bg-secondary */
         .vox-page .stat-label {
-            color: #b0adab;
+            color: var(--color-text-secondary);
         }
 
-        /* Accessible tertiary text: #9e9b99 provides ~5.6:1 on bg-primary, ~4.7:1 on bg-secondary */
-        .vox-clip-duration {
-            color: #9e9b99;
-        }
-
-        .vox-preview-stats {
-            color: #9e9b99;
-        }
-
-        .vox-autocomplete-duration {
-            color: #9e9b99;
-        }
-
-        .vox-token-gap {
-            color: #9e9b99;
-        }
-
+        .vox-clip-duration,
+        .vox-preview-stats,
+        .vox-autocomplete-duration,
+        .vox-token-gap,
         .vox-token-empty {
-            color: #9e9b99;
+            color: var(--color-text-tertiary);
         }
 
         .vox-history-meta {
