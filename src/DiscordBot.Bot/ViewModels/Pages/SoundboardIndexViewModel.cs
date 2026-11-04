@@ -145,7 +145,7 @@ public record SoundboardStatsViewModel
     public string ComparisonText { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the CSS class for the comparison text color (e.g., "text-green-600", "text-red-600").
+    /// Gets the CSS class for the comparison text color (e.g., "text-success", "text-error").
     /// </summary>
     public string ComparisonCssClass { get; init; } = string.Empty;
 
@@ -334,11 +334,11 @@ public record SoundboardIndexViewModel
         {
             if (today > 0)
             {
-                return ($"+{today} (no data yesterday)", "text-green-600");
+                return ($"+{today} (no data yesterday)", "text-success");
             }
             else
             {
-                return ("No data", "text-gray-500");
+                return ("No data", "text-text-tertiary");
             }
         }
 
@@ -347,15 +347,15 @@ public record SoundboardIndexViewModel
 
         if (percentageChange > 0)
         {
-            return ($"+{percentageChange:F0}% vs yesterday", "text-green-600");
+            return ($"+{percentageChange:F0}% vs yesterday", "text-success");
         }
         else if (percentageChange < 0)
         {
-            return ($"{percentageChange:F0}% vs yesterday", "text-red-600");
+            return ($"{percentageChange:F0}% vs yesterday", "text-error");
         }
         else
         {
-            return ("Same as yesterday", "text-gray-500");
+            return ("Same as yesterday", "text-text-tertiary");
         }
     }
 
