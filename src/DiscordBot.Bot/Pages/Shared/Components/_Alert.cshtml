@@ -24,7 +24,7 @@
         {
             <h3 class="text-sm font-semibold">@Model.Title</h3>
         }
-        <p class="text-sm opacity-90 @(!string.IsNullOrEmpty(Model.Title) ? "mt-1" : "")">@Model.Message</p>
+        <p class="text-sm @(!string.IsNullOrEmpty(Model.Title) ? "mt-1" : "")">@Model.Message</p>
     </div>
 
     @if (Model.IsDismissible)
