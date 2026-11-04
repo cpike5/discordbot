@@ -237,12 +237,12 @@
 }
 
 .nav-tabs-bordered .nav-tabs-item.active {
-    color: var(--color-discord);
-    border-bottom-color: var(--color-discord);
+    color: var(--color-accent-orange);
+    border-bottom-color: var(--color-accent-orange);
 }
 
 .nav-tabs-bordered .nav-tabs-item.active .nav-tabs-icon {
-    color: var(--color-discord);
+    color: var(--color-accent-orange);
 }
 
 .nav-tabs-bordered .nav-tabs-item:focus-visible {

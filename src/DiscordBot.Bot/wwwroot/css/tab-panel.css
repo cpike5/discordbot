@@ -198,16 +198,16 @@
 }
 
 .tab-panel-bordered .tab-panel-tab.active {
-    color: var(--color-discord);
-    border-bottom-color: var(--color-discord);
+    color: var(--color-accent-orange);
+    border-bottom-color: var(--color-accent-orange);
 }
 
 .tab-panel-bordered .tab-panel-tab.active .tab-icon {
-    color: var(--color-discord);
+    color: var(--color-accent-orange);
 }
 
 .tab-panel-bordered .tab-panel-tab:focus-visible {
-    outline: 2px solid var(--color-discord);
+    outline: 2px solid var(--color-border-focus);
     outline-offset: -2px;
     border-radius: 0.25rem 0.25rem 0 0;
 }
@@ -224,7 +224,7 @@
 }
 
 /* ===== VARIANT: PORTAL ===== */
-/* Clean underline style with Discord accent on active tab */
+/* Clean underline style; the active tab is ember like every other selected state */
 
 .tab-panel-portal .tab-panel-tabs {
     gap: 0.5rem;
@@ -244,16 +244,16 @@
 }
 
 .tab-panel-portal .tab-panel-tab.active {
-    color: var(--color-discord);
-    border-bottom-color: var(--color-discord);
+    color: var(--color-accent-orange);
+    border-bottom-color: var(--color-accent-orange);
 }
 
 .tab-panel-portal .tab-panel-tab.active .tab-icon {
-    color: var(--color-discord);
+    color: var(--color-accent-orange);
 }
 
 .tab-panel-portal .tab-panel-tab:focus-visible {
-    outline: 2px solid var(--color-discord);
+    outline: 2px solid var(--color-border-focus);
     outline-offset: -2px;
     border-radius: 0.25rem 0.25rem 0 0;
 }
