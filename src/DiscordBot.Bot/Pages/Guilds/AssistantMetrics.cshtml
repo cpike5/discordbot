@@ -281,7 +281,7 @@ else
                 <tbody class="divide-y divide-border-primary">
                     @foreach (var tool in Model.ToolUsage)
                     {
-                        <tr class="hover:bg-bg-tertiary/50 transition-colors @(tool.Calls == 0 ? "opacity-60" : "")">
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors @(tool.Calls == 0 ? "row-inactive" : "")">
                             <td class="px-6 py-3 whitespace-nowrap">
                                 <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
                                 <span class="block text-xs text-text-tertiary font-mono">@tool.ToolName</span>
@@ -304,7 +304,7 @@ else
         <div class="md:hidden divide-y divide-border-primary">
             @foreach (var tool in Model.ToolUsage)
             {
-                <div class="p-4 @(tool.Calls == 0 ? "opacity-60" : "")">
+                <div class="p-4 @(tool.Calls == 0 ? "row-inactive" : "")">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
                         <span class="text-sm font-semibold text-accent-orange">@tool.Calls.ToString("N0")</span>
@@ -377,7 +377,7 @@ else
                     <tbody class="divide-y divide-border-primary">
                         @foreach (var tool in surface.Tools)
                         {
-                            <tr class="hover:bg-bg-tertiary/50 transition-colors @(tool.Advertised ? "" : "opacity-60")">
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors @(tool.Advertised ? "" : "row-inactive")">
                                 <td class="px-6 py-3 whitespace-nowrap">
                                     <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
                                     <span class="block text-xs text-text-tertiary font-mono">@tool.Name</span>
@@ -427,7 +427,7 @@ else
             <div class="md:hidden divide-y divide-border-primary">
                 @foreach (var tool in surface.Tools)
                 {
-                    <div class="p-4 @(tool.Advertised ? "" : "opacity-60")">
+                    <div class="p-4 @(tool.Advertised ? "" : "row-inactive")">
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
                             <span class="text-sm font-semibold text-accent-orange">@tool.SchemaChars.ToString("N0")</span>
