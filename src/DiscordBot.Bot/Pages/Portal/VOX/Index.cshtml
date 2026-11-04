@@ -1206,37 +1206,21 @@
         }
 
         /* ==========================================
-           WCAG 2.1 AA COLOR CONTRAST FIXES
-           Scoped to VOX page to avoid affecting shared tokens.
-           Dark theme: bg-primary=var(--color-bg-primary), bg-secondary=var(--color-bg-secondary), bg-tertiary=var(--color-bg-tertiary)
-           Original --color-text-tertiary (var(--color-text-tertiary)) fails 4.5:1 on most backgrounds.
-           These overrides provide >=4.5:1 contrast ratios.
+           Text colours. These used to be hex values chosen because the old tertiary token
+           failed 4.5:1; the tokens now pass on every surface in both themes
+           (DesignTokenContrastTests), and hex values could not follow the light theme.
            ========================================== */
 
-        /* Accessible secondary text: #b0adab provides ~8.2:1 on bg-primary, ~6.8:1 on bg-secondary */
         .vox-page .stat-label {
-            color: #b0adab;
+            color: var(--color-text-secondary);
         }
 
-        /* Accessible tertiary text: #9e9b99 provides ~5.6:1 on bg-primary, ~4.7:1 on bg-secondary */
-        .vox-clip-duration {
-            color: #9e9b99;
-        }
-
-        .vox-preview-stats {
-            color: #9e9b99;
-        }
-
-        .vox-autocomplete-duration {
-            color: #9e9b99;
-        }
-
-        .vox-token-gap {
-            color: #9e9b99;
-        }
-
+        .vox-clip-duration,
+        .vox-preview-stats,
+        .vox-autocomplete-duration,
+        .vox-token-gap,
         .vox-token-empty {
-            color: #9e9b99;
+            color: var(--color-text-tertiary);
         }
 
         .vox-history-meta {
