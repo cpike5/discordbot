@@ -120,21 +120,16 @@ still proceed on `beta.4` with one global output ceiling, at the cost noted in �
 
 ### P3. Package access
 
-The packages stay **private** on GitHub Packages (D4), and the discordbot repository has already
-been granted read access to them. Every place that restores discordbot still needs a credential:
+> **Done** on this branch, following pike-assistant's setup so both consumers work the same way: a
+> committed `nuget.config` mapping only `cpike.Agent.*` to the private `cpike5` feed; CI and release
+> write `GITHUB_TOKEN` (`packages: read`) into the runner's copy; the Docker build takes a
+> `nuget_token` BuildKit secret into a throwaway copy; developers and cloud sessions supply a classic
+> `read:packages` token. `docs/articles/private-package-feed.md` has the details and the
+> restore-from-a-local-pack fallback. `cpike.Agent.Core` 0.2.0-beta.5 is referenced (unused) from
+> Infrastructure so CI proves the restore before PR 4 depends on it.
 
-- **`nuget.config`** at the repo root naming `https://nuget.pkg.github.com/cpike5/index.json`, with
-  no credentials in it.
-- **CI and release workflows** (`ci.yml`, `release.yml`): add `permissions: packages: read` and
-  register the source with `GITHUB_TOKEN` before restore
-  (`dotnet nuget update source cpike5 --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text`).
-  The repo grant is what lets that token read the packages.
-- **Dockerfile**: pass the token as a BuildKit secret (`RUN --mount=type=secret,id=nuget ...`),
-  never as a build arg, and wire the secret through the image build step in `release.yml`.
-- **Developer machines**: a classic PAT with `read:packages`, registered once per the framework's
-  `docs/releasing.md`.
-- **Claude web sessions**: the environment needs `nuget.pkg.github.com` allowed and a `read:packages`
-  credential for that host; without it the SessionStart hook's `dotnet restore` fails.
+The packages stay **private** (D4). Every package must grant this repository Actions access
+(package settings → *Manage Actions access*) for the CI token to read it.
 
 ## 3. Framework gaps (host-neutral, land in cpike-agent-framework)
 
@@ -350,7 +345,7 @@ equivalents or to local copies. Update `configuration-guide.md`.
 | --- | --- | --- | --- |
 | 1 | discordbot | .NET 10 upgrade (P1) | Old engine still in place. Soak in production before 3. |
 | 2 | framework | H1–H3 (built on the framework branch); merge and cut `v0.2.0-beta.5` (P2) | Earlier betas exist; this one adds the Core gaps. |
-| 3 | discordbot | Feed access: `nuget.config`, CI/release `packages: read` + token, Dockerfile secret, session environment credential | No code change; proves restore works everywhere. |
+| 3 | discordbot | Feed access: `nuget.config`, CI/release `packages: read` + token, Dockerfile secret, docs; references `cpike.Agent.Core` | Proves restore in CI and the image build. **Done.** |
 | 4 | discordbot | **Swap and port**: reference the packages, `CatalogPromptStore`, prompt moves, `DiscordRunContext`, new `AssistantMessagePipeline`, every tool ported to `cpike.Agent.IAgentTool` with its tests, ported `ToolContractTests`, config keys, telemetry names | `AgentRunner` and every old tool type are unregistered and unused. Run evals before and after. |
 | 5 | discordbot | **Removal**: delete `src/DiscordBot.Agents`, its sln entry, Dockerfile line, `tests/.../Agents/`, unused usings; update `CLAUDE.md`, `patterns.md` (§ Agent Tool Authoring, § Agent Skills), `service-catalog.md`, `feature-map.md`, `system-overview.md`, `docs/tools/README.md`, `docs/agents/skills/README.md` | Pure deletion and docs; `DiscordBot.Agents` is gone. |
 

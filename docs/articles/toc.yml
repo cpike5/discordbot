@@ -148,6 +148,8 @@
       href: docker-deployment.md
     - name: Linux VPS Deployment
       href: linux-deployment.md
+    - name: Private Package Feed
+      href: private-package-feed.md
     - name: SQLite to Docker + PostgreSQL
       href: sqlite-to-docker-postgres-migration.md
 - name: Development

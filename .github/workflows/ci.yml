@@ -24,6 +24,11 @@ jobs:
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Restore reads cpike.Agent.* from the owner's GitHub Packages feed. Each package must also grant
+      # this repository Actions access (package settings → Manage Actions access).
+      packages: read
 
     # The tests run against real PostgreSQL databases (tests/DiscordBot.Tests/TestHelpers/PostgresTestServer.cs).
     services:
@@ -63,6 +68,14 @@ jobs:
 
     - name: Display Node.js version
       run: node --version
+
+    # cpike.Agent.* comes from the owner's private GitHub Packages feed (nuget.config). Credentials go
+    # into the runner's copy of nuget.config only; the committed file has none.
+    - name: Authenticate the cpike5 package feed
+      run: >-
+        dotnet nuget update source cpike5 --configfile nuget.config
+        --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
+        --store-password-in-clear-text
 
     - name: Restore .NET dependencies
       run: dotnet restore

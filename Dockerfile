@@ -21,12 +21,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy solution and project files for layer-cached restore
 COPY DiscordBot.sln ./
 COPY Directory.Build.props ./
+COPY nuget.config ./
 COPY src/DiscordBot.Agents/DiscordBot.Agents.csproj src/DiscordBot.Agents/
 COPY src/DiscordBot.Core/DiscordBot.Core.csproj src/DiscordBot.Core/
 COPY src/DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj src/DiscordBot.Infrastructure/
 COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/
 
-RUN dotnet restore src/DiscordBot.Bot/DiscordBot.Bot.csproj
+# cpike.Agent.* comes from a private GitHub Packages feed. The token arrives as a BuildKit secret
+# (docker build --secret id=nuget_token,env=NUGET_TOKEN .): it is written into a throwaway copy of
+# nuget.config inside this one RUN and deleted before the layer is committed, so it never reaches
+# the image. Publish then runs --no-restore, so it needs no feed access.
+RUN --mount=type=secret,id=nuget_token,required=true \
+    cp nuget.config /tmp/nuget.config \
+    && dotnet nuget update source cpike5 --configfile /tmp/nuget.config --username docker \
+        --password "$(cat /run/secrets/nuget_token)" --store-password-in-clear-text \
+    && dotnet restore src/DiscordBot.Bot/DiscordBot.Bot.csproj --configfile /tmp/nuget.config; \
+    status=$?; rm -f /tmp/nuget.config; exit $status
 
 # Install npm dependencies (cached separately from source changes)
 COPY src/DiscordBot.Bot/package.json src/DiscordBot.Bot/package-lock.json src/DiscordBot.Bot/
