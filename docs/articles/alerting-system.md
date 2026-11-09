@@ -67,7 +67,7 @@ Incidents are classified into three severity levels based on which threshold was
 | **Warning** | 1 | Metric exceeded warning threshold | Warning threshold | Command latency at 800ms (warning: 1000ms) |
 | **Critical** | 2 | Metric exceeded critical threshold | Critical threshold | Memory usage at 95% (critical: 90%) |
 
-**Enum Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Enums\AlertSeverity.cs`
+**Enum Location:** `src/DiscordBot.Core/Enums/AlertSeverity.cs`
 
 ### Incident Status
 
@@ -79,7 +79,7 @@ Each incident progresses through a lifecycle of states:
 | **Acknowledged** | 2 | Reviewed by administrator but not yet resolved | Metric normalizes to Resolved |
 | **Resolved** | 1 | Auto-recovered (metrics normalized) or manually closed | Final state |
 
-**Enum Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Enums\IncidentStatus.cs`
+**Enum Location:** `src/DiscordBot.Core/Enums/IncidentStatus.cs`
 
 ### Alert Configuration
 
@@ -102,7 +102,7 @@ public class PerformanceAlertConfig
 }
 ```
 
-**Entity Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Entities\PerformanceAlertConfig.cs`
+**Entity Location:** `src/DiscordBot.Core/Entities/PerformanceAlertConfig.cs`
 
 ### Performance Incident
 
@@ -127,7 +127,7 @@ public class PerformanceIncident
 }
 ```
 
-**Entity Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Entities\PerformanceIncident.cs`
+**Entity Location:** `src/DiscordBot.Core/Entities/PerformanceIncident.cs`
 
 ---
 
@@ -230,7 +230,7 @@ Tracks consecutive breaches/normal readings
 
 Configuration is controlled via the `PerformanceAlertOptions` class and can be set in `appsettings.json`.
 
-**Options Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Configuration\PerformanceAlertOptions.cs`
+**Options Location:** `src/DiscordBot.Core/Configuration/PerformanceAlertOptions.cs`
 
 #### Configuration Parameters
 
@@ -522,7 +522,7 @@ if (incident.Severity >= AlertSeverity.Warning) {
 
 The `AlertsController` exposes REST endpoints for programmatic access to alert configuration and incident history.
 
-**Controller Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Controllers\AlertsController.cs`
+**Controller Location:** `src/DiscordBot.Bot/Controllers/AlertsController.cs`
 
 ### GET /api/alerts/config
 
@@ -988,8 +988,8 @@ ORDER BY ResolvedAt DESC;
 
 **Route:** `/Admin/Performance/Alerts`
 **Authorization:** Requires `Admin` or `SuperAdmin` role
-**Page Model:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\Performance\Alerts.cshtml.cs`
-**View:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\Performance\Alerts.cshtml`
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Performance/Alerts.cshtml.cs`
+**View:** `src/DiscordBot.Bot/Pages/Admin/Performance/Alerts.cshtml`
 
 #### Features
 

@@ -2,12 +2,18 @@
   href: index.md
 - name: Getting Started
   items:
-    - name: Requirements
-      href: requirements.md
-- name: Reference
-  items:
-    - name: Architecture History
-      href: architecture-history.md
+    - name: Discord Bot Setup
+      href: discord-bot-setup.md
+    - name: Bot Verification
+      href: bot-verification.md
+    - name: Configuration Guide
+      href: configuration-guide.md
+    - name: Environment Configuration
+      href: environment-configuration.md
+    - name: Audio Dependencies
+      href: audio-dependencies.md
+    - name: Troubleshooting Guide
+      href: troubleshooting-guide.md
 - name: Architecture
   items:
     - name: Database Schema
@@ -18,14 +24,32 @@
       href: background-services.md
     - name: Repository Pattern
       href: repository-pattern.md
-    - name: Design System
-      href: design-system.md
-    - name: Component API
-      href: component-api.md
-    - name: Progressive Web App
-      href: pwa.md
+    - name: Timezone Handling
+      href: timezone-handling.md
     - name: Unified Now Playing
       href: unified-now-playing.md
+    - name: Voice Capability System
+      href: voice-capability-system.md
+    - name: DAVE Implementation
+      href: dave-implementation.md
+- name: UI & Design
+  items:
+    - name: Design System
+      href: design-system.md
+    - name: Theme Creation Guide
+      href: theme-creation-guide.md
+    - name: Component API
+      href: component-api.md
+    - name: Razor Components
+      href: razor-components.md
+    - name: Navigation Tabs Component
+      href: nav-tabs-component.md
+    - name: Autocomplete Component
+      href: autocomplete-component.md
+    - name: Form Implementation Standards
+      href: form-implementation-standards.md
+    - name: Progressive Web App
+      href: pwa.md
 - name: API & Integration
   items:
     - name: REST API Endpoints
@@ -46,39 +70,91 @@
       href: authorization-policies.md
     - name: User Management Guide
       href: user-management.md
+    - name: Consent and Privacy
+      href: consent-privacy.md
 - name: Bot Features
   items:
     - name: Admin Commands
       href: admin-commands.md
     - name: Utility Commands
       href: utility-commands.md
+    - name: Command Module Configuration
+      href: command-configuration.md
     - name: Reminder System
       href: reminder-system.md
+    - name: Scheduled Messages
+      href: scheduled-messages.md
+    - name: Welcome System
+      href: welcome-system.md
+    - name: Member Directory
+      href: member-directory.md
+    - name: Rat Watch
+      href: rat-watch.md
     - name: Virtual Currency
       href: virtual-currency.md
     - name: Permissions
       href: permissions.md
+    - name: Feature Requests
+      href: feature-request-command/README.md
+    - name: not-X
+      href: not-x/README.md
+    - name: User Profile Extraction (proposed)
+      href: user-profile-extraction/README.md
+- name: AI Assistant
+  items:
     - name: AI Assistant
       href: ai-assistant.md
+    - name: Adding Features to Assistant Knowledge
+      href: assistant-feature-updates.md
+- name: Audio & Voice
+  items:
+    - name: Soundboard
+      href: soundboard.md
     - name: TTS Support
       href: tts-support.md
     - name: SSML Support
       href: ssml-support.md
+    - name: Voice Selector
+      href: voice-selector-spec.md
+    - name: Voice Favorites
+      href: voice-favorites-spec.md
+    - name: VOX System
+      href: vox-system-spec.md
+    - name: VOX UI
+      href: vox-ui-spec.md
+- name: Admin Portal
+  items:
+    - name: Commands Page
+      href: unified-command-pages.md
+    - name: Commands Page (Module Metadata)
+      href: commands-page.md
+    - name: Settings Page
+      href: settings-page.md
+    - name: Bot Performance Dashboard
+      href: bot-performance-dashboard.md
+    - name: Performance Alerting
+      href: alerting-system.md
+    - name: Audit Log System
+      href: audit-log-system.md
+    - name: Message Logging
+      href: message-logging.md
 - name: Operations
   items:
-    - name: Grafana Observability Stack
-      href: grafana-observability.md
-    - name: Debugging with Grafana (Agents)
-      href: grafana-agent-debugging.md
     - name: Metrics
       href: metrics.md
     - name: Distributed Tracing
       href: tracing.md
-    - name: Log Aggregation
-      href: log-aggregation.md
-    - name: Elastic Stack Setup
-      href: elastic-stack-setup.md
-    - name: Kibana Dashboards
-      href: kibana-dashboards.md
-    - name: Elastic APM
-      href: elastic-apm.md
+    - name: Docker Deployment
+      href: docker-deployment.md
+    - name: Linux VPS Deployment
+      href: linux-deployment.md
+    - name: SQLite to Docker + PostgreSQL
+      href: sqlite-to-docker-postgres-migration.md
+- name: Development
+  items:
+    - name: Testing Guide
+      href: testing-guide.md
+    - name: Versioning Strategy
+      href: versioning-strategy.md
+    - name: Issue Tracking Process
+      href: issue-tracking-process.md

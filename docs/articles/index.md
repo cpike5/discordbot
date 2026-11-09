@@ -4,11 +4,7 @@ This section contains conceptual documentation and developer guides for the Disc
 
 ## Getting Started
 - [Discord Bot Setup](discord-bot-setup.md) - How to obtain a bot token and configure your Discord bot
-- [Requirements](requirements.md) - Technology stack and architecture requirements
 - [Troubleshooting Guide](troubleshooting-guide.md) - Common issues and solutions
-
-## Reference
-- [Architecture History](architecture-history.md) - Original implementation plan (historical)
 
 ## Architecture & Design
 - [Database Schema](database-schema.md) - Entity definitions and relationships
@@ -43,17 +39,13 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Configuration Guide](configuration-guide.md) - Unified reference: appsettings vs database settings vs per-guild settings
 - [Environment Configuration](environment-configuration.md) - Environment-specific settings (Dev, Staging, Production)
 - [Settings Page](settings-page.md) - Admin UI for runtime-adjustable settings
-- [Command Module Configuration](command-module-configuration.md) - Dynamic module enable/disable
+- [Command Module Configuration](command-configuration.md) - Dynamic module enable/disable
 
 ## Operations & Monitoring
 - [Audit Log System](audit-log-system.md) - Comprehensive audit logging, retention, and compliance tracking
 - [Message Logging](message-logging.md) - Discord message logging with consent-based collection
 - [Distributed Tracing](tracing.md) - OpenTelemetry distributed tracing
 - [OpenTelemetry Metrics](metrics.md) - Metrics collection with Prometheus export
-- [Centralized Logging (Seq)](log-aggregation.md) - Log aggregation with Seq
-- [Jaeger & Loki Setup](jaeger-loki-setup.md) - Distributed tracing and log aggregation on Linux VPS
-- [Grafana Dashboards](grafana-dashboards-specification.md) - Dashboard design and configuration
-- [Debugging with Grafana (Agents)](grafana-agent-debugging.md) - Start the stack, follow a request across logs and traces, and query metrics over HTTP while testing
 
 ## Deployment
 - [Docker Deployment](docker-deployment.md) - Docker and Docker Compose deployment guide

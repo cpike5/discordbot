@@ -160,7 +160,7 @@ dotnet user-secrets set "AzureSpeech:Region" "eastus"
 - On Windows: Ensure libsodium.dll and opus.dll are in build output directory
 - On Linux: Install libsodium and libopus packages
 
-**Observability (Optional)** ([Setup guide](docs/articles/elastic-stack-setup.md))
+**Observability (Optional)**
 ```bash
 dotnet user-secrets set "Elastic:ApiKey" "your-elasticsearch-api-key"
 dotnet user-secrets set "ElasticApm:ServerUrl" "http://localhost:8200"
@@ -230,7 +230,7 @@ The solution follows a three-layer clean architecture pattern:
 - **Razor Pages**: Admin UI with Tailwind CSS for user/guild management
 - **Identity System**: ASP.NET Core Identity with Discord OAuth external login
 
-For detailed architecture documentation, see [docs/articles/architecture-history.md](docs/articles/architecture-history.md).
+For detailed architecture documentation, see [docs/architecture/system-overview.md](docs/architecture/system-overview.md).
 
 ## Commands
 
@@ -374,11 +374,9 @@ The bot uses Serilog for structured logging with multiple outputs:
    - Retention: 7 days (configurable)
    - Format: ISO 8601 timestamp with full context
 
-3. **Elasticsearch Sink**: Centralized log aggregation (recommended for production)
+3. **Elasticsearch Sink** (optional): Centralized log aggregation
    - Structured JSON logs with rich context
-   - Searchable and filterable via Kibana
    - Correlation with Elastic APM traces
-   - See [log-aggregation.md](docs/articles/log-aggregation.md) for setup
 
 4. **Seq Sink** (optional): Alternative log aggregation for development
    - Simple setup for local development
@@ -390,7 +388,6 @@ The bot uses Serilog for structured logging with multiple outputs:
 - Automatic instrumentation for HTTP requests, database queries, Discord API calls
 - Trace correlation with structured logs
 - Performance metrics and error tracking
-- See [log-aggregation.md](docs/articles/log-aggregation.md) for APM setup
 
 ### Log Levels
 
@@ -598,9 +595,7 @@ dotnet user-secrets set "ElasticApm:SecretToken" "your-apm-secret-token"
 
 **Configuration:**
 - `appsettings.json` → `ElasticApm` section (lines 5-18)
-- `appsettings.json` → `Observability` section (lines 25-28) for Kibana/Seq URLs
-- See [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md)
-- See [log-aggregation.md](docs/articles/log-aggregation.md)
+- `appsettings.json` → `Observability` section (lines 25-28) for Seq URLs
 
 **OpenTelemetry**
 - `appsettings.json` → `OpenTelemetry` section (lines 98-117)
@@ -816,19 +811,12 @@ This project is for educational and development purposes.
 ## Related Documentation
 
 ### Architecture & Configuration
-- [Architecture History](docs/articles/architecture-history.md) - Original implementation plan
-- [Requirements](docs/articles/requirements.md) - Technology stack and specifications
+- [System Overview](docs/architecture/system-overview.md) - Layers, data flow, and deployment
 - [Design System](docs/articles/design-system.md) - UI design tokens and components
 - [Identity Configuration](docs/articles/identity-configuration.md) - Authentication setup
 - [Authorization Policies](docs/articles/authorization-policies.md) - Role hierarchy and access control
 - [Versioning Strategy](docs/articles/versioning-strategy.md) - SemVer versioning, CI/CD, release process
 - [Docker Deployment](docs/articles/docker-deployment.md) - Docker Compose setup, profiles, and configuration
-
-### Observability & Monitoring
-- [Log Aggregation](docs/articles/log-aggregation.md) - Centralized logging with Elasticsearch and Elastic APM
-- [Elastic Stack Setup](docs/articles/elastic-stack-setup.md) - Local development environment setup
-- [Kibana Dashboards](docs/articles/kibana-dashboards.md) - Log analysis and dashboard usage guide
-- [Elastic APM](docs/articles/elastic-apm.md) - Distributed tracing and performance monitoring
 
 ### API & Integration
 - [API Endpoints](docs/articles/api-endpoints.md) - REST API documentation
@@ -842,7 +830,6 @@ This project is for educational and development purposes.
 - [Scheduled Messages](docs/articles/scheduled-messages.md) - Automated message scheduling
 - [Member Directory](docs/articles/member-directory.md) - Guild member management
 - [Soundboard](docs/articles/soundboard.md) - Audio playback in voice channels
-- [Soundboard Export](docs/specs/soundboard-export-feature.md) - Sound library export/import specification
 - [VOX System](docs/articles/vox-system-spec.md) - Half-Life VOX announcement system architecture
 - [VOX UI Spec](docs/articles/vox-ui-spec.md) - VOX Portal UI/UX specification
 - [Audio Dependencies](docs/articles/audio-dependencies.md) - FFmpeg, libsodium, libopus setup

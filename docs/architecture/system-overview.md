@@ -507,10 +507,9 @@ using var activity = BotActivitySource.StartActivity("slash-command");
 ```
 Traces distributed across handlers and service calls.
 
-#### Grafana stack (OTLP)
-With `OpenTelemetry:Otlp:Endpoint` set, logs (Serilog OTLP sink), traces and metrics go over OTLP to
-the collector in `deployment/observability/`, which feeds Loki, Tempo and Prometheus behind Grafana.
-See `docs/articles/grafana-observability.md`.
+#### OTLP export
+With `OpenTelemetry:Otlp:Endpoint` set, logs (Serilog OTLP sink), traces and metrics are exported over
+OTLP to any compatible collector.
 
 #### Elasticsearch
 All logs shipped to Elasticsearch for long-term storage and search.

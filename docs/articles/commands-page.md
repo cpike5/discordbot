@@ -409,7 +409,6 @@ The architecture supports future enhancements:
 
 - [Admin Commands](admin-commands.md) - Slash command reference and usage
 - [Design System](design-system.md) - UI design tokens and component specifications
-- [Commands Page Design](commands-page-design.md) - Detailed UI/UX design specification
 - [Interactive Components](interactive-components.md) - Discord component patterns (buttons, menus)
 - [Authorization Policies](authorization-policies.md) - Role hierarchy and access control
 

@@ -183,4 +183,3 @@ When adding new pages to an existing section:
 
 - [Bot Performance Dashboard](../articles/bot-performance-dashboard.md)
 - [Issue #566](https://github.com/cpike5/discordbot/issues/566)
-- [Prototype](../prototypes/features/bot-performance/api-rate-limits.html)

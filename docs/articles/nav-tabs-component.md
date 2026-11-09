@@ -1011,7 +1011,6 @@ PersistenceMode = NavPersistence.Hash
 ## Related Documentation
 
 - [Design System - Navigation Tabs](design-system.md#navigation-tabs)
-- [Navigation Tabs Migration Guide](nav-tabs-migration.md)
 - [Component API - NavTabs](component-api.md#navtabs-component)
 - [Interactive Components](interactive-components.md)
 - [Form Implementation Standards](form-implementation-standards.md)
