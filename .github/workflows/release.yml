@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Required for creating releases
+      packages: read   # restore cpike.Agent.* from the private feed
 
     # The tests run against real PostgreSQL databases (tests/DiscordBot.Tests/TestHelpers/PostgresTestServer.cs).
     services:
@@ -73,6 +74,14 @@ jobs:
         echo "Commit SHA: ${{ steps.git_info.outputs.commit_sha }}"
         echo ".NET version: ${{ env.DOTNET_VERSION }}"
         echo "Node.js version: ${{ env.NODE_VERSION }}"
+
+    # cpike.Agent.* comes from the owner's private GitHub Packages feed (nuget.config). Credentials go
+    # into the runner's copy of nuget.config only; the committed file has none.
+    - name: Authenticate the cpike5 package feed
+      run: >-
+        dotnet nuget update source cpike5 --configfile nuget.config
+        --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
+        --store-password-in-clear-text
 
     - name: Restore .NET dependencies
       run: dotnet restore

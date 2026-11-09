@@ -91,8 +91,14 @@ fi
 
 # --- Warm the NuGet cache (snapshotted into the cached container) ----------
 log "Restoring NuGet packages (see $LOG)..."
-dotnet restore "$CLAUDE_PROJECT_DIR/DiscordBot.sln" >>"$LOG" 2>&1
-log "NuGet restore complete."
+# cpike.Agent.* comes from a private feed. In a web session the environment's network
+# credential for nuget.pkg.github.com supplies the auth; without one, restore fails here
+# and the build will too, so say so instead of failing the hook.
+if dotnet restore "$CLAUDE_PROJECT_DIR/DiscordBot.sln" >>"$LOG" 2>&1; then
+  log "NuGet restore complete."
+else
+  log "WARN: NuGet restore failed (see $LOG). If it names nuget.pkg.github.com, this environment needs a read:packages credential for that host (docs/articles/private-package-feed.md)."
+fi
 
 # --- Persist environment for the session -----------------------------------
 {

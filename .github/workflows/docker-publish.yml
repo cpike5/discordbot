@@ -65,6 +65,10 @@ jobs:
         push: ${{ github.event_name == 'workflow_run' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        # Read access to the cpike.Agent packages on the owner's GitHub Packages feed, mounted for
+        # the restore step only (never a build arg, so it is not in the image or its history).
+        secrets: |
+          nuget_token=${{ secrets.GITHUB_TOKEN }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64

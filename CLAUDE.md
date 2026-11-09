@@ -88,6 +88,12 @@ because the app would render unstyled. Add `AllowMissingTailwindCss=true` when y
 only need to compile and run tests. The web SessionStart hook installs Node when it
 can and sets both properties when it cannot, so a plain `dotnet build` works either way.
 
+**Private package feed.** `cpike.Agent.*` comes from the owner's private GitHub Packages feed
+(`nuget.config`'s `cpike5` source, mapped to those packages only), so restore needs a
+`read:packages` credential. A `401` naming `nuget.pkg.github.com` means there is none; where each
+kind of build gets one, and how to restore from a local pack without it, is in
+`docs/articles/private-package-feed.md`.
+
 **Test database.** Tests run on real PostgreSQL. Each
 `TestDbContextFactory.CreateContext()` (`tests/DiscordBot.Tests/TestHelpers/`) gets its
 own database, cloned from a template that the run builds once by applying the
