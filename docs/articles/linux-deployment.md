@@ -901,7 +901,6 @@ If the dashboard's real-time features aren't working (bot status not updating, c
 
 - [Identity Configuration](identity-configuration.md) - Authentication setup and troubleshooting
 - [Environment Configuration](environment-configuration.md) - Environment-specific settings
-- [Log Aggregation](log-aggregation.md) - Seq centralized logging setup
 - [API Endpoints](api-endpoints.md) - REST API documentation
 
 ---

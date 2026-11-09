@@ -253,7 +253,7 @@ from `dotnet run` in the repository root.
 | `PerformanceAlertOptions` | `PerformanceAlerts` | `PerformanceMetricsServiceExtensions` | `CheckIntervalSeconds`, `ConsecutiveBreachesRequired` |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | `PerformanceMetricsServiceExtensions` | Per-metric-category SignalR broadcast intervals |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | `OpenTelemetryExtensions` | `DefaultRate` (0.1), `ErrorRate` (1.0), `SlowThresholdMs` |
-| `OtlpOptions` | `OpenTelemetry:Otlp` | `OpenTelemetryExtensions.ResolveOtlp` (bound directly, also read by the Serilog sink in `Program.cs`) | `Endpoint` (falls back to `OTEL_EXPORTER_OTLP_ENDPOINT`; empty = no OTLP export), `Protocol` (`grpc`/`http`), `Headers`, `ExportLogs`/`ExportMetrics`/`ExportTraces` (true), `MetricExportIntervalSeconds` (15). See [Grafana Observability Stack](grafana-observability.md) |
+| `OtlpOptions` | `OpenTelemetry:Otlp` | `OpenTelemetryExtensions.ResolveOtlp` (bound directly, also read by the Serilog sink in `Program.cs`) | `Endpoint` (falls back to `OTEL_EXPORTER_OTLP_ENDPOINT`; empty = no OTLP export), `Protocol` (`grpc`/`http`), `Headers`, `ExportLogs`/`ExportMetrics`/`ExportTraces` (true), `MetricExportIntervalSeconds` (15). |
 
 #### Performance alert thresholds
 
@@ -357,7 +357,7 @@ relates to the `NotX:Enabled` configuration switch and the Commands tab entry.
 | — | Commands | Admin+ | Command module enable/disable (separate system) |
 | Advanced | Advanced | Admin+ | Data retention policies |
 | — | Bot Control | Admin+ | Bot restart/shutdown, live status |
-| AiModels | AI Models | Admin+ | OpenRouter model catalog and allowlist (`LlmModelsController` - list/refresh/enable) plus an **editable** per-mode defaults panel that saves through the normal `SettingsSectionService.SaveCategoryAsync("AiModels", ...)` path (audit and reset-to-default included for free), unlike the read-only catalog table above it. A saved slug is rejected unless it is an enabled, tool-capable catalog row - see `ILlmModelResolver` and `SettingsSectionService.ValidateAiModelSelectionsAsync` in `.claude/agents/ai-assistant.md`. The change takes effect on the next message with no restart (the resolver's cache is invalidated by `ISettingsService.SettingsChanged`). |
+| AiModels | AI Models | Admin+ | OpenRouter model catalog and allowlist (`LlmModelsController` - list/refresh/enable) plus an **editable** per-mode defaults panel that saves through the normal `SettingsSectionService.SaveCategoryAsync("AiModels", ...)` path (audit and reset-to-default included for free), unlike the read-only catalog table above it. A saved slug is rejected unless it is an enabled, tool-capable catalog row - see `ILlmModelResolver` and `SettingsSectionService.ValidateAiModelSelectionsAsync`. The change takes effect on the next message with no restart (the resolver's cache is invalidated by `ISettingsService.SettingsChanged`). |
 | Appearance | Appearance | SuperAdmin only | Theme selection |
 
 ### Real-Time Updates

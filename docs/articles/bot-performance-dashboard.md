@@ -58,18 +58,7 @@ The performance dashboard follows a layered architecture:
 
 ### HTML Prototypes (Issue #580)
 
-HTML prototypes are located in `docs/prototypes/features/bot-performance/`:
-
-| File | Purpose |
-|------|---------|
-| `index.html` | Dashboard overview with navigation |
-| `health-metrics.html` | Connection state, uptime, latency visualization |
-| `command-performance.html` | Command analytics, response times, throughput |
-| `api-rate-limits.html` | API usage tracking, rate limit events |
-| `system-health.html` | Database, services, cache monitoring |
-| `alerts-incidents.html` | Alert configuration, incident management |
-
-These prototypes use Chart.js for data visualization and follow the design system defined in `docs/articles/design-system.md`.
+The dashboard uses Chart.js for data visualization and follows the design system defined in `docs/articles/design-system.md`.
 
 ### Performance Metrics Collection Infrastructure (Issue #571)
 

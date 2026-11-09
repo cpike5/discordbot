@@ -120,7 +120,7 @@ For each eligible user-guild pair:
 
 ### 4.3 LLM Extraction Call
 
-The sampled messages are sent to the Anthropic API with a structured extraction prompt:
+The sampled messages are sent to the LLM (via OpenRouter) with a structured extraction prompt:
 
 **Prompt template** (stored at a configurable path, default: `docs/agents/profile-extraction-prompt.md`):
 

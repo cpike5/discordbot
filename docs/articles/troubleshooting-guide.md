@@ -1540,7 +1540,7 @@ grep "ERROR" logs/discordbot-*.log | wc -l
 
 ### Using Seq for Log Analysis
 
-Seq provides powerful structured log querying. See [Log Aggregation](log-aggregation.md) for full setup.
+Seq provides powerful structured log querying.
 
 #### Starting Seq Locally
 
@@ -1587,7 +1587,7 @@ Exception is not null
 @Level in ['Warning', 'Error'] and @Timestamp > Now() - 1h
 ```
 
-See [Log Aggregation - Querying Logs](log-aggregation.md#querying-logs-in-seq) for advanced query syntax.
+See the [Seq query documentation](https://docs.datalust.co/docs/the-seq-query-language) for advanced query syntax.
 
 ---
 
@@ -1762,7 +1762,6 @@ netstat -ano | findstr :5001
 
 - [Discord Bot Setup Guide](discord-bot-setup.md) - Initial bot configuration
 - [Identity Configuration](identity-configuration.md) - Authentication and authorization
-- [Log Aggregation](log-aggregation.md) - Seq centralized logging setup
 - [SignalR Real-Time Dashboard](signalr-realtime.md) - Real-time update troubleshooting
 - [API Endpoints](api-endpoints.md) - REST API documentation
 - [Environment Configuration](environment-configuration.md) - Configuration management

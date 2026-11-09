@@ -19,9 +19,8 @@ namespace DiscordBot.Tests.Integration;
 public class RouteSmokeTests : IClassFixture<RouteSmokeTests.AppFixture>
 {
     /// <summary>
-    /// Routes known to fail, each tied to the plan item that fixes it
-    /// (docs/plans/ux-polish-audit-and-plan.md). Remove the entry with the fix; the sweep
-    /// fails if a listed route starts passing, so this list cannot go stale.
+    /// Routes known to fail, each tied to the issue that fixes it. Remove the entry with the
+    /// fix; the sweep fails if a listed route starts passing, so this list cannot go stale.
     /// </summary>
     private static readonly Dictionary<string, string> KnownFailures = new(StringComparer.OrdinalIgnoreCase)
     {

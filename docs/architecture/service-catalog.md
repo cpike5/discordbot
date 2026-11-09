@@ -340,8 +340,7 @@ Services for tracking performance metrics, latency, and system health.
 
 Meter classes are singletons registered in `OpenTelemetryExtensions.AddOpenTelemetryMetrics`; each
 owns one `Meter` (name in `MeterName`) that is also added to the meter provider. Exported over OTLP
-to the Grafana stack (`deployment/observability`) and on `/metrics`. Catalogue:
-[grafana-observability.md](../articles/grafana-observability.md#metric-reference).
+(when `OpenTelemetry:Otlp:Endpoint` is set) and on `/metrics`. See [metrics.md](../articles/metrics.md).
 
 | Service | Location | Purpose |
 |---------|----------|---------|

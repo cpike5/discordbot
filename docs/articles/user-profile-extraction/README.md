@@ -20,7 +20,7 @@ Documentation for the **User Profile Extraction** feature — an opt-in, consent
 - **Consent:** New `ProfileExtraction` consent type — explicit opt-in required, separate from message logging consent
 - **Prerequisite:** User must already have `MessageLogging` consent granted before `ProfileExtraction` can be enabled
 - **Scope:** Profiles are per-guild — a user's profile in one guild is independent of another
-- **Extraction:** Background service periodically analyzes sampled logged messages via the Anthropic API to produce a structured profile
+- **Extraction:** Background service periodically analyzes sampled logged messages via the configured LLM (OpenRouter) to produce a structured profile
 - **Commands:** `/profile view`, `/profile refresh`, `/profile delete`, `/profile edit` — all ephemeral, guild-only
 - **Personalization:** Profile summary injected into the AI assistant's system prompt as a `<user_context>` block when the profiled user asks a question
 - **Privacy:** No raw message content stored in profiles; only derived summaries. No sensitive data categories (race, religion, health, etc.) extracted. Full GDPR export and purge integration

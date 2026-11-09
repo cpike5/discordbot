@@ -485,9 +485,7 @@ ExecutionTimeMs > 500
 
 ### Related Documentation
 
-For comprehensive Seq setup, querying, production deployment options, and troubleshooting, see:
-
-- **[Centralized Log Aggregation (Seq)](log-aggregation.md)** - Complete Seq integration guide
+For Seq querying and deployment options, see the [Seq documentation](https://docs.datalust.co/docs).
 
 ## Secrets Management
 
