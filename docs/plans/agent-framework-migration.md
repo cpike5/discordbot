@@ -1,7 +1,16 @@
 # Plan: move the assistant onto cpike.Agent and retire `DiscordBot.Agents`
 
-> Status: **proposed**; decisions D1–D5 agreed. Nothing here is built. Written against discordbot `a673cc9` and
-> cpike-agent-framework `97f8a7a` (0.2.0-dev, unreleased).
+> Status: **in progress**; decisions D1–D5 agreed; P1 done. Reassessed on 2026-11-09 against discordbot
+> `b5d7684` (after the repo cleanup) and cpike-agent-framework `77b5f1f` (`v0.2.0-beta.4`).
+>
+> **What the reassessment changed.** The framework has shipped `v0.2.0-beta.1` to `beta.4`, so
+> publishing (P2) is no longer the blocker: only the three Core gaps (H1–H3, renamed from G1–G3 to stay
+> clear of the framework's own G-series) still need a release. The framework's other new work since the
+> first plan (F2–F5, F8, G1–G6) is all in `cpike.Agent.Hosting` and `Contracts`: partial replies,
+> named failures, delivery observers, history budgets, mode labellers, attachment type resolution. None
+> of it touches the `AgentService` path this plan uses, so D1 (Core, not Hosting) stands. discordbot's
+> cleanup deleted the Grafana dashboards, the alert rules, the Grafana docs and `.claude/agents/`, so the
+> dashboard rework in §4.9 and the agent-definition update in PR 5 are gone.
 
 ## Summary
 
@@ -18,16 +27,16 @@ limiter, consent, settings pages and Discord handlers do not touch engine types 
 
 The work is in three places:
 
-1. **Prerequisites that block everything:** discordbot is on .NET 8 and the packages are `net10.0`
-   only; no package has been published; the feed is private.
+1. **Prerequisites:** discordbot had to move from .NET 8 to .NET 10 (done, P1); the three Core gaps
+   need a framework release (P2); the feed is private (P3).
 2. **The tool surface:** 6 `IAgentTool` classes and 11 `IToolProvider`s (about 27 tools) use the
    engine's tool contract (`ToolContext` argument, `ToolExecutionResult` return, `Mutation`), which
    differs from the framework's (`AgentRunScope` from DI, `string` return, `RequiresEdit`).
 3. **A handful of behaviours** the engine has and the framework does not, or does differently:
    per-run temperature and output-token ceiling, per-tool timeout, the `clear_conversation` signal,
-   per-surface tool sets from `ToolCatalog`, and the engine's metric names on the Grafana dashboards.
+   per-surface tool sets from `ToolCatalog`, and the engine's metric names.
 
-Recommended path: upgrade to .NET 10 first (its own PR), publish `0.2.0-beta.1`, then swap the runner
+Recommended path: upgrade to .NET 10 first (its own PR), publish a framework release with H1–H3, then swap the runner
 behind the existing `IAssistantMessagePipeline` and port every tool to the framework contract in
 the same PR, with no transitional adapter; a follow-up PR deletes the old engine. Use
 `cpike.Agent.Core` directly, not the HTTP `TurnPipeline` (rationale in [Decisions](#decisions)).
@@ -42,12 +51,12 @@ the same PR, with no transitional adapter; a follow-up PR deletes the old engine
 | `AgentContext.SystemPrompt` | A mode (`AgentDefinition`) from `IAgentPromptStore`, or `AgentRunRequest.CustomAgent` | Per-turn text (guild id) must move to a `PromptPart` with `PromptPlacement.TurnContext`. |
 | `AgentContext.ConversationHistory` (`List<LlmMessage>`) | `AgentRunRequest.History` (`ConversationTurn(IsUser, Text)`) | DM and feature-request history map 1:1. Guild has none. |
 | `AgentContext.Model` | `AgentRunRequest.Model` | `LlmModelResolver` keeps choosing the slug. |
-| `AgentContext.MaxTokens` | `Agent:MaxTokensPerTurn` (process-wide) | **Gap G1**: no per-run ceiling. Guild uses 512, DM 4096, feature requests 1024. |
+| `AgentContext.MaxTokens` | `Agent:MaxTokensPerTurn` (process-wide) | **Gap H1**: no per-run ceiling. Guild uses 512, DM 4096, feature requests 1024. |
 | `AgentContext.Temperature` | none, by design (`ModelRouter.cs:259`: deprecated on current models) | **Decision D3**: drop it. |
 | `MaxToolCallIterations` | `AgentRunRequest.MaxToolRounds` | Direct. |
 | `MaxToolResultChars` | `AgentRunRequest.MaxToolResultChars` | Direct. Framework default 24000; discordbot uses 8000. |
 | `DuplicateToolCallLimit` | `Agent:DuplicateToolCallLimit` | Process-wide; every surface uses 3 today, so fine. |
-| `ToolExecutionTimeoutMs` (10 s, per tool) | none | **Gap G2.** |
+| `ToolExecutionTimeoutMs` (10 s, per tool) | none | **Gap H2.** |
 | `ToolContext { UserId, GuildId, ChannelId, MessageId, CanMutate, Items }` | `AgentRunScope { UserKey, UserName, CanEditData, IsAdmin, Items }` | Discord ids go in `Items` behind a typed accessor (see §4.2). |
 | `IAgentTool.Mutation` + `AgentToolProvider` refusal | `AgentToolDefinition.RequiresEdit`, refusal `edit_forbidden` | The refusal changes shape (§4.3). |
 | `IToolProvider` / `ToolRegistry` / `FilteredToolRegistry` | Registered `IAgentTool`s, mode `tools:` lists, `AgentRunRequest.DisabledTools`, `IAgentToolSource` | Per-guild allow-list → `DisabledTools`. |
@@ -101,10 +110,13 @@ nothing to do with the assistant, so it ships separately and soaks before the sw
 
 ### P2. Publish the framework packages
 
-No tag exists in cpike-agent-framework, so no package exists (`host-adoption.md` F0). Cut
-`v0.2.0-beta.1` per its `docs/releasing.md` and confirm the `.nupkg`s carry `lib/net10.0/`. discordbot
-needs `cpike.Agent.OpenRouter` and `cpike.Agent.Core` (transitively), plus `cpike.Agent.Testing` in
-the test projects. The framework gaps in §3 that the swap depends on should land in that release.
+> **Mostly done.** `v0.2.0-beta.1`–`beta.4` are on the feed. H1–H3 (§3) are on the framework's
+> `claude/nice-hawking-jizt2h` branch, rebased onto `main`, with the full framework suite green; they
+> need merging and a `v0.2.0-beta.5` release before PR 4 can use them.
+
+discordbot needs `cpike.Agent.OpenRouter` and `cpike.Agent.Core` (transitively), plus
+`cpike.Agent.Testing` in the test projects. Pin `0.2.0-beta.5` or later. Without H1 the swap can
+still proceed on `beta.4` with one global output ceiling, at the cost noted in §3.
 
 ### P3. Package access
 
@@ -126,13 +138,14 @@ been granted read access to them. Every place that restores discordbot still nee
 
 ## 3. Framework gaps (host-neutral, land in cpike-agent-framework)
 
-These are recorded in the framework's `docs/design/host-adoption.md` under "Second consumer".
+These are recorded in the framework's `docs/design/host-adoption.md` under "Second consumer". All three
+are built and tested on the framework branch, waiting for a release.
 
 | # | Change | Needed by | Blocking? |
 | --- | --- | --- | --- |
-| G1 | `AgentRunRequest.MaxOutputTokens` (per-run ceiling, still raised by `ToolOutputBudget.Large`). | Guild 512 vs DM 4096 tokens on one process. | Yes for parity; workaround is one global ceiling plus the existing `MaxResponseLength` truncation, which costs money on the guild path. |
-| G2 | A per-tool execution deadline: `Agent:ToolTimeoutSeconds`, overridable per definition, returning a structured `tool_timeout` failure while caller cancellation still propagates. | Today's 10 s guard on every tool. | No. Only `execute_python` and `fetch_url` are slow, and both have their own timeouts; can follow. |
-| G3 | Make `FailureCodeOf` public (already F9 in `host-adoption.md`). | Porting `ToolContractTests`' "failures are countable" rule. | No; the test can parse `code` itself. |
+| H1 | `AgentRunRequest.MaxOutputTokens` (per-run ceiling, still raised by `ToolOutputBudget.Large`). | Guild 512 vs DM 4096 tokens on one process. | Yes for parity; workaround is one global ceiling plus the existing `MaxResponseLength` truncation, which costs money on the guild path. |
+| H2 | A per-tool execution deadline: `Agent:ToolTimeoutSeconds`, overridable per definition, returning a structured `tool_timeout` failure while caller cancellation still propagates. | Today's 10 s guard on every tool. | No. Only `execute_python` and `fetch_url` are slow, and both have their own timeouts; can follow. |
+| H3 | Make `FailureCodeOf` public (already F9 in `host-adoption.md`). | Porting `ToolContractTests`' "failures are countable" rule. | No; the test can parse `code` itself. |
 
 The framework needs **no new seam** for the rest: surfaces, per-guild allow-lists, skills, read-only
 callers and conversation clearing all map onto existing types.
@@ -190,7 +203,7 @@ declares `Mutation` today.
 
 `ToolPermissions.MutationForbidden` returned a *successful* `{forbidden:true}`; the framework
 returns a failure with code `edit_forbidden`. Check both personas' wording about refusals still
-reads right, and update the dashboard panel that counted forbidden calls if any.
+reads right.
 
 Registration: `AddAgentCore(configuration, agent => agent.AddBuiltInTools().AddToolsFrom(infraAssembly).AddToolsFrom(botAssembly))`.
 `AgentToolAssemblies` stays as the list of assemblies to scan.
@@ -281,8 +294,8 @@ the settings UI, `ToolAccessResolver` and `ToolContractTests`).
 | `OpenRouter:EnablePromptCachingByDefault`, `PromptCacheTtl` | gone (framework layout) |
 | `OpenRouter:ApiKey`, `BaseUrl`, `AppUrl`, `AppTitle` | same names |
 | `Assistant:Sampling:Temperature`, `DmAssistant:Temperature` | obsolete (D3); log a warning if set |
-| `Assistant:Sampling:MaxTokens`, `DmAssistant:MaxTokens` | per-run `MaxOutputTokens` once G1 lands |
-| `*:ToolExecutionTimeoutMs` | `Agent:ToolTimeoutSeconds` once G2 lands |
+| `Assistant:Sampling:MaxTokens`, `DmAssistant:MaxTokens` | per-run `MaxOutputTokens` once H1 lands |
+| `*:ToolExecutionTimeoutMs` | `Agent:ToolTimeoutSeconds` once H2 lands |
 | `*:DuplicateToolCallLimit` | `Agent:DuplicateToolCallLimit` |
 | `Assistant:Tools:AgentPromptPath`, `DmAssistant:OwnerSystemPromptPath`, `*:SkillsPath` | `Prompts:*` |
 | new | `Agent:WarnOnPromptCacheMiss` (on), `SubAgents:Enabled` (off) |
@@ -297,18 +310,17 @@ equivalents or to local copies. Update `configuration-guide.md`.
 - `OpenTelemetryExtensions`: `AddMeter(AgentMetrics.MeterName)` and
   `AddSource(AgentTelemetry.ActivitySourceName)` (both `"cpike.Agent"`), plus the OpenRouter client's
   source/meter. Remove the `DiscordBot.Agents` names.
-- `deployment/observability/grafana/generate_dashboards.py` (source of truth) and the regenerated
-  `discordbot-assistant.json`, `-overview.json`, `-runtime.json`:
-  `discordbot_agent_tool_count_total` → `cpike_agent_tool_calls_total`,
-  `discordbot_agent_tool_duration_milliseconds_bucket` → `cpike_agent_tool_duration_seconds_bucket`
-  (unit changes ms → s), `discordbot_agent_completion_*` → `cpike_agent_runs_total` /
-  `cpike_agent_run_iterations` and the OpenRouter client's call metrics; labels `tool`/`outcome` →
-  `gen_ai_tool_name`/`cpike_tool_outcome`; Tempo panels `bot.tool.*` → `cpike.tool.*`. Check exact
-  names against the framework's `docs/telemetry.md` at the pinned version.
-- `discordbot.llm.*` (Bot's own `LlmMetrics`, fed by the ledger) is unaffected; `alerts.yml` uses
-  only those.
-- Docs: `grafana-agent-debugging.md`, `grafana-observability.md`, `service-catalog.md`,
-  `system-overview.md`.
+- What changes for anyone querying: `discordbot.agent.tool.*` becomes `cpike.agent.tool.calls` /
+  `cpike.agent.tool.duration` (seconds, not milliseconds), `discordbot.agent.completion.*` becomes
+  `cpike.agent.runs` / `cpike.agent.run.iterations` plus the OpenRouter client's call metrics, labels
+  `tool`/`outcome` become `gen_ai.tool.name`/`cpike.tool.outcome`, and span tags `bot.tool.*` become
+  `cpike.tool.*`. The turn metrics (`cpike.agent.turns`, `cpike.turn.*`) come from `TurnPipeline`, so
+  this host does not emit them. Check exact names against the framework's `docs/telemetry.md` at the
+  pinned version.
+- The repo no longer carries dashboards or alert rules (removed in the cleanup), so there is nothing
+  else to regenerate. `discordbot.llm.*` (Bot's own `LlmMetrics`, fed by the ledger) is unaffected.
+- Docs: `service-catalog.md`, `system-overview.md`, and any telemetry names in
+  `configuration-guide.md`.
 
 ### 4.10 Tests
 
@@ -337,10 +349,10 @@ equivalents or to local copies. Update `configuration-guide.md`.
 | # | Repo | PR | Notes |
 | --- | --- | --- | --- |
 | 1 | discordbot | .NET 10 upgrade (P1) | Old engine still in place. Soak in production before 3. |
-| 2 | framework | G1 (+ G2, G3 if ready); cut `v0.2.0-beta.1` (P2) | |
+| 2 | framework | H1–H3 (built on the framework branch); merge and cut `v0.2.0-beta.5` (P2) | Earlier betas exist; this one adds the Core gaps. |
 | 3 | discordbot | Feed access: `nuget.config`, CI/release `packages: read` + token, Dockerfile secret, session environment credential | No code change; proves restore works everywhere. |
-| 4 | discordbot | **Swap and port**: reference the packages, `CatalogPromptStore`, prompt moves, `DiscordRunContext`, new `AssistantMessagePipeline`, every tool ported to `cpike.Agent.IAgentTool` with its tests, ported `ToolContractTests`, config keys, telemetry names, dashboards | `AgentRunner` and every old tool type are unregistered and unused. Run evals before and after. |
-| 5 | discordbot | **Removal**: delete `src/DiscordBot.Agents`, its sln entry, Dockerfile line, `tests/.../Agents/`, unused usings; update `CLAUDE.md`, `patterns.md` (§ Agent Tool Authoring, § Agent Skills), `service-catalog.md`, `feature-map.md`, `system-overview.md`, `docs/tools/README.md`, `docs/agents/skills/README.md`, `.claude/agents/ai-assistant.md` | Pure deletion and docs; `DiscordBot.Agents` is gone. |
+| 4 | discordbot | **Swap and port**: reference the packages, `CatalogPromptStore`, prompt moves, `DiscordRunContext`, new `AssistantMessagePipeline`, every tool ported to `cpike.Agent.IAgentTool` with its tests, ported `ToolContractTests`, config keys, telemetry names | `AgentRunner` and every old tool type are unregistered and unused. Run evals before and after. |
+| 5 | discordbot | **Removal**: delete `src/DiscordBot.Agents`, its sln entry, Dockerfile line, `tests/.../Agents/`, unused usings; update `CLAUDE.md`, `patterns.md` (§ Agent Tool Authoring, § Agent Skills), `service-catalog.md`, `feature-map.md`, `system-overview.md`, `docs/tools/README.md`, `docs/agents/skills/README.md` | Pure deletion and docs; `DiscordBot.Agents` is gone. |
 
 "Deprecate" is short here: after PR 4 nothing references the engine, and PR 5 follows straight
 after. If PR 5 cannot follow promptly, mark the engine's public types `[Obsolete]` in PR 4 so no
@@ -373,6 +385,9 @@ Agreed with the owner on 2026-11-09: D1 to D5.
 - **Behaviour drift** from different loop details: wrap-up call wording, `<loop_note>`, result-cap
   envelope text, refusal shape, framework default `MaxToolResultChars` (24000 vs 8000; set it per run).
   Evals before and after PR 4 are the check.
-- **Dashboard continuity**: metric renames reset history. Keep the old panels for one release or
-  note the cut-over date on the dashboard.
+- **Metric continuity**: the renames reset any external dashboard's history. The repo carries none
+  now, but note the cut-over date for whoever queries the old names.
+- **Prompt-surface totals**: the framework records an open question (F12) about two
+  `PromptSurfaceAnalyzer` totals reading higher than the first host's own analyzer. Rebuild
+  `PromptSurfaceReporter` on it, but compare its numbers against today's report before trusting them.
 - **SQLite**: no schema change is planned, so neither migration set is touched.
