@@ -2,10 +2,10 @@
 
 [![Version](https://img.shields.io/badge/version-v1.0.0-blue)](https://github.com/cpike5/discordbot/releases)
 [![CI](https://github.com/cpike5/discordbot/actions/workflows/ci.yml/badge.svg)](https://github.com/cpike5/discordbot/actions/workflows/ci.yml)
-[![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10.0-purple)](https://dotnet.microsoft.com/)
 [![Discord.NET](https://img.shields.io/badge/Discord.NET-3.19.0--beta-5865F2)](https://github.com/discord-net/Discord.Net)
 
-A Discord bot built with .NET 8 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
+A Discord bot built with .NET 10 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
 
 ## Table of Contents
 
@@ -77,7 +77,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 
 ### Prerequisites
 
-- .NET 8 SDK
+- .NET 10 SDK
 - Node.js (for Tailwind CSS build)
 - Discord bot token ([Create a bot](https://discord.com/developers/applications))
 
@@ -620,9 +620,9 @@ See [CLAUDE.md](CLAUDE.md) for the complete configuration options reference tabl
 ### Core Packages
 
 - **Discord.Net** (3.19.0-beta.1): Discord API client and gateway
-- **AspNet.Security.OAuth.Discord** (8.0.0): Discord OAuth authentication
-- **Microsoft.AspNetCore.Identity.EntityFrameworkCore** (8.0.0): ASP.NET Core Identity
-- **Serilog.AspNetCore** (8.0.0): Structured logging framework
+- **AspNet.Security.OAuth.Discord** (10.1.0): Discord OAuth authentication
+- **Microsoft.AspNetCore.Identity.EntityFrameworkCore** (10.0.14): ASP.NET Core Identity
+- **Serilog.AspNetCore** (10.0.0): Structured logging framework
 - **Elastic.Serilog.Sinks** (8.11.0): Elasticsearch log sink for Serilog
 - **Elastic.Apm.NetCoreAll** (1.29.0): Elastic APM distributed tracing
 - **Microsoft.CognitiveServices.Speech** (1.41.0): Azure Text-to-Speech

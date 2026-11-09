@@ -351,7 +351,7 @@ https://github.com/discord/libdave/releases/download/v1.1.1/cpp/libdave-Linux-X6
 | GLIBCXX | 3.4.32 |
 | Architecture | x86-64 only |
 
-The Dockerfile uses `mcr.microsoft.com/dotnet/aspnet:8.0-noble` (Ubuntu 24.04) for both build and runtime stages specifically because Debian Bookworm (the default `8.0` tag) ships older glibc/GLIBCXX versions that cannot load libdave. Alpine Linux uses musl instead of glibc and cannot load this binary at all.
+The Dockerfile uses `mcr.microsoft.com/dotnet/sdk:10.0-noble` and `aspnet:10.0-noble` (Ubuntu 24.04) for the build and runtime stages specifically because Debian Bookworm (the default tag) ships older glibc/GLIBCXX versions that cannot load libdave. Alpine Linux uses musl instead of glibc and cannot load this binary at all.
 
 The `libdave.so` file is copied to `/usr/lib/x86_64-linux-gnu/libdave.so` in the runtime image. The `DllImport` attribute in `libdave.cs` uses the name `libdave`, which the .NET runtime resolves via the standard Linux shared library search path.
 

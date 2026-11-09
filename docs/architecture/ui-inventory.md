@@ -2,7 +2,7 @@
 
 **Version:** 1.1
 **Last Updated:** 2026-10-03
-**Target Framework:** .NET 8 Razor Pages with Tailwind CSS
+**Target Framework:** .NET 10 Razor Pages with Tailwind CSS
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Version:** 1.1
 **Last Updated:** 2025-12-24
-**Target Framework:** .NET 8 with OpenTelemetry SDK
+**Target Framework:** .NET 10 with OpenTelemetry SDK
 
 ---
 
@@ -25,7 +25,7 @@ Metrics work alongside [distributed tracing](tracing.md) to provide the complete
 
 ### Architecture
 
-The system uses `System.Diagnostics.Metrics` for metric definitions, which is the .NET 8 native metrics API. OpenTelemetry collects these metrics and exports them via Prometheus exporter at the `/metrics` endpoint.
+The system uses `System.Diagnostics.Metrics` for metric definitions, which is the .NET native metrics API. OpenTelemetry collects these metrics and exports them via Prometheus exporter at the `/metrics` endpoint.
 
 ```
 ┌─────────────────┐
