@@ -1,6 +1,6 @@
 # Plan: move the assistant onto cpike.Agent and retire `DiscordBot.Agents`
 
-> Status: **proposed**; decisions D1, D3 and D4 agreed. Nothing here is built. Written against discordbot `a673cc9` and
+> Status: **proposed**; decisions D1–D5 agreed. Nothing here is built. Written against discordbot `a673cc9` and
 > cpike-agent-framework `97f8a7a` (0.2.0-dev, unreleased).
 
 ## Summary
@@ -28,8 +28,8 @@ The work is in three places:
    per-surface tool sets from `ToolCatalog`, and the engine's metric names on the Grafana dashboards.
 
 Recommended path: upgrade to .NET 10 first (its own PR), publish `0.2.0-beta.1`, then swap the runner
-behind the existing `IAssistantMessagePipeline` with a **temporary adapter** that wraps today's tools
-as framework tools, so the swap is one PR and the tool rewrites can follow surface by surface. Use
+behind the existing `IAssistantMessagePipeline` and port every tool to the framework contract in
+the same PR, with no transitional adapter; a follow-up PR deletes the old engine. Use
 `cpike.Agent.Core` directly, not the HTTP `TurnPipeline` (rationale in [Decisions](#decisions)).
 
 ---
@@ -188,13 +188,17 @@ reads right, and update the dashboard panel that counted forbidden calls if any.
 Registration: `AddAgentCore(configuration, agent => agent.AddBuiltInTools().AddToolsFrom(infraAssembly).AddToolsFrom(botAssembly))`.
 `AgentToolAssemblies` stays as the list of assemblies to scan.
 
-**Transitional adapter (recommended).** To keep the runner swap to one reviewable PR, add a
-temporary `LegacyToolSource : IAgentToolSource` that wraps every existing `IAgentTool` and
-`IToolProvider` tool as a framework tool: it builds a `ToolContext` from `DiscordRunContext`, calls
-the old `InvokeAsync`, and serialises `ToolExecutionResult` (success → `Data`, failure →
-`{ok:false, code:"tool_error", message}`). Set `IncludeInUnrestrictedModes = false`; modes name the
-tools. The tool ports in step 4 then each delete their entry from the adapter, and step 5 deletes
-the adapter. Without the adapter, the swap PR has to port all ~27 tools at once.
+**All tools port in one PR (D2).** There is no transitional adapter: the runner swap and the
+port of all ~27 tools land together. That avoids throwaway bridging code and any period with two
+tool contracts in the codebase, at the cost of a large PR. To keep it reviewable:
+
+- Commit it in reviewable slices (one commit per former provider, then the pipeline, prompts,
+  config and telemetry), so it can be read commit by commit even though it merges as one.
+- Port mechanically first: keep each tool's name, description, schema and result payload
+  byte-for-byte where the contract allows, so the prompt surface the model sees changes only where
+  §4.3 says it must (the refusal shape, `load_skill`). Wording improvements wait for a later PR.
+- Port each tool's tests in the same commit as the tool. `ToolContractTests` must pass on the new
+  contract before the PR is opened.
 
 ### 4.4 Surfaces, the catalogue and the per-guild allow-list
 
@@ -328,31 +332,33 @@ equivalents or to local copies. Update `configuration-guide.md`.
 | 1 | discordbot | .NET 10 upgrade (P1) | Old engine still in place. Soak in production before 3. |
 | 2 | framework | G1 (+ G2, G3 if ready); cut `v0.2.0-beta.1` (P2) | |
 | 3 | discordbot | Feed access: `nuget.config`, CI/release `packages: read` + token, Dockerfile secret, session environment credential | No code change; proves restore works everywhere. |
-| 4 | discordbot | **Runner swap**: reference the packages, `CatalogPromptStore`, prompt moves, `DiscordRunContext`, `LegacyToolSource`, new `AssistantMessagePipeline`, config keys, telemetry names, dashboards, pipeline tests | Old engine project still compiles (the adapter uses it) but `AgentRunner` is no longer registered. Run evals before and after. |
-| 5a–c | discordbot | Port tools natively, one surface per PR: DM memory + conversation + bot management; DM analytics/moderation/code/web + documentation; guild info, Rat Watch, feature requests | Each removes its entries from the adapter and ports its tests. |
-| 6 | discordbot | **Removal**: delete `LegacyToolSource`, `src/DiscordBot.Agents`, its sln entry, Dockerfile line, `tests/.../Agents/`, unused usings; update `CLAUDE.md`, `patterns.md` (§ Agent Tool Authoring, § Agent Skills), `service-catalog.md`, `feature-map.md`, `system-overview.md`, `docs/tools/README.md`, `docs/agents/skills/README.md`, `.claude/agents/ai-assistant.md` | `DiscordBot.Agents` is gone. |
+| 4 | discordbot | **Swap and port**: reference the packages, `CatalogPromptStore`, prompt moves, `DiscordRunContext`, new `AssistantMessagePipeline`, every tool ported to `cpike.Agent.IAgentTool` with its tests, ported `ToolContractTests`, config keys, telemetry names, dashboards | `AgentRunner` and every old tool type are unregistered and unused. Run evals before and after. |
+| 5 | discordbot | **Removal**: delete `src/DiscordBot.Agents`, its sln entry, Dockerfile line, `tests/.../Agents/`, unused usings; update `CLAUDE.md`, `patterns.md` (§ Agent Tool Authoring, § Agent Skills), `service-catalog.md`, `feature-map.md`, `system-overview.md`, `docs/tools/README.md`, `docs/agents/skills/README.md`, `.claude/agents/ai-assistant.md` | Pure deletion and docs; `DiscordBot.Agents` is gone. |
 
-"Deprecate" is short here: between PR 4 and PR 6 the engine project is still in the solution only for
-the adapter. Mark its public types `[Obsolete]` in PR 4 so no new code starts depending on them.
+"Deprecate" is short here: after PR 4 nothing references the engine, and PR 5 follows straight
+after. If PR 5 cannot follow promptly, mark the engine's public types `[Obsolete]` in PR 4 so no
+new code starts depending on them.
 
 ## Decisions
 
-Agreed with the owner on 2026-11-09: D1, D3 and D4.
+Agreed with the owner on 2026-11-09: D1 to D5.
 
 - **D1. Core, not Hosting (agreed).** `TurnPipeline` is built around an HTTP caller: a
   `ClaimsPrincipal`, string session ids, SSE, `IConversationStore`. Discord messages fit only with
   adapters for each, and the existing `IAssistantMessagePipeline` already does the gating (consent,
   rate limit, owner) and persistence. Use `AgentService` directly. Revisit `cpike.Agent.Hosting` only
   if a web chat surface is added to the portal.
-- **D2. Adapter, then ports.** Recommended over a big-bang port, for the reason in §4.3. Costs one
-  throwaway class.
+- **D2. Port every tool in the swap PR (agreed).** No transitional adapter. The swap PR is larger,
+  but there is no throwaway code and no window with two tool contracts live. §4.3 says how to keep
+  it reviewable.
 - **D3. Drop temperature (agreed).** The framework omits it on purpose, discordbot's own client
   already carries a fallback for models that reject it, and the configured values (0.3 / 0.7) are
   near-defaults. The temperature options become obsolete and log a warning when set.
 - **D4. Private packages (agreed).** The packages stay private on GitHub Packages; the discordbot
   repository has read access. See P3 for where credentials are needed.
-- **D5. Effort.** No surface sets reasoning today. Leave `Effort` null (provider default) at first;
-  consider a per-surface `Effort` setting later, since the framework supports it per run.
+- **D5. Provider-default effort (agreed).** No surface sets reasoning today. `Effort` stays null on
+  every run and `OpenRouter:Effort` stays unset. A per-surface setting can come later; the framework
+  supports it per run.
 
 ## Risks
 
