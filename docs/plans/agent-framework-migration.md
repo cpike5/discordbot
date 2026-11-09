@@ -1,6 +1,6 @@
 # Plan: move the assistant onto cpike.Agent and retire `DiscordBot.Agents`
 
-> Status: **proposed**. Nothing here is built. Written against discordbot `a673cc9` and
+> Status: **proposed**; decisions D1, D3 and D4 agreed. Nothing here is built. Written against discordbot `a673cc9` and
 > cpike-agent-framework `97f8a7a` (0.2.0-dev, unreleased).
 
 ## Summary
@@ -101,18 +101,21 @@ the test projects. The framework gaps in §3 that the swap depends on should lan
 
 ### P3. Package access
 
-The feed is GitHub Packages, private by default. Every place that restores discordbot then needs a
-credential: CI, the Docker build, the release workflow, developer machines and Claude web sessions.
+The packages stay **private** on GitHub Packages (D4), and the discordbot repository has already
+been granted read access to them. Every place that restores discordbot still needs a credential:
 
-- **Recommended: make the `cpike.Agent.*` packages public** (they are MIT-licensed). GitHub Packages
-  NuGet still needs *a* token to read, but any account's token works, and per-package access
-  grants disappear.
-- Either way: commit a `nuget.config` naming the feed; in CI, grant the discordbot repository read
-  access in each package's settings and pass `GITHUB_TOKEN`; in the Dockerfile, pass the token as a
-  BuildKit secret (`RUN --mount=type=secret,id=nuget ...`), never as a build arg; in web sessions,
-  the environment needs `nuget.pkg.github.com` allowed and a credential.
-- Alternative if this is too much friction: vendor the framework as a git submodule with
-  `ProjectReference`s. Simpler restore, but it gives up versioning and is not recommended.
+- **`nuget.config`** at the repo root naming `https://nuget.pkg.github.com/cpike5/index.json`, with
+  no credentials in it.
+- **CI and release workflows** (`ci.yml`, `release.yml`): add `permissions: packages: read` and
+  register the source with `GITHUB_TOKEN` before restore
+  (`dotnet nuget update source cpike5 --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text`).
+  The repo grant is what lets that token read the packages.
+- **Dockerfile**: pass the token as a BuildKit secret (`RUN --mount=type=secret,id=nuget ...`),
+  never as a build arg, and wire the secret through the image build step in `release.yml`.
+- **Developer machines**: a classic PAT with `read:packages`, registered once per the framework's
+  `docs/releasing.md`.
+- **Claude web sessions**: the environment needs `nuget.pkg.github.com` allowed and a `read:packages`
+  credential for that host; without it the SessionStart hook's `dotnet restore` fails.
 
 ## 3. Framework gaps (host-neutral, land in cpike-agent-framework)
 
@@ -123,7 +126,6 @@ These are recorded in the framework's `docs/design/host-adoption.md` under "Seco
 | G1 | `AgentRunRequest.MaxOutputTokens` (per-run ceiling, still raised by `ToolOutputBudget.Large`). | Guild 512 vs DM 4096 tokens on one process. | Yes for parity; workaround is one global ceiling plus the existing `MaxResponseLength` truncation, which costs money on the guild path. |
 | G2 | A per-tool execution deadline: `Agent:ToolTimeoutSeconds`, overridable per definition, returning a structured `tool_timeout` failure while caller cancellation still propagates. | Today's 10 s guard on every tool. | No. Only `execute_python` and `fetch_url` are slow, and both have their own timeouts; can follow. |
 | G3 | Make `FailureCodeOf` public (already F9 in `host-adoption.md`). | Porting `ToolContractTests`' "failures are countable" rule. | No; the test can parse `code` itself. |
-| G4 | Optional: `AgentRunRequest.Temperature`. | Only if D3 goes the other way. | No. |
 
 The framework needs **no new seam** for the rest: surfaces, per-guild allow-lists, skills, read-only
 callers and conversation clearing all map onto existing types.
@@ -324,8 +326,8 @@ equivalents or to local copies. Update `configuration-guide.md`.
 | # | Repo | PR | Notes |
 | --- | --- | --- | --- |
 | 1 | discordbot | .NET 10 upgrade (P1) | Old engine still in place. Soak in production before 3. |
-| 2 | framework | G1 (+ G2, G3 if ready); cut `v0.2.0-beta.1` (P2); package visibility (P3) | |
-| 3 | discordbot | Feed access: `nuget.config`, CI token, Dockerfile secret, session environment | No code change; proves restore works everywhere. |
+| 2 | framework | G1 (+ G2, G3 if ready); cut `v0.2.0-beta.1` (P2) | |
+| 3 | discordbot | Feed access: `nuget.config`, CI/release `packages: read` + token, Dockerfile secret, session environment credential | No code change; proves restore works everywhere. |
 | 4 | discordbot | **Runner swap**: reference the packages, `CatalogPromptStore`, prompt moves, `DiscordRunContext`, `LegacyToolSource`, new `AssistantMessagePipeline`, config keys, telemetry names, dashboards, pipeline tests | Old engine project still compiles (the adapter uses it) but `AgentRunner` is no longer registered. Run evals before and after. |
 | 5a–c | discordbot | Port tools natively, one surface per PR: DM memory + conversation + bot management; DM analytics/moderation/code/web + documentation; guild info, Rat Watch, feature requests | Each removes its entries from the adapter and ports its tests. |
 | 6 | discordbot | **Removal**: delete `LegacyToolSource`, `src/DiscordBot.Agents`, its sln entry, Dockerfile line, `tests/.../Agents/`, unused usings; update `CLAUDE.md`, `patterns.md` (§ Agent Tool Authoring, § Agent Skills), `service-catalog.md`, `feature-map.md`, `system-overview.md`, `docs/tools/README.md`, `docs/agents/skills/README.md`, `.claude/agents/ai-assistant.md` | `DiscordBot.Agents` is gone. |
@@ -335,18 +337,20 @@ the adapter. Mark its public types `[Obsolete]` in PR 4 so no new code starts de
 
 ## Decisions
 
-- **D1. Core, not Hosting.** `TurnPipeline` is built around an HTTP caller: a `ClaimsPrincipal`,
-  string session ids, SSE, `IConversationStore`. Discord messages fit only with adapters for each,
-  and the existing `IAssistantMessagePipeline` already does the gating (consent, rate limit, owner)
-  and persistence. Use `AgentService` directly. Revisit `cpike.Agent.Hosting` only if a web chat
-  surface is added to the portal.
+Agreed with the owner on 2026-11-09: D1, D3 and D4.
+
+- **D1. Core, not Hosting (agreed).** `TurnPipeline` is built around an HTTP caller: a
+  `ClaimsPrincipal`, string session ids, SSE, `IConversationStore`. Discord messages fit only with
+  adapters for each, and the existing `IAssistantMessagePipeline` already does the gating (consent,
+  rate limit, owner) and persistence. Use `AgentService` directly. Revisit `cpike.Agent.Hosting` only
+  if a web chat surface is added to the portal.
 - **D2. Adapter, then ports.** Recommended over a big-bang port, for the reason in §4.3. Costs one
   throwaway class.
-- **D3. Drop temperature.** The framework omits it on purpose, discordbot's own client already
-  carries a fallback for models that reject it, and the configured values (0.3 / 0.7) are
-  near-defaults. The alternative is G4.
-- **D4. Package source.** Public packages on GitHub Packages (recommended) vs private with per-repo
-  grants vs a submodule. Needs the owner's call before PR 3.
+- **D3. Drop temperature (agreed).** The framework omits it on purpose, discordbot's own client
+  already carries a fallback for models that reject it, and the configured values (0.3 / 0.7) are
+  near-defaults. The temperature options become obsolete and log a warning when set.
+- **D4. Private packages (agreed).** The packages stay private on GitHub Packages; the discordbot
+  repository has read access. See P3 for where credentials are needed.
 - **D5. Effort.** No surface sets reasoning today. Leave `Effort` null (provider default) at first;
   consider a per-surface `Effort` setting later, since the framework supports it per run.
 
