@@ -11,7 +11,7 @@ namespace DiscordBot.Tests.Handlers;
 /// <summary>
 /// Unit tests for <see cref="NotXMessageHandler"/>'s configuration kill switch.
 /// Discord's <c>SocketUserMessage</c> has no public constructor, so message-shaped
-/// scenarios cannot be exercised here (see docs/articles/not-x/test-constraints.md);
+/// scenarios cannot be exercised here;
 /// what is testable is that the switch short-circuits before any message inspection
 /// or service resolution happens at all.
 /// </summary>

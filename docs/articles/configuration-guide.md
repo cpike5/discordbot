@@ -253,7 +253,7 @@ from `dotnet run` in the repository root.
 | `PerformanceAlertOptions` | `PerformanceAlerts` | `PerformanceMetricsServiceExtensions` | `CheckIntervalSeconds`, `ConsecutiveBreachesRequired` |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | `PerformanceMetricsServiceExtensions` | Per-metric-category SignalR broadcast intervals |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | `OpenTelemetryExtensions` | `DefaultRate` (0.1), `ErrorRate` (1.0), `SlowThresholdMs` |
-| `OtlpOptions` | `OpenTelemetry:Otlp` | `OpenTelemetryExtensions.ResolveOtlp` (bound directly, also read by the Serilog sink in `Program.cs`) | `Endpoint` (falls back to `OTEL_EXPORTER_OTLP_ENDPOINT`; empty = no OTLP export), `Protocol` (`grpc`/`http`), `Headers`, `ExportLogs`/`ExportMetrics`/`ExportTraces` (true), `MetricExportIntervalSeconds` (15). See [Grafana Observability Stack](grafana-observability.md) |
+| `OtlpOptions` | `OpenTelemetry:Otlp` | `OpenTelemetryExtensions.ResolveOtlp` (bound directly, also read by the Serilog sink in `Program.cs`) | `Endpoint` (falls back to `OTEL_EXPORTER_OTLP_ENDPOINT`; empty = no OTLP export), `Protocol` (`grpc`/`http`), `Headers`, `ExportLogs`/`ExportMetrics`/`ExportTraces` (true), `MetricExportIntervalSeconds` (15). |
 
 #### Performance alert thresholds
 

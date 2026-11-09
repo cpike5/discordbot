@@ -6,19 +6,19 @@ first — the finding IDs (F1…F13) are shared.
 
 **Status**: partially implemented. §1.1, §1.4, §1.5, §1.6 and §1.7a/b shipped as Phase 2 of the
 groundwork overhaul, in `DiscordBot.Agents` rather than `DiscordBot.Infrastructure` — see
-[§5.1a of the plan](../plans/agent-groundwork-overhaul.md) for the corrections that came out of
-doing it. **§2.1–§2.4 shipped as Phase 3**; [§5.2a of the plan](../plans/agent-groundwork-overhaul.md)
+§5.1a of the plan for the corrections that came out of
+doing it. **§2.1–§2.4 shipped as Phase 3**; §5.2a of the plan
 records where the sequencing bent, and three specifics below are corrected by what doing it found:
 §2.2 had to ship *with* §2.1 rather than after it, §2.3's spans use the engine's own
 `ActivitySource` and `IToolRegistry` gained `FindProviderName` to tag them, and §2.4 took option B.
 **§3.1 shipped as Phase 4 and §3.2 as Phase 5** — see §5.3a and §5.4a of the plan; the notes at the
 head of each section below say where the built shape differs.
 **§1.3 (F13, the documentation path containment) shipped on its own**, last rather than first —
-[§6a of the plan](../plans/agent-groundwork-overhaul.md) records what changed from the shape below.
+§6a of the plan records what changed from the shape below.
 §1.7c wants a probe against live traffic before anyone builds it. Everything else here is
 proposed.
 
-**Sequencing note.** [plans/agent-groundwork-overhaul.md](../plans/agent-groundwork-overhaul.md)
+**Sequencing note.** plans/agent-groundwork-overhaul.md
 supersedes the tier order used here: the engine moves to a `DiscordBot.Agents` project *before*
 these changes are made, so most of §1 and §3 lands there rather than in `DiscordBot.Infrastructure`.
 Two specifics below are corrected by it — the three new loop knobs ride on `AgentContext` rather
@@ -128,7 +128,7 @@ full. Prefer reading one section over reading the whole document."*
 > false. A refusal nobody can count is most of the point of refusing it, so the one unavailable
 > payload is `{ "available": false, "error": "…" }` through `ToolResults.Json` instead. Everything else
 > is as specified, including that all three causes answer identically. See
-> [plans/agent-groundwork-overhaul.md §6a](../plans/agent-groundwork-overhaul.md) and
+> plans/agent-groundwork-overhaul.md §6a and
 > [docs/tools/get_feature_documentation.md](../tools/get_feature_documentation.md).
 
 **This is a security finding, not a cost one.** `DocumentationToolProvider` builds the path as:
@@ -472,7 +472,7 @@ assistant sets `CanMutate = true` unconditionally (it is owner-only already).
 > **Shipped, with two changes.** `[DmOnlyTool]` was not built — `ToolCatalog.Scopes` already says
 > where a tool is advertised, so the catalogue routes instead — and the `CanMutate` check moved onto
 > the interface as a `string? Mutation`. See
-> [plans/agent-groundwork-overhaul.md §5.3a](../plans/agent-groundwork-overhaul.md) for the
+> plans/agent-groundwork-overhaul.md §5.3a for the
 > reasoning, and `docs/architecture/patterns.md` § Agent Tool Authoring for the pattern as built.
 
 The goal is that a new tool is **one file and no DI edit**, without moving the eleven existing
@@ -552,7 +552,7 @@ and the best measure of whether the shape is actually cheaper.
 > routes a tool to a surface. And DM stickiness is an `IMemoryCache` store keyed by user
 > (`DmSkillActivationStore`), on the same terms as the DM assistant's active guild, rather than a
 > column — which keeps the phase migration-free. See
-> [plans/agent-groundwork-overhaul.md §5.4a](../plans/agent-groundwork-overhaul.md) for the
+> plans/agent-groundwork-overhaul.md §5.4a for the
 > reasoning and `docs/architecture/patterns.md` § Agent Skills for the pattern as built.
 
 The mechanism that makes a 50-tool bot affordable. Adapted to this codebase's two surfaces.

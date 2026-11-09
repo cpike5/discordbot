@@ -5,8 +5,7 @@ currency, mints units into members' wallets, and members spend, send, or lose
 them. Every balance change is a row in an append-only ledger, so history and
 audits always agree with the balance.
 
-This page covers the Discord commands. The design is in
-`docs/specs/virtual-currency-spec.md`; configuration keys are in
+This page covers the Discord commands. Configuration keys are in
 [Configuration Guide](configuration-guide.md).
 
 ## Turning it on

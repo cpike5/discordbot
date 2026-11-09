@@ -5,7 +5,6 @@ Welcome to the Discord Bot Management System documentation. This site provides c
 ## Quick Links
 
 ### Getting Started
-- [Requirements](articles/requirements.md) - Technology stack and architecture
 - [Architecture](architecture/README.md) - System overview, feature map, service catalog, patterns
 
 ### API Reference

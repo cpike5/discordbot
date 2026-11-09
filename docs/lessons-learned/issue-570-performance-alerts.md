@@ -528,7 +528,6 @@ The AlertMonitoringService evaluates metrics every 30 seconds:
 
 - [Bot Performance Dashboard](../articles/bot-performance-dashboard.md) - Complete feature documentation
 - [Issue #570](https://github.com/cpike5/discordbot/issues/570) - Original feature request
-- [Prototype](../prototypes/features/bot-performance/alerts-incidents.html) - HTML prototype
 
 ---
 

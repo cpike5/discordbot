@@ -47,7 +47,7 @@ Message logging is privacy-conscious by design:
 
 ## Message Log Entity
 
-The `MessageLog` entity (defined in `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Entities\MessageLog.cs`) represents a single logged Discord message.
+The `MessageLog` entity (defined in `src/DiscordBot.Core/Entities/MessageLog.cs`) represents a single logged Discord message.
 
 ### Fields
 
@@ -75,7 +75,7 @@ The `MessageLog` entity (defined in `C:\Users\cpike\workspace\discordbot\src\Dis
 
 ### MessageSource Enum
 
-The `MessageSource` enum (defined in `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Enums\MessageSource.cs`) categorizes where a message originated:
+The `MessageSource` enum (defined in `src/DiscordBot.Core/Enums/MessageSource.cs`) categorizes where a message originated:
 
 ```csharp
 public enum MessageSource
@@ -123,7 +123,7 @@ Message logging behavior is controlled through several configuration options.
 
 ### MessageLogRetentionOptions
 
-The `MessageLogRetentionOptions` class (defined in `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Configuration\MessageLogRetentionOptions.cs`) controls automatic cleanup and retention policies.
+The `MessageLogRetentionOptions` class (defined in `src/DiscordBot.Core/Configuration/MessageLogRetentionOptions.cs`) controls automatic cleanup and retention policies.
 
 **Configuration Section:** `MessageLogRetention` in `appsettings.json`
 
@@ -180,7 +180,7 @@ The message log cleanup service respects the `BackgroundServices:MessageLogClean
 
 ### MessageLoggingHandler
 
-The `MessageLoggingHandler` service (located at `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\MessageLoggingHandler.cs`) is responsible for capturing Discord messages in real-time and persisting them to the database.
+The `MessageLoggingHandler` service (located at `src/DiscordBot.Bot/Services/MessageLoggingHandler.cs`) is responsible for capturing Discord messages in real-time and persisting them to the database.
 
 #### Event Handling
 
@@ -258,7 +258,7 @@ catch (Exception ex)
 
 ### MessageLogCleanupService
 
-The `MessageLogCleanupService` background service (located at `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\MessageLogCleanupService.cs`) automatically deletes old message logs according to the retention policy.
+The `MessageLogCleanupService` background service (located at `src/DiscordBot.Bot/Services/MessageLogCleanupService.cs`) automatically deletes old message logs according to the retention policy.
 
 #### Cleanup Process
 
@@ -298,7 +298,7 @@ The admin UI provides two main pages for browsing and analyzing message logs.
 
 **Route:** `/Admin/MessageLogs` (requires Admin role)
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\MessageLogs\Index.cshtml`
+**Location:** `src/DiscordBot.Bot/Pages/Admin/MessageLogs/Index.cshtml`
 
 The message logs list page provides powerful filtering and search capabilities for browsing logged messages.
 
@@ -352,7 +352,7 @@ All filters are passed as query parameters in the URL:
 
 **Route:** `/Admin/MessageLogs/Details/{id}` (requires Admin role)
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\MessageLogs\Details.cshtml`
+**Location:** `src/DiscordBot.Bot/Pages/Admin/MessageLogs/Details.cshtml`
 
 The message log details page displays comprehensive information about a single logged message.
 
@@ -375,7 +375,7 @@ If the message log ID doesn't exist, the page returns a `404 Not Found` response
 
 ## API Endpoints
 
-The `MessagesController` (located at `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Controllers\MessagesController.cs`) exposes RESTful API endpoints for message log access and management.
+The `MessagesController` (located at `src/DiscordBot.Bot/Controllers/MessagesController.cs`) exposes RESTful API endpoints for message log access and management.
 
 **Base Route:** `/api/messages`
 
@@ -654,11 +654,11 @@ GET /api/messages/export?GuildId=2222222222222222222&StartDate=2025-12-01&EndDat
 
 ## MessageLogService
 
-The `MessageLogService` (located at `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\MessageLogService.cs`) implements the `IMessageLogService` interface and provides business logic for message log operations.
+The `MessageLogService` (located at `src/DiscordBot.Bot/Services/MessageLogService.cs`) implements the `IMessageLogService` interface and provides business logic for message log operations.
 
 ### Service Interface (IMessageLogService)
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Interfaces\IMessageLogService.cs`
+**Location:** `src/DiscordBot.Core/Interfaces/IMessageLogService.cs`
 
 #### Methods
 
@@ -767,7 +767,7 @@ while (!cancellationToken.IsCancellationRequested)
 
 ### MessageLogDto
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\DTOs\MessageLogDto.cs`
+**Location:** `src/DiscordBot.Core/DTOs/MessageLogDto.cs`
 
 Represents message log data for API responses and UI views.
 
@@ -795,7 +795,7 @@ Represents message log data for API responses and UI views.
 
 ### MessageLogQueryDto
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\DTOs\MessageLogQueryDto.cs`
+**Location:** `src/DiscordBot.Core/DTOs/MessageLogQueryDto.cs`
 
 Represents query parameters for filtering and paginating message logs.
 

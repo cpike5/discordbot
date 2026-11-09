@@ -5,9 +5,6 @@ audience is whoever is about to change a tool, and the model's behaviour is the 
 specified — a tool's contract is its description, its schema and its result shapes, and all three are
 read by something that cannot ask a follow-up question.
 
-This directory replaces [`specs/archive/assistant-tool-catalog.md`](../specs/archive/assistant-tool-catalog.md),
-which described a design rather than what shipped.
-
 ## What is here
 
 | Tool | Surfaces | Writes? |

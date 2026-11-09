@@ -939,8 +939,6 @@ See **[Adding Features to Assistant Knowledge](assistant-feature-updates.md)** f
 
 - **Configuration Guide:** See [Environment Configuration](environment-configuration.md) and [Configuration Guide](configuration-guide.md)
 - **Privacy Policies:** [Consent and Privacy](consent-privacy.md)
-- **Feature Specs:** [Assistant Requirements](../requirements/assistant-requirements.md)
-- **Implementation Plan:** [Assistant Implementation Plan](../requirements/assistant-implementation-plan.md)
 - **Agent Prompt:** `docs/agents/assistant-agent.md`
 - **OpenRouter Documentation:** https://openrouter.ai/docs
 - **OpenRouter Model List:** https://openrouter.ai/models

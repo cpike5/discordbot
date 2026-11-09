@@ -86,7 +86,7 @@ All version metadata is centralized in `Directory.Build.props` at the solution r
 
 ### Directory.Build.props Structure
 
-**Location:** `C:\Users\cpike\workspace\discordbot\Directory.Build.props`
+**Location:** `Directory.Build.props`
 
 ```xml
 <Project>
@@ -162,7 +162,7 @@ Each compiled assembly includes the following version attributes:
 
 The `VersionService` retrieves and formats version information for display in the admin UI sidebar and Bot Control page.
 
-**Implementation:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\VersionService.cs`
+**Implementation:** `src/DiscordBot.Bot/Services/VersionService.cs`
 
 ```csharp
 public class VersionService : IVersionService
@@ -432,7 +432,7 @@ The `VersionService` provides centralized access to application version informat
 
 ### Interface Definition
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Interfaces\IVersionService.cs`
+**Location:** `src/DiscordBot.Core/Interfaces/IVersionService.cs`
 
 ```csharp
 namespace DiscordBot.Core.Interfaces;
@@ -452,7 +452,7 @@ public interface IVersionService
 
 ### Service Implementation
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\VersionService.cs`
+**Location:** `src/DiscordBot.Bot/Services/VersionService.cs`
 
 ```csharp
 using System.Reflection;
@@ -494,7 +494,7 @@ public class VersionService : IVersionService
 
 ### Dependency Injection Registration
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Program.cs`
+**Location:** `src/DiscordBot.Bot/Program.cs`
 
 ```csharp
 // Register version service as singleton

@@ -9,7 +9,7 @@ and propose the smallest set of changes that unblocks it.
 **Status**: proposed. Nothing in this document is implemented. The concrete code changes behind
 it are in [docs/specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md);
 the order the whole overhaul runs in — including the library extraction — is in
-[docs/plans/agent-groundwork-overhaul.md](./agent-groundwork-overhaul.md), which supersedes the
+docs/plans/agent-groundwork-overhaul.md, which supersedes the
 tier sequencing below.
 
 ---
@@ -233,7 +233,7 @@ directory, plus an `[a-z0-9-]` allow-list on the unmapped fallback. Return the s
 not-found, so a probe learns nothing. Detail in the implementation spec §1.3.
 
 > **Fixed.** Shipped alone, as intended, as the last item of the groundwork overhaul rather than the
-> first — see [plans/agent-groundwork-overhaul.md §6a](./agent-groundwork-overhaul.md) for what
+> first — see plans/agent-groundwork-overhaul.md §6a for what
 > changed from the spec, and [docs/tools/get_feature_documentation.md](../tools/get_feature_documentation.md)
 > for the tool as it now behaves.
 

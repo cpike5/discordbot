@@ -38,7 +38,7 @@ Audit events are organized into seven distinct categories defined in the `AuditL
 | `Message` | 6 | Message-related actions | Message deletion, editing, moderation |
 | `System` | 7 | System-level actions | Bot startup, shutdown, errors, background tasks |
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Enums\AuditLogCategory.cs`
+**Location:** `src/DiscordBot.Core/Enums/AuditLogCategory.cs`
 
 ---
 
@@ -68,7 +68,7 @@ The `AuditLogAction` enum defines specific actions that can be performed within 
 | `BotConnected` | 18 | The bot connected to Discord gateway | System |
 | `BotDisconnected` | 19 | The bot disconnected from Discord gateway | System |
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Enums\AuditLogAction.cs`
+**Location:** `src/DiscordBot.Core/Enums/AuditLogAction.cs`
 
 ### When Actions Are Triggered
 
@@ -97,7 +97,7 @@ The `AuditLogActorType` enum identifies who or what performed an audited action:
 | `System` | 2 | Action performed by the system | `"System"` |
 | `Bot` | 3 | Action performed by the Discord bot | `"Bot"` |
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Enums\AuditLogActorType.cs`
+**Location:** `src/DiscordBot.Core/Enums/AuditLogActorType.cs`
 
 ---
 
@@ -144,9 +144,9 @@ The `IAuditLogBuilder` interface provides the following methods:
 | `LogAsync()` | `CancellationToken cancellationToken = default` | Logs the audit entry asynchronously and waits for confirmation | `Task` |
 | `Enqueue()` | None | Enqueues the audit entry for background processing (fire-and-forget) | `void` |
 
-**Interface Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Interfaces\IAuditLogBuilder.cs`
+**Interface Location:** `src/DiscordBot.Core/Interfaces/IAuditLogBuilder.cs`
 
-**Implementation Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogBuilder.cs`
+**Implementation Location:** `src/DiscordBot.Bot/Services/AuditLogBuilder.cs`
 
 ### Usage Examples
 
@@ -261,7 +261,7 @@ The audit log system uses a high-performance background queue to ensure logging 
 - **Backpressure Strategy:** `BoundedChannelFullMode.DropOldest` (drops oldest entries when full)
 - **Concurrency:** Single reader (background processor), multiple writers (thread-safe)
 
-**Queue Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogQueue.cs`
+**Queue Location:** `src/DiscordBot.Bot/Services/AuditLogQueue.cs`
 
 ### Queue Processor
 
@@ -271,7 +271,7 @@ The `AuditLogQueueProcessor` is a background service that continuously reads fro
 - **Error Handling:** Retries failed writes, logs errors without crashing
 - **Shutdown:** Gracefully processes remaining entries on application shutdown
 
-**Processor Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogQueueProcessor.cs`
+**Processor Location:** `src/DiscordBot.Bot/Services/AuditLogQueueProcessor.cs`
 
 ### Performance Benefits
 
@@ -295,7 +295,7 @@ Audit log retention and cleanup behavior is controlled by the `AuditLogRetention
 | `CleanupBatchSize` | `int` | `1000` | Maximum number of records to delete in a single cleanup operation |
 | `CleanupIntervalHours` | `int` | `24` | Interval (in hours) between automatic cleanup operations |
 
-**Options Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Configuration\AuditLogRetentionOptions.cs`
+**Options Location:** `src/DiscordBot.Core/Configuration/AuditLogRetentionOptions.cs`
 
 ### appsettings.json Configuration
 
@@ -334,7 +334,7 @@ The `AuditLogRetentionService` is a background service that automatically cleans
 - **Deletion Strategy:** Deletes logs older than `RetentionDays` in batches of `CleanupBatchSize`
 - **Graceful Shutdown:** Stops cleanly when application shuts down
 
-**Service Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogRetentionService.cs`
+**Service Location:** `src/DiscordBot.Bot/Services/AuditLogRetentionService.cs`
 
 ---
 
@@ -357,9 +357,9 @@ Audit logs are stored in the `AuditLogs` table with the following structure:
 | `IpAddress` | `nvarchar(45)` | Yes | IP address from which the action was performed |
 | `CorrelationId` | `nvarchar(100)` | Yes | Correlation ID to group related entries |
 
-**Entity Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Entities\AuditLog.cs`
+**Entity Location:** `src/DiscordBot.Core/Entities/AuditLog.cs`
 
-**Configuration Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Infrastructure\Data\Configurations\AuditLogConfiguration.cs`
+**Configuration Location:** `src/DiscordBot.Infrastructure/Data/Configurations/AuditLogConfiguration.cs`
 
 ### Indexes
 
@@ -381,7 +381,7 @@ The audit log viewer provides a web-based interface for browsing, searching, and
 
 **Route:** `/Admin/AuditLogs`
 **Authorization:** Requires `Admin` or `SuperAdmin` role
-**Page Model:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\AuditLogs\Index.cshtml.cs`
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/AuditLogs/Index.cshtml.cs`
 
 #### Features
 
@@ -419,7 +419,7 @@ Click the "Export to CSV" button to download all matching audit logs:
 
 **Route:** `/Admin/AuditLogs/Details/{id}`
 **Authorization:** Requires `Admin` or `SuperAdmin` role
-**Page Model:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\AuditLogs\Details.cshtml.cs`
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/AuditLogs/Details.cshtml.cs`
 
 #### Features
 
@@ -440,7 +440,7 @@ If the audit log has a `CorrelationId`, the details page displays all related en
 
 The dashboard (`/`) displays recent audit logs for Admin and SuperAdmin users:
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Index.cshtml.cs` (lines 88-101)
+**Location:** `src/DiscordBot.Bot/Pages/Index.cshtml.cs` (lines 88-101)
 
 - **Display:** Last 5 audit log entries
 - **Access:** Only visible to users with Admin or SuperAdmin role
@@ -656,7 +656,7 @@ Retrieves all audit log entries related by correlation ID.
 ]
 ```
 
-**Controller Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Controllers\AuditLogsController.cs`
+**Controller Location:** `src/DiscordBot.Bot/Controllers/AuditLogsController.cs`
 
 ---
 
@@ -695,9 +695,9 @@ public interface IAuditLogService
 }
 ```
 
-**Service Interface:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Interfaces\IAuditLogService.cs`
+**Service Interface:** `src/DiscordBot.Core/Interfaces/IAuditLogService.cs`
 
-**Service Implementation:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogService.cs`
+**Service Implementation:** `src/DiscordBot.Bot/Services/AuditLogService.cs`
 
 ### Dependency Injection
 
@@ -730,7 +730,7 @@ The audit log system includes comprehensive unit tests covering all components.
 | `AuditLogsController` | `AuditLogsControllerTests.cs` | API endpoints, validation, authorization |
 | `AuditLogCardViewModel` | `AuditLogCardViewModelTests.cs` | Dashboard widget mapping |
 
-**Test Location:** `C:\Users\cpike\workspace\discordbot\tests\DiscordBot.Tests\`
+**Test Location:** `tests/DiscordBot.Tests/`
 
 ### Edge Cases Tested
 

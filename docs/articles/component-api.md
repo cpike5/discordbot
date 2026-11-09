@@ -16,7 +16,7 @@ This guide provides comprehensive documentation for the Discord Bot Admin UI com
 - **Tailwind CSS Integration**: Components leverage the design system's utility classes
 - **Accessibility-first**: WCAG 2.1 AA compliant with proper ARIA attributes
 - **Flexible Configuration**: Support for variants, sizes, states, and custom styling
-- **Partial View Pattern**: Easy integration with Razor Pages and Blazor
+- **Partial View Pattern**: Easy integration with Razor Pages
 
 ### Basic Usage Pattern
 
@@ -2659,7 +2659,6 @@ var tabs = new NavTabsViewModel
 ### Related Documentation
 
 - **[Navigation Tabs Component Guide](nav-tabs-component.md)** - Comprehensive usage guide
-- **[Navigation Tabs Migration Guide](nav-tabs-migration.md)** - Migrating from legacy components
 - **[Design System](design-system.md)** - Style tokens and variants
 
 ---

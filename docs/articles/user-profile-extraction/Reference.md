@@ -156,7 +156,7 @@ A user-guild pair is eligible for extraction when **all** of the following are t
 
 | Parameter | Default | Description |
 |---|---|---|
-| Model | Same as assistant (configurable) | Anthropic model used for extraction |
+| Model | Same as assistant (configurable) | OpenRouter model used for extraction |
 | Max output tokens | 1024 | Limit on extraction response size |
 | Temperature | 0.3 | Low creativity for consistent output |
 | Prompt template path | `docs/agents/profile-extraction-prompt.md` | Configurable prompt location |
@@ -272,7 +272,7 @@ All settings under `ProfileExtraction:` in `appsettings.json` or environment var
 | `MaxMessagesSampled` | int | `500` | Maximum messages sent to the LLM per extraction |
 | `MinMessagesRequired` | int | `20` | Minimum messages needed to generate a profile |
 | `MaxConcurrentExtractions` | int | `2` | Parallel extraction limit |
-| `ExtractionModel` | string | (inherits from `Anthropic:Model`) | Override model for extraction calls |
+| `ExtractionModel` | string | (inherits from the assistant's model) | Override model for extraction calls |
 | `ExtractionMaxTokens` | int | `1024` | Max output tokens for extraction |
 | `ExtractionTemperature` | float | `0.3` | Temperature for extraction calls |
 | `PromptTemplatePath` | string | `docs/agents/profile-extraction-prompt.md` | Path to extraction prompt template |
