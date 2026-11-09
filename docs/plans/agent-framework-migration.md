@@ -67,6 +67,13 @@ the same PR, with no transitional adapter; a follow-up PR deletes the old engine
 
 ### P1. .NET 8 → .NET 10, as its own PR
 
+> **Done** on this branch: all projects on `net10.0` with a `global.json`, Microsoft/EF Core/Npgsql
+> packages on 10.x, Docker images on `10.0-noble`, CI and release on `10.0.x`, and the SessionStart
+> hook installing `dotnet-sdk-10.0` (it is in noble-updates). Full suite green on Postgres; the
+> image builds and serves the portal offline. No schema change: `has-pending-model-changes` is clean
+> for both contexts once the Postgres design-time factory sets the legacy timestamp switch, which it
+> was missing. Not verified: a live Discord login, voice, and the SQLite provider at run time.
+
 The packages target `net10.0` only (`docs/design/net10-upgrade.md` in the framework, decision:
 no multi-targeting). discordbot must move first. This is the largest risk in the whole plan and has
 nothing to do with the assistant, so it ships separately and soaks before the swap.

@@ -11,6 +11,10 @@ public class PostgresDesignTimeFactory : IDesignTimeDbContextFactory<PostgresBot
 {
     public PostgresBotDbContext CreateDbContext(string[] args)
     {
+        // The app sets this switch at startup (Program.cs), and the snapshot was generated with it:
+        // DateTime maps to "timestamp without time zone". Without it here, `dotnet ef` sees every
+        // DateTime column as "with time zone" and scaffolds a migration that rewrites all of them.
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
         var optionsBuilder = new DbContextOptionsBuilder<PostgresBotDbContext>();
         optionsBuilder.UseNpgsql("Host=localhost;Database=design-time",
             x => x.MigrationsAssembly("DiscordBot.Infrastructure"));

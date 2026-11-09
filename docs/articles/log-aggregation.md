@@ -2,7 +2,7 @@
 
 **Version:** 2.1
 **Last Updated:** 2026-01-06
-**Target Framework:** .NET 8 with Serilog, Elasticsearch, Seq, and Elastic APM
+**Target Framework:** .NET 10 with Serilog, Elasticsearch, Seq, and Elastic APM
 **Status:** Phase 2 Implementation (Elasticsearch primary with APM tracing, Seq optional)
 
 ---

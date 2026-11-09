@@ -1,11 +1,11 @@
 #!/bin/bash
-# SessionStart hook — provision the .NET 8 toolchain for Claude Code on the web.
+# SessionStart hook — provision the .NET 10 toolchain for Claude Code on the web.
 #
 # Why this is needed:
 #   The remote web environment ships without the .NET SDK, and the official
 #   dotnet-install CDN (builds.dotnet.microsoft.com) is blocked by the egress
 #   policy (HTTP 403). Ubuntu 24.04's own archive, however, ships
-#   `dotnet-sdk-8.0` and is reachable — so we install from there.
+#   `dotnet-sdk-10.0` (noble-updates) and is reachable — so we install from there.
 #
 # Behaviour:
 #   - Runs only in the remote (web) environment.
@@ -26,15 +26,17 @@ log() { echo "[session-start] $*"; }
 
 export DEBIAN_FRONTEND=noninteractive
 
-# --- .NET 8 SDK (required) -------------------------------------------------
-if command -v dotnet >/dev/null 2>&1; then
-  log "dotnet already present ($(dotnet --version))"
+# --- .NET 10 SDK (required) ------------------------------------------------
+# Checks for a 10.x SDK, not just `dotnet`: a cached container may still carry
+# the .NET 8 SDK from before the upgrade.
+if command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -q '^10\.'; then
+  log "dotnet 10 SDK already present ($(dotnet --version))"
 else
-  log "Installing dotnet-sdk-8.0 from the Ubuntu archive (see $LOG)..."
-  if ! sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0 >>"$LOG" 2>&1; then
+  log "Installing dotnet-sdk-10.0 from the Ubuntu archive (see $LOG)..."
+  if ! sudo apt-get install -y --no-install-recommends dotnet-sdk-10.0 >>"$LOG" 2>&1; then
     log "First attempt failed; refreshing package lists and retrying..."
     sudo apt-get update >>"$LOG" 2>&1
-    sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0 >>"$LOG" 2>&1
+    sudo apt-get install -y --no-install-recommends dotnet-sdk-10.0 >>"$LOG" 2>&1
   fi
   log "Installed dotnet $(dotnet --version)"
 fi

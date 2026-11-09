@@ -82,7 +82,7 @@ ffprobe -version
 
 ### Step 2: Install Native Libraries (libsodium and opus)
 
-The native DLLs must be in your build output directory (e.g., `bin/Debug/net8.0/`):
+The native DLLs must be in your build output directory (e.g., `bin/Debug/net10.0/`):
 - `libsodium.dll`
 - `opus.dll`
 
@@ -257,7 +257,7 @@ If FFmpeg is not in your system PATH, specify the full path:
 Add FFmpeg and native libraries to your Dockerfile:
 
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS base
 
 # Install audio dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

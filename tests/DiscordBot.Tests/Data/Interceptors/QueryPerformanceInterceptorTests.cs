@@ -1009,67 +1009,41 @@ public class QueryPerformanceInterceptorTests
         }
     }
 
-    private static CommandExecutedEventData CreateCommandExecutedEventData(DbCommand command, double elapsedMs)
+    private static CommandExecutedEventData CreateCommandExecutedEventData(DbCommand command, double elapsedMs) =>
+        CreateEventData<CommandExecutedEventData>(command, elapsedMs, exception: null);
+
+    private static CommandErrorEventData CreateCommandErrorEventData(DbCommand command, Exception exception, double elapsedMs) =>
+        CreateEventData<CommandErrorEventData>(command, elapsedMs, exception);
+
+    /// <summary>
+    /// Builds EF Core command event data by reflection. The constructors are long and change between
+    /// EF Core releases (EF 9 and 10 added parameters), so arguments are bound by parameter name and
+    /// anything unrecognised gets its type's default rather than pinning one signature.
+    /// </summary>
+    private static T CreateEventData<T>(DbCommand command, double elapsedMs, Exception? exception)
+        where T : EventData
     {
-        // Use reflection to create the event data since the constructor signature is complex
-        var duration = TimeSpan.FromMilliseconds(elapsedMs);
+        var constructor = typeof(T)
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .OrderByDescending(c => c.GetParameters().Length)
+            .First();
 
-        // Create minimal event data using the most basic constructor parameters available
-        var eventData = (CommandExecutedEventData)Activator.CreateInstance(
-            typeof(CommandExecutedEventData),
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-            null,
-            new object?[]
+        var arguments = constructor.GetParameters()
+            .Select(parameter => parameter.Name switch
             {
-                null,  // eventDefinition
-                (Func<EventDefinitionBase, EventData, string>)((_, __) => "Test"),  // messageGenerator
-                null,  // connection
-                command,  // command
-                null,  // context
-                DbCommandMethod.ExecuteReader,  // executeMethod
-                Guid.NewGuid(),  // commandId
-                Guid.NewGuid(),  // connectionId
-                null,  // result
-                false,  // async
-                false,  // logParameterValues
-                DateTimeOffset.UtcNow,  // startTime
-                duration,  // duration
-                CommandSource.Unknown  // commandSource
-            },
-            null)!;
+                "messageGenerator" => (Func<EventDefinitionBase, EventData, string>)((_, __) => "Test"),
+                "command" => command,
+                "executeMethod" => DbCommandMethod.ExecuteReader,
+                "commandId" or "connectionId" => Guid.NewGuid(),
+                "exception" => exception,
+                "startTime" => DateTimeOffset.UtcNow,
+                "duration" => TimeSpan.FromMilliseconds(elapsedMs),
+                "commandSource" => CommandSource.Unknown,
+                _ => parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null,
+            })
+            .ToArray();
 
-        return eventData;
-    }
-
-    private static CommandErrorEventData CreateCommandErrorEventData(DbCommand command, Exception exception, double elapsedMs)
-    {
-        // Use reflection to create the event data
-        var duration = TimeSpan.FromMilliseconds(elapsedMs);
-
-        var eventData = (CommandErrorEventData)Activator.CreateInstance(
-            typeof(CommandErrorEventData),
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-            null,
-            new object?[]
-            {
-                null,  // eventDefinition
-                (Func<EventDefinitionBase, EventData, string>)((_, __) => "Test"),  // messageGenerator
-                null,  // connection
-                command,  // command
-                null,  // context
-                DbCommandMethod.ExecuteReader,  // executeMethod
-                Guid.NewGuid(),  // commandId
-                Guid.NewGuid(),  // connectionId
-                exception,  // exception
-                false,  // async
-                false,  // logParameterValues
-                DateTimeOffset.UtcNow,  // startTime
-                duration,  // duration
-                CommandSource.Unknown  // commandSource
-            },
-            null)!;
-
-        return eventData;
+        return (T)constructor.Invoke(arguments);
     }
 
     #endregion
