@@ -65,8 +65,7 @@ usually replaces five tool calls.
 Feature-level docs are in `docs/articles/` (indexed in `docs/index.md` and
 `docs/toc.yml`). Configuration is fully documented in
 `docs/articles/configuration-guide.md`, REST endpoints in
-`docs/articles/api-endpoints.md`. Domain-expert agent definitions in
-`.claude/agents/` carry the deep per-stream detail.
+`docs/articles/api-endpoints.md`.
 
 ## Build and test
 
@@ -189,9 +188,6 @@ columns throw.
   `feature-map.md` and `service-catalog.md`; a new page updates `ui-inventory.md`;
   a new options class updates `configuration-guide.md`; a new endpoint updates
   `api-endpoints.md`.
-- **Agent definitions.** When work adds services, entities, or repositories in a
-  stream, or changes its patterns, update the matching file in `.claude/agents/`
-  in the same PR. Those files are only useful while they are true.
 - **Guild, not server.** Discord's API calls them guilds; URLs, routes, and code
   do too (`/Guilds/...`, `guildId`).
 - **Small blast radius.** One concern per PR. No drive-by refactors or
