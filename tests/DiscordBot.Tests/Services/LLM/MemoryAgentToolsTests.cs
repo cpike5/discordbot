@@ -1,12 +1,11 @@
 using System.Text.Json;
-using DiscordBot.Agents;
-using DiscordBot.Agents.Abstractions;
-using DiscordBot.Agents.Contracts;
+using cpike.Agent;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.Llm;
 using DiscordBot.Infrastructure.Services.LLM.Tools;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -35,10 +34,17 @@ public class MemoryAgentToolsTests
     private static Mock<IDmAssistantNoteRepository> Notes() => new();
 
     private static SaveNoteTool SaveNote(Mock<IDmAssistantNoteRepository> notes) =>
-        new(notes.Object, Mock.Of<ILogger<SaveNoteTool>>());
+        new(notes.Object, TestRunContext.Create(UserId), Mock.Of<ILogger<SaveNoteTool>>());
 
     private static DeleteNoteTool DeleteNote(Mock<IDmAssistantNoteRepository> notes) =>
-        new(notes.Object, Mock.Of<ILogger<DeleteNoteTool>>());
+        new(notes.Object, TestRunContext.Create(UserId), Mock.Of<ILogger<DeleteNoteTool>>());
+
+    private static Task<string> Invoke(IAgentTool tool, string json) =>
+        tool.InvokeAsync(
+            JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!,
+            CancellationToken.None);
+
+    private static JsonElement Parse(string result) => Json(result);
 
     private static DmAssistantNote Note(long id, string content, string? tag = null) => new()
     {
@@ -154,7 +160,16 @@ public class MemoryAgentToolsTests
         var notes = Notes();
         var tool = AllTools(notes).Single(t => t.Definition.Name == toolName);
 
-        JsonSerializer.Serialize(tool.Definition.InputSchema).Should().Be(Compact(before));
+        // The schema as the wire writes it: type, properties, required.
+        var schema = tool.Definition.InputSchema;
+        var wire = new System.Text.Json.Nodes.JsonObject
+        {
+            ["type"] = System.Text.Json.Nodes.JsonNode.Parse(schema.Type.GetRawText()),
+            ["properties"] = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(schema.Properties)),
+            ["required"] = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(schema.Required))
+        };
+
+        wire.ToJsonString().Should().Be(Compact(before));
     }
 
     [Theory]
@@ -187,11 +202,11 @@ public class MemoryAgentToolsTests
     }
 
     [Fact]
-    public void OnlyTheWriteToolsDeclareAMutation()
+    public void OnlyTheWriteToolsRequireEdit()
     {
         var notes = Notes();
 
-        AllTools(notes).Where(t => t.Mutation is not null).Select(t => t.Definition.Name)
+        AllTools(notes).Where(t => t.Definition.RequiresEdit).Select(t => t.Definition.Name)
             .Should().BeEquivalentTo("save_note", "delete_note");
     }
 
@@ -206,12 +221,9 @@ public class MemoryAgentToolsTests
                 return note;
             });
 
-        var result = await SaveNote(notes).InvokeAsync(
-            Json("""{"content":"likes tea","tag":"preference"}"""),
-            new ToolContext { UserId = UserId, CanMutate = true });
+        var result = await Invoke(SaveNote(notes), """{"content":"likes tea","tag":"preference"}""");
 
-        result.Success.Should().BeTrue();
-        result.Data!.Value.GetProperty("note_id").GetInt64().Should().Be(11);
+        Parse(result).GetProperty("note_id").GetInt64().Should().Be(11);
         notes.Verify(r => r.AddAsync(
             It.Is<DmAssistantNote>(n =>
                 n.UserId == UserId && n.Content == "likes tea" && n.Tag == "preference"),
@@ -223,13 +235,11 @@ public class MemoryAgentToolsTests
     {
         var notes = Notes();
 
-        var result = await SaveNote(notes).InvokeAsync(
-            Json("{}"), new ToolContext { UserId = UserId, CanMutate = true });
+        var result = await Invoke(SaveNote(notes), "{}");
 
-        // A successful result carrying an explanation, countable as failed_result in the trace.
-        result.Success.Should().BeTrue();
-        result.Data!.Value.GetProperty("error").GetString().Should().Contain("content");
-        ToolOutcomes.Classify(result.Data!.Value).Should().Be(ToolOutcomes.FailedResult);
+        // A result carrying an explanation, countable as a failure in the trace.
+        Parse(result).GetProperty("error").GetString().Should().Contain("content");
+        AgentService.FailureCodeOf(result).Should().NotBeNull();
         notes.VerifyNoOtherCalls();
     }
 
@@ -238,11 +248,9 @@ public class MemoryAgentToolsTests
     {
         var notes = Notes();
 
-        var result = await SaveNote(notes).InvokeAsync(
-            Json($$"""{"content":"{{new string('x', 4097)}}"}"""),
-            new ToolContext { UserId = UserId, CanMutate = true });
+        var result = await Invoke(SaveNote(notes), $$"""{"content":"{{new string('x', 4097)}}"}""");
 
-        result.Data!.Value.GetProperty("error").GetString().Should().Contain("4096");
+        Parse(result).GetProperty("error").GetString().Should().Contain("4096");
         notes.VerifyNoOtherCalls();
     }
 
@@ -253,11 +261,10 @@ public class MemoryAgentToolsTests
         notes.Setup(r => r.SearchAsync("tea", UserId, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { Note(1, "likes tea", "preference") });
 
-        var result = await new SearchNotesTool(notes.Object).InvokeAsync(
-            Json("""{"query":"tea"}"""), new ToolContext { UserId = UserId });
+        var result = await Invoke(new SearchNotesTool(notes.Object, TestRunContext.Create(UserId)), """{"query":"tea"}""");
 
-        result.Data!.Value.GetProperty("total_results").GetInt32().Should().Be(1);
-        result.Data!.Value.GetProperty("results")[0].GetProperty("content").GetString()
+        Parse(result).GetProperty("total_results").GetInt32().Should().Be(1);
+        Parse(result).GetProperty("results")[0].GetProperty("content").GetString()
             .Should().Be("likes tea");
     }
 
@@ -268,8 +275,7 @@ public class MemoryAgentToolsTests
         notes.Setup(r => r.SearchAsync("tea", UserId, 50, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<DmAssistantNote>());
 
-        await new SearchNotesTool(notes.Object).InvokeAsync(
-            Json("""{"query":"tea","limit":9000}"""), new ToolContext { UserId = UserId });
+        await Invoke(new SearchNotesTool(notes.Object, TestRunContext.Create(UserId)), """{"query":"tea","limit":9000}""");
 
         notes.Verify(r => r.SearchAsync("tea", UserId, 50, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -282,10 +288,9 @@ public class MemoryAgentToolsTests
         notes.Setup(r => r.GetByIdAsync(7L, UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Note(7, "remembered"));
 
-        var result = await new GetNoteTool(notes.Object).InvokeAsync(
-            Json("""{"note_id":"7"}"""), new ToolContext { UserId = UserId });
+        var result = await Invoke(new GetNoteTool(notes.Object, TestRunContext.Create(UserId)), """{"note_id":"7"}""");
 
-        result.Data!.Value.GetProperty("id").GetInt64().Should().Be(7);
+        Parse(result).GetProperty("id").GetInt64().Should().Be(7);
     }
 
     [Fact]
@@ -295,12 +300,10 @@ public class MemoryAgentToolsTests
         notes.Setup(r => r.GetByIdAsync(41L, UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((DmAssistantNote?)null);
 
-        var result = await new GetNoteTool(notes.Object).InvokeAsync(
-            Json("""{"note_id":41}"""), new ToolContext { UserId = UserId });
+        var result = await Invoke(new GetNoteTool(notes.Object, TestRunContext.Create(UserId)), """{"note_id":41}""");
 
-        result.Success.Should().BeTrue();
-        result.Data!.Value.GetProperty("found").GetBoolean().Should().BeFalse();
-        ToolOutcomes.Classify(result.Data!.Value).Should().Be(ToolOutcomes.FailedResult);
+        Parse(result).GetProperty("found").GetBoolean().Should().BeFalse();
+        AgentService.FailureCodeOf(result).Should().NotBeNull();
     }
 
     [Fact]
@@ -310,10 +313,9 @@ public class MemoryAgentToolsTests
         notes.Setup(r => r.ListAsync(UserId, null, 20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { Note(1, "a note") });
 
-        var result = await new ListNotesTool(notes.Object).InvokeAsync(
-            Json("{}"), new ToolContext { UserId = UserId });
+        var result = await Invoke(new ListNotesTool(notes.Object, TestRunContext.Create(UserId)), "{}");
 
-        var payload = result.Data!.Value;
+        var payload = Parse(result);
         payload.GetProperty("total_count").GetInt32().Should().Be(1);
         // Nulls are dropped rather than serialized, so an absent filter costs no tokens.
         payload.TryGetProperty("filter_tag", out _).Should().BeFalse();
@@ -326,10 +328,9 @@ public class MemoryAgentToolsTests
         var notes = Notes();
         notes.Setup(r => r.DeleteAsync(7L, UserId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
-        var result = await DeleteNote(notes).InvokeAsync(
-            Json("""{"note_id":7}"""), new ToolContext { UserId = UserId, CanMutate = true });
+        var result = await Invoke(DeleteNote(notes), """{"note_id":7}""");
 
-        result.Data!.Value.GetProperty("success").GetBoolean().Should().BeTrue();
+        Parse(result).GetProperty("success").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -338,18 +339,17 @@ public class MemoryAgentToolsTests
         var notes = Notes();
         notes.Setup(r => r.DeleteAsync(7L, UserId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
-        var result = await DeleteNote(notes).InvokeAsync(
-            Json("""{"note_id":7}"""), new ToolContext { UserId = UserId, CanMutate = true });
+        var result = await Invoke(DeleteNote(notes), """{"note_id":7}""");
 
-        ToolOutcomes.Classify(result.Data!.Value).Should().Be(ToolOutcomes.FailedResult);
+        AgentService.FailureCodeOf(result).Should().NotBeNull();
     }
 
     private static IReadOnlyList<IAgentTool> AllTools(Mock<IDmAssistantNoteRepository> notes) => new IAgentTool[]
     {
         SaveNote(notes),
-        new SearchNotesTool(notes.Object),
-        new GetNoteTool(notes.Object),
-        new ListNotesTool(notes.Object),
+        new SearchNotesTool(notes.Object, TestRunContext.Create(UserId)),
+        new GetNoteTool(notes.Object, TestRunContext.Create(UserId)),
+        new ListNotesTool(notes.Object, TestRunContext.Create(UserId)),
         DeleteNote(notes)
     };
 }

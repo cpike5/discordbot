@@ -2,7 +2,7 @@
 
 **Status**: shipped · **Surfaces**: DM · **Category**: Memory · **Default**: on
 **Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Tools/DeleteNoteTool.cs`
-**Mutation**: `"delete notes"`
+**Requires edit**: yes (`requiresEdit: true`)
 
 ## Purpose
 
@@ -56,7 +56,7 @@ existed, one already gone, and one belonging to someone else are the same answer
 }
 ```
 
-Applied by `AgentToolProvider` before the tool runs, from the `Mutation` declaration above. The
+Applied by the agent loop (`edit_forbidden`) before the tool runs, from the `requiresEdit` declaration above. The
 refusal comes first, so a forbidden delete never half-runs.
 
 ## Notes

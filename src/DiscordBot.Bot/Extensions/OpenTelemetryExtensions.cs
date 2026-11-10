@@ -9,7 +9,6 @@ using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using DiscordBot.Agents;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -75,7 +74,8 @@ public static class OpenTelemetryExtensions
                 metrics.AddMeter(FeatureMetrics.MeterName);
                 metrics.AddMeter(AppStateMetrics.MeterName);
                 metrics.AddMeter(HealthCheckMetricsPublisher.MeterName);
-                metrics.AddMeter(AgentsMetrics.MeterName);
+                metrics.AddMeter(cpike.Agent.AgentMetrics.MeterName);
+                metrics.AddMeter(cpike.Agent.OpenRouter.OpenRouterMetrics.MeterName);
                 metrics.AddMeter(FrameworkMeters);
 
                 // Observable gauges exist only once their class is constructed, and nothing else
@@ -290,7 +290,8 @@ public static class OpenTelemetryExtensions
                 // Add custom activity sources
                 tracing.AddSource(BotActivitySource.SourceName);
                 tracing.AddSource("DiscordBot.Infrastructure");
-                tracing.AddSource(AgentsActivitySource.SourceName);
+                tracing.AddSource(cpike.Agent.AgentTelemetry.ActivitySourceName);
+                tracing.AddSource(cpike.Agent.OpenRouter.OpenRouterTelemetry.ActivitySourceName);
                 tracing.AddSource("DiscordBot.Vox");
 
                 // Add ASP.NET Core instrumentation for HTTP requests

@@ -670,12 +670,12 @@ Owner-only DM assistant with multi-turn conversation history.
 | Aspect | Components |
 |--------|------------|
 | **Discord Entry Point** | `DmAssistantMessageHandler` — handles incoming DM messages, routes to `IDmAssistantService` |
-| **Services** | `IDmAssistantService`, `IAgentRunner`, `ILlmClient` (`OpenRouterLlmClient` — OpenAI-compatible chat completions via an owned typed `HttpClient`, no LLM SDK), `IToolRegistry` |
-| **Tool Providers** | `IDmToolProvider` implementations: `DmAnalyticsToolProvider`, `DmModerationToolProvider`, `DmDocumentationToolProvider`, `ConversationToolProvider`, `WebFetchToolProvider`, `CodeExecutionToolProvider`, plus `DmAgentToolProvider` — the one adapter over individually authored `IAgentTool`s (the memory tools) |
+| **Services** | `IDmAssistantService`, `IAssistantMessagePipeline` (runs the exchange on the cpike.Agent `AgentService`; model client is the framework's `IOpenRouterClient`, no LLM SDK), `DmAssistantContext` (an `IAssistantContext`: mode `dm`, caller, budgets, history) |
+| **Tools** | One `IAgentTool` class per tool in `Infrastructure/Services/LLM/Tools/` and `Bot/Services/LLM/Tools/`, routed to the DM surface by `ToolCatalog` (analytics, moderation, documentation, memory notes, `fetch_url`, `execute_python`, `clear_conversation`). `execute_python` is disabled when `DmAssistant:EnableCodeExecution` is false |
 | **Database Entities** | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` |
-| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `openrouter/auto`; `SkillsPath`, default `docs/agents/skills/dm`, blank disables skills for this surface), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries) |
-| **Agent Prompt** | `docs/agents/dm-owner-agent.md` |
-| **Skills** | `docs/agents/skills/dm/` — `moderation.md` (`get_moderation_cases`, `get_user_mod_history`, `search_audit_logs`) and `analytics.md` (`get_server_activity_summary`, `get_command_analytics`). Those five tools are held back from the advertised tool array until the model calls `load_skill`; everything else the surface offers is advertised as before. Engine types: `AgentSkill`, `SkillFile`, `SkillLibrary`/`ISkillLibrary`, `SkillSession`/`ISkillActivationState`, `SkillToolSet`, `SkillRoster` (`DiscordBot.Agents`). Host side: `SkillSessionFactory`/`ISkillSessionFactory`, `DmSkillActivationStore`/`IDmSkillActivationStore`, `LoadSkillTool` (Infrastructure), plus the `load_skill` catalogue entry (category **Skills**, both scopes, on by default). Mechanism in [patterns.md § Agent Skills](patterns.md#agent-skills); file format in [`docs/agents/skills/README.md`](../agents/skills/README.md) |
+| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `openrouter/auto`; `MaxTokens` is the per-run output ceiling), `OpenRouter` section (the framework's `OpenRouterOptions`: API key, `Model`, `Timeout`), `Agent` and `Prompts` sections |
+| **Agent Prompt** | `docs/agents/prompts/dm.md` (mode `dm`, over the empty base persona `bot.md`) |
+| **Skills** | `docs/agents/prompts/skills/dm/` — `moderation.md` (`get_moderation_cases`, `get_user_mod_history`, `search_audit_logs`) and `analytics.md` (`get_server_activity_summary`, `get_command_analytics`), named on `dm.md`'s `skills:` line. `CatalogPromptStore` withholds those five tools until the model calls the framework's built-in `load_skill`; everything else the surface offers is advertised as before. Loaded keys persist across turns in `IDmSkillActivationStore` and return as `AgentRunRequest.PreloadedSkills`. Mechanism in [patterns.md § Agent Skills](patterns.md#agent-skills); file format in [`docs/agents/README.md`](../agents/README.md) |
 | **Key Features** | Owner-only access (Discord API check), sliding-window conversation history, response chunking (split / `.md` attachment) |
 | **Access Control** | Owner identified via `GetApplicationInfoAsync()`. Non-owners receive placeholder response. |
 
@@ -683,18 +683,17 @@ Owner-only DM assistant with multi-turn conversation history.
 ```
 Owner DMs bot →
   DmAssistantMessageHandler →
-  DmAssistantService (history load + LLM call) →
-  AgentRunner (agentic loop, tool calls via IToolRegistry) →
+  DmAssistantService (history load + pipeline call) →
+  AssistantMessagePipeline (cpike.Agent AgentService loop, tools from the catalogue) →
   Response chunked and sent via DmAssistantMessageHandler
 ```
 
 **Preconditions**: Owner check via Discord API. `DmAssistant__Enabled=true` required in configuration.
 
-Skills are the multi-turn surface's payoff: `DmAssistantContextFactory` replays the previous
-turn's activations, so a skill costs one round on the turn that loads it and nothing afterwards.
-The guild assistant reads the same mechanism from `Assistant:Tools:SkillsPath`
-(default `docs/agents/skills/guild`), but it is single-turn, so `docs/agents/skills/guild/` ships
-empty rather than making a skill cost a round on every question.
+Skills are the multi-turn surface's payoff: the stored activations are preloaded into the next
+turn, so a skill costs one round on the turn that loads it and nothing afterwards. The guild
+assistant is single-turn and ships no skills, rather than making a skill cost a round on every
+question.
 
 ---
 
@@ -724,14 +723,14 @@ gates which models the assistant, DM assistant, and feature-request modes may us
 `Enums/LlmMode.cs`) name the three places a model slug is picked and the setting key each maps to.
 `ILlmModelResolver.ResolveAsync(LlmMode)` is the single resolution path: a DB setting row (saved
 through the AI Models tab) wins over the bound `IOptions<T>` value, which wins over
-`OpenRouterOptions.DefaultModel` as the last resort. Results are cached per mode in
+`OpenRouter:Model` (falling back to the legacy `OpenRouter:DefaultModel`) as the last resort. Results are cached per mode in
 `LlmModelResolver` (singleton) and the cache is cleared when `ISettingsService.SettingsChanged`
 reports one of the three setting keys, so an admin's save takes effect on the next message with no
 restart.
 
 | Aspect | Components |
 |--------|------------|
-| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync`, `FeatureRequestConversationService.RunAgentAsync` (all resolve per call/message), `LlmModelsController.GetDefaults` |
+| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync`, `FeatureRequestAssistantContext` (all resolve per call/message), `LlmModelsController.GetDefaults` |
 | **Save-time validation** | `SettingsSectionService.ValidateAiModelSelectionsAsync` rejects a submitted slug that is not in the catalog, not `IsEnabled`, or not `SupportsTools`, before the value ever reaches the DB |
 | **Cost fallback** | `ResolveAsync` also returns `LlmCatalogPricing` when the catalog reports a price for the slug; `GuildAssistantContext`/`DmAssistantContext.CostRates` prefer it over the configured per-million rates (billed `usage.cost` still wins over either) |
 | **AI Models tab** | `SettingsViewModel.AiModelsSettings` (loaded by `SettingsSectionService.LoadViewModelAsync`) carries the three mode `SettingDto`s with `AllowedValues` post-processed to the enabled catalog slugs (plus the current value if not among them), for a `<select>` |
@@ -766,12 +765,12 @@ whether the model actually uses them well. Design in
 
 | Aspect | Components |
 |--------|------------|
-| **Prompt-surface measurement** | `PromptSurface` / `PromptSurfaceMeasurement` / `PromptSurfaceTool` (`DiscordBot.Agents`) — per-tool characters through the real wire serialization (`OpenRouterMessageMapper` + `OpenRouterJson.Options`), the array total, and tokens as characters ÷ 4 |
-| **Reporter** | `IPromptSurfaceReporter` (`Infrastructure/Abstractions/LLM`) / `PromptSurfaceReporter` (`Infrastructure/Services/LLM`) — rebuilds a surface as a run sees it (allow-list decorator, skill session, `SkillToolSet.Compose`), so it counts the per-request prefix rather than everything the registry holds. Registered ungated; returns null when no API key is configured |
+| **Prompt-surface measurement** | `PromptSurfaceReporter` measures a surface on the framework's prompt store and tools — per-tool characters as serialized for the request, the array total, and tokens as characters ÷ 4 |
+| **Reporter** | `IPromptSurfaceReporter` (`Infrastructure/Abstractions/LLM`) / `PromptSurfaceReporter` (`Infrastructure/Services/LLM`) — rebuilds a surface as a run sees it (catalogue-filled tool list, skills withheld, per-guild disabled tools), so it counts the per-request prefix rather than everything registered. Registered ungated; returns null when no API key is configured |
 | **Startup report** | `PromptSurfaceReportService` (`Bot/Services/LLM`) — one Information line per surface: tools advertised of tools registered, schema characters, estimated tokens, characters held back by skills, and the three largest tools |
 | **Web page** | `/Guilds/AssistantMetrics/{guildId}` gains a **Prompt Surface** panel: four summary tiles and a per-tool table with each tool's share of the prefix, marking the ones this guild turned off and the ones a skill is holding back |
 | **Per-tool specs** | `docs/tools/<tool_name>.md` — status, surfaces, purpose, dependencies, the verbatim model-facing description, an input table, and every result shape with its `failed_result` marker. Template and index in [`docs/tools/README.md`](../tools/README.md). Written when a tool is touched |
-| **Contract test** | `ToolContractTests` (`tests/DiscordBot.Tests/Services/LLM/`) over every registered tool, found by reflection (`TestHelpers/RegisteredAgentTools`): name shape and uniqueness, description length, object schema with described properties and resolvable `required` names, a `ToolCatalog` entry both ways, the `Mutation` refusal through the real `AgentToolProvider`, and a missing argument classified `failed_result`. `SkillContractTests` checks every skill file's named tools resolve on its own surface |
+| **Contract test** | `ToolContractTests` (`tests/DiscordBot.Tests/Services/LLM/`) over every registered tool, found by reflection (`TestHelpers/RegisteredAgentTools`): name shape and uniqueness, description length, object schema with described properties and resolvable `required` names, a `ToolCatalog` entry both ways, `RequiresEdit` on tools that change data, and a missing argument counted as a failure by `AgentService.FailureCodeOf`. `SkillContractTests` checks every skill file's named tools resolve on its own surface |
 | **Evals** | `tests/DiscordBot.Evals` — a dozen cases through the real loop, the real OpenRouter client and the real tools over throwaway SQLite. Asserts only machine-checkable facts (which tools were called, which skills activated, what rows exist), never what the reply says. Skipped when `OpenRouter:ApiKey` is absent, so CI stays free and green |
 | **Key Rule** | Every count is of what a surface **advertises** — the skill-aware set — not of `IToolRegistry.GetEnabledTools()`. A tool behind an unloaded skill is registered, callable once the skill loads, and not in the prefix now |
 

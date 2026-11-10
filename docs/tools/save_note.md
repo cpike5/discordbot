@@ -2,7 +2,7 @@
 
 **Status**: shipped · **Surfaces**: DM · **Category**: Memory · **Default**: on
 **Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Tools/SaveNoteTool.cs`
-**Mutation**: `"save notes"`
+**Requires edit**: yes (`requiresEdit: true`)
 
 ## Purpose
 
@@ -64,8 +64,9 @@ The model can act on this one: shorten it and try again.
 }
 ```
 
-Returned by `AgentToolProvider` **before the tool is entered**, when `ToolContext.CanMutate` is
-false. The tool itself has no check and needs none: declaring `Mutation` is the guard.
+Returned by the agent loop (code `edit_forbidden`) **before the tool is entered**, when the caller may
+not edit. The tool itself has no check and needs none: declaring `requiresEdit` is the guard. The
+exact wording of the refusal is the framework's; the payload above is the pre-migration shape.
 
 ## Notes
 

@@ -1,26 +1,34 @@
-using DiscordBot.Agents.Contracts;
+using cpike.Agent;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
-using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
-using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 
 /// <summary>
-/// Shared implementation of <see cref="IAssistantMessagePipeline"/>. Builds the
-/// <see cref="AgentContext"/> from an <see cref="IAssistantContext"/>, runs the agentic loop,
-/// prices the resulting token usage, and truncates the response — identically for the guild
-/// and DM assistants.
+/// Shared implementation of <see cref="IAssistantMessagePipeline"/>. Runs one exchange on the
+/// cpike.Agent loop (<see cref="AgentService"/>) in its own DI scope, seeded with the Discord caller,
+/// then prices the token usage and truncates the response, identically for every assistant scope.
 /// </summary>
+/// <remarks>
+/// The run gets its own scope because <see cref="AgentRunScope"/>, the tools and their scoped
+/// dependencies are per run: a tool reads the caller from <see cref="DiscordRunContext"/>, a live
+/// view over that scope, and the pipeline reads back what the tools set on it (a cleared
+/// conversation) after the run.
+/// </remarks>
 public class AssistantMessagePipeline : IAssistantMessagePipeline
 {
-    private readonly IAgentRunner _agentRunner;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<AssistantMessagePipeline> _logger;
 
-    public AssistantMessagePipeline(IAgentRunner agentRunner)
+    public AssistantMessagePipeline(IServiceScopeFactory scopeFactory, ILogger<AssistantMessagePipeline> logger)
     {
-        _agentRunner = agentRunner ?? throw new ArgumentNullException(nameof(agentRunner));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc />
@@ -31,91 +39,129 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var systemPrompt = await context.BuildSystemPromptAsync(cancellationToken);
+        var parts = await context.BuildPartsAsync(cancellationToken);
 
-        var agentContext = new AgentContext
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        services.GetRequiredService<TurnScopeSeeder>().Seed(DiscordRunContext.Seed(context.Identity, context.ModeKey));
+        var run = services.GetRequiredService<DiscordRunContext>();
+        var agent = services.GetRequiredService<AgentService>();
+
+        var request = new AgentRunRequest
         {
-            SystemPrompt = systemPrompt,
-            ToolRegistry = context.ToolRegistry,
-            ExecutionContext = context.ExecutionContext,
+            Prompt = userMessage,
+            Mode = context.ModeKey,
+            History = context.History,
+            Parts = parts,
             Model = context.Model,
-            MaxTokens = context.MaxTokens,
-            Temperature = context.Temperature,
-            MaxToolCallIterations = context.MaxToolCallIterations,
+            MaxToolRounds = context.MaxToolCallIterations,
             MaxToolResultChars = context.MaxToolResultChars,
-            ToolExecutionTimeoutMs = context.ToolExecutionTimeoutMs,
-            DuplicateToolCallLimit = context.DuplicateToolCallLimit,
-            ConversationHistory = context.ConversationHistory.Count > 0 ? context.ConversationHistory : null,
-            Skills = context.Skills,
-            RunKind = context.Mode.ToString()
+            MaxOutputTokens = context.MaxTokens,
+            DisabledTools = context.DisabledTools,
+            PreloadedSkills = context.PreloadedSkills,
+            // The assistants have no web search; the DM assistant fetches pages with fetch_url.
+            WebSearchEnabled = false,
         };
 
-        var agentResult = await _agentRunner.RunAsync(userMessage, agentContext, cancellationToken);
+        AgentResult agentResult;
+        try
+        {
+            agentResult = await agent.RunAsync(request, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // A failed run is a result, not an exception, for the callers: they post the configured
+            // error message and record a failed usage row.
+            _logger.LogError(ex, "Assistant run failed for {Mode}", context.ModeKey);
+            return Failed(context, ex.Message);
+        }
 
-        var cost = CalculateCost(agentResult.TotalUsage, context.CostRates);
-        var resolvedModel = agentResult.Model ?? context.Model ?? "unknown";
+        var billed = agentResult.CostUsd;
+        var cost = billed ?? EstimateCost(agentResult, context.CostRates);
+        var resolvedModel = string.IsNullOrEmpty(agentResult.Model) ? context.Model ?? "unknown" : agentResult.Model;
+        var inputTokens = ToInt(agentResult.InputTokens);
+        var outputTokens = ToInt(agentResult.OutputTokens);
+        var cachedTokens = ToInt(agentResult.CacheReadTokens);
+        var cacheWriteTokens = ToInt(agentResult.CacheWriteTokens);
 
         var usageRecord = new LlmUsageRecord
         {
             Timestamp = DateTime.UtcNow,
             Mode = context.Mode,
-            UserId = context.ExecutionContext.UserId,
-            GuildId = context.ExecutionContext.GuildId,
+            UserId = context.Identity.UserId,
+            GuildId = context.Identity.GuildId,
             Model = resolvedModel,
-            InputTokens = agentResult.TotalUsage.InputTokens,
-            OutputTokens = agentResult.TotalUsage.OutputTokens,
-            CachedTokens = agentResult.TotalUsage.CachedTokens,
-            CacheWriteTokens = agentResult.TotalUsage.CacheWriteTokens,
-            LlmCalls = agentResult.LoopCount,
-            ToolCalls = agentResult.TotalToolCalls,
+            InputTokens = inputTokens,
+            OutputTokens = outputTokens,
+            CachedTokens = cachedTokens,
+            CacheWriteTokens = cacheWriteTokens,
+            LlmCalls = agentResult.Iterations,
+            ToolCalls = agentResult.ToolCalls,
             CostUsd = cost,
-            CostSource = agentResult.TotalUsage.EstimatedCost.HasValue ? LlmCostSource.Billed : LlmCostSource.Estimated,
-            Success = agentResult.Success
+            CostSource = billed.HasValue ? LlmCostSource.Billed : LlmCostSource.Estimated,
+            Success = true
             // LatencyMs is filled in by the caller once the stopwatch stops; InteractionLogId is
             // filled in by the context after its own AddAsync.
         };
 
         return new AssistantPipelineResult
         {
-            Success = agentResult.Success,
-            Response = agentResult.Success ? Truncate(agentResult.Response, context.MaxResponseLength, context.TruncationSuffix) : null,
-            ErrorMessage = agentResult.ErrorMessage,
-            InputTokens = agentResult.TotalUsage.InputTokens,
-            OutputTokens = agentResult.TotalUsage.OutputTokens,
-            CachedTokens = agentResult.TotalUsage.CachedTokens,
-            CacheCreationTokens = agentResult.TotalUsage.CacheWriteTokens,
-            CacheHit = agentResult.TotalUsage.CachedTokens > 0,
-            ToolCalls = agentResult.TotalToolCalls,
-            LoopCount = agentResult.LoopCount,
-            ToolNames = agentResult.ToolNames,
-            ConversationCleared = agentResult.ConversationCleared,
+            Success = true,
+            Response = Truncate(agentResult.Response, context.MaxResponseLength, context.TruncationSuffix),
+            InputTokens = inputTokens,
+            OutputTokens = outputTokens,
+            CachedTokens = cachedTokens,
+            CacheCreationTokens = cacheWriteTokens,
+            CacheHit = cachedTokens > 0,
+            ToolCalls = agentResult.ToolCalls,
+            LoopCount = agentResult.Iterations,
+            ToolNames = agentResult.ToolCallDetails.Select(call => call.Name).ToList(),
+            ConversationCleared = run.ConversationCleared,
             StoppedOnMaxIterations = agentResult.StoppedOnMaxIterations,
+            LoadedSkills = agentResult.LoadedSkills?.ToList() ?? new List<string>(),
             EstimatedCostUsd = cost,
             Model = resolvedModel,
             UsageRecord = usageRecord
         };
     }
 
-    /// <summary>
-    /// Cost of a run in USD. OpenRouter reports what it actually billed, so that figure wins when
-    /// present; the configured per-million rates are the fallback for a response that carried no
-    /// cost (a BYOK call, or a provider that doesn't report one). A null cost means "not reported",
-    /// never zero.
-    /// </summary>
-    private static decimal CalculateCost(LlmUsage usage, AssistantCostRates rates)
+    private static AssistantPipelineResult Failed(IAssistantContext context, string error) => new()
     {
-        if (usage.EstimatedCost.HasValue)
+        Success = false,
+        ErrorMessage = error,
+        Model = context.Model,
+        UsageRecord = new LlmUsageRecord
         {
-            return usage.EstimatedCost.Value;
+            Timestamp = DateTime.UtcNow,
+            Mode = context.Mode,
+            UserId = context.Identity.UserId,
+            GuildId = context.Identity.GuildId,
+            Model = context.Model ?? "unknown",
+            CostUsd = 0m,
+            CostSource = LlmCostSource.Estimated,
+            Success = false
         }
+    };
 
-        var inputCost = usage.InputTokens * rates.InputPerMillion / 1_000_000m;
-        var outputCost = usage.OutputTokens * rates.OutputPerMillion / 1_000_000m;
-        var cachedCost = usage.CachedTokens * rates.CachedPerMillion / 1_000_000m;
-        var cacheWriteCost = usage.CacheWriteTokens * rates.CacheWritePerMillion / 1_000_000m;
+    /// <summary>
+    /// Cost from the configured per-million rates, for a run whose provider reported no billed cost
+    /// (a BYOK call, or a provider that doesn't report one).
+    /// </summary>
+    private static decimal EstimateCost(AgentResult result, AssistantCostRates rates)
+    {
+        var inputCost = result.InputTokens * rates.InputPerMillion / 1_000_000m;
+        var outputCost = result.OutputTokens * rates.OutputPerMillion / 1_000_000m;
+        var cachedCost = result.CacheReadTokens * rates.CachedPerMillion / 1_000_000m;
+        var cacheWriteCost = result.CacheWriteTokens * rates.CacheWritePerMillion / 1_000_000m;
 
         return inputCost + outputCost + cachedCost + cacheWriteCost;
     }
+
+    private static int ToInt(long value) => value > int.MaxValue ? int.MaxValue : (int)value;
 
     private static string Truncate(string response, int maxLength, string suffix)
     {

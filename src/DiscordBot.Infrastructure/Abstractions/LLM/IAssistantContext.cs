@@ -1,20 +1,22 @@
-using DiscordBot.Agents.Abstractions;
-using DiscordBot.Agents.Contracts;
-using DiscordBot.Core.Enums;
+using cpike.Agent;
 using DiscordBot.Core.DTOs.Llm.Reporting;
-using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Core.Enums;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
 
 namespace DiscordBot.Infrastructure.Abstractions.LLM;
 
 /// <summary>
 /// Scope-specific bits of one assistant message exchange, supplied to the
-/// <see cref="IAssistantMessagePipeline"/> so it can run the shared agentic flow
-/// (build agent context, invoke the agent runner, price usage, truncate the response)
-/// identically for the guild assistant and the DM assistant.
+/// <see cref="IAssistantMessagePipeline"/> so it can run the shared agentic flow (seed the run's
+/// scope, run the cpike.Agent loop, price usage, truncate the response) identically for the guild
+/// assistant, the DM assistant and the feature-request agent.
 /// </summary>
 /// <remarks>
 /// Implementations: <c>GuildAssistantContext</c> (guild-scoped, rate limited, no conversation
-/// history) and <c>DmAssistantContext</c> (owner-scoped, unlimited, sliding-window history).
+/// history), <c>DmAssistantContext</c> (owner-scoped, unlimited, sliding-window history and sticky
+/// skills) and <c>FeatureRequestAssistantContext</c> (one requirements-gathering conversation).
+/// The prompt and tool set come from the mode named by <see cref="ModeKey"/>; see
+/// <c>CatalogPromptStore</c>.
 /// </remarks>
 public interface IAssistantContext
 {
@@ -35,58 +37,63 @@ public interface IAssistantContext
     /// </summary>
     int? RateLimit { get; }
 
+    /// <summary>The rate-limit window in minutes.</summary>
     int RateLimitWindowMinutes { get; }
 
+    /// <summary>The OpenRouter model slug to run on, or null for the framework's default.</summary>
     string? Model { get; }
 
     /// <summary>Which <see cref="LlmMode"/> this context belongs to, for the usage ledger.</summary>
     LlmMode Mode { get; }
 
+    /// <summary>
+    /// The framework mode the run uses: the prompt file under <c>docs/agents/</c> and the
+    /// <c>ToolCatalog</c> surface that sets its tools (<c>guild</c>, <c>dm</c>, <c>feature-requests</c>).
+    /// </summary>
+    string ModeKey { get; }
+
+    /// <summary>The caller and where they are, seeded into the run's scope for the tools.</summary>
+    DiscordRunIdentity Identity { get; }
+
+    /// <summary>The per-call output ceiling in tokens.</summary>
     int MaxTokens { get; }
-    double Temperature { get; }
+
+    /// <summary>The most model calls the run may make.</summary>
     int MaxToolCallIterations { get; }
 
-    /// <summary>
-    /// Ceiling in characters on one tool result entering conversation history; 0 disables the cap.
-    /// </summary>
+    /// <summary>Ceiling in characters on one tool result entering conversation history; 0 disables the cap.</summary>
     int MaxToolResultChars { get; }
 
-    /// <summary>Deadline for a single tool execution in milliseconds; 0 disables it.</summary>
-    int ToolExecutionTimeoutMs { get; }
-
     /// <summary>
-    /// How many identical calls to one tool a run allows before refusing further ones; 0 disables
-    /// the guard.
+    /// Tools the mode offers that this exchange may not use, such as a guild's disabled tools. A
+    /// disabled tool is neither advertised nor executable.
     /// </summary>
-    int DuplicateToolCallLimit { get; }
+    IReadOnlyCollection<string> DisabledTools { get; }
 
-    IToolRegistry? ToolRegistry { get; }
-    ToolContext ExecutionContext { get; }
+    /// <summary>Skills loaded on an earlier turn, offered already loaded on this one.</summary>
+    IReadOnlyCollection<string> PreloadedSkills { get; }
 
-    /// <summary>
-    /// The skills this exchange may load, or null when the scope has none.
-    /// </summary>
-    /// <remarks>
-    /// Defaulted rather than required, because a context that knows nothing about skills is a
-    /// perfectly good context and there are several of them in the tests. A scope that wants skills
-    /// builds a <c>SkillSession</c> in its factory, puts it here <em>and</em> on
-    /// <c>ExecutionContext</c> (where the loader tool reads it), and appends
-    /// <c>SkillRoster</c>'s block to its system prompt.
-    /// </remarks>
-    ISkillActivationState? Skills => null;
+    /// <summary>Prior turns to seed the agent with, oldest first, or empty when the scope has no history.</summary>
+    IReadOnlyList<ConversationTurn> History { get; }
 
-    /// <summary>Prior turns to seed the agent with, or an empty list when the scope has no history.</summary>
-    List<LlmMessage> ConversationHistory { get; }
-
+    /// <summary>Rates used to estimate cost when the provider reports none.</summary>
     AssistantCostRates CostRates { get; }
+
+    /// <summary>The longest reply sent back; longer replies are cut and get <see cref="TruncationSuffix"/>.</summary>
     int MaxResponseLength { get; }
+
+    /// <summary>Appended to a reply cut at <see cref="MaxResponseLength"/>.</summary>
     string TruncationSuffix { get; }
 
-    Task<string> BuildSystemPromptAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Per-turn prompt content: facts that change from turn to turn (the guild a message came from)
+    /// go in <see cref="PromptPlacement.TurnContext"/> so they never break the cached system prompt.
+    /// </summary>
+    Task<IReadOnlyList<PromptPart>> BuildPartsAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Formats the raw user message for the agent (e.g. the guild context prepends guild id/name;
-    /// the DM context returns the message unchanged).
+    /// Formats the raw user message for the agent. Every current scope returns it unchanged; the
+    /// guild's id and name now travel as a turn-context part.
     /// </summary>
     Task<string> FormatUserMessageAsync(string rawMessage, CancellationToken cancellationToken);
 

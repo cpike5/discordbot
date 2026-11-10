@@ -2,7 +2,7 @@
 
 **Status**: shipped · **Surfaces**: DM · **Category**: Memory · **Default**: on
 **Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Tools/ListNotesTool.cs`
-**Mutation**: read-only
+**Requires edit**: no
 
 ## Purpose
 

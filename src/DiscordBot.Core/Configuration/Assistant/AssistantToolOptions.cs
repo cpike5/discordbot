@@ -47,6 +47,7 @@ public class AssistantToolOptions
     /// Raised from 5000: that was tight for a documentation read plus a database round trip on a
     /// cold SQLite file, and the deadline was not actually enforced until it was.
     /// </remarks>
+    // Since the move to cpike.Agent, read only as the default for Agent:ToolTimeoutSeconds when that is not set.
     public int ToolExecutionTimeoutMs { get; set; } = 10000;
 
     /// <summary>
@@ -65,6 +66,7 @@ public class AssistantToolOptions
     /// run before further identical calls are refused without executing the tool.
     /// Default is 3. 0 disables the guard.
     /// </summary>
+    // Since the move to cpike.Agent, read only as the default for Agent:DuplicateToolCallLimit when that is not set.
     public int DuplicateToolCallLimit { get; set; } = 3;
 
     /// <summary>
@@ -72,6 +74,7 @@ public class AssistantToolOptions
     /// Supports placeholders: {GUILD_ID}, {BASE_URL}
     /// Default is "docs/agents/assistant-agent.md".
     /// </summary>
+    // Not read by the assistant since the move to cpike.Agent: the guild prompt is the "guild" mode, docs/agents/prompts/guild.md (Prompts:Directory).
     public string AgentPromptPath { get; set; } = "docs/agents/assistant-agent.md";
 
     /// <summary>
@@ -91,6 +94,7 @@ public class AssistantToolOptions
     /// empty for that reason; the DM assistant is where skills pay for themselves.
     /// </para>
     /// </remarks>
+    // Not read by the assistant since the move to cpike.Agent: skills come from Prompts:SkillsDirectory, and a mode names its own.
     public string SkillsPath { get; set; } = "docs/agents/skills/guild";
 
     /// <summary>

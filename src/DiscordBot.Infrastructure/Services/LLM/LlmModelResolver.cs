@@ -1,16 +1,14 @@
+using cpike.Agent.OpenRouter;
 using System.Collections.Concurrent;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DiscordBot.Core.DTOs.Llm.Reporting;
-using DiscordBot.Agents.Configuration;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 
@@ -105,10 +103,10 @@ public class LlmModelResolver : ILlmModelResolver, IDisposable
         var configuredSlug = GetConfiguredSlug(mode);
 
         // The "configured" slug regardless of a DB override: the bound options value, or the
-        // last-resort OpenRouter:DefaultModel fallback when nothing is configured. Computed up
+        // last-resort OpenRouter:Model fallback when nothing is configured. Computed up
         // front so it is populated on LlmResolvedModel even when a DB row wins below.
         var effectiveConfiguredSlug = string.IsNullOrWhiteSpace(configuredSlug)
-            ? _openRouterOptions.Value.DefaultModel
+            ? _openRouterOptions.Value.Model
             : configuredSlug;
 
         string slug;
@@ -127,7 +125,7 @@ public class LlmModelResolver : ILlmModelResolver, IDisposable
         }
         else
         {
-            slug = _openRouterOptions.Value.DefaultModel;
+            slug = _openRouterOptions.Value.Model;
             source = LlmModelResolutionSource.Fallback;
         }
 

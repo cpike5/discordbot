@@ -1,6 +1,6 @@
+using cpike.Agent.OpenRouter;
 using System.Net;
 using System.Text;
-using DiscordBot.Agents.OpenRouter;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using DiscordBot.Infrastructure.Services.LLM.OpenRouter;

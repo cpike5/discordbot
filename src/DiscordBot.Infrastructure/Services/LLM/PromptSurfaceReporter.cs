@@ -1,6 +1,6 @@
-using DiscordBot.Agents;
-using DiscordBot.Agents.Abstractions;
-using DiscordBot.Agents.Contracts;
+using System.Text.Json;
+using cpike.Agent;
+using cpike.Agent.Prompting;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
@@ -15,49 +15,44 @@ namespace DiscordBot.Infrastructure.Services.LLM;
 /// <inheritdoc cref="IPromptSurfaceReporter" />
 /// <remarks>
 /// <para>
-/// This rebuilds a surface exactly as a run would see it — the same registry, the same allow-list
-/// decorator, the same skill session, the same <see cref="SkillToolSet.Compose"/> — because a
-/// measurement of anything else would answer a question nobody asked. In particular it does not
-/// measure <see cref="IToolRegistry.GetEnabledTools"/>: a tool behind a skill is registered, is
-/// callable once the skill is loaded, and is <em>not</em> in the per-request prefix.
+/// This measures a surface as a run would see it: the mode's tool list (<see cref="CatalogPromptStore"/>
+/// builds it from <see cref="ToolCatalog"/>, without the tools that only a skill brings), minus a
+/// guild's disabled tools, each measured as the wire definition the framework sends. A tool behind a
+/// skill is registered and callable once the skill is loaded, and is <em>not</em> in the per-request
+/// prefix, so it is reported as withheld.
 /// </para>
 /// <para>
-/// The tool registries are resolved from the container rather than injected, which is otherwise not
-/// how anything here is written, for two reasons. <c>IToolRegistry</c> and
-/// <c>ISkillSessionFactory</c> are registered only when an OpenRouter API key is configured, while
-/// this service is registered unconditionally so the metrics page can render a plain "not
-/// configured" panel instead of failing to resolve — absence is one of its answers. And each surface
-/// is built only when that surface is asked about: a guild's metrics page should not construct every
-/// DM tool provider to draw a guild's panel.
+/// The framework services are resolved from the container rather than injected, because they are
+/// registered only when an OpenRouter API key is configured, while this service is registered
+/// unconditionally so the metrics page can render a plain "not configured" panel instead of failing
+/// to resolve — absence is one of its answers.
 /// </para>
 /// </remarks>
 public sealed class PromptSurfaceReporter : IPromptSurfaceReporter
 {
+    private static readonly JsonSerializerOptions WireJson = new() { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+
     private readonly IServiceProvider _services;
     private readonly IToolAccessResolver _toolAccess;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly AssistantOptions _assistantOptions;
     private readonly DmAssistantOptions _dmOptions;
     private readonly ILogger<PromptSurfaceReporter> _logger;
 
     /// <summary>Creates the reporter.</summary>
-    /// <param name="services">Resolves each surface's registry on demand; see the type's remarks.</param>
+    /// <param name="services">Resolves the framework's stores and tools on demand; see the type's remarks.</param>
     /// <param name="toolAccess">Resolves a guild's tool allow-list.</param>
-    /// <param name="loggerFactory">Builds the logger the composed DM registry needs.</param>
-    /// <param name="assistantOptions">Guild assistant options: skills path, tool gate.</param>
-    /// <param name="dmOptions">DM assistant options: skills path.</param>
+    /// <param name="assistantOptions">Guild assistant options: the tool gate.</param>
+    /// <param name="dmOptions">DM assistant options: the code-execution switch.</param>
     /// <param name="logger">This service's own logger.</param>
     public PromptSurfaceReporter(
         IServiceProvider services,
         IToolAccessResolver toolAccess,
-        ILoggerFactory loggerFactory,
         IOptions<AssistantOptions> assistantOptions,
         IOptions<DmAssistantOptions> dmOptions,
         ILogger<PromptSurfaceReporter> logger)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _toolAccess = toolAccess ?? throw new ArgumentNullException(nameof(toolAccess));
-        _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
         _assistantOptions = assistantOptions?.Value ?? throw new ArgumentNullException(nameof(assistantOptions));
         _dmOptions = dmOptions?.Value ?? throw new ArgumentNullException(nameof(dmOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -69,101 +64,73 @@ public sealed class PromptSurfaceReporter : IPromptSurfaceReporter
         ulong? guildId = null,
         CancellationToken cancellationToken = default)
     {
-        // The skill session factory is registered in the same API-key-gated block as every other
-        // assistant service, so its absence is the cheapest honest test for "there is no assistant".
-        var skillSessions = _services.GetService<ISkillSessionFactory>();
-
-        if (skillSessions is null)
+        // The prompt store is registered in the same API-key-gated block as every other assistant
+        // service, so its absence is the cheapest honest test for "there is no assistant".
+        var prompts = _services.GetService<IAgentPromptStore>();
+        if (prompts is null)
         {
             return null;
         }
 
-        return scope switch
+        var tools = _services.GetServices<IAgentTool>().ToList();
+        var skills = _services.GetService<IAgentSkillStore>();
+
+        switch (scope)
         {
-            ToolScopes.Guild => await GuildReportAsync(skillSessions, guildId, cancellationToken),
-            ToolScopes.Dm => await DmReportAsync(skillSessions, cancellationToken),
-            _ => null
-        };
+            case ToolScopes.Guild:
+                var disabled = await GuildDisabledToolsAsync(guildId, cancellationToken);
+                return Build(scope, "Guild assistant", guildId, GuildAssistantContext.ModeName, disabled, prompts, skills, tools);
+            case ToolScopes.Dm:
+                return Build(scope, "DM assistant", guildId: null, DmAssistantContext.ModeName, DmAssistantContext.DisabledToolsFor(_dmOptions), prompts, skills, tools);
+            default:
+                return null;
+        }
     }
 
-    private async Task<PromptSurfaceReport?> GuildReportAsync(
-        ISkillSessionFactory skillSessions,
-        ulong? guildId,
-        CancellationToken cancellationToken)
+    /// <summary>The same decision <see cref="GuildAssistantContextFactory"/> makes for a run.</summary>
+    private async Task<IReadOnlySet<string>> GuildDisabledToolsAsync(ulong? guildId, CancellationToken cancellationToken)
     {
-        var registry = _services.GetService<IToolRegistry>();
-
-        if (registry is null)
+        var guildTools = ToolCatalog.ForScope(ToolScopes.Guild).Select(entry => entry.Name);
+        if (!_assistantOptions.Tools.EnableDocumentationTools)
         {
-            return null;
+            return guildTools.ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
-        // The same two decisions GuildAssistantContextFactory makes, in the same order: the guild's
-        // allow-list first, then the skills over what it left.
-        IToolRegistry effective = registry;
-
-        if (guildId is not null && _assistantOptions.Tools.EnableDocumentationTools)
+        if (guildId is null)
         {
-            var allowed = await _toolAccess.ResolveAsync(guildId.Value, cancellationToken);
-            effective = new FilteredToolRegistry(registry, allowed);
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var skills = await skillSessions.CreateAsync(
-            _assistantOptions.Tools.SkillsPath, effective, preActivatedKeys: null, cancellationToken);
-
-        return Build(ToolScopes.Guild, "Guild assistant", guildId, registry, effective, skills);
+        var allowed = await _toolAccess.ResolveAsync(guildId.Value, cancellationToken);
+        return guildTools.Where(name => !allowed.Contains(name)).ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
-    private async Task<PromptSurfaceReport?> DmReportAsync(
-        ISkillSessionFactory skillSessions,
-        CancellationToken cancellationToken)
-    {
-        var providers = _services.GetServices<IDmToolProvider>().ToList();
-
-        if (providers.Count == 0)
-        {
-            return null;
-        }
-
-        // Built the way DmAssistantContextFactory builds it, from the DM providers rather than the
-        // guild registry - the two surfaces do not share one.
-        var registry = new ToolRegistry(_loggerFactory.CreateLogger<ToolRegistry>(), providers);
-
-        // Nothing pre-activated: this is the cost of a DM user's *first* turn, which is the one that
-        // pays for skills. A user carrying activations into turn 2 pays more, and that is the
-        // mechanism working rather than something a surface-level report should average away.
-        var skills = await skillSessions.CreateAsync(
-            _dmOptions.SkillsPath, registry, preActivatedKeys: null, cancellationToken);
-
-        return Build(ToolScopes.Dm, "DM assistant", guildId: null, registry, registry, skills);
-    }
-
-    /// <summary>
-    /// Turns a registry and its skills into the report.
-    /// </summary>
-    /// <param name="scope">The surface.</param>
-    /// <param name="surfaceName">Its human-readable name.</param>
-    /// <param name="guildId">The guild whose allow-list was applied, if any.</param>
-    /// <param name="registered">Everything the surface holds, before narrowing.</param>
-    /// <param name="effective">What a run would be handed - the narrowed registry.</param>
-    /// <param name="skills">The run's skill session.</param>
-    private PromptSurfaceReport Build(
+    private PromptSurfaceReport? Build(
         ToolScopes scope,
         string surfaceName,
         ulong? guildId,
-        IToolRegistry registered,
-        IToolRegistry effective,
-        ISkillActivationState skills)
+        string modeKey,
+        IReadOnlyCollection<string> disabled,
+        IAgentPromptStore prompts,
+        IAgentSkillStore? skillStore,
+        IReadOnlyList<IAgentTool> tools)
     {
-        // What a request actually carries. Not GetEnabledTools(): a tool behind an unloaded skill is
-        // registered and callable later, and is not in the prefix now.
-        var advertised = PromptSurface.Measure(SkillToolSet.Compose(effective, skills));
+        if (!prompts.TryGet(modeKey, out var mode))
+        {
+            return null;
+        }
 
-        var advertisedByName = advertised.Tools.ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
+        var disabledSet = new HashSet<string>(disabled, StringComparer.OrdinalIgnoreCase);
+        var modeTools = new HashSet<string>(mode.Tools, StringComparer.OrdinalIgnoreCase);
 
         var skillsByTool = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var skill in skills.Available)
+        foreach (var key in mode.Skills)
         {
+            if (skillStore is null || !skillStore.TryGet(key, out var skill))
+            {
+                continue;
+            }
+
             foreach (var tool in skill.Tools)
             {
                 if (!skillsByTool.TryGetValue(tool, out var keys))
@@ -176,24 +143,37 @@ public sealed class PromptSurfaceReporter : IPromptSurfaceReporter
             }
         }
 
+        // Everything this surface holds: the mode's tools plus what its skills can bring.
+        var surfaceTools = tools
+            .Where(t => modeTools.Contains(t.Definition.Name!) || skillsByTool.ContainsKey(t.Definition.Name!))
+            .OrderBy(t => t.Definition.Name, StringComparer.Ordinal)
+            .ToList();
+
+        // What a request actually carries: the mode's list, minus what this guild disabled.
+        var advertisedTools = surfaceTools
+            .Where(t => modeTools.Contains(t.Definition.Name!) && !disabledSet.Contains(t.Definition.Name!))
+            .ToList();
+        var advertised = Measure(advertisedTools);
+        var advertisedByName = advertised.Tools.ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
+
         var rows = new List<PromptSurfaceToolRow>();
         var registeredChars = 0;
-
-        foreach (var definition in registered.GetEnabledTools())
+        foreach (var tool in surfaceTools)
         {
-            var chars = PromptSurface.MeasureOne(definition);
+            var name = tool.Definition.Name!;
+            var chars = MeasureOne(tool);
             registeredChars += chars;
 
-            var entry = ToolCatalog.Describe(definition.Name);
-            var namedBy = skillsByTool.GetValueOrDefault(definition.Name) ?? new List<string>();
+            var entry = ToolCatalog.Describe(name);
+            var namedBy = skillsByTool.GetValueOrDefault(name) ?? new List<string>();
 
             rows.Add(new PromptSurfaceToolRow(
-                definition.Name,
+                name,
                 entry.DisplayName,
                 entry.Category,
                 chars,
-                advertisedByName.TryGetValue(definition.Name, out var measured) ? measured.Share : 0,
-                advertisedByName.ContainsKey(definition.Name),
+                advertisedByName.TryGetValue(name, out var measured) ? measured.Share : 0,
+                advertisedByName.ContainsKey(name),
                 namedBy.Count > 0,
                 namedBy));
         }
@@ -214,5 +194,28 @@ public sealed class PromptSurfaceReporter : IPromptSurfaceReporter
                 .ToList(),
             RegisteredChars = registeredChars
         };
+    }
+
+    /// <summary>Characters one tool's wire definition serializes to.</summary>
+    private static int MeasureOne(IAgentTool tool) =>
+        JsonSerializer.Serialize(cpike.Agent.Tools.ToolWire.ToDefinition(tool.Definition), WireJson).Length;
+
+    /// <summary>The cost of sending <paramref name="tools"/> as one tool array.</summary>
+    private static PromptSurfaceMeasurement Measure(IReadOnlyList<IAgentTool> tools)
+    {
+        if (tools.Count == 0)
+        {
+            return PromptSurfaceMeasurement.Empty;
+        }
+
+        var sizes = tools.Select(t => (Name: t.Definition.Name!, Chars: MeasureOne(t))).ToList();
+
+        // The array's brackets and separating commas belong to no tool but are part of the total.
+        var total = sizes.Sum(s => s.Chars) + 2 + (sizes.Count - 1);
+        var measured = sizes
+            .Select(s => new PromptSurfaceTool(s.Name, s.Chars, (double)s.Chars / total))
+            .ToList();
+
+        return new PromptSurfaceMeasurement(measured, total, total / 4);
     }
 }

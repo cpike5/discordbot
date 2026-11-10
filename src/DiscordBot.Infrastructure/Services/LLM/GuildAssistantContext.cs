@@ -1,14 +1,13 @@
+using cpike.Agent;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents;
-using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 
@@ -20,13 +19,15 @@ public class GuildAssistantContext : IAssistantContext
 {
     public const string RateLimitPrefix = "assistant_ratelimit:";
 
+    /// <summary>The framework mode (and prompt file) the guild assistant runs in.</summary>
+    public const string ModeName = "guild";
+
     private readonly ulong _guildId;
     private readonly ulong _channelId;
     private readonly ulong _userId;
     private readonly ulong _messageId;
     private readonly string _question;
     private readonly IGuildService _guildService;
-    private readonly IPromptTemplate _promptTemplate;
     private readonly IAssistantUsageMetricsRepository _metricsRepository;
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly AssistantOptions _options;
@@ -34,7 +35,6 @@ public class GuildAssistantContext : IAssistantContext
     private readonly string _resolvedModel;
     private readonly LlmCatalogPricing? _resolvedPricing;
     private readonly ILlmUsageRecorder _usageRecorder;
-    private readonly ISkillActivationState? _skills;
 
     public GuildAssistantContext(
         ulong guildId,
@@ -44,26 +44,23 @@ public class GuildAssistantContext : IAssistantContext
         int rateLimit,
         string question,
         bool callerCanMutate,
-        IToolRegistry? toolRegistry,
+        IReadOnlyCollection<string> disabledTools,
         IGuildService guildService,
-        IPromptTemplate promptTemplate,
         IAssistantUsageMetricsRepository metricsRepository,
         IAssistantInteractionLogRepository interactionLogRepository,
         AssistantOptions options,
         ILogger logger,
         string resolvedModel,
         LlmCatalogPricing? resolvedPricing = null,
-        ILlmUsageRecorder? usageRecorder = null,
-        ISkillActivationState? skills = null)
+        ILlmUsageRecorder? usageRecorder = null)
     {
         _guildId = guildId;
         _channelId = channelId;
         _userId = userId;
         _messageId = messageId;
         _question = question;
-        ToolRegistry = toolRegistry;
+        DisabledTools = disabledTools ?? throw new ArgumentNullException(nameof(disabledTools));
         _guildService = guildService ?? throw new ArgumentNullException(nameof(guildService));
-        _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
         _metricsRepository = metricsRepository ?? throw new ArgumentNullException(nameof(metricsRepository));
         _interactionLogRepository = interactionLogRepository ?? throw new ArgumentNullException(nameof(interactionLogRepository));
         _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -71,20 +68,8 @@ public class GuildAssistantContext : IAssistantContext
         _resolvedModel = resolvedModel ?? throw new ArgumentNullException(nameof(resolvedModel));
         _resolvedPricing = resolvedPricing;
         _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
-        _skills = skills;
         RateLimit = rateLimit;
-
-        ExecutionContext = new ToolContext
-        {
-            UserId = userId,
-            GuildId = guildId,
-            ChannelId = channelId,
-            MessageId = messageId,
-            CanMutate = callerCanMutate
-        };
-
-        // The loader tool reads the session from here; the loop reads it from AgentContext.Skills.
-        ExecutionContext.SetSkills(skills);
+        Identity = new DiscordRunIdentity(userId, guildId, channelId, messageId, callerCanMutate);
     }
 
     public string RateLimitCacheKeyPrefix => RateLimitPrefix;
@@ -94,30 +79,31 @@ public class GuildAssistantContext : IAssistantContext
 
     public string? Model => _resolvedModel;
     public LlmMode Mode => LlmMode.GuildAssistant;
+    public string ModeKey => ModeName;
+    public DiscordRunIdentity Identity { get; }
     public int MaxTokens => _options.Sampling.MaxTokens;
-    public double Temperature => _options.Sampling.Temperature;
     public int MaxToolCallIterations => _options.Tools.MaxToolRounds;
     public int MaxToolResultChars => _options.Tools.MaxToolResultChars;
-    public int ToolExecutionTimeoutMs => _options.Tools.ToolExecutionTimeoutMs;
-    public int DuplicateToolCallLimit => _options.Tools.DuplicateToolCallLimit;
 
-    public IToolRegistry? ToolRegistry { get; }
-    public ToolContext ExecutionContext { get; }
-    public List<LlmMessage> ConversationHistory { get; } = new();
+    /// <inheritdoc />
+    /// <remarks>The guild tools this guild has switched off, or every guild tool when the guild has none.</remarks>
+    public IReadOnlyCollection<string> DisabledTools { get; }
 
     /// <inheritdoc />
     /// <remarks>
-    /// The guild assistant is single-turn, so nothing is ever pre-activated here: a skill costs a
-    /// round every time it is used. That is the trade this surface makes deliberately - keep its
-    /// common tools always-on and put only the rare, heavy ones behind a skill.
+    /// The guild assistant is single-turn, so nothing is ever preloaded here: a skill costs a round
+    /// every time it is used. That is the trade this surface makes deliberately - keep its common
+    /// tools always-on and put only the rare, heavy ones behind a skill.
     /// </remarks>
-    public ISkillActivationState? Skills => _skills;
+    public IReadOnlyCollection<string> PreloadedSkills => [];
+
+    public IReadOnlyList<ConversationTurn> History => [];
 
     /// <summary>
     /// Per-million-token rates: catalog pricing for the resolved model wins when the catalog
     /// reports a price, falling back to the configured rate for any price it does not report
     /// (or when there is no catalog row at all). Billed <c>usage.cost</c> still wins over either
-    /// when OpenRouter reports one - see <c>AssistantMessagePipeline.CalculateCost</c>.
+    /// when OpenRouter reports one - see <c>AssistantMessagePipeline</c>.
     /// </summary>
     public AssistantCostRates CostRates => new(
         _resolvedPricing?.PromptPricePerMillion ?? _options.Cost.CostPerMillionInputTokens,
@@ -129,25 +115,23 @@ public class GuildAssistantContext : IAssistantContext
     public string TruncationSuffix => _options.Messages.TruncationSuffix;
 
     /// <inheritdoc />
-    public async Task<string> BuildSystemPromptAsync(CancellationToken cancellationToken)
+    /// <remarks>
+    /// The portal links for this guild, when <see cref="AssistantOptions.IncludeGuildContext"/> is on
+    /// and a base URL is configured. They name the guild, so they go in the turn context rather than
+    /// the system prompt, which stays identical for every guild and so stays cached.
+    /// </remarks>
+    public Task<IReadOnlyList<PromptPart>> BuildPartsAsync(CancellationToken cancellationToken)
     {
-        var template = await _promptTemplate.LoadAsync(_options.Tools.AgentPromptPath, cancellationToken);
-
-        var variables = new Dictionary<string, string>();
-
-        if (_options.IncludeGuildContext)
+        if (!_options.IncludeGuildContext || string.IsNullOrEmpty(_options.BaseUrl))
         {
-            variables["GUILD_ID"] = _guildId.ToString();
+            return Task.FromResult<IReadOnlyList<PromptPart>>([]);
         }
 
-        if (!string.IsNullOrEmpty(_options.BaseUrl))
-        {
-            variables["BASE_URL"] = _options.BaseUrl;
-        }
-
-        // The roster goes after the prompt, so everything above it is byte-identical to what it
-        // was before skills existed - and a surface with no skill files appends nothing at all.
-        return SkillRoster.Append(_promptTemplate.Render(template, variables), _skills);
+        var baseUrl = _options.BaseUrl.TrimEnd('/');
+        var links = $"Portal pages for this server: soundboard {baseUrl}/Portal/Soundboard/{_guildId}, "
+            + $"text-to-speech {baseUrl}/Portal/TTS/{_guildId}, VOX {baseUrl}/Portal/VOX/{_guildId}.";
+        return Task.FromResult<IReadOnlyList<PromptPart>>(
+            [new PromptPart(links, PromptPlacement.TurnContext, "portal-links")]);
     }
 
     /// <summary>

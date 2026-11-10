@@ -1,14 +1,10 @@
 using DiscordBot.Bot.Services;
-using DiscordBot.Bot.Services.LLM.Providers;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
-using DiscordBot.Infrastructure.Services.LLM.Providers;
-using DiscordBot.Agents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -46,41 +42,28 @@ public static class DmAssistantServiceExtensions
         // Register DM tool provider repositories
         services.AddScoped<IDmAssistantNoteRepository, DmAssistantNoteRepository>();
 
-        // Scan Infrastructure and Bot for IAgentTool implementations and register each one. Shared
-        // with AddAssistant via TryAddEnumerable, so whichever runs first wins and the other is a
-        // no-op; this extension does not depend on AddAssistant having run.
-        services.AddAgentTools(AgentToolAssemblies.All, configuration);
-
-        // Register DM tool providers. The memory tools are IAgentTool implementations now and reach
-        // the assistant through DmAgentToolProvider - the one adapter for individually authored
-        // tools - rather than through a provider of their own.
         // Remembers which skills this user has loaded, so an activation carries into the next turn.
         // Ungated: it is a memory-cache entry, and it must exist wherever the DM context is built.
         services.TryAddSingleton<IDmSkillActivationStore, DmSkillActivationStore>();
 
-        services.AddScoped<IDmToolProvider, DmAgentToolProvider>();
-        services.AddScoped<IDmToolProvider, ConversationToolProvider>();
-        services.AddScoped<IDmToolProvider, BotManagementToolProvider>();
-        services.AddScoped<IDmToolProvider, DmModerationToolProvider>();
-        services.AddScoped<IDmToolProvider, DmAnalyticsToolProvider>();
-        services.AddScoped<DocumentationToolProvider>();
-        services.AddScoped<IDmToolProvider, DmDocumentationToolProvider>();
-        services.AddScoped<IDmToolProvider, CodeExecutionToolProvider>();
+
+        // The DM tools themselves are found by the assembly scan in AddAssistantAgent; the
+        // ToolCatalog decides which reach the DM assistant. fetch_url reads through this client.
         services.AddHttpClient("DmAssistantWebFetch", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot-DmAssistant/1.0");
             client.MaxResponseContentBufferSize = 512 * 1024;
         });
-        services.AddScoped<IDmToolProvider, WebFetchToolProvider>();
 
         // Only register LLM-dependent service if API key is configured
         // This prevents DI validation failures when running migrations without API key
         var apiKey = configuration.GetValue<string>("OpenRouter:ApiKey");
         if (!string.IsNullOrEmpty(apiKey))
         {
-            // Shared with the guild assistant; registered here too (TryAdd) so this extension
-            // does not depend on AddAssistant() having run first.
+            // The framework and the shared pipeline are registered by AddAssistant (AddAssistantAgent),
+            // which Program.cs calls first; the pipeline is TryAdd'd here too so this extension does
+            // not depend on that order for its own service.
             services.TryAddScoped<IAssistantMessagePipeline, AssistantMessagePipeline>();
 
             services.AddScoped<IDmAssistantContextFactory, DmAssistantContextFactory>();

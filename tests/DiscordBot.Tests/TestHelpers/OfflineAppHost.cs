@@ -51,9 +51,12 @@ public sealed class OfflineAppHost : IAsyncDisposable
 
     /// <summary>
     /// Creates the database, seeds the guild plus whatever <paramref name="seed"/> adds,
-    /// starts the app and signs in.
+    /// starts the app and signs in. <paramref name="settings"/> adds configuration the app reads at
+    /// registration time (an <c>OpenRouter:ApiKey</c>, say).
     /// </summary>
-    public static async Task<OfflineAppHost> StartAsync(Func<BotDbContext, Task>? seed = null)
+    public static async Task<OfflineAppHost> StartAsync(
+        Func<BotDbContext, Task>? seed = null,
+        IReadOnlyDictionary<string, string>? settings = null)
     {
         var database = TestDbContextFactory.CreateDatabase();
         await using (var context = database.CreateContext())
@@ -87,6 +90,10 @@ public sealed class OfflineAppHost : IAsyncDisposable
             builder.UseSetting("Identity:DefaultAdmin:Email", AdminEmail);
             builder.UseSetting("Identity:DefaultAdmin:Password", AdminPassword);
             builder.UseSetting("ElasticApm:Enabled", "false");
+            foreach (var (key, value) in settings ?? new Dictionary<string, string>())
+            {
+                builder.UseSetting(key, value);
+            }
         });
 
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions

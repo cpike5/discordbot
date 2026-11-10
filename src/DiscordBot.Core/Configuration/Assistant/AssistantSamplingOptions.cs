@@ -36,5 +36,6 @@ public class AssistantSamplingOptions
     /// Default is 0.3: the guild assistant answers factual questions about commands and
     /// features, where consistent syntax matters more than variety.
     /// </summary>
+    // Not read by the assistant since the move to cpike.Agent: the cpike.Agent loop sends no temperature; current models reject or ignore it.
     public double Temperature { get; set; } = 0.3;
 }

@@ -1,11 +1,9 @@
+using cpike.Agent.OpenRouter;
 using System.Globalization;
 using System.Text.Json;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
 using DiscordBot.Core.DTOs.Llm.Reporting;
-using DiscordBot.Agents.OpenRouter;
 
 namespace DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 
@@ -26,6 +24,13 @@ public class OpenRouterModelCatalogClient : IOpenRouterModelCatalogClient
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>OpenRouter's wire format: snake_case names, nulls omitted.</summary>
+    private static readonly JsonSerializerOptions CatalogJson = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<LlmCatalogModel>> GetModelsAsync(
         CancellationToken cancellationToken = default)
@@ -45,7 +50,7 @@ public class OpenRouterModelCatalogClient : IOpenRouterModelCatalogClient
         ModelListResponse? parsed;
         try
         {
-            parsed = JsonSerializer.Deserialize<ModelListResponse>(body, OpenRouterJson.Options);
+            parsed = JsonSerializer.Deserialize<ModelListResponse>(body, CatalogJson);
         }
         catch (JsonException ex)
         {

@@ -1,6 +1,5 @@
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;

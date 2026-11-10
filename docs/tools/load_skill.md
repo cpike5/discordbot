@@ -1,8 +1,8 @@
 # `load_skill`
 
 **Status**: shipped · **Surfaces**: Guild, DM · **Category**: Skills · **Default**: on
-**Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Tools/LoadSkillTool.cs`
-**Mutation**: read-only
+**Implementation**: the framework's built-in `load_skill` (`cpike.Agent.Core`); added to a mode only when it has `skills:`
+**Requires edit**: no
 
 ## Purpose
 
@@ -14,13 +14,13 @@ The tool itself does very little. It records the activation on the run's session
 instructions; the loop reads that session after the round and re-composes the advertised tool array,
 so the skill's tools arrive on the **next** round rather than this one.
 
-See [`docs/agents/skills/README.md`](../agents/skills/README.md) for writing a skill, and
+See [`docs/agents/README.md`](../agents/README.md) for writing a skill, and
 [`patterns.md` § Agent Skills](../architecture/patterns.md#agent-skills) for the mechanism.
 
 ## Dependencies
 
-None. It reads the `SkillSession` out of `ToolContext.Items`, which the context factory put there;
-it touches no service and no database.
+None in this repository: it is a framework built-in, so never add a tool by that name. It reads
+the run's skill state, and touches no service and no database.
 
 ## Model-facing description
 
@@ -85,6 +85,6 @@ surface has no skill files, so a surface with an empty directory pays nothing fo
 - **Loading costs a prompt-cache write.** The tool array serializes at position 0 of the request, so
   re-composing it invalidates the cached prefix for the rest of that run. Expect a cache-miss spike
   after a `load_skill` on the metrics page; it is the mechanism working.
-- On the DM surface the activation is replayed into the next turn, so a skill is paid for once. The
-  guild assistant is single-turn and pays every time — which is why `docs/agents/skills/guild/` ships
-  empty.
+- On the DM surface the stored activation is preloaded into the next turn (`PreloadedSkills`), so a skill is paid for once. The
+  guild assistant is single-turn and pays every time — which is why the guild surface ships no
+  skills.

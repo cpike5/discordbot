@@ -1,13 +1,12 @@
 using Discord;
 using DiscordBot.Bot.Services.FeatureRequests;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
-using DiscordBot.Infrastructure.Services.FeatureRequests;
+using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Infrastructure.Services.LLM;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -25,7 +24,7 @@ public class FeatureRequestConversationServiceTests
 {
     private readonly Mock<IInteractionStateService> _mockStateService = new();
     private readonly Mock<IInputValidationService> _mockValidationService = new();
-    private readonly Mock<IAgentRunner> _mockAgentRunner = new();
+    private readonly Mock<IAssistantMessagePipeline> _mockPipeline = new();
     private readonly Mock<ILlmModelResolver> _mockModelResolver = new();
     private readonly Mock<IFeatureRequestService> _mockFeatureRequestService = new();
     private readonly Mock<ILlmUsageRecorder> _mockUsageRecorder = new();
@@ -33,12 +32,11 @@ public class FeatureRequestConversationServiceTests
     private FeatureRequestConversationService BuildService()
     {
         var services = new ServiceCollection();
-        services.AddSingleton(_mockAgentRunner.Object);
+        services.AddSingleton(_mockPipeline.Object);
         services.AddSingleton(_mockModelResolver.Object);
         services.AddSingleton(_mockFeatureRequestService.Object);
         services.AddSingleton(_mockUsageRecorder.Object);
         services.AddSingleton(Options.Create(new AssistantOptions()));
-        services.AddSingleton<FeatureRequestToolProvider>();
         services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         services.AddLogging();
         var provider = services.BuildServiceProvider();
@@ -67,9 +65,9 @@ public class FeatureRequestConversationServiceTests
             .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResolvedModel { Slug = "db/fr-model", Source = LlmModelResolutionSource.Database, ConfiguredSlug = "db/fr-model" });
 
-        _mockAgentRunner
-            .Setup(a => a.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult { Success = true, Response = "What problem does this solve?" });
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantPipelineResult { Success = true, Response = "What problem does this solve?" });
 
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(555UL);
@@ -80,10 +78,16 @@ public class FeatureRequestConversationServiceTests
 
         await service.StartConversationAsync(mockUser.Object, guildId: 1, initialDescription: "It would be nice to have dark mode.");
 
-        _mockAgentRunner.Verify(
-            a => a.RunAsync(
+        _mockPipeline.Verify(
+            p => p.RunAsync(
                 It.IsAny<string>(),
-                It.Is<AgentContext>(c => c.Model == "db/fr-model"),
+                It.Is<IAssistantContext>(c =>
+                    c.Model == "db/fr-model"
+                    && c.ModeKey == CatalogPromptStore.FeatureRequestModeName
+                    && c.Mode == LlmMode.FeatureRequests
+                    && c.Identity.UserId == 555UL
+                    && c.Identity.GuildId == 1UL
+                    && c.Identity.CanMutate),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -95,15 +99,30 @@ public class FeatureRequestConversationServiceTests
             .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResolvedModel { Slug = "db/fr-model", Source = LlmModelResolutionSource.Database, ConfiguredSlug = "db/fr-model" });
 
-        _mockAgentRunner
-            .Setup(a => a.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
+        // The pipeline builds the ledger row (see AssistantMessagePipelineTests); the context is what
+        // hands it to the recorder, with the turn's latency and no interaction log to point at.
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantPipelineResult
             {
                 Success = true,
                 Response = "What problem does this solve?",
                 Model = "anthropic/claude-sonnet-4.6",
                 LoopCount = 1,
-                TotalUsage = new LlmUsage { InputTokens = 40, OutputTokens = 10, EstimatedCost = 0.0001m }
+                InputTokens = 40,
+                OutputTokens = 10,
+                EstimatedCostUsd = 0.0001m,
+                UsageRecord = new LlmUsageRecord
+                {
+                    Mode = LlmMode.FeatureRequests,
+                    UserId = 555UL,
+                    GuildId = 1UL,
+                    Model = "anthropic/claude-sonnet-4.6",
+                    CostUsd = 0.0001m,
+                    CostSource = LlmCostSource.Billed,
+                    InteractionLogId = 99,
+                    Success = true
+                }
             });
 
         var mockUser = new Mock<IUser>();
@@ -126,16 +145,16 @@ public class FeatureRequestConversationServiceTests
     }
 
     [Fact]
-    public async Task StartConversationAsync_WhenAgentRunnerThrows_StillRecordsFailedUsageLedgerRow()
+    public async Task StartConversationAsync_WhenThePipelineThrows_StillRecordsFailedUsageLedgerRow()
     {
-        // agentRunner.RunAsync throwing (rather than coming back as a normal Success=false result)
-        // must not leave this turn with no ledger row at all.
+        // The pipeline throwing (rather than coming back as a normal Success=false result) must not
+        // leave this turn with no ledger row at all.
         _mockModelResolver
             .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResolvedModel { Slug = "db/fr-model", Source = LlmModelResolutionSource.Database, ConfiguredSlug = "db/fr-model" });
 
-        _mockAgentRunner
-            .Setup(a => a.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("provider unavailable"));
 
         var mockUser = new Mock<IUser>();
@@ -182,5 +201,38 @@ public class FeatureRequestConversationServiceTests
             u.GuildId == 1UL &&
             u.Model == "unknown" &&
             u.Success == false)), Times.Once);
+    }
+
+    [Fact]
+    public async Task StartConversationAsync_WhenTheAgentSubmits_EndsTheConversation()
+    {
+        // Calling submit_feature_request is what submitting means; the session is over after it.
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel { Slug = "db/fr-model", Source = LlmModelResolutionSource.Database, ConfiguredSlug = "db/fr-model" });
+
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantPipelineResult
+            {
+                Success = true,
+                Response = string.Empty,
+                ToolNames = new List<string> { "submit_feature_request" }
+            });
+
+        var mockUser = new Mock<IUser>();
+        mockUser.Setup(u => u.Id).Returns(555UL);
+        var mockDmChannel = new Mock<IDMChannel>();
+        mockUser.Setup(u => u.CreateDMChannelAsync(It.IsAny<RequestOptions>())).ReturnsAsync(mockDmChannel.Object);
+
+        var service = BuildService();
+
+        await service.StartConversationAsync(mockUser.Object, guildId: 1, initialDescription: "Dark mode, please.");
+
+        mockDmChannel.Invocations
+            .Where(i => i.Method.Name == nameof(IDMChannel.SendMessageAsync))
+            .Select(i => i.Arguments[0] as string)
+            .Should().ContainSingle(text => text != null && text.Contains("submitted"));
+        service.TryGetSessionCorrelationId(555UL, out _).Should().BeFalse();
     }
 }

@@ -1,4 +1,3 @@
-using DiscordBot.Agents;
 using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Infrastructure.Abstractions.LLM;
@@ -70,3 +69,29 @@ public sealed record PromptSurfaceToolRow(
     bool Advertised,
     bool BehindSkill,
     IReadOnlyList<string> SkillKeys);
+
+/// <summary>One advertised tool's share of a surface's tool array.</summary>
+/// <param name="Name">The tool's name.</param>
+/// <param name="SchemaChars">Characters its wire definition serializes to.</param>
+/// <param name="Share">Its fraction of the whole array's characters.</param>
+public sealed record PromptSurfaceTool(string Name, int SchemaChars, double Share);
+
+/// <summary>What a surface's advertised tool array costs.</summary>
+/// <param name="Tools">Per-tool costs, in name order (the order a run sends them).</param>
+/// <param name="TotalChars">Characters the whole array serializes to, brackets and commas included.</param>
+/// <param name="EstimatedTokens">
+/// <paramref name="TotalChars"/> ÷ 4. An estimate, and deliberately a cheap one: the useful question
+/// is whether a tool is 2% or 20% of the prefix, and that ratio survives a rough tokenizer.
+/// </param>
+public sealed record PromptSurfaceMeasurement(
+    IReadOnlyList<PromptSurfaceTool> Tools,
+    int TotalChars,
+    int EstimatedTokens)
+{
+    /// <summary>A surface advertising nothing.</summary>
+    public static PromptSurfaceMeasurement Empty { get; } =
+        new(Array.Empty<PromptSurfaceTool>(), 0, 0);
+
+    /// <summary>How many tools the surface advertises.</summary>
+    public int ToolCount => Tools.Count;
+}

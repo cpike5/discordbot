@@ -1,11 +1,9 @@
 using System.Security.Claims;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DiscordBot.Core.DTOs.Llm.Reporting;
@@ -144,7 +142,7 @@ public class LlmModelsController : ApiControllerBase
     /// <summary>
     /// Returns the effective slug for each mode (guild assistant, DM assistant, feature requests) and
     /// where it comes from (a DB override, the bound configuration value, or the last-resort
-    /// <c>OpenRouter:DefaultModel</c> fallback), plus whether that slug is currently known/enabled/
+    /// <c>OpenRouter:Model</c> fallback), plus whether that slug is currently known/enabled/
     /// available in the catalog. Delegates entirely to <see cref="ILlmModelResolver"/> - the same
     /// resolution path used at message-send time.
     /// </summary>

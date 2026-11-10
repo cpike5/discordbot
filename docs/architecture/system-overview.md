@@ -35,9 +35,9 @@ graph TB
         REPOS["Entity Repositories<br/>(Guild, User, CommandLog, etc.)"]
     end
 
-    subgraph "Agent Engine (DiscordBot.Agents)"
-        LOOP["AgentRunner<br/>(Agentic Loop)"]
-        TOOLS["Tool Contracts<br/>(IToolProvider, ToolRegistry)"]
+    subgraph "Agent Framework (cpike.Agent packages)"
+        LOOP["AgentService<br/>(Agentic Loop)"]
+        TOOLS["Tool Contract<br/>(IAgentTool, prompts, skills)"]
         LLM["OpenRouter Client<br/>(Chat Completions)"]
     end
 
@@ -133,24 +133,25 @@ This arrangement ensures:
 
 ---
 
-## Agent Engine (DiscordBot.Agents)
+## Agent Framework (cpike.Agent)
 
-**Location:** `src/DiscordBot.Agents/`
+**Source:** NuGet packages `cpike.Agent.Core` and `cpike.Agent.OpenRouter` (plus `cpike.Agent.Testing`
+in tests), from the owner's private feed ([setup](../articles/private-package-feed.md)). There is no
+in-repo engine project.
 
-The model-facing machinery, and nothing else: `AgentRunner` (the agentic loop), `ToolRegistry`,
-`PromptTemplate`, the tool authoring model (`IAgentTool`, `AgentToolProvider`, `AddAgentTools`, and
-the `ToolInput`/`ToolResults`/`ToolJson` helpers), the engine contracts under `Contracts/`, the
-abstractions under `Abstractions/`, and the OpenRouter chat client under `OpenRouter/`.
+The framework owns the model-facing machinery: `AgentService` (the agentic loop), the `IAgentTool`
+contract, markdown prompts and skills, the built-in `load_skill` and `get_current_time` tools, and the
+OpenRouter client. It knows nothing about Discord, guilds, or this bot.
 
-It is a **leaf project**: it has no `ProjectReference` at all, and no Discord, EF Core, or ASP.NET
-package references. It knows nothing about Discord, guilds, or this bot — the application hands it
-a system prompt, a tool registry, and a budget, and gets a run result back. Everything that makes
-the bot *this* bot — the tool implementations, the assistant contexts, the entities and
-repositories — stays in Infrastructure and Bot, which reference the engine rather than the other
-way round.
+The house side stays in Infrastructure and Bot and references the framework, never the other way
+round: `AssistantMessagePipeline` runs one exchange on `AgentService` in its own DI scope, seeded with
+the Discord caller; each surface supplies an `IAssistantContext` (mode `guild`, `dm` or
+`feature-requests`, budgets, history, per-turn prompt parts); `CatalogPromptStore` fills each mode's
+tool list from `ToolCatalog`; and the tools are `IAgentTool` classes found by assembly scan. Prompts
+live in `docs/agents/prompts/` and are copied to `Prompts/` in the build output.
 
-It emits its own traces on the `DiscordBot.Agents` activity source (`AgentsActivitySource`),
-subscribed in the bot's OpenTelemetry setup.
+It emits traces and metrics on the `cpike.Agent` and `cpike.Agent.OpenRouter` sources, subscribed in
+the bot's OpenTelemetry setup.
 
 ## Core Layer (DiscordBot.Core)
 

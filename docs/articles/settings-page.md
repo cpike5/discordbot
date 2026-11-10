@@ -143,7 +143,7 @@ See `docs/architecture/feature-map.md` ("LLM Model Catalog & Allowlist") and
 **Per-mode defaults panel.** One `<select>` per mode (guild assistant, DM assistant, feature
 requests). The first option is always `""`, meaning **"use the configured value"** - no DB override
 for that mode, so `ILlmModelResolver` falls through to the bound options value (or, if nothing is
-configured, `OpenRouter:DefaultModel`). It is labeled with what that actually resolves to, e.g.
+configured, `OpenRouter:Model`). It is labeled with what that actually resolves to, e.g.
 "Use configured value (anthropic/claude-sonnet-4)" - both server-side (`Settings.cshtml`, from
 `SettingsViewModel.AiModelsConfiguredSlugs`) and client-side (`llm-models.js`, from
 `GET api/admin/llm-models/defaults`'s `configuredSlug`, which `LlmModelsController` gets from

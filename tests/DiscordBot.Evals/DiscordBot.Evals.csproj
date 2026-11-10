@@ -31,7 +31,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\DiscordBot.Agents\DiscordBot.Agents.csproj" />
     <ProjectReference Include="..\..\src\DiscordBot.Core\DiscordBot.Core.csproj" />
     <ProjectReference Include="..\..\src\DiscordBot.Infrastructure\DiscordBot.Infrastructure.csproj" />
   </ItemGroup>

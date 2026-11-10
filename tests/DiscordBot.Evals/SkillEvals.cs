@@ -13,10 +13,10 @@ namespace DiscordBot.Evals;
 /// not loaded when it was — the first costs a round trip on every unrelated question.
 /// </para>
 /// <para>
-/// The evidence is <see cref="EvalRun.ActivatedSkills"/>, read off the run's own session, rather than
-/// anything the reply says. The tools the DM skills name need a Discord client the harness does not
-/// have, so they are narrowed away before the run starts; the skill still loads and its instructions
-/// still arrive, which is exactly the part being measured.
+/// The evidence is <see cref="EvalRun.ActivatedSkills"/>, the skills the run reports loaded, rather
+/// than anything the reply says. The tools the DM skills name need data the harness does not have,
+/// so it registers stand-ins with the shipped definitions; the skill still loads and its
+/// instructions still arrive, which is exactly the part being measured.
 /// </para>
 /// </remarks>
 public class SkillEvals

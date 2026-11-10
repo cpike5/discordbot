@@ -784,71 +784,88 @@ Nine providers are included:
 
 ## Agent Tool Authoring
 
-A tool the AI assistant can call is **one file** in `Infrastructure/Services/LLM/Tools/` (or
-`Bot/Services/LLM/Tools/` when it needs Discord.NET), plus one line in `ToolCatalog`. No provider
-class, no DI registration, no static definitions file.
+A tool the AI assistant can call is **one `sealed` class** implementing the framework's
+`cpike.Agent.IAgentTool`, in `Infrastructure/Services/LLM/Tools/` (or `Bot/Services/LLM/Tools/` when it
+needs Discord.NET), plus one `ToolCatalog` entry. No provider class, no DI registration, no static
+definitions file. The assistant runs on the `cpike.Agent` packages; the tool contract is theirs, and
+the house helpers in `Infrastructure/Services/LLM/Tooling/` sit on top of it.
 
 ### The interface
 
 ```csharp
 public interface IAgentTool
 {
-    LlmToolDefinition Definition { get; }   // what the model sees
-    string? Mutation => null;               // null = read-only
-    Task<ToolExecutionResult> InvokeAsync(
-        JsonElement input, ToolContext context, CancellationToken cancellationToken = default);
+    AgentToolDefinition Definition { get; }   // what the model sees, plus behaviour flags
+    Task<string> InvokeAsync(
+        IReadOnlyDictionary<string, JsonElement> arguments, CancellationToken cancellationToken);
 }
 ```
 
+A tool returns a string (compact JSON by convention) and does not throw for an expected failure.
+
 ### A complete tool
 
+This is `SaveNoteTool`, trimmed:
+
 ```csharp
-public sealed class GetNoteTool : IAgentTool
+public sealed class SaveNoteTool : IAgentTool
 {
     // Static: read once per run and serialized at position 0 of the request.
-    private static readonly LlmToolDefinition ToolDefinition = new()
-    {
-        Name = "get_note",
-        Description = "Retrieves a specific note by its ID. Use this when you need the full "
-            + "content of a particular note.",
-        InputSchema = ToolInput.ObjectSchema(
-            new { note_id = ToolInput.Schema("integer", "The ID of the note to retrieve.") },
-            "note_id")
-    };
+    private static readonly AgentToolDefinition ToolDefinition = AgentTools.Define(
+        "save_note",
+        "Saves a personal note for the user that persists across conversations. Use this when the "
+            + "user asks you to remember something, states a preference, or shares important context.",
+        ToolInput.ObjectSchema(
+            new
+            {
+                content = ToolInput.Schema("string", "The note content to save."),
+                tag = ToolInput.Schema("string", "Optional category tag (e.g., 'preference').")
+            },
+            "content"),
+        requiresEdit: true);
 
     private readonly IDmAssistantNoteRepository _notes;
+    private readonly DiscordRunContext _run;
 
-    public GetNoteTool(IDmAssistantNoteRepository notes) => _notes = notes;
-
-    public LlmToolDefinition Definition => ToolDefinition;
-
-    public async Task<ToolExecutionResult> InvokeAsync(
-        JsonElement input, ToolContext context, CancellationToken cancellationToken = default)
+    public SaveNoteTool(IDmAssistantNoteRepository notes, DiscordRunContext run)
     {
-        var noteId = ToolInput.GetLong(input, "note_id");
-        if (noteId is null)
+        _notes = notes;
+        _run = run;
+    }
+
+    public AgentToolDefinition Definition => ToolDefinition;
+
+    public async Task<string> InvokeAsync(
+        IReadOnlyDictionary<string, JsonElement> arguments, CancellationToken cancellationToken)
+    {
+        var input = ToolInput.ToElement(arguments);
+        var content = ToolInput.GetString(input, "content");
+        if (content is null)
         {
-            return ToolResults.Error("Missing required parameter: note_id");
+            return ToolResults.Error("Missing required parameter: content");
         }
 
-        var note = await _notes.GetByIdAsync(noteId.Value, context.UserId, cancellationToken);
+        var note = new DmAssistantNote { UserId = _run.UserId, Content = content, /* ... */ };
+        await _notes.AddAsync(note, cancellationToken);
 
-        return note is null
-            ? ToolResults.NotFound($"Note with ID {noteId.Value} not found.")
-            : ToolResults.Json(new { id = note.Id, content = note.Content });
+        return ToolResults.Json(new { success = true, note_id = note.Id, message = "Note saved successfully." });
     }
 }
 ```
 
-### Three things that used to be separate rules
+Tools are scoped and constructor-injected, so they take services and `DiscordRunContext` directly.
 
-Each of these is now something the shape does for you rather than something to remember:
+### Rules the shape enforces
 
-| Rule | How it is now enforced |
-|------|------------------------|
-| Add a `ToolCatalog` entry | The catalogue *routes* the tool. `CataloguedAgentToolProvider` keeps only the tools whose `ToolScopes` include its surface, so an uncatalogued tool is advertised nowhere — and logged as a warning saying so. |
-| Check `ToolContext.CanMutate` before writing | Declare `Mutation` — a phrase that follows "isn't allowed to", e.g. `"save notes"`. `AgentToolProvider` refuses the call with `ToolPermissions.MutationForbidden` **before entering the tool**, so a write cannot half-run. |
-| Report an expected failure so `ToolOutcomes.Classify` counts it | `ToolResults.Error` / `.NotFound` emit the top-level `error`/`found` keys the classifier reads. Using the helpers is the convention. |
+| Rule | How it is enforced |
+|------|--------------------|
+| Add a `ToolCatalog` entry | The catalogue is still the single source of which tool belongs to which surface. `CatalogPromptStore` fills each surface mode's tool list from it, so an uncatalogued tool is advertised nowhere. |
+| A write must not run for a caller who may not write | Declare `requiresEdit: true` on the definition. The loop refuses the call with code `edit_forbidden` **before entering the tool**, so a write cannot half-run. `save_note`, `delete_note`, `clear_conversation` and `submit_feature_request` declare it. |
+| Report an expected failure so it is counted | Return a result with an `error` string or a false `success`/`found` flag (`ToolResults.Error` / `.NotFound` do). `AgentService.FailureCodeOf` reads those and labels `cpike.tool.failure_code`. |
+| Untrusted fetched text | `[ExternalContent("web")]` (as on `fetch_url`) wraps results in `<external_content>`. |
+| Never handed to a sub-agent | `[NotDelegable]` (`execute_python`, `clear_conversation`). |
+
+`load_skill` and `get_current_time` are framework built-ins: never add a tool by those names.
 
 ### Arguments are untrusted
 
@@ -862,72 +879,64 @@ line. A distinct "rejected" answer tells whoever wrote the message behind the ca
 was understood, which is the one thing a probe should not learn; the operator needs to know and the
 prober does not. `get_feature_documentation` is the worked example — an allow-list on the name before
 it becomes a file name, `Path.GetFullPath` containment behind it, one payload for absent and refused
-alike ([tool page](../tools/get_feature_documentation.md)).
+alike ([tool page](../tools/get_feature_documentation.md)); its logic lives in the scoped
+`DocumentationLibrary`, shared with the other documentation tools.
 
 ### The helpers
 
-All in `DiscordBot.Agents`:
+All in `Infrastructure/Services/LLM/Tooling/`:
 
-- **`ToolInput`** — `GetString`/`GetInt`/`GetLong`/`GetUInt64`/`GetBool`/`GetStringArray(input, key)`,
-  each null when the property is missing, null, blank or the wrong kind, because those are one
-  answer to a tool. `GetInt(input, key, fallback, min, max)` is the shape every `limit` wants.
-  Quoted numbers are read as numbers — models do that, and snowflakes exceed JavaScript's safe
-  integer range so they arrive quoted routinely. `Schema(type, description, …)` and
+- **`AgentTools.Define`** — builds the `AgentToolDefinition` (name, description, schema, `requiresEdit`).
+- **`ToolInput`** — `ToElement(arguments)`, then `GetString`/`GetInt`/`GetLong`/`GetUInt64`/`GetBool`/
+  `GetStringArray(input, key)`, each null when the property is missing, null, blank or the wrong kind,
+  because those are one answer to a tool. `GetInt(input, key, fallback, min, max)` is the shape every
+  `limit` wants. Quoted numbers are read as numbers — models do that, and snowflakes exceed
+  JavaScript's safe integer range so they arrive quoted routinely. `Schema(type, description, …)` and
   `ObjectSchema(properties, required…)` build the input schema instead of a hand-written JSON string.
-- **`ToolResults`** — `Json`, `Error`, `NotFound`, `Truncated`, `Forbidden`, `Failed`. Everything
-  except `Failed` is a *successful* result: an expected failure has to reach the model as readable
-  content, because `CreateError` prefixes `Error: ` on the wire and reads as a malfunction to retry
-  around. `Failed` is for a genuine malfunction.
+- **`ToolResults`** — `Json`, `Error`, `NotFound`, `Truncated`, `Forbidden`, `Failed`. Expected
+  failures are readable content, not thrown exceptions.
 - **`ToolJson.Compact`** — the serializer settings: no naming policy (the names in the code are the
   names on the wire, so write payload members in `snake_case`) and nulls dropped, so an optional
   field costs nothing when absent.
+- **`DiscordRunContext`** — a scoped, live view over the framework's `AgentRunScope`, giving
+  `UserId`, `GuildId`, `ChannelId`, `MessageId`, `CanMutate`, `ActiveGuildId` and
+  `ConversationCleared`. The pipeline seeds the scope from the Discord caller
+  (`DiscordRunIdentity`); tools never see Discord.NET types through it.
 
 ### Registration
 
-`AddAgentTools(assemblies, configuration)` scans for `IAgentTool` implementations and registers each
-one scoped, ordered by full type name, through `TryAddEnumerable` so both assistant registrations
-can call it. `AssistantServiceExtensions` and `DmAssistantServiceExtensions` both do, over
-`AgentToolAssemblies.All` (Infrastructure and Bot).
-
-Two adapters expose the scanned tools to the two registries, and are the only DI lines involved:
-
-```csharp
-services.AddScoped<IToolProvider, GuildAgentToolProvider>();    // AddAssistant
-services.AddScoped<IDmToolProvider, DmAgentToolProvider>();     // AddDmAssistant
-```
-
-A tool that should ship dark carries `[OptInTool("Section:Enabled")]` and is registered only when
-that configuration flag is true — a disabled tool then costs nothing rather than costing a class
-and a runtime branch.
+There is none per tool. The framework's assembly scan (`AddToolsFrom`) registers every `IAgentTool` in
+`AgentToolAssemblies` (Infrastructure and Bot), and both assistant registrations call it. A tool that
+should ship dark carries `[OptInTool("Section:Enabled")]` and is registered only when that
+configuration flag is true. `IToolProvider` no longer exists: a group of tools that share state shares
+a scoped service (as the documentation tools share `DocumentationLibrary`).
 
 ### What the build checks for you
 
 `ToolContractTests` (`tests/DiscordBot.Tests/Services/LLM/`) runs over **every** tool this
-application registers — the `IAgentTool`s and the hand-written providers' static definitions alike,
-found by reflection so a tool added tomorrow is covered without anyone adding it to a list. It
-asserts the house rules:
+application registers, found by reflection so a tool added tomorrow is covered without anyone adding
+it to a list. It asserts the house rules:
 
 | Rule | Why it is a red build rather than a code review note |
 |------|------------------------------------------------------|
-| Name matches `^[a-z][a-z0-9_]{2,63}$` and is unique | The registry's walk is first-match; two tools answering to one name means which one runs depends on registration order. |
+| Name matches `^[a-z][a-z0-9_]{2,63}$` and is unique | Two tools answering to one name means which one runs depends on registration order. |
 | Description is 40–600 characters | The floor catches the one-liner the model cannot choose by, the ceiling the essay that is paid for on every request. |
 | `InputSchema` is a `type: "object"` schema, every `required` name is a declared property, every property has a `description` | The model cannot supply a property it was never shown, and guesses at one it cannot read. |
 | A `ToolCatalog` entry exists — and every catalogue entry has an implementation | The catalogue routes the tool; without an entry it reaches no surface, and an entry with nothing behind it puts a dead tick box on the settings page. |
-| A tool declaring `Mutation` is refused when `CanMutate` is false | Asserted through the real `AgentToolProvider`, so it is the mechanism that is checked and not a restatement of it. |
-| A missing required argument comes back through `ToolResults`, classified `failed_result` | An expected failure reported any other way is invisible in the traces, and expected failures are most of what is worth seeing there. |
+| A tool declaring `RequiresEdit` is refused for a read-only caller | Asserted through the real loop, so it is the mechanism that is checked and not a restatement of it. |
+| A missing required argument comes back through `ToolResults` as a failure the loop counts | An expected failure reported any other way is invisible in the traces, and expected failures are most of what is worth seeing there. |
 | `Definition` is readable without the constructor having run | It is serialized at position 0 of every request; one built from injected state can differ between two runs, and a differing schema is a cold prompt cache. |
 
 `SkillContractTests` does the same for the skill files that ship: every tool a skill names must exist
 **and** be advertised on that skill's own surface. At runtime a name the surface does not have is
-dropped with a `Debug` line, because on the guild surface an allow-list excluding one is routine —
-which means a typo and a correct exclusion look identical in production. Here they do not.
+dropped, because on the guild surface an allow-list excluding one is routine — which means a typo and
+a correct exclusion look identical in production. Here they do not.
 
 ### Specify it in `docs/tools/`
 
 One page per tool: purpose, dependencies, the exact model-facing description, an input table, and
-**every** result shape — success and each expected failure, each marked `failed_result` where
-`ToolOutcomes.Classify` counts it as one. The template is in
-[`docs/tools/README.md`](../tools/README.md).
+**every** result shape — success and each expected failure, each marked `failed_result` where the
+loop counts it as one. The template is in [`docs/tools/README.md`](../tools/README.md).
 
 Write the page when you touch the tool, not in one sitting: a page written alongside a change is
 accurate for the same reason the change is, and 29 pages written in an afternoon are 29 pages nobody
@@ -936,33 +945,20 @@ keeps true. New tools get one; the rest are backfilled as they are next changed.
 ### What a tool costs
 
 Every tool's schema is serialized at position 0 of every request on its surface, needed or not.
-`PromptSurface.Measure` puts a number on that, and two places report it:
+`PromptSurfaceReporter`, rebuilt on the framework's prompt store and tools, puts a number on that, and
+two places report it:
 
 - **At startup**, one line per surface — tools advertised, schema characters, estimated tokens, and
   the three largest tools by name.
 - **On a guild's Assistant Metrics page**, a per-tool table with each tool's share of the prefix,
   marking the ones this guild has turned off and the ones a skill is holding back.
 
-Both count what a surface *advertises* — the skill-aware set from `SkillToolSet.Compose` over the
-run's registry — not everything `IToolRegistry.GetEnabledTools()` holds. A tool behind an unloaded
-skill is registered, is callable once the skill loads, and is not in the prefix now.
+Both count what a surface *advertises*: tools behind an unloaded skill are registered, are callable
+once the skill loads, and are not in the prefix now.
 
 Read them together with the Tool Usage table above them: a tool that is 15% of every request and was
 called twice last month belongs behind a skill or turned off, and that is a decision with a number
 attached rather than an argument.
-
-### When to write an `IToolProvider` instead
-
-`IToolProvider` is still the contract the registry speaks, and still the right shape when several
-tools share expensive state — a cached Discord lookup, a compiled index — that is worth constructing
-once for the group. It is the wrong shape for the common case of one capability over one service,
-which is what this pattern replaces. The eleven existing providers are converted opportunistically,
-when they are next being touched anyway, not in one sitting.
-
-**When converting one, delete its DI registration in the same change.** A registry advertises every
-registered provider's tools without de-duplicating, so a provider left registered beside its own
-converted tools puts each name in the array twice — and the duplicate schema is paid for on every
-request in the run.
 
 ---
 
@@ -970,18 +966,19 @@ request in the run.
 
 A **skill** is how a tool stops costing its schema on every request. It is a markdown file naming
 some tools and carrying the instructions for using them; the model sees only a one-line summary
-until it decides a request needs the skill, and pays for the rest then.
+until it decides a request needs the skill, and pays for the rest then. Skills are the framework's:
+`MarkdownSkillStore` reads them, and `load_skill` is a framework built-in.
 
-Skill files live in `docs/agents/skills/<surface>/` — `dm/` and `guild/`, one directory per
-assistant, configured by `DmAssistant:SkillsPath` and `Assistant:Tools:SkillsPath`. The format and
-the authoring advice are in [`docs/agents/skills/README.md`](../agents/skills/README.md); this
+Skill files live in `docs/agents/prompts/skills/<surface>/` — today only `dm/` (`analytics`,
+`moderation`) — and are copied to `Prompts/skills` in the build output (`Prompts:SkillsDirectory`).
+The format and the authoring advice are in [`docs/agents/README.md`](../agents/README.md); this
 section is the mechanism.
 
 ### The rule
 
 > A tool named by **any** available skill is hidden until one of the skills naming it is loaded.
 
-Everything else the registry holds is advertised as it always was. So a surface keeps its common
+Everything else the surface holds is advertised as it always was. So a surface keeps its common
 tools always-on and puts only the rare, heavy ones behind a skill — putting a frequently needed tool
 in a skill file makes every request that needs it cost an extra round.
 
@@ -989,50 +986,40 @@ in a skill file makes every request that needs it cost an extra round.
 
 | Piece | Where | Does |
 |-------|-------|------|
-| `AgentSkill` | `Agents/Contracts/` | Key, summary, tool names, instructions. |
-| `SkillFile` | `Agents/` | Parses one markdown file. `summary` is the only required key. |
-| `SkillLibrary` (`ISkillLibrary`) | `Agents/` | Reads a directory, through `IPromptTemplate` so a skill is cached and hot-reloaded exactly like a prompt. |
-| `SkillSession` (`ISkillActivationState`) | `Agents/` | One run's available and activated skills. |
-| `SkillToolSet.Compose` | `Agents/` | Applies the rule above. `AgentRunner` calls it once at the start and again after any round that activated a skill. |
-| `SkillRoster.Append` | `Agents/` | The prompt block: one line per loadable skill, plus the full instructions of anything pre-activated. |
-| `SkillSessionFactory` (`ISkillSessionFactory`) | `Infrastructure/Services/LLM/` | Builds the run's session and **narrows** each skill's tools to what the run's registry advertises. |
-| `LoadSkillTool` | `Infrastructure/Services/LLM/Tools/` | The `load_skill` tool. An ordinary `IAgentTool` with an ordinary `ToolCatalog` entry. |
-| `DmSkillActivationStore` (`IDmSkillActivationStore`) | `Infrastructure/Services/LLM/` | Remembers a DM user's activations between turns, in `IMemoryCache`. |
-
-The session is reachable from both ends of the mechanism: the loop reads it off
-`AgentContext.Skills`, and the tool reads the same instance out of `ToolContext.Items` via
-`SkillToolContextExtensions`. A context factory puts it in both places.
+| Skill file | `docs/agents/prompts/skills/<surface>/` | Front matter `key`, `summary` (required — the whole basis for the model's decision to load), `tools`; body is the instructions. |
+| `MarkdownSkillStore` | `cpike.Agent.Core` | Reads the directory, hot-reloaded. |
+| `load_skill` | `cpike.Agent.Core` | Built-in tool; loads a skill and brings its tools in. Added to a mode only when the mode has `skills:`. |
+| `{{skills}}` | prompt token | Renders the roster, one line per loadable skill, in the mode prompt (`dm.md` uses it). |
+| `CatalogPromptStore` | `Infrastructure/Services/LLM/` | Fills each surface mode's tool list from `ToolCatalog`, **withholding** tools only a skill brings and adding `load_skill`. |
+| `IDmSkillActivationStore` | `Infrastructure/Services/LLM/` | Remembers a DM user's loaded skill keys between turns. |
 
 ### Two things that are not negotiable
 
-**A skill can never widen reach.** `SkillToolSet.Compose` builds the advertised set from
-`IToolRegistry.GetEnabledTools()` and only ever subtracts from it, and `SkillSessionFactory` narrows
-each skill's tool list to the same registry first. On the guild surface that registry is a
-`FilteredToolRegistry` over the guild's allow-list, so a skill file naming a tool a guild has turned
-off cannot turn it back on — the name is dropped, and the model is never told it existed.
+**A skill can never widen reach.** A skill only brings tools that the run is allowed to have. On the
+guild surface the per-guild allow-list becomes `DisabledTools` on the run, so a skill file naming a
+tool a guild has turned off cannot turn it back on.
 
 **Loading costs a prompt-cache write.** The tool array serializes at position 0 of the request, so
-re-composing it invalidates the cached prefix for the rest of that run. That is one cache write on a
-loading turn, and it is the reason the loop re-composes only when the activated set actually changed.
-Expect a cache-miss spike after a `load_skill` on the metrics page; it is the mechanism working.
+changing it invalidates the cached prefix for the rest of that run. That is one cache write on a
+loading turn. Expect a cache-miss spike after a `load_skill` on the metrics page; it is the mechanism
+working.
 
 ### Stickiness differs by surface, and that is the whole design
 
-- **DM assistant** — multi-turn. `DmAssistantContextFactory` replays the previous turn's activations
-  into the session, so from turn 2 the skill's tools are advertised on the first call and its
-  instructions are already in the prompt (the tool result that carried them the first time is not in
-  the sliding-window history, which is why `SkillRoster` re-renders them). A skill is paid for once.
-- **Guild assistant** — single-turn by design: `ConversationHistory` is always empty, so there is no
-  previous turn to replay. A skill there costs a round **every** time it is used. That is still the
-  right trade for a rare, heavy tool group and the wrong one for anything else, which is why
-  `docs/agents/skills/guild/` ships empty.
+- **DM assistant** — multi-turn. The stored keys (`IDmSkillActivationStore`) go in as
+  `AgentRunRequest.PreloadedSkills`, so from turn 2 the skill's tools are advertised on the first call
+  and its instructions are already in the prompt; `AgentResult.LoadedSkills` is written back after the
+  turn. A skill is paid for once.
+- **Guild assistant** — single-turn by design: it has no history, so there is nothing to replay. A
+  skill there costs a round **every** time it is used. That is still the right trade for a rare,
+  heavy tool group and the wrong one for anything else, which is why the guild surface ships no
+  skills.
 
 ### Adding a skill
 
-One file in the right directory, and nothing else — no catalogue entry, no DI, no code. It is picked
-up within the prompt cache's five minutes. The tools it names must already exist and be advertised on
-that surface; a name that is not is dropped with a `Debug` line rather than an error, because on the
-guild surface an allow-list excluding one is routine.
+One markdown file in the right directory, and the mode's `skills:` line if it is a new surface —
+no catalogue entry, no DI, no code. It is picked up by hot reload. The tools it names must already
+exist and be advertised on that surface; a name that is not is dropped rather than an error.
 
 ---
 

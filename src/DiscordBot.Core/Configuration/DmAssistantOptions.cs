@@ -20,6 +20,7 @@ public class DmAssistantOptions
     /// Gets or sets the path to the owner system prompt file.
     /// Default is "docs/agents/dm-owner-agent.md".
     /// </summary>
+    // Not read by the assistant since the move to cpike.Agent: the DM prompt is the "dm" mode, docs/agents/prompts/dm.md (Prompts:Directory).
     public string OwnerSystemPromptPath { get; set; } = "docs/agents/dm-owner-agent.md";
 
     /// <summary>
@@ -31,6 +32,7 @@ public class DmAssistantOptions
     /// for once rather than on every question. That is what makes it the right home for the heavy,
     /// rarely needed tool groups.
     /// </remarks>
+    // Not read by the assistant since the move to cpike.Agent: skills come from Prompts:SkillsDirectory, and the dm mode names its own.
     public string SkillsPath { get; set; } = "docs/agents/skills/dm";
 
     /// <summary>
@@ -73,6 +75,7 @@ public class DmAssistantOptions
     /// Gets or sets the temperature for the model's responses (0.0 to 1.0).
     /// Default is 0.7 (balanced).
     /// </summary>
+    // Not read by the assistant since the move to cpike.Agent: the cpike.Agent loop sends no temperature; current models reject or ignore it.
     public double Temperature { get; set; } = 0.7;
 
     #endregion
@@ -84,6 +87,7 @@ public class DmAssistantOptions
     /// A tool that overruns it is abandoned and the model is told so; the loop continues.
     /// Default is 10000 (10 seconds).
     /// </summary>
+    // Not read by the assistant since the move to cpike.Agent: the per-tool deadline is Agent:ToolTimeoutSeconds, shared by every assistant.
     public int ToolExecutionTimeoutMs { get; set; } = 10000;
 
     /// <summary>
@@ -98,6 +102,7 @@ public class DmAssistantOptions
     /// run before further identical calls are refused without executing the tool.
     /// Default is 3. 0 disables the guard.
     /// </summary>
+    // Not read by the assistant since the move to cpike.Agent: the repeated-call guard is Agent:DuplicateToolCallLimit, shared by every assistant.
     public int DuplicateToolCallLimit { get; set; } = 3;
 
     #endregion

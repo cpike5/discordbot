@@ -25,6 +25,12 @@ public class AssistantPipelineResult
     public bool ConversationCleared { get; set; }
 
     /// <summary>
+    /// The skills loaded by the end of the run, so a scope with sticky skills (the DM assistant)
+    /// can offer them already loaded on the next turn.
+    /// </summary>
+    public List<string> LoadedSkills { get; set; } = new();
+
+    /// <summary>
     /// Whether the run used up its tool-round budget rather than the model ending its own turn.
     /// The reply is then the wrap-up answer, already carrying its "may be incomplete" notice.
     /// </summary>

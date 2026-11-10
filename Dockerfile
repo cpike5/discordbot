@@ -22,7 +22,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY DiscordBot.sln ./
 COPY Directory.Build.props ./
 COPY nuget.config ./
-COPY src/DiscordBot.Agents/DiscordBot.Agents.csproj src/DiscordBot.Agents/
 COPY src/DiscordBot.Core/DiscordBot.Core.csproj src/DiscordBot.Core/
 COPY src/DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj src/DiscordBot.Infrastructure/
 COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/

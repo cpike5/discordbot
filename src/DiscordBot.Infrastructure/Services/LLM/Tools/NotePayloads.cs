@@ -10,7 +10,7 @@ internal static class NotePayloads
 {
     /// <summary>
     /// <paramref name="note"/> as the model sees it. <c>tag</c> is omitted rather than null when the
-    /// note has none — <see cref="Agents.ToolJson.Compact"/> drops nulls.
+    /// note has none — <see cref="Tooling.ToolJson.Compact"/> drops nulls.
     /// </summary>
     internal static object Describe(DmAssistantNote note) => new
     {

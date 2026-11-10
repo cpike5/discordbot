@@ -17,7 +17,7 @@ read by something that cannot ask a follow-up question.
 | [`load_skill`](./load_skill.md) | Guild, DM | no |
 | [`get_feature_documentation`](./get_feature_documentation.md) | Guild, DM | no |
 
-The other 22 tools are still the hand-written `IToolProvider` kind and have no page yet.
+The other tools have no page yet.
 
 ## When to write one
 
@@ -25,9 +25,8 @@ The other 22 tools are still the hand-written `IToolProvider` kind and have no p
 reads and nobody keeps true; a page written while changing the thing it describes is accurate for
 the same reason the change is. Backfill the ones being changed, and write one for every new tool.
 
-The set above is the tools converted to `IAgentTool` in Phases 4 and 5, plus
-`get_feature_documentation`, which is still a hand-written provider tool and got its page when the
-path-containment fix (F13) touched it. Being converted is not what earns a page; being changed is.
+Every tool is a `sealed` `cpike.Agent.IAgentTool` class. The pages above exist because their tools
+were changed, not because of how they are built: being changed is what earns a page.
 
 ## The template
 
@@ -39,7 +38,7 @@ that is impossible to reconstruct from the code without reading every branch.
 
 **Status**: shipped · **Surfaces**: DM · **Category**: Memory · **Default**: on
 **Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Tools/ToolNameTool.cs`
-**Mutation**: `"phrase that follows: isn't allowed to"` — or *read-only*
+**Requires edit**: yes (`requiresEdit: true`) — or no
 
 ## Purpose
 
@@ -77,7 +76,7 @@ Changing this costs a prompt-cache prefix, so it is quoted here to make a change
 ```
 
 One subsection per expected failure, each marked `failed_result` when
-[`ToolOutcomes.Classify`](../architecture/patterns.md#agent-tool-authoring) counts it as one — a
+the loop (`AgentService.FailureCodeOf`, see [patterns](../architecture/patterns.md#agent-tool-authoring)) counts it as one — a
 top-level `error` string, or a top-level `success` / `available` / `found` flag that is false. A
 failure reported any other way is invisible in the traces and on the metrics page, and expected
 failures are the majority of what is worth seeing there.
@@ -90,12 +89,14 @@ empty store.
 
 ## The `failed_result` convention, once
 
-`ToolResults.Error` and `ToolResults.NotFound` return a **successful** `ToolExecutionResult` carrying
-an explanation, because that is what the model needs to read — `CreateError` prepends `Error: ` on
-the wire, which reads as a malfunction to retry around rather than an answer to relay. The cost is
-that such failures are invisible to anything checking `ToolExecutionResult.Success`, which is why
-`ToolOutcomes.Classify` reads the payload instead. Writing results through `ToolResults` satisfies
-the convention by construction; hand-rolling one means following it deliberately.
+`ToolResults.Error` and `ToolResults.NotFound` return a normal result string carrying an explanation,
+because that is what the model needs to read: an expected failure is content to relay, not a
+malfunction to retry around. The cost is that such failures look like successes to anything that only
+checks whether the tool threw, which is why the loop reads the payload instead
+(`AgentService.FailureCodeOf`, which labels `cpike.tool.failure_code`). Writing results through
+`ToolResults` satisfies the convention by construction; hand-rolling one means following it
+deliberately. A write refused for a read-only caller is not a payload of the tool's: the loop returns
+`edit_forbidden` before the tool runs.
 
 Reserve `ToolResults.Failed` for a genuine malfunction — something the model can do nothing useful
 with.

@@ -3,7 +3,6 @@ using System.Threading.Channels;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using DiscordBot.Bot.Metrics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

@@ -1,6 +1,5 @@
 using DiscordBot.Core.Enums;
 using System.Text.Json;
-using DiscordBot.Agents.Configuration;
 
 namespace DiscordBot.Infrastructure.Services;
 
@@ -212,7 +211,7 @@ public static class SettingDefinitions
         // catalog refresh can leave that slug disabled or unavailable, so hard-coding one here
         // could reset a mode to a model the admin can no longer use. An empty value means
         // ILlmModelResolver falls through to the bound IOptions<T> value (and then
-        // OpenRouterOptions.DefaultModel) instead of a DB override -
+        // OpenRouter:Model) instead of a DB override -
         // ValidateAiModelSelectionsAsync skips blank submissions for exactly this reason.
         new(
             key: "Assistant:Sampling:Model",

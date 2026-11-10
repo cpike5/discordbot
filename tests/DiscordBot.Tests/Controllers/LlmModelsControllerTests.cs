@@ -1,11 +1,9 @@
 using DiscordBot.Bot.Controllers;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

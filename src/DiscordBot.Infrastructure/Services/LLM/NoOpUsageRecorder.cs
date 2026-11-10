@@ -1,6 +1,5 @@
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 

@@ -2,7 +2,7 @@
 
 **Status**: shipped · **Surfaces**: DM · **Category**: Memory · **Default**: on
 **Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Tools/SearchNotesTool.cs`
-**Mutation**: read-only
+**Requires edit**: no
 
 ## Purpose
 
@@ -51,7 +51,7 @@ having to know that tags exist.
 untagged note costs nothing to report.
 
 A search that matches nothing is a **success with an empty list**, not a failure: an empty
-`results` array with `total_results: 0` is the true answer, and `ToolOutcomes.Classify` counts it as
+`results` array with `total_results: 0` is the true answer, and `AgentService.FailureCodeOf` counts it as
 `ok`. Only a malformed call is a failure here.
 
 ### `failed_result` — no query

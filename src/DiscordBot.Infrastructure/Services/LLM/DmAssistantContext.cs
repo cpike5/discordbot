@@ -1,14 +1,13 @@
+using cpike.Agent;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents;
-using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 
@@ -21,8 +20,10 @@ public class DmAssistantContext : IAssistantContext
 {
     public const string RateLimitPrefix = "dm_assistant_ratelimit:";
 
+    /// <summary>The framework mode (and prompt file) the DM assistant runs in.</summary>
+    public const string ModeName = "dm";
+
     private readonly ulong _userId;
-    private readonly IPromptTemplate _promptTemplate;
     private readonly IDmConversationMessageRepository _conversationRepo;
     private readonly IDmAssistantInteractionLogRepository _interactionLogRepo;
     private readonly IDmAssistantUsageMetricsRepository _metricsRepo;
@@ -31,15 +32,13 @@ public class DmAssistantContext : IAssistantContext
     private readonly string _resolvedModel;
     private readonly LlmCatalogPricing? _resolvedPricing;
     private readonly ILlmUsageRecorder _usageRecorder;
-    private readonly ISkillActivationState? _skills;
     private readonly IDmSkillActivationStore? _skillActivations;
 
     public DmAssistantContext(
         ulong userId,
         ulong? activeGuildId,
-        IToolRegistry toolRegistry,
-        List<LlmMessage> conversationHistory,
-        IPromptTemplate promptTemplate,
+        IReadOnlyList<ConversationTurn> conversationHistory,
+        IReadOnlyCollection<string> preloadedSkills,
         IDmConversationMessageRepository conversationRepo,
         IDmAssistantInteractionLogRepository interactionLogRepo,
         IDmAssistantUsageMetricsRepository metricsRepo,
@@ -48,13 +47,11 @@ public class DmAssistantContext : IAssistantContext
         string resolvedModel,
         LlmCatalogPricing? resolvedPricing = null,
         ILlmUsageRecorder? usageRecorder = null,
-        ISkillActivationState? skills = null,
         IDmSkillActivationStore? skillActivations = null)
     {
         _userId = userId;
-        ToolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
-        ConversationHistory = conversationHistory ?? throw new ArgumentNullException(nameof(conversationHistory));
-        _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
+        History = conversationHistory ?? throw new ArgumentNullException(nameof(conversationHistory));
+        PreloadedSkills = preloadedSkills ?? throw new ArgumentNullException(nameof(preloadedSkills));
         _conversationRepo = conversationRepo ?? throw new ArgumentNullException(nameof(conversationRepo));
         _interactionLogRepo = interactionLogRepo ?? throw new ArgumentNullException(nameof(interactionLogRepo));
         _metricsRepo = metricsRepo ?? throw new ArgumentNullException(nameof(metricsRepo));
@@ -63,16 +60,11 @@ public class DmAssistantContext : IAssistantContext
         _resolvedModel = resolvedModel ?? throw new ArgumentNullException(nameof(resolvedModel));
         _resolvedPricing = resolvedPricing;
         _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
-        _skills = skills;
         _skillActivations = skillActivations;
 
         // The DM assistant is owner-only — access is decided before a message ever reaches here,
         // so there is no narrower permission left to express.
-        ExecutionContext = new ToolContext { UserId = userId, CanMutate = true };
-        ExecutionContext.SetActiveGuildId(activeGuildId);
-
-        // The loader tool reads the session from here; the loop reads it from AgentContext.Skills.
-        ExecutionContext.SetSkills(skills);
+        Identity = new DiscordRunIdentity(userId, CanMutate: true, ActiveGuildId: activeGuildId);
     }
 
     public string RateLimitCacheKeyPrefix => RateLimitPrefix;
@@ -84,24 +76,35 @@ public class DmAssistantContext : IAssistantContext
 
     public string? Model => _resolvedModel;
     public LlmMode Mode => LlmMode.DmAssistant;
+    public string ModeKey => ModeName;
+    public DiscordRunIdentity Identity { get; }
     public int MaxTokens => _options.MaxTokens;
-    public double Temperature => _options.Temperature;
     public int MaxToolCallIterations => 10;
     public int MaxToolResultChars => _options.MaxToolResultChars;
-    public int ToolExecutionTimeoutMs => _options.ToolExecutionTimeoutMs;
-    public int DuplicateToolCallLimit => _options.DuplicateToolCallLimit;
 
-    public IToolRegistry? ToolRegistry { get; }
-    public ToolContext ExecutionContext { get; }
-    public List<LlmMessage> ConversationHistory { get; }
+    public IReadOnlyList<ConversationTurn> History { get; }
+
+    /// <summary>
+    /// Every DM tool is available (access is owner-only), except <c>execute_python</c> when code
+    /// execution is switched off: then it is not advertised at all.
+    /// </summary>
+    public IReadOnlyCollection<string> DisabledTools => DisabledToolsFor(_options);
+
+    /// <summary>The DM tools <paramref name="options"/> switch off; shared with the prompt-surface report.</summary>
+    public static IReadOnlyCollection<string> DisabledToolsFor(DmAssistantOptions options) =>
+        options.EnableCodeExecution ? [] : [ExecutePythonToolName];
+
+    private const string ExecutePythonToolName = "execute_python";
 
     /// <inheritdoc />
     /// <remarks>
-    /// This surface has conversation state, so the factory replays the previous turn's activations
-    /// into the session before the run starts. That is what makes a skill cost one round on the turn
-    /// that loads it and nothing afterwards.
+    /// The skills the previous turn ended with. Replaying them is what makes a skill nearly free from
+    /// turn 2: its tools are advertised on the first call and its instructions are already in the
+    /// prompt, so the round that loaded it is never paid for twice. The tool result that carried the
+    /// instructions the first time is not in the sliding-window history, so without this the tools
+    /// would come back without the instructions that explain them.
     /// </remarks>
-    public ISkillActivationState? Skills => _skills;
+    public IReadOnlyCollection<string> PreloadedSkills { get; }
 
     /// <summary>
     /// Per-million-token rates: catalog pricing for the resolved model wins when the catalog
@@ -118,26 +121,9 @@ public class DmAssistantContext : IAssistantContext
     public string TruncationSuffix => _options.TruncationSuffix;
 
     /// <inheritdoc />
-    public async Task<string> BuildSystemPromptAsync(CancellationToken cancellationToken)
-    {
-        string prompt;
-
-        try
-        {
-            prompt = await _promptTemplate.LoadAsync(_options.OwnerSystemPromptPath, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load owner system prompt from {Path}, using fallback",
-                _options.OwnerSystemPromptPath);
-            prompt = "You are a helpful AI assistant. Be concise and accurate.";
-        }
-
-        // The roster, plus the instructions of anything replayed from a previous turn: the tool
-        // result that carried them the first time is not in the sliding-window history, so without
-        // this the tools would come back on turn 2 without the instructions that explain them.
-        return SkillRoster.Append(prompt, _skills);
-    }
+    /// <remarks>The DM assistant has no per-turn context beyond the run-context note the loop adds.</remarks>
+    public Task<IReadOnlyList<PromptPart>> BuildPartsAsync(CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<PromptPart>>([]);
 
     /// <inheritdoc />
     public Task<string> FormatUserMessageAsync(string rawMessage, CancellationToken cancellationToken)
@@ -188,9 +174,9 @@ public class DmAssistantContext : IAssistantContext
                 {
                     _skillActivations.Clear(_userId);
                 }
-                else if (result.Success && _skills is not null)
+                else if (result.Success)
                 {
-                    _skillActivations.Set(_userId, _skills.Activated.Select(skill => skill.Key));
+                    _skillActivations.Set(_userId, result.LoadedSkills);
                 }
             }
             catch (Exception ex)

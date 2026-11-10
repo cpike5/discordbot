@@ -1,4 +1,3 @@
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Core.Interfaces.LLM;
 
@@ -6,7 +5,7 @@ namespace DiscordBot.Infrastructure.Abstractions.LLM;
 
 /// <summary>
 /// Runs one assistant message exchange: builds the <see cref="AgentContext"/> from an
-/// <see cref="IAssistantContext"/>, invokes the <see cref="IAgentRunner"/>, prices the
+/// <see cref="IAssistantContext"/>, invokes the cpike.Agent loop (<c>AgentService</c>), prices the
 /// resulting usage, and truncates the response. Shared by the guild and DM assistant services
 /// so the agentic-loop invocation and cost/truncation logic exists in exactly one place.
 /// </summary>

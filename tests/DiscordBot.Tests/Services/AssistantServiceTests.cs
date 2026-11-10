@@ -1,11 +1,9 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
 using FluentAssertions;
@@ -15,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Tests.TestHelpers;
+using DiscordBot.Infrastructure.Abstractions.LLM;
 
 namespace DiscordBot.Tests.Services;
 
@@ -23,21 +22,17 @@ namespace DiscordBot.Tests.Services;
 /// Tests cover question processing, rate limiting, consent checking, and metrics logging.
 /// </summary>
 /// <remarks>
-/// The shared rate-limiting and agent-invocation logic now lives in
-/// <see cref="AssistantRateLimiter"/> and <see cref="AssistantMessagePipeline"/> (used by both
-/// the guild and DM assistants) and is exercised directly in
-/// <c>Services/LLM/AssistantMessagePipelineTests.cs</c>. These tests use the real
-/// implementations of those two plus <see cref="GuildAssistantContextFactory"/> so the
-/// end-to-end guild flow (checks -> rate limit -> agent run -> metrics/logging) stays covered,
-/// while still mocking the underlying repositories/services.
+/// The agent run itself (the cpike.Agent loop, cost pricing, truncation) lives in
+/// <see cref="AssistantMessagePipeline"/> and is exercised over the real loop in
+/// <c>Services/LLM/AssistantMessagePipelineTests.cs</c>; here the pipeline is mocked. The rate
+/// limiter, access gate and <see cref="GuildAssistantContextFactory"/> are the real ones, so the
+/// guild flow (checks -> rate limit -> run -> metrics/logging) stays covered end to end around it.
 /// </remarks>
 public class AssistantServiceTests
 {
     private readonly Mock<ILogger<AssistantService>> _mockLogger;
-    private readonly Mock<IAgentRunner> _mockAgentRunner;
-    private readonly Mock<IToolRegistry> _mockToolRegistry;
+    private readonly Mock<IAssistantMessagePipeline> _mockPipeline;
     private readonly Mock<IToolAccessResolver> _mockToolAccessResolver;
-    private readonly Mock<IPromptTemplate> _mockPromptTemplate;
     private readonly Mock<IConsentService> _mockConsentService;
     private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<IAssistantGuildSettingsService> _mockGuildSettingsService;
@@ -60,13 +55,11 @@ public class AssistantServiceTests
     public AssistantServiceTests()
     {
         _mockLogger = new Mock<ILogger<AssistantService>>();
-        _mockAgentRunner = new Mock<IAgentRunner>();
-        _mockToolRegistry = new Mock<IToolRegistry>();
+        _mockPipeline = new Mock<IAssistantMessagePipeline>();
         _mockToolAccessResolver = new Mock<IToolAccessResolver>();
         _mockToolAccessResolver
             .Setup(r => r.ResolveAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlySet<string>)new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-        _mockPromptTemplate = new Mock<IPromptTemplate>();
         _mockConsentService = new Mock<IConsentService>();
         _mockGuildService = new Mock<IGuildService>();
         _mockGuildSettingsService = new Mock<IAssistantGuildSettingsService>();
@@ -138,15 +131,6 @@ public class AssistantServiceTests
         _mockGuildService
             .Setup(g => g.GetGuildByIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new GuildDto { Id = TestGuildId, Name = "Test Guild" });
-
-        // Default setup for prompt template
-        _mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("You are a helpful assistant.");
-
-        _mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("You are a helpful assistant.");
     }
 
     /// <summary>
@@ -156,7 +140,6 @@ public class AssistantServiceTests
     /// </summary>
     private AssistantService BuildService(IOptions<AssistantOptions> options, Mock<ISettingsService>? settingsService = null)
     {
-        var pipeline = new AssistantMessagePipeline(_mockAgentRunner.Object);
         var rateLimiter = new AssistantRateLimiter(_cache);
         var accessGate = new AssistantAccessGate(
             (settingsService ?? _mockSettingsService).Object,
@@ -165,23 +148,20 @@ public class AssistantServiceTests
             options);
         var contextFactory = new GuildAssistantContextFactory(
             _mockGuildService.Object,
-            _mockPromptTemplate.Object,
-            _mockToolRegistry.Object,
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object,
             _mockModelResolver.Object,
             _mockToolAccessResolver.Object,
             Mock.Of<ILogger<GuildAssistantContext>>(),
             options,
-            Mock.Of<ILlmUsageRecorder>(),
-            new StubSkillSessionFactory());
+            Mock.Of<ILlmUsageRecorder>());
         var telemetryReader = new AssistantTelemetryReader(
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object);
 
         return new AssistantService(
             _mockLogger.Object,
-            pipeline,
+            _mockPipeline.Object,
             rateLimiter,
             accessGate,
             contextFactory,
@@ -306,13 +286,14 @@ public class AssistantServiceTests
             .ReturnsAsync(5);
 
         // Setup agent runner for the first 5 successful calls
-        _mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantPipelineResult
             {
                 Success = true,
                 Response = TestResponse,
-                TotalUsage = new LlmUsage { InputTokens = 100, OutputTokens = 50 }
+                InputTokens = 100,
+                OutputTokens = 50
             });
 
         // Pre-fill the rate limit cache with max requests
@@ -340,20 +321,17 @@ public class AssistantServiceTests
             .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(100);
 
-        _mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantPipelineResult
             {
                 Success = true,
                 Response = TestResponse,
-                TotalToolCalls = 2,
-                TotalUsage = new LlmUsage
-                {
-                    InputTokens = 100,
-                    OutputTokens = 50,
-                    CachedTokens = 80,
-                    CacheWriteTokens = 0
-                }
+                ToolCalls = 2,
+                InputTokens = 100,
+                OutputTokens = 50,
+                CachedTokens = 80,
+                CacheCreationTokens = 0
             });
 
         // Act
@@ -423,33 +401,38 @@ public class AssistantServiceTests
     }
 
     [Fact]
-    public async Task AskQuestionAsync_TruncatesLongResponse()
+    public async Task AskQuestionAsync_HandsThePipelineTheGuildContextAndFormattedMessage()
     {
-        // Arrange
-        SetupAllChecksPass();
-        _mockGuildSettingsService
-            .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(100);
+        // Arrange - the guild allows one tool, so every other guild tool reaches the run as disabled.
+        SetupSuccessfulRun();
+        _mockToolAccessResolver
+            .Setup(r => r.ResolveAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlySet<string>)new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "get_guild_info" });
 
-        var longResponse = new string('a', _options.Messages.MaxResponseLength + 100);
-        _mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
+        string? sentMessage = null;
+        IAssistantContext? sentContext = null;
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IAssistantContext, CancellationToken>((message, context, _) =>
             {
-                Success = true,
-                Response = longResponse,
-                TotalUsage = new LlmUsage()
-            });
+                sentMessage = message;
+                sentContext = context;
+            })
+            .ReturnsAsync(new AssistantPipelineResult { Success = true, Response = TestResponse });
 
         // Act
-        var result = await _service.AskQuestionAsync(
+        await _service.AskQuestionAsync(
             TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
 
         // Assert
-        result.Success.Should().BeTrue();
-        result.Response.Should().NotBeNull();
-        result.Response!.Length.Should().BeLessThanOrEqualTo(_options.Messages.MaxResponseLength);
-        result.Response.Should().EndWith(_options.Messages.TruncationSuffix);
+        sentMessage.Should().Be($"{TestGuildId}\nTest Guild\n---\n{TestQuestion}");
+        sentContext.Should().BeOfType<GuildAssistantContext>();
+        sentContext!.ModeKey.Should().Be(GuildAssistantContext.ModeName);
+        sentContext.Identity.UserId.Should().Be(TestUserId);
+        sentContext.Identity.GuildId.Should().Be(TestGuildId);
+        sentContext.Model.Should().Be("anthropic/claude-sonnet-4");
+        sentContext.DisabledTools.Should().NotContain("get_guild_info");
+        sentContext.DisabledTools.Should().Contain("get_user_roles");
     }
 
     [Fact]
@@ -461,13 +444,12 @@ public class AssistantServiceTests
             .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(100);
 
-        _mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantPipelineResult
             {
                 Success = false,
-                ErrorMessage = "LLM API error",
-                TotalUsage = new LlmUsage()
+                ErrorMessage = "LLM API error"
             });
 
         // Act
@@ -480,7 +462,7 @@ public class AssistantServiceTests
     }
 
     [Fact]
-    public async Task AskQuestionAsync_WhenAgentRunnerThrows_RecordsFailedUsageLedgerRow()
+    public async Task AskQuestionAsync_WhenThePipelineThrows_RecordsFailedUsageLedgerRow()
     {
         // Arrange
         SetupAllChecksPass();
@@ -488,8 +470,8 @@ public class AssistantServiceTests
             .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(100);
 
-        _mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("provider unavailable"));
 
         // Act
@@ -731,20 +713,17 @@ public class AssistantServiceTests
             .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(100); // High limit to avoid rate limiting in tests
 
-        _mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<IAssistantContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantPipelineResult
             {
                 Success = true,
                 Response = TestResponse,
-                TotalToolCalls = 0,
-                TotalUsage = new LlmUsage
-                {
-                    InputTokens = 100,
-                    OutputTokens = 50,
-                    CachedTokens = 80,
-                    CacheWriteTokens = 0
-                }
+                ToolCalls = 0,
+                InputTokens = 100,
+                OutputTokens = 50,
+                CachedTokens = 80,
+                CacheCreationTokens = 0
             });
     }
 

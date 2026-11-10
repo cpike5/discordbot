@@ -7,7 +7,8 @@ human evaluating the project; this file is for you, today, with no prior context
 
 A Discord bot with an admin web portal, in one .NET 10 process. The bot side is
 Discord.NET slash commands, voice/audio (soundboard, TTS, VOX clips), moderation,
-reminders, scheduled messages, and an LLM-backed assistant. The web side is
+reminders, scheduled messages, and an LLM-backed assistant running on the
+[cpike.Agent](https://github.com/cpike5/cpike-agent-framework) framework packages. The web side is
 ASP.NET Core Razor Pages plus REST controllers, styled with Tailwind, with
 plain per-page JavaScript modules in `wwwroot/js/` and SignalR for live updates. Storage is EF Core
 on PostgreSQL (SQLite is still supported but being phased out). Auth is ASP.NET Identity plus Discord OAuth.
@@ -17,7 +18,6 @@ Solution layout (clean architecture, dependencies point inward):
 
 | Project | Owns |
 | --- | --- |
-| `src/DiscordBot.Agents` | The agent engine: the agentic loop (`AgentRunner`), tool contracts, `ToolRegistry`, `PromptTemplate`, and the OpenRouter chat client. A leaf library — it references no other project and knows nothing about Discord, EF Core, or guilds. |
 | `src/DiscordBot.Core` | Entities, enums, DTOs, service and repository interfaces, options classes. No framework dependencies, and no project references at all. |
 | `src/DiscordBot.Infrastructure` | EF Core `BotDbContext` (SQLite and Postgres variants), repositories, migrations, infrastructure services. |
 | `src/DiscordBot.Bot` | Everything hosted: Discord command modules, bot services, Razor Pages, controllers, SignalR hubs, DI registration in `Extensions/*ServiceExtensions.cs`, `Program.cs`. |
@@ -29,24 +29,34 @@ A new service goes: interface in Core, implementation in Bot or Infrastructure,
 registration in the matching `*ServiceExtensions.cs`. Follow that split so Core
 stays framework-free.
 
-A new **tool** is not engine work: it is one file in Infrastructure or Bot, next to the domain
-services it calls. Implement `IAgentTool` from `DiscordBot.Agents.Abstractions`, put it in
-`Services/LLM/Tools/`, and add a `ToolCatalog` entry (`Core/Models/Llm/`) — the catalogue is what
-decides which assistant advertises it, so a tool without one reaches nothing. There is no DI edit:
-the assembly scan finds it. `IToolProvider` is still there and still right for a group of tools that
-share expensive state, but it is no longer the default. Only the model-facing machinery itself
-belongs in `DiscordBot.Agents`. See `docs/architecture/patterns.md` § Agent Tool Authoring.
+The assistant's agent loop, tool contract, prompts, skills and OpenRouter client come from the
+**cpike.Agent** packages (`cpike.Agent.Core`, `cpike.Agent.OpenRouter`; `cpike.Agent.Testing` in
+tests). The house side is in `Infrastructure/Services/LLM/`: `AssistantMessagePipeline` runs one
+exchange on the framework's `AgentService` in its own DI scope, `IAssistantContext` supplies each
+surface's mode, caller and budgets, and `CatalogPromptStore` gives each mode its tools.
+
+A new **tool** is one file in Infrastructure or Bot, next to the domain services it calls: a
+`sealed` class implementing `cpike.Agent.IAgentTool` in `Services/LLM/Tools/`, built with the house
+helpers in `Services/LLM/Tooling/` (`AgentTools.Define`, `ToolInput`, `ToolResults`), reading the
+caller from an injected `DiscordRunContext` and never from its arguments. Add a `ToolCatalog` entry
+(`Core/Models/Llm/`): the catalogue decides which assistant advertises it, so a tool without one
+reaches nothing. There is no DI edit: the assembly scan finds it. A tool that always changes data
+sets `requiresEdit: true` and the loop refuses it for a caller who may not. `load_skill` and
+`get_current_time` are the framework's built-ins; never add a tool by either name.
+See `docs/architecture/patterns.md` § Agent Tool Authoring.
 A new **skill** — instructions for a rare, heavy tool group, kept out of every request until the
-model loads it — is one markdown file in `docs/agents/skills/<surface>/` and nothing else: no
-catalogue entry, no DI, no code. See `docs/architecture/patterns.md` § Agent Skills.
+model loads it — is one markdown file in `docs/agents/prompts/skills/<surface>/` plus its key on the
+mode's `skills:` line (`docs/agents/prompts/<mode>.md`): no catalogue entry, no DI, no code. See
+`docs/architecture/patterns.md` § Agent Skills.
 
 A new tool also gets a page in `docs/tools/` (template in that directory's README) and is held to
 the house rules by `ToolContractTests` — name shape, description length, schema shape, a catalogue
-entry, the mutation refusal, and failures that `ToolOutcomes.Classify` can count. Adding a house rule
-about tools means adding it there, not to a checklist.
-An assistant abstraction whose signature is made of engine types (`IAssistantContext`,
+entry, `RequiresEdit` on tools that change data, and failures that the framework's
+`AgentService.FailureCodeOf` can count. Adding a house rule about tools means adding it there, not
+to a checklist.
+An assistant abstraction whose signature is made of framework types (`IAssistantContext`,
 `IAssistantMessagePipeline`, the context factories) lives in
-`Infrastructure/Abstractions/LLM/` rather than Core, because Core cannot see the engine.
+`Infrastructure/Abstractions/LLM/` rather than Core, because Core takes no package dependencies.
 
 ## Read before you search
 
@@ -215,11 +225,10 @@ columns throw.
   handler runs. Use a `data-*` attribute and `this.dataset`, and `SafeHtml.escape` for
   markup built in JavaScript. `docs/architecture/patterns.md` § User Data in Markup and
   Scripts has the rest (return URLs, CSV exports, guild-scoped handlers).
-- **The assistant talks to OpenRouter, not a vendor SDK.** `ILlmClient` is
-  implemented by `OpenRouterLlmClient` (`DiscordBot.Agents/OpenRouter/`):
-  an owned typed `HttpClient` over OpenRouter's OpenAI-compatible chat completions,
-  plus owned wire records. There is no LLM SDK dependency — build LLM work on
-  `ILlmClient` and those records rather than adding one. Model names are OpenRouter
+- **The assistant talks to OpenRouter, not a vendor SDK.** The model client is
+  cpike.Agent's `IOpenRouterClient`, an owned typed client over OpenRouter's
+  OpenAI-compatible chat completions with owned wire records. There is no LLM SDK
+  dependency — build LLM work on the framework rather than adding one. Model names are OpenRouter
   slugs (`anthropic/claude-sonnet-4`, `openai/gpt-4o`), not vendor model IDs.
   Without `OpenRouter:ApiKey` the assistant services are never registered, which is
   what lets migrations run without a key.

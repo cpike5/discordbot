@@ -31,8 +31,6 @@ public static class FeatureRequestServiceExtensions
         // Service (scoped — depends on scoped repository)
         services.AddScoped<IFeatureRequestService, FeatureRequestService>();
 
-        // Tool provider for AI-powered requirements gathering (scoped — depends on scoped service)
-        services.AddScoped<FeatureRequestToolProvider>();
 
         // Validation services — both are singleton-safe (stateless, depend only on singletons)
         services.AddSingleton<PromptInjectionFilter>();

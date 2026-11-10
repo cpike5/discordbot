@@ -1,21 +1,16 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
-using DiscordBot.Agents.OpenRouter;
-using DiscordBot.Infrastructure.Services.LLM.Providers;
 using DiscordBot.Bot.Services.LLM;
-using DiscordBot.Bot.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System.Reflection;
 using DiscordBot.Infrastructure.Abstractions.LLM;
-using DiscordBot.Agents.Configuration;
-using DiscordBot.Agents;
+using cpike.Agent.OpenRouter;
 using DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 
 namespace DiscordBot.Bot.Extensions;
@@ -26,7 +21,8 @@ namespace DiscordBot.Bot.Extensions;
 public static class AssistantServiceExtensions
 {
     /// <summary>
-    /// Adds AI assistant services including LLM client, agent runner, tool registry, and assistant service.
+    /// Adds AI assistant services: the cpike.Agent framework (when an OpenRouter key is configured),
+    /// the guild assistant, the usage ledger and the model catalogue.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configuration">The configuration.</param>
@@ -50,8 +46,7 @@ public static class AssistantServiceExtensions
             configuration.GetSection(AssistantOptions.SectionName));
         services.PostConfigure<AssistantOptions>(options =>
             ApplyFlatLegacyKeyPrecedence(options, configuration.GetSection(AssistantOptions.SectionName)));
-        services.Configure<OpenRouterOptions>(
-            configuration.GetSection(OpenRouterOptions.SectionName));
+        services.AddAssistantAgentOptions(configuration);
         services.Configure<LlmOptions>(
             configuration.GetSection(LlmOptions.SectionName));
 
@@ -69,18 +64,11 @@ public static class AssistantServiceExtensions
         // drop its cache on save.
         services.AddScoped<IToolAccessResolver, ToolAccessResolver>();
 
-        // Scan Infrastructure and Bot for IAgentTool implementations and register each one. Ungated:
-        // a tool object costs nothing to register without an API key, and AddDmAssistant registers
-        // the same set (TryAddEnumerable, so whichever runs first wins and the second is a no-op).
-        // The surface providers that expose them - GuildAgentToolProvider below and
-        // DmAgentToolProvider in AddDmAssistant - are what decide which tools each assistant sees.
-        services.AddAgentTools(AgentToolAssemblies.All, configuration);
-
         // Register assistant guild settings service (always needed for admin UI)
         services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
 
         // The prompt-surface report. Ungated so the metrics page can always inject it: with no API
-        // key there is no registry to measure and it answers null, which the page renders as "not
+        // key there is no prompt store to measure and it answers null, which the page renders as "not
         // configured" rather than failing to resolve.
         services.AddScoped<IPromptSurfaceReporter, PromptSurfaceReporter>();
 
@@ -94,7 +82,7 @@ public static class AssistantServiceExtensions
         services.AddScoped<ILlmModelRepository, LlmModelRepository>();
         services.AddScoped<ILlmModelCatalogService, LlmModelCatalogService>();
 
-        // The per-mode model resolver (DB setting -> bound options -> OpenRouter:DefaultModel) is
+        // The per-mode model resolver (DB setting -> bound options -> OpenRouter:Model) is
         // needed by the guild/DM assistant context factories and the feature-request conversation
         // service below, none of which require an API key to construct - only to actually call
         // OpenRouter. Registered as a singleton (cheap, holds only a small per-mode cache) so it can
@@ -151,67 +139,13 @@ public static class AssistantServiceExtensions
         // This prevents DI validation failures when running migrations without API key
         if (!string.IsNullOrEmpty(apiKey))
         {
-            // Remembers which slugs reject `temperature` (reasoning models) so the client only pays
-            // the failed round trip once per model per process. Singleton because the typed client
-            // below is transient.
-            services.AddSingleton<OpenRouterParameterSupportCache>();
-
-            // Register the OpenRouter LLM client as a typed HttpClient. The per-attempt timeout is
-            // enforced by the client's own cancellation token, so the handler's timeout is left
-            // infinite - otherwise whichever elapsed first would decide, and only one of them
-            // reports a retryable timeout.
-            services.AddHttpClient<ILlmClient, OpenRouterLlmClient>((sp, http) =>
-            {
-                var options = sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
-
-                var baseUrl = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
-                http.BaseAddress = new Uri(baseUrl);
-                http.Timeout = Timeout.InfiniteTimeSpan;
-
-                // Optional attribution headers shown on openrouter.ai activity.
-                if (!string.IsNullOrWhiteSpace(options.AppUrl))
-                {
-                    http.DefaultRequestHeaders.Add("HTTP-Referer", options.AppUrl);
-                }
-
-                if (!string.IsNullOrWhiteSpace(options.AppTitle))
-                {
-                    http.DefaultRequestHeaders.Add("X-Title", options.AppTitle);
-                }
-            });
+            // The cpike.Agent framework: OpenRouter client, agent loop, tools, prompts and skills.
+            services.AddAssistantAgent(configuration);
 
             // Register the scheduled catalog refresh (Llm:CatalogRefreshHours, 0 disables). The
             // client it depends on is registered above (ungated); only this recurring background
             // job needs an API key to be worth running.
             services.AddHostedService<LlmCatalogRefreshService>();
-
-            // Register prompt template service
-            services.AddSingleton<IPromptTemplate, PromptTemplate>();
-
-            // Skills: the library reads a surface's skill directory through the prompt template (so a
-            // skill file is cached and hot-reloaded exactly like a prompt file), and the session
-            // factory narrows each skill's tools to what the run's registry actually advertises.
-            // Both assistants' context factories use them, and both are stateless over that cache.
-            services.AddSingleton<ISkillLibrary, SkillLibrary>();
-            services.AddSingleton<ISkillSessionFactory, SkillSessionFactory>();
-
-            // Register built-in tool providers (scoped to support scoped dependencies like ICommandMetadataService)
-            services.AddScoped<IToolProvider, DocumentationToolProvider>();
-            services.AddScoped<IToolProvider, UserGuildInfoToolProvider>();
-            services.AddScoped<IToolProvider, RatWatchToolProvider>();
-
-            // The single adapter for tools authored as IAgentTool: one provider over every scanned
-            // tool the catalogue puts on the guild surface, so a new tool needs no DI edit here.
-            services.AddScoped<IToolProvider, GuildAgentToolProvider>();
-
-            // Register tool registry as scoped (auto-registers injected IToolProvider instances)
-            services.AddScoped<IToolRegistry, ToolRegistry>();
-
-            // Register agent runner (depends on ILlmClient and ILogger)
-            services.AddScoped<IAgentRunner, AgentRunner>();
-
-            // Register the shared assistant message pipeline (agent invocation, pricing, truncation)
-            services.AddScoped<IAssistantMessagePipeline, AssistantMessagePipeline>();
 
             // Register the guild assistant context factory (builds agent context + logs usage)
             services.AddScoped<IGuildAssistantContextFactory, GuildAssistantContextFactory>();
@@ -220,7 +154,7 @@ public static class AssistantServiceExtensions
             services.AddScoped<IAssistantService, AssistantService>();
 
             // One line per surface at startup saying what the tool array costs. Gated with the rest:
-            // with no API key there are no providers to measure.
+            // with no API key there is no assistant to measure.
             services.AddHostedService<PromptSurfaceReportService>();
         }
 

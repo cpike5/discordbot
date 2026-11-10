@@ -1,4 +1,3 @@
-using DiscordBot.Agents;
 using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Infrastructure.Abstractions.LLM;
@@ -9,7 +8,7 @@ namespace DiscordBot.Infrastructure.Abstractions.LLM;
 /// <remarks>
 /// <para>
 /// "Actually advertises" is the whole point, and it is narrower than "everything registered": the
-/// per-request tool array is the skill-aware set (<see cref="SkillToolSet.Compose"/>) over the
+/// per-request tool array is the skill-aware set  over the
 /// registry a run would be handed — which, for a guild, is that guild's allow-list. A tool held
 /// behind a skill, or turned off for a guild, is not in the prefix and is not billed for.
 /// </para>

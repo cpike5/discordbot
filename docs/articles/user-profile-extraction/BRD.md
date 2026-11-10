@@ -24,7 +24,7 @@ The bot's AI assistant currently treats every user interaction as a blank slate.
 The bot already has the infrastructure to support this:
 
 - **Message logging** captures chat content with explicit user consent (`ConsentType.MessageLogging`)
-- **AI assistant** uses a system prompt and tool-based context injection via `ToolRegistry` and `AgentRunner`
+- **AI assistant** uses a system prompt and tool-based context injection via the cpike.Agent tool loop
 - **Consent framework** supports multiple consent types with grant/revoke/audit capabilities
 - **GDPR pipeline** handles data export and purge for all user-linked entities
 

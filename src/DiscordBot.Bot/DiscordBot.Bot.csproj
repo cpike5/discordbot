@@ -51,13 +51,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DiscordBot.Agents\DiscordBot.Agents.csproj" />
     <ProjectReference Include="..\DiscordBot.Core\DiscordBot.Core.csproj" />
     <ProjectReference Include="..\DiscordBot.Infrastructure\DiscordBot.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Templates\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The assistant's prompts and skills (cpike.Agent's Prompts:Directory), copied next to the
+         binary so dotnet run, the tests and the published image all read the same files. -->
+    <None Include="..\..\docs\agents\prompts\**\*.md" Link="Prompts\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Copy native audio libraries to output directory for Discord.NET voice -->

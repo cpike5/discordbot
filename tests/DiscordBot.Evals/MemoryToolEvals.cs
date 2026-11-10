@@ -97,7 +97,7 @@ public class MemoryToolEvals
 
         run.Result.Success.Should().BeTrue(run.Result.ErrorMessage);
         run.Called("save_note").Should().BeTrue();
-        run.Result.TotalToolCalls.Should().BeGreaterThan(1);
+        run.Result.ToolCalls.Should().BeGreaterThan(1);
         (await harness.AllNotesAsync()).Should().ContainSingle();
     }
 

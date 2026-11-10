@@ -1,15 +1,12 @@
+using cpike.Agent;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Agents.Contracts;
-using DiscordBot.Agents.Contracts.Enums;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DiscordBot.Infrastructure.Abstractions.LLM;
-using DiscordBot.Agents;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 
@@ -19,9 +16,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     /// <summary>Cache key prefix for the active-guild-per-user selection set by the set_active_guild tool.</summary>
     public const string ActiveGuildCacheKeyPrefix = "dm_active_guild:";
 
-    private readonly IEnumerable<IDmToolProvider> _dmToolProviders;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IPromptTemplate _promptTemplate;
     private readonly IDmConversationMessageRepository _conversationRepo;
     private readonly IDmAssistantInteractionLogRepository _interactionLogRepo;
     private readonly IDmAssistantUsageMetricsRepository _metricsRepo;
@@ -29,13 +24,10 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     private readonly ILlmModelResolver _modelResolver;
     private readonly DmAssistantOptions _options;
     private readonly ILlmUsageRecorder _usageRecorder;
-    private readonly ISkillSessionFactory _skillSessions;
     private readonly IDmSkillActivationStore _skillActivations;
 
     public DmAssistantContextFactory(
-        IEnumerable<IDmToolProvider> dmToolProviders,
         ILoggerFactory loggerFactory,
-        IPromptTemplate promptTemplate,
         IDmConversationMessageRepository conversationRepo,
         IDmAssistantInteractionLogRepository interactionLogRepo,
         IDmAssistantUsageMetricsRepository metricsRepo,
@@ -43,12 +35,9 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         ILlmModelResolver modelResolver,
         IOptions<DmAssistantOptions> options,
         ILlmUsageRecorder usageRecorder,
-        ISkillSessionFactory skillSessions,
         IDmSkillActivationStore skillActivations)
     {
-        _dmToolProviders = dmToolProviders ?? throw new ArgumentNullException(nameof(dmToolProviders));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
-        _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
         _conversationRepo = conversationRepo ?? throw new ArgumentNullException(nameof(conversationRepo));
         _interactionLogRepo = interactionLogRepo ?? throw new ArgumentNullException(nameof(interactionLogRepo));
         _metricsRepo = metricsRepo ?? throw new ArgumentNullException(nameof(metricsRepo));
@@ -56,7 +45,6 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
-        _skillSessions = skillSessions ?? throw new ArgumentNullException(nameof(skillSessions));
         _skillActivations = skillActivations ?? throw new ArgumentNullException(nameof(skillActivations));
     }
 
@@ -65,33 +53,20 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     {
         activeGuildId ??= _memoryCache.Get<ulong?>(ActiveGuildCacheKeyPrefix + userId);
 
-        var toolRegistry = BuildDmToolRegistry();
-
         var history = await _conversationRepo.GetRecentByUserAsync(
             userId, _options.MaxConversationMessages, cancellationToken);
 
         var conversationHistory = history
-            .Select(h => new LlmMessage
-            {
-                Role = h.Role == "assistant" ? LlmRole.Assistant : LlmRole.User,
-                Content = h.Content
-            })
+            .Select(h => new ConversationTurn(IsUser: h.Role != "assistant", h.Content))
             .ToList();
 
         var resolved = await _modelResolver.ResolveAsync(LlmMode.DmAssistant, cancellationToken);
 
-        // Replaying the previous turn's activations is what makes a skill nearly free from turn 2:
-        // its tools are advertised on the first call and its instructions are already in the prompt,
-        // so the round that loaded it is never paid for twice.
-        var skills = await _skillSessions.CreateAsync(
-            _options.SkillsPath, toolRegistry, _skillActivations.Get(userId), cancellationToken);
-
         return new DmAssistantContext(
             userId,
             activeGuildId,
-            toolRegistry,
             conversationHistory,
-            _promptTemplate,
+            _skillActivations.Get(userId),
             _conversationRepo,
             _interactionLogRepo,
             _metricsRepo,
@@ -100,7 +75,6 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             resolved.Slug,
             resolved.Pricing,
             _usageRecorder,
-            skills,
             _skillActivations);
     }
 
@@ -133,19 +107,5 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             _loggerFactory.CreateLogger<DmAssistantContextFactory>()
                 .LogError(ex, "Failed to log DM assistant placeholder interaction for user {UserId}", userId);
         }
-    }
-
-    private IToolRegistry BuildDmToolRegistry()
-    {
-        var registry = new ToolRegistry(
-            _loggerFactory.CreateLogger<ToolRegistry>(),
-            Enumerable.Empty<IToolProvider>());
-
-        foreach (var provider in _dmToolProviders)
-        {
-            registry.RegisterProvider(provider);
-        }
-
-        return registry;
     }
 }

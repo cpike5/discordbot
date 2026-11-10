@@ -1,10 +1,10 @@
 using System.Text.Json;
-using DiscordBot.Agents;
-using DiscordBot.Agents.Contracts;
+using cpike.Agent;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
-using DiscordBot.Infrastructure.Services.LLM.Implementations;
-using DiscordBot.Infrastructure.Services.LLM.Providers;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
+using DiscordBot.Infrastructure.Services.LLM.Tools;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -36,7 +36,7 @@ public class DocumentationPathContainmentTests : IDisposable
     private readonly string _root;
     private readonly string _baseDirectory;
     private readonly string _outsideFile;
-    private readonly DocumentationToolProvider _provider;
+    private readonly GetFeatureDocumentationTool _tool;
 
     public DocumentationPathContainmentTests()
     {
@@ -63,11 +63,12 @@ public class DocumentationPathContainmentTests : IDisposable
         var applicationOptions = new Mock<IOptions<ApplicationOptions>>();
         applicationOptions.Setup(o => o.Value).Returns(new ApplicationOptions());
 
-        _provider = new DocumentationToolProvider(
-            Mock.Of<ILogger<DocumentationToolProvider>>(),
+        var library = new DocumentationLibrary(
+            Mock.Of<ILogger<DocumentationLibrary>>(),
             Mock.Of<ICommandMetadataService>(),
             assistantOptions.Object,
             applicationOptions.Object);
+        _tool = new GetFeatureDocumentationTool(library, TestRunContext.Create(userId: 1, guildId: 2));
     }
 
     public void Dispose()
@@ -113,10 +114,8 @@ public class DocumentationPathContainmentTests : IDisposable
 
         var result = await Execute(featureName);
 
-        result.Success.Should().BeTrue("a refusal is an answer for the model to relay, not a malfunction");
-        result.Data.Should().NotBeNull();
-        result.Data!.Value.GetRawText().Should().Be(Unavailable(featureName));
-        result.Data.Value.GetRawText().Should().NotContain("forbidden to disclose");
+        result.Should().Be(Unavailable(featureName));
+        result.Should().NotContain("forbidden to disclose");
     }
 
     [Theory]
@@ -128,8 +127,8 @@ public class DocumentationPathContainmentTests : IDisposable
 
         // The only difference between the two payloads is the name the caller already knows it sent.
         // Same keys, same wording, same order: a probe learns nothing from the reply.
-        WithoutFeatureName(refused.Data!.Value, featureName)
-            .Should().Be(WithoutFeatureName(absent.Data!.Value, "no-such-feature"));
+        WithoutFeatureName(refused, featureName)
+            .Should().Be(WithoutFeatureName(absent, "no-such-feature"));
     }
 
     [Theory]
@@ -138,7 +137,7 @@ public class DocumentationPathContainmentTests : IDisposable
     {
         var result = await Execute(featureName);
 
-        ToolOutcomes.Classify(result.Data!.Value).Should().Be(ToolOutcomes.FailedResult,
+        AgentService.FailureCodeOf(result).Should().NotBeNull(
             "a refused or absent document is an expected failure, and one reported any other way is "
             + "invisible in the traces and on the metrics page");
     }
@@ -151,9 +150,8 @@ public class DocumentationPathContainmentTests : IDisposable
     {
         var result = await Execute(featureName);
 
-        result.Success.Should().BeTrue();
-        result.Data!.Value.GetProperty("available").GetBoolean().Should().BeTrue();
-        result.Data.Value.GetProperty("content").GetString().Should().Be("# Welcome System");
+        Json(result).GetProperty("available").GetBoolean().Should().BeTrue();
+        Json(result).GetProperty("content").GetString().Should().Be("# Welcome System");
     }
 
     [Theory]
@@ -165,9 +163,8 @@ public class DocumentationPathContainmentTests : IDisposable
         // characters a feature name is allowed to contain.
         var result = await Execute(featureName);
 
-        result.Success.Should().BeTrue();
-        result.Data!.Value.GetProperty("available").GetBoolean().Should().BeTrue();
-        result.Data.Value.GetProperty("content").GetString().Should().Be("# Authorization Policies");
+        Json(result).GetProperty("available").GetBoolean().Should().BeTrue();
+        Json(result).GetProperty("content").GetString().Should().Be("# Authorization Policies");
     }
 
     [Fact]
@@ -175,38 +172,39 @@ public class DocumentationPathContainmentTests : IDisposable
     {
         var result = await Execute("no-such-feature");
 
-        result.Success.Should().BeTrue();
-        result.Data!.Value.GetProperty("available").GetBoolean().Should().BeFalse();
-        result.Data.Value.GetProperty("error").GetString().Should().Contain("list_features");
+        Json(result).GetProperty("available").GetBoolean().Should().BeFalse();
+        Json(result).GetProperty("error").GetString().Should().Contain("list_features");
     }
 
-    private Task<ToolExecutionResult> Execute(string featureName)
+    private Task<string> Execute(string featureName)
     {
-        var input = JsonSerializer.SerializeToElement(new { feature_name = featureName });
+        var arguments = new Dictionary<string, JsonElement>
+        {
+            ["feature_name"] = JsonSerializer.SerializeToElement(featureName)
+        };
 
-        return _provider.ExecuteToolAsync(
-            DocumentationTools.GetFeatureDocumentation,
-            input,
-            new ToolContext { UserId = 1, GuildId = 2 });
+        return _tool.InvokeAsync(arguments, CancellationToken.None);
     }
+
+    private static JsonElement Json(string result) => JsonDocument.Parse(result).RootElement.Clone();
 
     /// <summary>The one payload the tool returns for any feature it will not read.</summary>
     private static string Unavailable(string featureName) =>
-        ToolJson.Element(new
+        ToolResults.Json(new
         {
             available = false,
             error = $"Documentation for feature '{featureName}' not found. Available features can be listed using list_features tool."
-        }).GetRawText();
+        });
 
     /// <summary>
     /// The payload with the echoed feature name blanked out, so two answers about different names can
     /// be compared for everything else: keys, order, and wording.
     /// </summary>
-    private static string WithoutFeatureName(JsonElement payload, string featureName)
+    private static string WithoutFeatureName(string payload, string featureName)
     {
         // Quotes included, because the encoder escapes those too.
         var quoted = Escaped($"'{featureName}'");
-        var raw = payload.GetRawText();
+        var raw = payload;
 
         raw.Should().Contain(quoted, "the answer echoes the name it was asked about");
 

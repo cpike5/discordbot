@@ -1,6 +1,5 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace DiscordBot.Infrastructure.Services.LLM;

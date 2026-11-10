@@ -444,9 +444,9 @@ public class MyModule : InteractionModuleBase<SocketInteractionContext>
 
 When adding a new feature, update the AI assistant so it can answer user questions about the feature:
 
-1. **Agent Prompt** (`docs/agents/assistant-agent.md`) - Add commands, feature docs links, portal URLs
-2. **Tool Mappings** (`DocumentationToolProvider.cs`) - Map feature names to documentation files
-3. **Tool Description** (`DocumentationTools.cs`) - Add feature to the available features list
+1. **Agent Prompt** (`docs/agents/prompts/guild.md`) - Add commands, feature docs links, portal URLs
+2. **Tool Mappings** (`DocumentationLibrary.cs`) - Map feature names to documentation files
+3. **Tool Description** (`GetFeatureDocumentationTool.cs`) - Add feature to the available features list
 
 See [assistant-feature-updates.md](docs/articles/assistant-feature-updates.md) for the complete guide.
 
@@ -542,7 +542,7 @@ See [identity-configuration.md](docs/articles/identity-configuration.md) for det
 #### AI Assistant (OpenRouter)
 ```bash
 dotnet user-secrets set "OpenRouter:ApiKey" "your-openrouter-api-key"
-dotnet user-secrets set "OpenRouter:DefaultModel" "anthropic/claude-sonnet-4.5"  # Optional; default is openrouter/auto
+dotnet user-secrets set "OpenRouter:Model" "anthropic/claude-sonnet-4.5"  # Optional; default is openrouter/auto
 ```
 
 Get an API key from [openrouter.ai/keys](https://openrouter.ai/keys). Model names are OpenRouter
@@ -551,10 +551,8 @@ list at [openrouter.ai/models](https://openrouter.ai/models).
 
 **Client configuration:** `appsettings.json` → `OpenRouter` section
 - `OpenRouter:BaseUrl` — API base address (default `https://openrouter.ai/api/v1/`)
-- `OpenRouter:DefaultModel` — model slug used when a request doesn't name one (default `openrouter/auto`, which lets OpenRouter pick a model per request)
-- `OpenRouter:MaxRetries` / `OpenRouter:RetryBaseDelayMs` — exponential backoff for transient failures
-- `OpenRouter:TimeoutSeconds` — request timeout
-- `OpenRouter:EnablePromptCachingByDefault` — adds a system-prompt cache breakpoint
+- `OpenRouter:Model` — model slug used when a request doesn't name one (default `openrouter/auto`, which lets OpenRouter pick a model per request)
+- `OpenRouter:Timeout` — request timeout (a `TimeSpan`); retries and the agent loop are tuned in the framework's `Agent` section (`Agent:TransientRetryLimit`, `Agent:MaxToolRounds`), see the [configuration guide](docs/articles/configuration-guide.md)
 - `OpenRouter:AppUrl` / `OpenRouter:AppTitle` — attribution headers sent to OpenRouter
 
 **Assistant configuration:** `appsettings.json` → `Assistant` section
@@ -671,7 +669,7 @@ Discord__OAuth__ClientSecret="your-client-secret"
 
 # AI Assistant (OpenRouter)
 OpenRouter__ApiKey="your-openrouter-api-key"
-OpenRouter__DefaultModel="openrouter/auto"
+OpenRouter__Model="openrouter/auto"
 
 # Azure TTS
 AzureSpeech__SubscriptionKey="your-azure-key"

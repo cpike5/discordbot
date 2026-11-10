@@ -177,33 +177,35 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 
 | Options Class | Section Key | Registered In | Key Properties |
 |--------------|-------------|---------------|----------------|
-| `OpenRouterOptions` | `OpenRouter` | `AssistantServiceExtensions` | `ApiKey` (secret), `BaseUrl`, `DefaultModel` (OpenRouter slug), `MaxRetries`, `TimeoutSeconds`, `RetryBaseDelayMs`, `EnablePromptCachingByDefault`, `PromptCacheTtl` (default `"1h"` — lifetime of the system-prompt cache breakpoint, as Anthropic spells it (`"5m"`/`"1h"`); empty falls back to the provider default of 5 minutes), `AppUrl`, `AppTitle` |
-| `AssistantOptions` | `Assistant` | `AssistantServiceExtensions` | Grouped into nested sub-options: `Sampling` (model/tokens/temperature/timeout), `RateLimits` (rate limit + bypass role), `Messages` (question/response length, error text, retry), `Tools` (doc tools, prompt/doc/skill paths, and the loop guard rails: `MaxToolRounds` default 8 — tool-use rounds per question, renamed from `MaxToolCallsPerQuestion`, which limited rounds rather than calls all along and still binds (and still wins) under its old name; `ToolExecutionTimeoutMs` default 10000 — the per-tool deadline, now actually enforced; `MaxToolResultChars` default 8000 — ceiling on one tool result entering conversation history, `0` disables; `DuplicateToolCallLimit` default 3 — identical calls allowed per run before further ones are refused without executing the tool, `0` disables), `Cost` (cost tracking, prompt caching), `Privacy` (consent, logging, retention). Historical flat keys (e.g. `Assistant:MaxTokens`) still bind via obsolete forwarding properties and take precedence over the nested key (e.g. `Assistant:Sampling:MaxTokens`) if both are set. |
+| `OpenRouterOptions` | `OpenRouter` | `AssistantServiceExtensions` | The cpike.Agent framework's options class: `ApiKey` (secret), `BaseUrl`, `Model` (OpenRouter slug, default `openrouter/auto`; the legacy `OpenRouter:DefaultModel` is still read as a fallback), `Timeout` (a `TimeSpan`, default 10 minutes; the legacy `OpenRouter:TimeoutSeconds` is still read as a fallback), `Effort`, `ProviderSort`, `AppUrl`, `AppTitle`. The retry count lives on the `Agent` section (below); `OpenRouter:MaxRetries` feeds `Agent:TransientRetryLimit` when that is unset. Full list: the framework's [configuration reference](https://github.com/cpike5/cpike-agent-framework/blob/main/docs/configuration.md). |
+| `AgentOptions` | `Agent` | `AssistantServiceExtensions` | The framework's loop options: `MaxToolRounds` (default 8), `TransientRetryLimit` (default 2), `DuplicateToolCallLimit` (default 3; here it defaults from `Assistant:Tools:DuplicateToolCallLimit`), `ToolTimeoutSeconds` (here it defaults from `Assistant:Tools:ToolExecutionTimeoutMs`), `MaxToolResultChars`, `MaxTokensPerTurn`, `ConversationHistoryTokens`, `WarnOnPromptCacheMiss`. The per-run output ceiling comes from `Assistant:Sampling:MaxTokens`, `DmAssistant:MaxTokens`, or 1024 for feature requests (`AgentRunRequest.MaxOutputTokens`), which overrides `Agent:MaxTokensPerTurn`. |
+| `PromptsOptions` | `Prompts` | `AssistantServiceExtensions` | The framework's prompt store: `Directory` = `Prompts`, `SkillsDirectory` = `Prompts/skills`, `DefaultAgent` = `bot`, `ContentRoot` = the application base directory, `WatchForChanges` (hot reload). The Bot csproj copies `docs/agents/prompts/` to `Prompts/` in the build output. |
+| `AssistantOptions` | `Assistant` | `AssistantServiceExtensions` | Grouped into nested sub-options: `Sampling` (model/tokens/timeout; `Temperature` is no longer read), `RateLimits` (rate limit + bypass role), `Messages` (question/response length, error text, retry), `Tools` (doc tools, and the loop guard rails: `MaxToolRounds` default 8 — tool-use rounds per question, renamed from `MaxToolCallsPerQuestion`, which limited rounds rather than calls all along and still binds (and still wins) under its old name; `ToolExecutionTimeoutMs` default 10000 — the per-tool deadline, now actually enforced; `MaxToolResultChars` default 8000 — ceiling on one tool result entering conversation history, `0` disables; `DuplicateToolCallLimit` default 3 — identical calls allowed per run before further ones are refused without executing the tool, `0` disables), `Cost` (cost tracking, prompt caching), `Privacy` (consent, logging, retention). Historical flat keys (e.g. `Assistant:MaxTokens`) still bind via obsolete forwarding properties and take precedence over the nested key (e.g. `Assistant:Sampling:MaxTokens`) if both are set. |
 | `LlmOptions` | `Llm` | `AssistantServiceExtensions` | `CatalogRefreshHours` (default 24; `0` disables the periodic refresh) — interval for `LlmCatalogRefreshService`, the background job that pulls OpenRouter's model directory into the local `LlmModels` table for the admin "AI Models" tab. `CatalogRefreshInitialDelayMinutes` (default 5) — how long the service waits after startup before its first refresh attempt, mirroring the other background services' startup stagger. `UsageQueueCapacity` (default 10,000) — capacity of the bounded channel `LlmUsageRecorder` enqueues onto before `LlmUsageRecordProcessor` drains it into the `LlmUsageRecords` usage ledger; a full queue drops the oldest entry (and logs a warning) rather than blocking the reply. `RetentionSweepIntervalHours` (default 24; `0` disables) — how often `AssistantInteractionLogRetentionService` sweeps guild and DM assistant interaction logs and the `LlmUsageRecords` ledger for retention (each table's own retention-days window comes from `Assistant:Privacy:InteractionLogRetentionDays` and `DmAssistant:InteractionLogRetentionDays`, not a new key here; a table is skipped when its window is `0` or less). `RetentionBatchSize` (default 1000) — batch size the retention sweep uses when deleting expired `LlmUsageRecord`, `AssistantInteractionLog`, and `DmAssistantInteractionLog` rows, capped at 1000 regardless of what is configured (see each repository's `DeleteOlderThanAsync` batch overload). `RetentionSweepInitialDelayMinutes` (default 5) — how long the service waits after startup before its first sweep, mirroring `CatalogRefreshInitialDelayMinutes`. Registered only when `OpenRouter:ApiKey` is present, matching the rest of the assistant stack — except the usage recorder/processor and the retention sweep, which are registered ungated so recording and cleanup work whenever any assistant mode runs. |
 
-**Skill paths.** A skill is a markdown file naming some tools plus the instructions for using them;
+**Skills.** A skill is a markdown file naming some tools plus the instructions for using them;
 the model sees a one-line summary of each and pays for the rest only when it loads one with the
-`load_skill` tool. Each assistant surface reads one directory, and the two keys below are how a
-deployment points at them — or turns the mechanism off, since a blank value means that surface has
-no skills and the loader is not advertised at all. The format and the authoring advice are in
-[`docs/agents/skills/README.md`](../agents/skills/README.md), the mechanism in
+framework's built-in `load_skill` tool. Skill files live in `docs/agents/prompts/skills/<surface>/`
+(copied to `Prompts/skills`, `Prompts:SkillsDirectory`) and a mode opts in with a `skills:` line in
+its prompt file; a mode without one has no skills and does not advertise the loader. The format and
+the authoring advice are in [`docs/agents/README.md`](../agents/README.md), the mechanism in
 [patterns.md § Agent Skills](../architecture/patterns.md#agent-skills).
 
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `DmAssistant:SkillsPath` | `docs/agents/skills/dm` | Where the DM assistant's skill files live. Blank disables skills for the DM assistant. |
-| `Assistant:Tools:SkillsPath` | `docs/agents/skills/guild` | Where the guild assistant's skill files live. Blank disables skills for the guild assistant. The directory ships empty. |
-
 The cost is not the same on the two surfaces, and that is what decides where a skill belongs. The
-DM assistant is multi-turn: the turn that loads a skill pays a round, and the activation is replayed
-on every turn after it, so its tools are advertised from the first call and its instructions are
-already in the prompt. The guild assistant is single-turn, so there is no previous turn to replay
-and a skill there costs its round **every** time it is used — which is why the shipped skills are
-all on the DM side, and why a guild skill is only worth it for something rare and heavy.
+DM assistant is multi-turn: the turn that loads a skill pays a round, and the loaded keys are stored
+and preloaded on every turn after it, so its tools are advertised from the first call and its
+instructions are already in the prompt. The guild assistant is single-turn, so there is no previous
+turn to replay and a skill there costs its round **every** time it is used — which is why the shipped
+skills are all on the DM side, and why a guild skill is only worth it for something rare and heavy.
 
-Either path may be absolute, or relative to the application directory or the working directory —
-the same resolution a prompt path gets, so one relative path works both from a published output and
-from `dotnet run` in the repository root.
+**Keys no longer read.** These were consumed by the retired in-repo engine and are ignored if still
+set: `Assistant:Tools:AgentPromptPath`, `Assistant:Tools:SkillsPath`, `DmAssistant:OwnerSystemPromptPath`,
+`DmAssistant:SkillsPath` (prompt and skill locations are now `Prompts:*`),
+`Assistant:Sampling:Temperature`, `DmAssistant:Temperature`, `DmAssistant:ToolExecutionTimeoutMs`,
+`DmAssistant:DuplicateToolCallLimit`, `OpenRouter:EnablePromptCachingByDefault`,
+`OpenRouter:PromptCacheTtl`, `OpenRouter:RetryBaseDelayMs` (the framework caches the persona prefix
+itself). `OpenRouter:DefaultModel`, `OpenRouter:TimeoutSeconds` and `OpenRouter:MaxRetries` are still
+read as fallbacks for `OpenRouter:Model`, `OpenRouter:Timeout` and `Agent:TransientRetryLimit`.
 
 #### Audio / Voice
 

@@ -1,8 +1,8 @@
 # `get_feature_documentation`
 
 **Status**: shipped · **Surfaces**: Guild, DM · **Category**: Documentation · **Default**: on
-**Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Providers/DocumentationToolProvider.cs`
-**Mutation**: *read-only*
+**Implementation**: `src/DiscordBot.Infrastructure/Services/LLM/Tools/GetFeatureDocumentationTool.cs` (logic in `DocumentationLibrary`)
+**Requires edit**: no
 
 ## Purpose
 
@@ -12,8 +12,8 @@ It is the first tool to reach for on a feature question: `search_commands` and `
 describe one command each, and a feature is usually several commands plus the settings page that
 configures them.
 
-Still one of the hand-written `IToolProvider` tools rather than an `IAgentTool` — it shares the
-provider with `search_commands`, `get_command_details` and `list_features`. This page exists because
+An `IAgentTool` whose logic lives in the scoped `DocumentationLibrary`, shared with
+`search_commands`, `get_command_details` and `list_features`. This page exists because
 the tool was last touched by the path-containment fix (F13), which is the rule in
 [`README.md`](./README.md): a page is written when its tool changes.
 
@@ -22,9 +22,8 @@ the tool was last touched by the path-containment fix (F13), which is the rule i
 - `Assistant:Tools:DocumentationBasePath` — the directory it may read, default `docs/articles`, and
   the only directory it may read. A relative value resolves against the process working directory.
 - `Assistant:BaseUrl` or `Application:BaseUrl` — substituted into `{BASE_URL}` in the page, with
-  `{GUILD_ID}` from `ToolContext.GuildId`, so links in the answer point at the caller's own portal.
-  On the DM surface `DmDocumentationToolProvider` copies the conversation's active guild into
-  `GuildId` first; with no base URL or no guild the placeholders are left as they are.
+  `{GUILD_ID}` from `DiscordRunContext`, so links in the answer point at the caller's own portal.
+  On the DM surface `DocumentationLibrary.EffectiveGuildId` uses the conversation's active guild; with no base URL or no guild the placeholders are left as they are.
 
 ## Model-facing description
 
@@ -71,19 +70,19 @@ implementation spec proposes a `section` argument.
 One shape, three causes: no such page, a name outside the allow-list, or a path that resolved outside
 the base directory. It is the same payload by design — see [Containment](#containment) — and it
 carries both a top-level `error` string and `available: false`, either of which is enough for
-[`ToolOutcomes.Classify`](../architecture/patterns.md#agent-tool-authoring) to count the call as a
+[`AgentService.FailureCodeOf`](../architecture/patterns.md#agent-tool-authoring) to count the call as a
 `failed_result`.
 
 ### `error` — the call itself was malformed
 
-```
-Error: Missing required parameter: feature_name
-Error: Parameter feature_name cannot be empty
+```json
+{ "error": "Missing required parameter: feature_name" }
+{ "error": "Parameter feature_name cannot be empty" }
 ```
 
-A failed `ToolExecutionResult`, not a payload, which is the older convention this provider still
-follows for a missing argument. A page that exists but cannot be read — a permission error mid-read —
-comes back the same way, as `Error: Error reading documentation: …`.
+A result with a top-level `error` string (via `ToolResults.Error`), counted as a failure like the
+shape above. A page that exists but cannot be read — a permission error mid-read —
+comes back the same way, as `{ "error": "Error reading documentation: …" }`.
 
 ## Containment
 
@@ -107,7 +106,7 @@ out of it is still followed.
 understood. What says so instead is a `Warning` log line naming the feature name, where an operator
 reads it and a prober does not.
 
-`DmDocumentationToolProvider` delegates to this provider, so the DM surface inherits all of it.
+The DM surface uses the same tool and `DocumentationLibrary`, so it inherits all of it.
 
 ## Notes
 

@@ -1,6 +1,6 @@
 # Plan: move the assistant onto cpike.Agent and retire `DiscordBot.Agents`
 
-> Status: **in progress**; decisions D1–D5 agreed; P1 done. Reassessed on 2026-11-09 against discordbot
+> Status: **built**; decisions D1–D5 agreed; P1–P3 done, and PRs 4 and 5 landed together (see § 5). Reassessed on 2026-11-09 against discordbot
 > `b5d7684` (after the repo cleanup) and cpike-agent-framework `77b5f1f` (`v0.2.0-beta.4`).
 >
 > **What the reassessment changed.** The framework has shipped `v0.2.0-beta.1` to `beta.4`, so
@@ -343,15 +343,34 @@ equivalents or to local copies. Update `configuration-guide.md`.
 
 | # | Repo | PR | Notes |
 | --- | --- | --- | --- |
-| 1 | discordbot | .NET 10 upgrade (P1) | Old engine still in place. Soak in production before 3. |
-| 2 | framework | H1–H3 (built on the framework branch); merge and cut `v0.2.0-beta.5` (P2) | Earlier betas exist; this one adds the Core gaps. |
+| 1 | discordbot | .NET 10 upgrade (P1) | **Done.** |
+| 2 | framework | H1–H3 (built on the framework branch); merge and cut `v0.2.0-beta.5` (P2) | **Done.** |
 | 3 | discordbot | Feed access: `nuget.config`, CI/release `packages: read` + token, Dockerfile secret, docs; references `cpike.Agent.Core` | Proves restore in CI and the image build. **Done.** |
-| 4 | discordbot | **Swap and port**: reference the packages, `CatalogPromptStore`, prompt moves, `DiscordRunContext`, new `AssistantMessagePipeline`, every tool ported to `cpike.Agent.IAgentTool` with its tests, ported `ToolContractTests`, config keys, telemetry names | `AgentRunner` and every old tool type are unregistered and unused. Run evals before and after. |
-| 5 | discordbot | **Removal**: delete `src/DiscordBot.Agents`, its sln entry, Dockerfile line, `tests/.../Agents/`, unused usings; update `CLAUDE.md`, `patterns.md` (§ Agent Tool Authoring, § Agent Skills), `service-catalog.md`, `feature-map.md`, `system-overview.md`, `docs/tools/README.md`, `docs/agents/skills/README.md` | Pure deletion and docs; `DiscordBot.Agents` is gone. |
+| 4 + 5 | discordbot | **Swap, port and remove**, in one PR; see below | **Done.** |
 
-"Deprecate" is short here: after PR 4 nothing references the engine, and PR 5 follows straight
-after. If PR 5 cannot follow promptly, mark the engine's public types `[Obsolete]` in PR 4 so no
-new code starts depending on them.
+PR 4 and PR 5 landed as one: once every tool was ported, nothing referenced `DiscordBot.Agents`, so
+keeping it for a separate deletion PR would only have left two tool contracts with clashing type
+names side by side. What that PR did, and where it differs from § 4:
+
+- **Engine deleted:** `src/DiscordBot.Agents`, its sln entry and Dockerfile line, and
+  `tests/DiscordBot.Tests/Agents/`.
+- **Pipeline:** as § 4.1. `AgentService` runs in a fresh DI scope per exchange, seeded through the
+  framework's `TurnScopeSeeder`; web search is off; a thrown run becomes `Success = false`.
+  `AssistantPipelineResult` gained `LoadedSkills`. The feature-request agent runs through the same
+  pipeline (`FeatureRequestAssistantContext`), which removed its duplicated cost code.
+- **Tools:** every tool ported one class each, byte-identical names, descriptions and schemas.
+  Results keep their payload shapes, except that an old `CreateError` failure is now
+  `{"error": …}`. House helpers live in `Infrastructure/Services/LLM/Tooling/`; the documentation
+  tools share a scoped `DocumentationLibrary`. `execute_python` is withheld through `DisabledTools`
+  when `DmAssistant:EnableCodeExecution` is off (the old provider hid it).
+- **Prompts:** in `docs/agents/prompts/` rather than `docs/agents/` (so the authoring README is not
+  read as a mode or skill), copied to `Prompts/` in the build output. The base persona `bot.md` is
+  empty; each surface's prompt is its mode file. The guild portal links went to a turn-context part
+  (only when `Assistant:IncludeGuildContext` is on); the guild user-message format is unchanged.
+- **Config:** mapped in `AssistantAgentServiceExtensions.AddAssistantAgentOptions` (old keys are
+  read as fallbacks); the keys that are no longer read are marked in their options classes.
+- **Not done:** evals against a real model (no key in the build session; run them before deploying),
+  and a live Discord check.
 
 ## Decisions
 

@@ -1,23 +1,17 @@
 using System.Reflection;
-using DiscordBot.Infrastructure.Services.LLM;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
 
 namespace DiscordBot.Bot.Extensions;
 
 /// <summary>
-/// The assemblies <c>AddAgentTools</c> scans for <c>IAgentTool</c> implementations.
+/// The assemblies scanned for the assistant's <c>cpike.Agent.IAgentTool</c> implementations:
+/// Infrastructure (tools over the repositories) and Bot (tools over the Discord client).
 /// </summary>
-/// <remarks>
-/// Named once and shared by <see cref="AssistantServiceExtensions"/> and
-/// <see cref="DmAssistantServiceExtensions"/>, because a tool that is scanned by one surface's
-/// registration and not the other's is the kind of asymmetry that takes an afternoon to find.
-/// Infrastructure holds tools over domain services; Bot holds the ones that need Discord.NET.
-/// </remarks>
 internal static class AgentToolAssemblies
 {
-    /// <summary>Infrastructure and Bot, in that order.</summary>
     internal static readonly IReadOnlyList<Assembly> All = new[]
     {
-        typeof(ToolPermissions).Assembly,
+        typeof(DiscordRunContext).Assembly,
         typeof(AgentToolAssemblies).Assembly
     };
 }

@@ -1,9 +1,7 @@
 using DiscordBot.Core.Configuration;
-using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Services.LLM;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -11,8 +9,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Infrastructure.Abstractions.LLM;
-using DiscordBot.Agents;
-using DiscordBot.Tests.TestHelpers;
+using DiscordBot.Core.Models.Llm;
 
 namespace DiscordBot.Tests.Services.LLM;
 
@@ -20,8 +17,9 @@ namespace DiscordBot.Tests.Services.LLM;
 /// Unit tests for <see cref="GuildAssistantContextFactory"/>: verifies the model slug and pricing
 /// resolved via <see cref="ILlmModelResolver"/> land on the created <see cref="IAssistantContext"/>,
 /// and that <c>CostRates</c> falls back to the configured rate per-field when the catalog pricing
-/// is only partially populated. Also covers the per-guild tool allow-list being applied as a
-/// <see cref="FilteredToolRegistry"/> decorator.
+/// is only partially populated. Also covers the per-guild tool allow-list surfacing as the
+/// context's <see cref="IAssistantContext.DisabledTools"/>, and the caller's write access on its
+/// <see cref="IAssistantContext.Identity"/>.
 /// </summary>
 public class GuildAssistantContextFactoryTests
 {
@@ -39,21 +37,16 @@ public class GuildAssistantContextFactoryTests
         IToolAccessResolver? toolAccess = null)
     {
         var mockGuildService = new Mock<IGuildService>();
-        var mockPromptTemplate = new Mock<IPromptTemplate>();
-        var mockToolRegistry = new Mock<IToolRegistry>();
 
         return new GuildAssistantContextFactory(
             mockGuildService.Object,
-            mockPromptTemplate.Object,
-            mockToolRegistry.Object,
             Mock.Of<IAssistantUsageMetricsRepository>(),
             Mock.Of<IAssistantInteractionLogRepository>(),
             modelResolver,
             toolAccess ?? StubToolAccess(),
             Mock.Of<ILogger<GuildAssistantContext>>(),
             Options.Create(options ?? new AssistantOptions()),
-            Mock.Of<ILlmUsageRecorder>(),
-            new StubSkillSessionFactory());
+            Mock.Of<ILlmUsageRecorder>());
     }
 
     [Fact]
@@ -132,7 +125,7 @@ public class GuildAssistantContextFactoryTests
     }
 
     [Fact]
-    public async Task CreateAsync_WrapsTheRegistryInTheGuildAllowList()
+    public async Task CreateAsync_DisablesEveryGuildToolTheAllowListLeavesOut()
     {
         var factory = BuildFactory(
             StubModelResolver(),
@@ -142,8 +135,10 @@ public class GuildAssistantContextFactoryTests
         var context = await factory.CreateAsync(
             guildId: 42, channelId: 2, userId: 3, messageId: 4, rateLimit: 5, question: "hi");
 
-        context.ToolRegistry.Should().BeOfType<FilteredToolRegistry>()
-            .Which.AllowedTools.Should().BeEquivalentTo(new[] { "list_features" });
+        var guildTools = ToolCatalog.ForScope(ToolScopes.Guild).Select(e => e.Name);
+        context.DisabledTools.Should().BeEquivalentTo(guildTools.Where(n => n != "list_features"));
+        context.DisabledTools.Should().NotContain("list_features");
+        context.ModeKey.Should().Be(GuildAssistantContext.ModeName);
     }
 
     [Fact]
@@ -166,7 +161,7 @@ public class GuildAssistantContextFactoryTests
     }
 
     [Fact]
-    public async Task CreateAsync_LeavesTheRegistryNull_WhenToolsAreTurnedOffEntirely()
+    public async Task CreateAsync_DisablesEveryGuildTool_WhenToolsAreTurnedOffEntirely()
     {
         var toolAccess = new Mock<IToolAccessResolver>();
 
@@ -178,7 +173,7 @@ public class GuildAssistantContextFactoryTests
         var context = await factory.CreateAsync(
             guildId: 42, channelId: 2, userId: 3, messageId: 4, rateLimit: 5, question: "hi");
 
-        context.ToolRegistry.Should().BeNull();
+        context.DisabledTools.Should().BeEquivalentTo(ToolCatalog.ForScope(ToolScopes.Guild).Select(e => e.Name));
         toolAccess.Verify(
             r => r.ResolveAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -186,7 +181,7 @@ public class GuildAssistantContextFactoryTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task CreateAsync_PutsTheCallersWriteAccessOnTheToolContext(bool callerCanMutate)
+    public async Task CreateAsync_PutsTheCallersWriteAccessOnTheRunIdentity(bool callerCanMutate)
     {
         var factory = BuildFactory(StubModelResolver());
 
@@ -194,7 +189,7 @@ public class GuildAssistantContextFactoryTests
             guildId: 42, channelId: 2, userId: 3, messageId: 4, rateLimit: 5, question: "hi",
             callerCanMutate: callerCanMutate);
 
-        context.ExecutionContext.CanMutate.Should().Be(callerCanMutate);
+        context.Identity.CanMutate.Should().Be(callerCanMutate);
     }
 
     [Fact]
@@ -206,7 +201,20 @@ public class GuildAssistantContextFactoryTests
         var context = await factory.CreateAsync(
             guildId: 42, channelId: 2, userId: 3, messageId: 4, rateLimit: 5, question: "hi");
 
-        context.ExecutionContext.CanMutate.Should().BeFalse();
+        context.Identity.CanMutate.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CreateAsync_PutsTheCallerAndWhereTheyAreOnTheRunIdentity()
+    {
+        var factory = BuildFactory(StubModelResolver());
+
+        var context = await factory.CreateAsync(
+            guildId: 42, channelId: 2, userId: 3, messageId: 4, rateLimit: 5, question: "hi");
+
+        context.Identity.Should().Be(new DiscordBot.Infrastructure.Services.LLM.Tooling.DiscordRunIdentity(3, 42, 2, 4));
+        context.History.Should().BeEmpty();
+        context.PreloadedSkills.Should().BeEmpty();
     }
 
     private static ILlmModelResolver StubModelResolver()

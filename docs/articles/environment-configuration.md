@@ -31,7 +31,7 @@ This document describes the environment-specific configuration files and their i
 | `Sampling` | `SamplingOptions` | CommandSampleRate, MetricsSampleRate |
 | `Caching` | `CachingOptions` | DefaultExpirationMinutes, SlidingExpiration, MaxCacheSize |
 | `GuildMembershipCache` | `GuildMembershipCacheOptions` | ExpirationMinutes, RefreshThresholdMinutes |
-| `OpenRouter` | `OpenRouterOptions` | ApiKey, BaseUrl, DefaultModel, MaxRetries, TimeoutSeconds |
+| `OpenRouter` | `OpenRouterOptions` (cpike.Agent) | ApiKey, BaseUrl, Model, Timeout (plus the framework's `Agent` and `Prompts` sections) |
 | `Assistant` | `AssistantOptions` | Enabled, DefaultSystemPrompt, MaxContextMessages |
 | `IdentityConfig` | `IdentityConfigOptions` | RequireEmailConfirmation, LockoutEnabled, MaxFailedAccessAttempts |
 | `Verification` | `VerificationOptions` | CodeLength, ExpirationMinutes, MaxAttempts |
@@ -1002,18 +1002,16 @@ Guild membership cache settings.
 
 OpenRouter API configuration. OpenRouter exposes an OpenAI-compatible chat-completions API in front
 of many model providers, so model names are OpenRouter slugs (`anthropic/claude-sonnet-4`,
-`openai/gpt-4o`) rather than a single vendor's model IDs. The bot talks to it through an owned typed
+`openai/gpt-4o`) rather than a single vendor's model IDs. The bot talks to it through the cpike.Agent framework's owned typed
 `HttpClient` — there is no LLM SDK dependency.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `ApiKey` | string | - | OpenRouter API key (SECRET) |
 | `BaseUrl` | string | "https://openrouter.ai/api/v1/" | API base address (trailing slash required) |
-| `DefaultModel` | string | "openrouter/auto" | Model slug used when a request does not name one |
-| `MaxRetries` | int | 3 | Retry attempts for transient failures (HTTP 408/429/5xx, timeouts, network errors) |
-| `TimeoutSeconds` | int | 300 | Per-attempt request timeout |
-| `RetryBaseDelayMs` | int | 1000 | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
-| `EnablePromptCachingByDefault` | bool | true | Add a cache breakpoint to the system prompt by default |
+| `Model` | string | "openrouter/auto" | Model slug used when a request does not name one (`DefaultModel` is still read as a fallback) |
+| `Timeout` | TimeSpan | 00:10:00 | Timeout for one chat call (`TimeoutSeconds` is still read as a fallback) |
+| `MaxRetries` | int | - | Fallback for `Agent:TransientRetryLimit` (framework default 2) when that is unset |
 | `AppUrl` | string | - | Site URL sent as `HTTP-Referer` (optional attribution) |
 | `AppTitle` | string | "DiscordBot" | Application name sent as `X-Title` |
 
@@ -1022,11 +1020,8 @@ of many model providers, so model names are OpenRouter slugs (`anthropic/claude-
   "OpenRouter": {
     "ApiKey": "(user-secrets)",
     "BaseUrl": "https://openrouter.ai/api/v1/",
-    "DefaultModel": "openrouter/auto",
-    "MaxRetries": 3,
-    "TimeoutSeconds": 300,
-    "RetryBaseDelayMs": 1000,
-    "EnablePromptCachingByDefault": true,
+    "Model": "openrouter/auto",
+    "Timeout": "00:10:00",
     "AppTitle": "DiscordBot"
   }
 }

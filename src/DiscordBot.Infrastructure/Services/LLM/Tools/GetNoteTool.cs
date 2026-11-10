@@ -1,8 +1,7 @@
 using System.Text.Json;
-using DiscordBot.Agents;
-using DiscordBot.Agents.Abstractions;
-using DiscordBot.Agents.Contracts;
+using cpike.Agent;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
 
 namespace DiscordBot.Infrastructure.Services.LLM.Tools;
 
@@ -11,42 +10,42 @@ namespace DiscordBot.Infrastructure.Services.LLM.Tools;
 /// </summary>
 public sealed class GetNoteTool : IAgentTool
 {
-    private static readonly LlmToolDefinition ToolDefinition = new()
-    {
-        Name = "get_note",
-        Description = "Retrieves a specific note by its ID. Use this when you need the full content of a particular note.",
-        InputSchema = ToolInput.ObjectSchema(
+    private static readonly AgentToolDefinition ToolDefinition = AgentTools.Define(
+        "get_note",
+        "Retrieves a specific note by its ID. Use this when you need the full content of a particular note.",
+        ToolInput.ObjectSchema(
             new
             {
                 note_id = ToolInput.Schema("integer", "The ID of the note to retrieve.")
             },
-            "note_id")
-    };
+            "note_id"));
 
     private readonly IDmAssistantNoteRepository _notes;
+    private readonly DiscordRunContext _run;
 
     /// <summary>Creates the tool.</summary>
-    public GetNoteTool(IDmAssistantNoteRepository notes)
+    public GetNoteTool(IDmAssistantNoteRepository notes, DiscordRunContext run)
     {
         _notes = notes ?? throw new ArgumentNullException(nameof(notes));
+        _run = run ?? throw new ArgumentNullException(nameof(run));
     }
 
     /// <inheritdoc />
-    public LlmToolDefinition Definition => ToolDefinition;
+    public AgentToolDefinition Definition => ToolDefinition;
 
     /// <inheritdoc />
-    public async Task<ToolExecutionResult> InvokeAsync(
-        JsonElement input,
-        ToolContext context,
-        CancellationToken cancellationToken = default)
+    public async Task<string> InvokeAsync(
+        IReadOnlyDictionary<string, JsonElement> arguments,
+        CancellationToken cancellationToken)
     {
+        var input = ToolInput.ToElement(arguments);
         var noteId = ToolInput.GetLong(input, "note_id");
         if (noteId is null)
         {
             return ToolResults.Error("Missing required parameter: note_id");
         }
 
-        var note = await _notes.GetByIdAsync(noteId.Value, context.UserId, cancellationToken);
+        var note = await _notes.GetByIdAsync(noteId.Value, _run.UserId, cancellationToken);
 
         return note is null
             ? ToolResults.NotFound($"Note with ID {noteId.Value} not found.")

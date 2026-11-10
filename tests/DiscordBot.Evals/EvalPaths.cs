@@ -4,15 +4,18 @@ namespace DiscordBot.Evals;
 /// Where the repository's content lives, from inside a test binary.
 /// </summary>
 /// <remarks>
-/// The skill files are repository content rather than build output, and the prompt-path resolution
+/// The prompt and skill files are repository content rather than build output, and the prompt-path resolution
 /// the application uses (application directory, then working directory) does not find them from
 /// <c>bin/</c>. Walking up to the solution file is the honest way to say "the files that ship".
 /// </remarks>
 public static class EvalPaths
 {
-    /// <summary>The DM assistant's skill directory, absolute.</summary>
-    public static string DmSkillsDirectory { get; } =
-        Path.Combine(RepositoryRoot(), "docs", "agents", "skills", "dm");
+    /// <summary>The assistant's prompt directory (<c>docs/agents/prompts</c>), absolute.</summary>
+    public static string PromptsDirectory { get; } =
+        Path.Combine(RepositoryRoot(), "docs", "agents", "prompts");
+
+    /// <summary>The assistant's skill directory, absolute.</summary>
+    public static string SkillsDirectory { get; } = Path.Combine(PromptsDirectory, "skills");
 
     private static string RepositoryRoot()
     {

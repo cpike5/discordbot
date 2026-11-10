@@ -1,29 +1,41 @@
+using System.Text.Json;
+using cpike.Agent;
+using cpike.Agent.OpenRouter;
+using cpike.Agent.Prompting;
+using cpike.Agent.Testing;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Agents.Contracts;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents.Abstractions;
+using DiscordBot.Infrastructure.Abstractions.LLM;
 using DiscordBot.Infrastructure.Services.LLM;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using DiscordBot.Core.DTOs.Llm.Reporting;
-using DiscordBot.Infrastructure.Abstractions.LLM;
 
 namespace DiscordBot.Tests.Services.LLM;
 
 /// <summary>
 /// Tests for the shared assistant pipeline pieces (<see cref="AssistantRateLimiter"/> and
-/// <see cref="AssistantMessagePipeline"/>) used by both <c>AssistantService</c> (guild) and
-/// <c>DmAssistantService</c> (DM).
+/// <see cref="AssistantMessagePipeline"/>) used by the guild, DM and feature-request assistants.
 /// </summary>
+/// <remarks>
+/// The pipeline runs over the real cpike.Agent loop (<c>AddAgentCore</c>) with a
+/// <see cref="ScriptedOpenRouterClient"/> in place of the network, so what is asserted is what the
+/// loop actually sent and what the pipeline made of what came back.
+/// </remarks>
 public class AssistantMessagePipelineTests
 {
     private const ulong TestUserId = 111222333UL;
     private const ulong TestGuildId = 123456789UL;
+    private const string DefaultModel = "test/default-model";
 
     #region AssistantRateLimiter
 
@@ -87,306 +99,345 @@ public class AssistantMessagePipelineTests
     #region AssistantMessagePipeline
 
     [Fact]
-    public async Task RunAsync_GuildContext_ReturnsSuccessfulResult()
+    public async Task RunAsync_ReturnsTheReplyAndItsUsage()
     {
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
-            {
-                Success = true,
-                Response = "Here's how to use the soundboard.",
-                TotalToolCalls = 1,
-                TotalUsage = new LlmUsage { InputTokens = 100, OutputTokens = 50, CachedTokens = 20 }
-            });
+        using var host = Host.Create(ScriptedResponses.Text("Here's how to use the soundboard.", inputTokens: 100, outputTokens: 50));
 
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildGuildContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("system prompt template");
-        mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("rendered system prompt");
-
-        var result = await pipeline.RunAsync("How do I use the soundboard?", context);
+        var result = await host.Pipeline.RunAsync("How do I use the soundboard?", new StubContext());
 
         result.Success.Should().BeTrue();
         result.Response.Should().Be("Here's how to use the soundboard.");
         result.InputTokens.Should().Be(100);
         result.OutputTokens.Should().Be(50);
-        result.CachedTokens.Should().Be(20);
+        result.LoopCount.Should().Be(1);
+        result.ToolCalls.Should().Be(0);
+        result.ToolNames.Should().BeEmpty();
+        result.Model.Should().Be("test/context-model");
+    }
+
+    [Fact]
+    public async Task RunAsync_SendsTheContextsModelBudgetsAndNoWebSearch()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+        var context = new StubContext { Model = "vendor/some-model", MaxTokens = 777, MaxToolCallIterations = 3 };
+
+        await host.Pipeline.RunAsync("hello", context);
+
+        var request = host.Client.Requests.Should().ContainSingle().Subject;
+        request.Model.Should().Be("vendor/some-model");
+        request.MaxTokens.Should().Be(777);
+        (request.Tools ?? []).Should().NotContain(t => t.Type != "function",
+            "the assistants have no web search; the DM assistant fetches pages with fetch_url");
+        (request.Plugins ?? []).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RunAsync_WithNoContextModel_RunsOnTheConfiguredDefault()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+
+        var result = await host.Pipeline.RunAsync("hello", new StubContext { Model = null });
+
+        host.Client.Requests.Single().Model.Should().Be(DefaultModel);
+        result.Model.Should().Be(DefaultModel);
+        result.UsageRecord!.Model.Should().Be(DefaultModel);
+    }
+
+    [Fact]
+    public async Task RunAsync_StopsAtTheContextsToolRoundBudget()
+    {
+        // Every response asks for another tool call; MaxToolCallIterations is what ends the run.
+        using var host = Host.Create(ScriptedResponses.ToolCall(ProbeTool.ToolName, new { n = 1 }));
+
+        var result = await host.Pipeline.RunAsync("loop", new StubContext { MaxToolCallIterations = 2 });
+
+        result.Success.Should().BeTrue();
+        result.StoppedOnMaxIterations.Should().BeTrue();
+        result.ToolCalls.Should().BeLessThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task RunAsync_ReportsTheToolsCalledAndTheRoundsTaken()
+    {
+        using var host = Host.Create(
+            ScriptedResponses.ToolCall(ProbeTool.ToolName),
+            ScriptedResponses.Text("done"));
+
+        var result = await host.Pipeline.RunAsync("use the probe", new StubContext());
+
+        result.ToolNames.Should().Equal(ProbeTool.ToolName);
         result.ToolCalls.Should().Be(1);
-        result.EstimatedCostUsd.Should().BeGreaterThan(0);
+        result.LoopCount.Should().Be(2);
+        result.Response.Should().Be("done");
     }
 
     [Fact]
-    public async Task RunAsync_PassesContextMode_ThroughToAgentContext()
+    public async Task RunAsync_SeedsTheCallerIntoTheRunForTheTools()
     {
-        AgentContext? capturedContext = null;
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .Callback<string, AgentContext, CancellationToken>((_, ctx, _) => capturedContext = ctx)
-            .ReturnsAsync(new AgentRunResult { Success = true, Response = "ok" });
+        using var host = Host.Create(
+            ScriptedResponses.ToolCall(ProbeTool.ToolName),
+            ScriptedResponses.Text("done"));
 
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildGuildContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("system prompt template");
-        mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("rendered system prompt");
+        await host.Pipeline.RunAsync("who am I", new StubContext
+        {
+            Identity = new DiscordRunIdentity(TestUserId, TestGuildId, ChannelId: 5, MessageId: 6)
+        });
 
-        await pipeline.RunAsync("question", context);
-
-        capturedContext.Should().NotBeNull();
-        capturedContext!.RunKind.Should().Be(context.Mode.ToString());
+        host.Probe.SeenUserId.Should().Be(TestUserId);
+        host.Probe.SeenGuildId.Should().Be(TestGuildId);
     }
 
     [Fact]
-    public async Task RunAsync_WithNoModelReportedAnywhere_UsesUnknownNotEmptyString()
+    public async Task RunAsync_DisabledTool_IsNotAdvertised()
     {
-        // GuildAssistantContext/DmAssistantContext always carry a resolved model in production
-        // (ILlmModelResolver has a last-resort default), so a null context.Model can only be
-        // exercised through the IAssistantContext abstraction directly.
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult { Success = true, Response = "ok", Model = null });
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
 
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var mockContext = new Mock<IAssistantContext>();
-        mockContext.Setup(c => c.Model).Returns((string?)null);
-        mockContext.Setup(c => c.Mode).Returns(LlmMode.GuildAssistant);
-        mockContext.Setup(c => c.MaxTokens).Returns(512);
-        mockContext.Setup(c => c.Temperature).Returns(0.7);
-        mockContext.Setup(c => c.MaxToolCallIterations).Returns(5);
-        mockContext.Setup(c => c.ExecutionContext).Returns(new ToolContext { UserId = TestUserId, GuildId = TestGuildId });
-        mockContext.Setup(c => c.ConversationHistory).Returns(new List<LlmMessage>());
-        mockContext.Setup(c => c.CostRates).Returns(new AssistantCostRates());
-        mockContext.Setup(c => c.MaxResponseLength).Returns(1800);
-        mockContext.Setup(c => c.TruncationSuffix).Returns("...");
-        mockContext.Setup(c => c.BuildSystemPromptAsync(It.IsAny<CancellationToken>())).ReturnsAsync("system prompt");
+        await host.Pipeline.RunAsync("hi", new StubContext { DisabledTools = [ClearingTool.ToolName] });
 
-        var result = await pipeline.RunAsync("question", mockContext.Object);
+        var advertised = AdvertisedNames(host.Client.Requests.Single());
+        advertised.Should().Contain(ProbeTool.ToolName);
+        advertised.Should().NotContain(ClearingTool.ToolName);
+    }
 
-        result.Model.Should().Be("unknown");
-        result.UsageRecord!.Model.Should().Be("unknown");
+    [Fact]
+    public async Task RunAsync_ConversationClearedByATool_IsReportedOnTheResult()
+    {
+        using var host = Host.Create(
+            ScriptedResponses.ToolCall(ClearingTool.ToolName),
+            ScriptedResponses.Text("Cleared."));
+
+        var result = await host.Pipeline.RunAsync("start over", new StubContext());
+
+        result.Success.Should().BeTrue();
+        result.ConversationCleared.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RunAsync_WithoutAClearingTool_DoesNotReportAClearedConversation()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+
+        var result = await host.Pipeline.RunAsync("hi", new StubContext());
+
+        result.ConversationCleared.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RunAsync_SkillLoadedDuringTheRun_IsReportedAsLoaded()
+    {
+        using var host = Host.Create(
+            ScriptedResponses.ToolCall("load_skill", new { skill = Host.SkillKey }),
+            ScriptedResponses.Text("loaded"));
+
+        var result = await host.Pipeline.RunAsync("needs the skill", new StubContext { ModeKey = Host.SkilledMode });
+
+        result.LoadedSkills.Should().Equal(Host.SkillKey);
+    }
+
+    [Fact]
+    public async Task RunAsync_PreloadedSkill_ItsToolIsAdvertisedFromTheFirstCall()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+
+        var result = await host.Pipeline.RunAsync("again", new StubContext
+        {
+            ModeKey = Host.SkilledMode,
+            PreloadedSkills = [Host.SkillKey]
+        });
+
+        AdvertisedNames(host.Client.Requests.Single()).Should().Contain(SkillTool.ToolName);
+        result.LoadedSkills.Should().Contain(Host.SkillKey);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithoutThePreload_TheSkillsToolIsWithheld()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+
+        await host.Pipeline.RunAsync("first", new StubContext { ModeKey = Host.SkilledMode });
+
+        var advertised = AdvertisedNames(host.Client.Requests.Single());
+        advertised.Should().NotContain(SkillTool.ToolName);
+        advertised.Should().Contain("load_skill");
     }
 
     /// <summary>
     /// OpenRouter reports what it actually billed for a call. That figure is authoritative and must
-    /// win over the configured per-million rates, which are only an estimate from a fixed price list
-    /// and are wrong for any model priced differently from the configured one.
+    /// win over the configured per-million rates, which are only an estimate from a fixed price list.
     /// </summary>
     [Fact]
     public async Task RunAsync_UsesBilledCost_WhenTheProviderReportsOne()
     {
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
-            {
-                Success = true,
-                Response = "Answer.",
-                // Token counts that would price at 0.00105 via the configured rates, so a passing
-                // assertion cannot be satisfied by the fallback path.
-                TotalUsage = new LlmUsage
-                {
-                    InputTokens = 100,
-                    OutputTokens = 50,
-                    EstimatedCost = 0.00042m
-                }
-            });
+        // Token counts that would price at 0.00105 via the configured rates, so a passing assertion
+        // cannot be satisfied by the fallback path.
+        using var host = Host.Create(ScriptedResponses.Text("answer", inputTokens: 100, outputTokens: 50, cost: 0.0123m));
 
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildGuildContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("system prompt template");
-        mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("rendered system prompt");
+        var result = await host.Pipeline.RunAsync("q", new StubContext { CostRates = new AssistantCostRates(3m, 15m, 0.3m, 3.75m) });
 
-        var result = await pipeline.RunAsync("question", context);
-
-        result.EstimatedCostUsd.Should().Be(0.00042m);
+        result.EstimatedCostUsd.Should().Be(0.0123m);
+        result.UsageRecord!.CostUsd.Should().Be(0.0123m);
+        result.UsageRecord.CostSource.Should().Be(LlmCostSource.Billed);
     }
 
     /// <summary>
-    /// A response that carries no cost means "not reported", not "free" — the configured rates are
-    /// the fallback for that case.
+    /// A response that carries no cost means "not reported", not "free" — the configured rates are the
+    /// fallback for that case.
     /// </summary>
     [Fact]
     public async Task RunAsync_FallsBackToConfiguredRates_WhenNoBilledCostIsReported()
     {
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
-            {
-                Success = true,
-                Response = "Answer.",
-                TotalUsage = new LlmUsage { InputTokens = 100, OutputTokens = 50, EstimatedCost = null }
-            });
+        using var host = Host.Create(ScriptedResponses.Text("answer", inputTokens: 100, outputTokens: 50));
 
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildGuildContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("system prompt template");
-        mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("rendered system prompt");
-
-        var result = await pipeline.RunAsync("question", context);
+        var result = await host.Pipeline.RunAsync("q", new StubContext { CostRates = new AssistantCostRates(3m, 15m, 0.3m, 3.75m) });
 
         // 100 input @ $3/M + 50 output @ $15/M.
         result.EstimatedCostUsd.Should().Be(0.00105m);
+        result.UsageRecord!.CostSource.Should().Be(LlmCostSource.Estimated);
     }
 
     [Fact]
-    public async Task RunAsync_BuildsUsageRecord_WithBilledCostSource_WhenProviderReportsCost()
+    public async Task RunAsync_BuildsTheUsageRecordFromTheContextAndTheRun()
     {
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
-            {
-                Success = true,
-                Response = "Answer.",
-                LoopCount = 2,
-                TotalToolCalls = 1,
-                Model = "anthropic/claude-sonnet-4.6",
-                TotalUsage = new LlmUsage { InputTokens = 100, OutputTokens = 50, EstimatedCost = 0.00042m }
-            });
+        using var host = Host.Create(
+            ScriptedResponses.ToolCall(ProbeTool.ToolName),
+            ScriptedResponses.Text("done", inputTokens: 30, outputTokens: 7));
 
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildGuildContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("system prompt template");
-        mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("rendered system prompt");
+        var result = await host.Pipeline.RunAsync("q", new StubContext
+        {
+            Mode = LlmMode.DmAssistant,
+            Identity = new DiscordRunIdentity(TestUserId, TestGuildId)
+        });
 
-        var result = await pipeline.RunAsync("question", context);
-
-        result.Model.Should().Be("anthropic/claude-sonnet-4.6");
-        result.UsageRecord.Should().NotBeNull();
-        result.UsageRecord!.Mode.Should().Be(LlmMode.GuildAssistant);
-        result.UsageRecord.Model.Should().Be("anthropic/claude-sonnet-4.6");
-        result.UsageRecord.UserId.Should().Be(TestUserId);
-        result.UsageRecord.GuildId.Should().Be(TestGuildId);
-        result.UsageRecord.LlmCalls.Should().Be(2);
-        result.UsageRecord.ToolCalls.Should().Be(1);
-        result.UsageRecord.CostUsd.Should().Be(0.00042m);
-        result.UsageRecord.CostSource.Should().Be(LlmCostSource.Billed);
-        result.UsageRecord.Success.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task RunAsync_BuildsUsageRecord_WithEstimatedCostSource_WhenNoBilledCostReported()
-    {
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
-            {
-                Success = true,
-                Response = "Answer.",
-                Model = null,
-                TotalUsage = new LlmUsage { InputTokens = 100, OutputTokens = 50, EstimatedCost = null }
-            });
-
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildGuildContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("system prompt template");
-        mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("rendered system prompt");
-
-        var result = await pipeline.RunAsync("question", context);
-
-        // No response model reported - falls back to the requested slug (context.Model).
-        result.Model.Should().Be("test/resolved-model");
-        result.UsageRecord!.Model.Should().Be("test/resolved-model");
-        result.UsageRecord.CostSource.Should().Be(LlmCostSource.Estimated);
-    }
-
-    [Fact]
-    public async Task RunAsync_DmContext_ReturnsSuccessfulResult()
-    {
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
-            {
-                Success = true,
-                Response = "Sure, here's the status.",
-                TotalUsage = new LlmUsage { InputTokens = 200, OutputTokens = 75 }
-            });
-
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildDmContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("owner system prompt");
-
-        var result = await pipeline.RunAsync("What's the bot status?", context);
-
-        result.Success.Should().BeTrue();
-        result.Response.Should().Be("Sure, here's the status.");
-        result.InputTokens.Should().Be(200);
-        result.OutputTokens.Should().Be(75);
+        var record = result.UsageRecord!;
+        record.Mode.Should().Be(LlmMode.DmAssistant);
+        record.UserId.Should().Be(TestUserId);
+        record.GuildId.Should().Be(TestGuildId);
+        record.Model.Should().Be("test/context-model");
+        record.InputTokens.Should().Be(result.InputTokens);
+        record.OutputTokens.Should().Be(result.OutputTokens);
+        record.LlmCalls.Should().Be(2);
+        record.ToolCalls.Should().Be(1);
+        record.Success.Should().BeTrue();
     }
 
     [Fact]
     public async Task RunAsync_TruncatesResponse_WhenLongerThanMaxResponseLength()
     {
-        var longResponse = new string('a', 2000);
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult { Success = true, Response = longResponse, TotalUsage = new LlmUsage() });
+        using var host = Host.Create(ScriptedResponses.Text(new string('x', 5000)));
 
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
-        var context = BuildGuildContext(out var mockPromptTemplate);
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("prompt");
-        mockPromptTemplate
-            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns("prompt");
+        var result = await host.Pipeline.RunAsync("question", new StubContext
+        {
+            MaxResponseLength = 1800,
+            TruncationSuffix = "\n\n... *(response truncated)*"
+        });
 
-        var result = await pipeline.RunAsync("question", context);
-
-        result.Response!.Length.Should().BeLessThanOrEqualTo(1800);
+        result.Response!.Length.Should().Be(1800);
         result.Response.Should().EndWith("(response truncated)*");
+    }
+
+    [Fact]
+    public async Task RunAsync_ShortResponse_IsLeftAlone()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("short"));
+
+        var result = await host.Pipeline.RunAsync("question", new StubContext { MaxResponseLength = 1800 });
+
+        result.Response.Should().Be("short");
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenTheClientThrows_ReturnsAFailedResultWithAFailedUsageRecord()
+    {
+        using var host = Host.Create(_ => throw new InvalidOperationException("provider down"));
+
+        var result = await host.Pipeline.RunAsync("q", new StubContext { Mode = LlmMode.GuildAssistant });
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().NotBeNullOrWhiteSpace();
+        result.UsageRecord.Should().NotBeNull();
+        result.UsageRecord!.Success.Should().BeFalse();
+        result.UsageRecord.CostUsd.Should().Be(0m);
+        result.UsageRecord.Mode.Should().Be(LlmMode.GuildAssistant);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenCancelled_Throws()
+    {
+        // A cancelled run is the caller's decision, not a failed run: it propagates rather than
+        // becoming a Success=false result with a ledger row.
+        using var cts = new CancellationTokenSource();
+        using var host = Host.Create(_ =>
+        {
+            cts.Cancel();
+            cts.Token.ThrowIfCancellationRequested();
+            return ScriptedResponses.Text("never");
+        });
+
+        var act = () => host.Pipeline.RunAsync("q", new StubContext(), cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task RunAsync_GuildContext_PutsThePortalLinksInTheTurnContextNotTheSystemPrompt()
+    {
+        // The links name the guild; in the system prompt they would make the cached prefix per guild.
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+        var context = BuildGuildContext(options =>
+        {
+            options.IncludeGuildContext = true;
+            options.BaseUrl = "https://bot.example.com/";
+        });
+
+        await host.Pipeline.RunAsync("where is the soundboard?", context);
+
+        var request = host.Client.Requests.Single();
+        var system = Text(request.Messages.First(m => m.Role == "system").Content);
+        var user = Text(request.Messages.Last(m => m.Role == "user").Content);
+
+        var link = $"https://bot.example.com/Portal/Soundboard/{TestGuildId}";
+        user.Should().Contain(link);
+        system.Should().NotContain(link);
+        system.Should().NotContain(TestGuildId.ToString());
+    }
+
+    [Fact]
+    public async Task RunAsync_GuildContext_WithGuildContextOff_SendsNoPortalLinks()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+        var context = BuildGuildContext(options =>
+        {
+            options.IncludeGuildContext = false;
+            options.BaseUrl = "https://bot.example.com";
+        });
+
+        await host.Pipeline.RunAsync("hi", context);
+
+        var request = host.Client.Requests.Single();
+        request.Messages.Select(m => Text(m.Content)).Should().NotContain(t => t.Contains("/Portal/Soundboard/"));
+    }
+
+    [Fact]
+    public async Task RunAsync_GuildContext_PassesItsDisabledToolsAndBudgets()
+    {
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+        var context = BuildGuildContext(disabledTools: [ProbeTool.ToolName]);
+
+        await host.Pipeline.RunAsync("hi", context);
+
+        var request = host.Client.Requests.Single();
+        AdvertisedNames(request).Should().NotContain(ProbeTool.ToolName);
+        request.MaxTokens.Should().Be(512);
+        request.Model.Should().Be("test/resolved-model");
     }
 
     [Fact]
     public async Task RunAsync_ThenRecordUsage_InvokesRecordUsage_OnTheSameContextInstance()
     {
-        // Exercises the DM path end-to-end through the shared pipeline: RunAsync builds/executes
-        // against the DmAssistantContext, and a subsequent RecordUsageAsync call (as
-        // DmAssistantService performs) must be invoked against that same context instance —
-        // never silently routed to a different context.
-        var mockAgentRunner = new Mock<IAgentRunner>();
-        mockAgentRunner
-            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentRunResult
-            {
-                Success = true,
-                Response = "DM response",
-                TotalUsage = new LlmUsage { InputTokens = 10, OutputTokens = 5 }
-            });
-
-        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
+        // Exercises the DM path end-to-end through the shared pipeline: RunAsync executes against the
+        // DmAssistantContext, and a subsequent RecordUsageAsync call (as DmAssistantService performs)
+        // must land on that same context instance.
+        using var host = Host.Create(ScriptedResponses.Text("DM response"));
         var mockConversationRepo = new Mock<IDmConversationMessageRepository>();
         var mockInteractionLogRepo = new Mock<IDmAssistantInteractionLogRepository>();
         var mockMetricsRepo = new Mock<IDmAssistantUsageMetricsRepository>();
@@ -395,24 +446,17 @@ public class AssistantMessagePipelineTests
         {
             Model = "anthropic/claude-sonnet-4",
             MaxTokens = 4096,
-            Temperature = 0.7,
             MaxResponseLength = 50000,
             TruncationSuffix = "\n\n... *(response truncated)*",
             EnableCostTracking = true,
             LogInteractions = true
         };
 
-        var mockPromptTemplate = new Mock<IPromptTemplate>();
-        mockPromptTemplate
-            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("owner system prompt");
-
         var context = new DmAssistantContext(
             TestUserId,
             activeGuildId: null,
-            Mock.Of<IToolRegistry>(),
-            new List<LlmMessage>(),
-            mockPromptTemplate.Object,
+            new List<ConversationTurn>(),
+            Array.Empty<string>(),
             mockConversationRepo.Object,
             mockInteractionLogRepo.Object,
             mockMetricsRepo.Object,
@@ -420,12 +464,11 @@ public class AssistantMessagePipelineTests
             Mock.Of<ILogger>(),
             "test/resolved-model");
 
-        var result = await pipeline.RunAsync("What's the bot status?", context);
+        var result = await host.Pipeline.RunAsync("What's the bot status?", context);
         result.Success.Should().BeTrue();
 
         await context.RecordUsageAsync("What's the bot status?", result, CancellationToken.None);
 
-        // Conversation turns were saved (proves RecordUsageAsync ran against this DmAssistantContext).
         mockConversationRepo.Verify(
             r => r.AddAsync(It.Is<DmConversationMessage>(m => m.UserId == TestUserId && m.Role == "user"), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -440,37 +483,48 @@ public class AssistantMessagePipelineTests
             Times.Once);
     }
 
-    private static GuildAssistantContext BuildGuildContext(out Mock<IPromptTemplate> mockPromptTemplate, string model = "test/resolved-model")
+    [Fact]
+    public async Task RunAsync_DmContext_ReplaysItsHistoryBeforeThePrompt()
     {
-        mockPromptTemplate = new Mock<IPromptTemplate>();
-        var mockGuildService = new Mock<IGuildService>();
+        using var host = Host.Create(ScriptedResponses.Text("ok"));
+        var context = new StubContext
+        {
+            History = [new ConversationTurn(true, "earlier question"), new ConversationTurn(false, "earlier answer")]
+        };
 
+        await host.Pipeline.RunAsync("now", context);
+
+        var texts = host.Client.Requests.Single().Messages.Select(m => Text(m.Content)).ToList();
+        var earlier = texts.FindIndex(t => t.Contains("earlier question"));
+        var now = texts.FindLastIndex(t => t.Contains("now"));
+        earlier.Should().BeGreaterThan(0);
+        now.Should().BeGreaterThan(earlier);
+    }
+
+    private static List<string> AdvertisedNames(ChatCompletionRequest request) =>
+        (request.Tools ?? []).Where(t => t.Function is not null).Select(t => t.Function!.Name).ToList();
+
+    private static string Text(object? content) => content switch
+    {
+        null => string.Empty,
+        string text => text,
+        IEnumerable<ContentPart> parts => string.Join("\n", parts.Select(p => p.Text)),
+        _ => JsonSerializer.Serialize(content)
+    };
+
+    private static GuildAssistantContext BuildGuildContext(
+        Action<AssistantOptions>? configure = null,
+        IReadOnlyCollection<string>? disabledTools = null)
+    {
         var options = new AssistantOptions
         {
-            Sampling = new()
-            {
-                Model = "anthropic/claude-sonnet-4",
-                MaxTokens = 512,
-                Temperature = 0.7
-            },
-            Tools = new()
-            {
-                MaxToolRounds = 5
-            },
-            Messages = new()
-            {
-                MaxResponseLength = 1800,
-                TruncationSuffix = "\n\n... *(response truncated)*"
-            },
-            Cost = new()
-            {
-                EnableCostTracking = false
-            },
-            Privacy = new()
-            {
-                LogInteractions = false
-            }
+            Sampling = new() { Model = "anthropic/claude-sonnet-4", MaxTokens = 512 },
+            Tools = new() { MaxToolRounds = 5 },
+            Messages = new() { MaxResponseLength = 1800, TruncationSuffix = "\n\n... *(response truncated)*" },
+            Cost = new() { EnableCostTracking = false },
+            Privacy = new() { LogInteractions = false }
         };
+        configure?.Invoke(options);
 
         return new GuildAssistantContext(
             TestGuildId,
@@ -480,43 +534,166 @@ public class AssistantMessagePipelineTests
             rateLimit: 5,
             question: "question",
             callerCanMutate: false,
-            toolRegistry: null,
-            mockGuildService.Object,
-            mockPromptTemplate.Object,
+            disabledTools ?? Array.Empty<string>(),
+            Mock.Of<IGuildService>(),
             Mock.Of<IAssistantUsageMetricsRepository>(),
             Mock.Of<IAssistantInteractionLogRepository>(),
             options,
             Mock.Of<ILogger>(),
-            model);
+            "test/resolved-model");
     }
 
-    private static DmAssistantContext BuildDmContext(out Mock<IPromptTemplate> mockPromptTemplate)
+    /// <summary>The real pipeline over the real loop, with a scripted model and in-memory prompts.</summary>
+    private sealed class Host : IDisposable
     {
-        mockPromptTemplate = new Mock<IPromptTemplate>();
+        public const string SkilledMode = "skilled";
+        public const string SkillKey = "probing";
 
-        var options = new DmAssistantOptions
+        private readonly ServiceProvider _provider;
+
+        private Host(ServiceProvider provider, ScriptedOpenRouterClient client)
         {
-            Model = "anthropic/claude-sonnet-4",
-            MaxTokens = 4096,
-            Temperature = 0.7,
-            MaxResponseLength = 50000,
-            TruncationSuffix = "\n\n... *(response truncated)*",
-            EnableCostTracking = false,
-            LogInteractions = false
-        };
+            _provider = provider;
+            Client = client;
+        }
 
-        return new DmAssistantContext(
-            TestUserId,
-            activeGuildId: null,
-            Mock.Of<IToolRegistry>(),
-            new List<LlmMessage>(),
-            mockPromptTemplate.Object,
-            Mock.Of<IDmConversationMessageRepository>(),
-            Mock.Of<IDmAssistantInteractionLogRepository>(),
-            Mock.Of<IDmAssistantUsageMetricsRepository>(),
-            options,
-            Mock.Of<ILogger>(),
-            "test/resolved-model");
+        public ScriptedOpenRouterClient Client { get; }
+
+        public IAssistantMessagePipeline Pipeline => _provider.GetRequiredService<IAssistantMessagePipeline>();
+
+        public ProbeRecorder Probe => _provider.GetRequiredService<ProbeRecorder>();
+
+        public static Host Create(params ChatCompletionResponse[] responses) => Create(new ScriptedOpenRouterClient(responses));
+
+        public static Host Create(Func<ScriptedCall, ChatCompletionResponse> respond) => Create(new ScriptedOpenRouterClient(respond));
+
+        private static Host Create(ScriptedOpenRouterClient client)
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["OpenRouter:Model"] = DefaultModel })
+                .Build();
+
+            var services = new ServiceCollection();
+            services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
+            services.AddSingleton<IConfiguration>(configuration);
+            services.Configure<OpenRouterOptions>(configuration.GetSection(OpenRouterOptions.SectionName));
+            services.AddSingleton<IOpenRouterClient>(client);
+            services.AddSingleton<IOpenRouterStreamingClient>(client);
+
+            var tools = new[] { ProbeTool.ToolName, ClearingTool.ToolName };
+            services.AddSingleton<IAgentPromptStore>(new InMemoryAgentPromptStore("bot",
+            [
+                new AgentDefinition("bot", "Bot", "You are a test bot."),
+                new AgentDefinition(StubContext.DefaultMode, "Test", "Test mode prompt.", tools),
+                new AgentDefinition(GuildAssistantContext.ModeName, "Guild", "Guild mode prompt.", tools),
+                new AgentDefinition(DmAssistantContext.ModeName, "DM", "DM mode prompt.", tools),
+                new AgentDefinition(SkilledMode, "Skilled", "Skilled mode prompt.", [.. tools, "load_skill"])
+                {
+                    Skills = [SkillKey]
+                }
+            ]));
+            services.AddSingleton<IAgentSkillStore>(new InMemorySkillStore(
+            [
+                new SkillDefinition(SkillKey, "Probe something with the skill tool.", "Use skill_probe.", [SkillTool.ToolName])
+            ]));
+
+            services.AddAgentCore(configuration, agent => agent
+                .AddBuiltInTools()
+                .AddTool<ProbeTool>()
+                .AddTool<ClearingTool>()
+                .AddTool<SkillTool>());
+
+            services.AddSingleton<ProbeRecorder>();
+            services.AddScoped<DiscordRunContext>();
+            services.AddSingleton<IAssistantMessagePipeline>(sp => new AssistantMessagePipeline(
+                sp.GetRequiredService<IServiceScopeFactory>(), NullLogger<AssistantMessagePipeline>.Instance));
+
+            return new Host(services.BuildServiceProvider(validateScopes: true), client);
+        }
+
+        public void Dispose() => _provider.Dispose();
+    }
+
+    private sealed class ProbeRecorder
+    {
+        public ulong SeenUserId { get; set; }
+        public ulong SeenGuildId { get; set; }
+    }
+
+    /// <summary>A tool that records the caller it was run for.</summary>
+    private sealed class ProbeTool(DiscordRunContext run, ProbeRecorder recorder) : IAgentTool
+    {
+        public const string ToolName = "probe";
+
+        public AgentToolDefinition Definition { get; } = AgentTools.Define(
+            ToolName, "Probes the run.", ToolInput.ObjectSchema(new { n = ToolInput.Schema("integer", "Any number.") }));
+
+        public Task<string> InvokeAsync(IReadOnlyDictionary<string, JsonElement> input, CancellationToken cancellationToken)
+        {
+            recorder.SeenUserId = run.UserId;
+            recorder.SeenGuildId = run.GuildId;
+            return Task.FromResult(ToolResults.Json(new { ok = true }));
+        }
+    }
+
+    /// <summary>A tool that clears the conversation the way <c>clear_conversation</c> does.</summary>
+    private sealed class ClearingTool(DiscordRunContext run) : IAgentTool
+    {
+        public const string ToolName = "clear_probe";
+
+        public AgentToolDefinition Definition { get; } = AgentTools.Define(
+            ToolName, "Clears the conversation.", ToolInput.ObjectSchema(new { }));
+
+        public Task<string> InvokeAsync(IReadOnlyDictionary<string, JsonElement> input, CancellationToken cancellationToken)
+        {
+            run.ConversationCleared = true;
+            return Task.FromResult(ToolResults.Json(new { success = true }));
+        }
+    }
+
+    /// <summary>A tool only the test skill brings.</summary>
+    private sealed class SkillTool : IAgentTool
+    {
+        public const string ToolName = "skill_probe";
+
+        public AgentToolDefinition Definition { get; } = AgentTools.Define(
+            ToolName, "Probes with the skill.", ToolInput.ObjectSchema(new { }));
+
+        public Task<string> InvokeAsync(IReadOnlyDictionary<string, JsonElement> input, CancellationToken cancellationToken) =>
+            Task.FromResult(ToolResults.Json(new { ok = true }));
+    }
+
+    /// <summary>An <see cref="IAssistantContext"/> whose every member a test can set.</summary>
+    private sealed class StubContext : IAssistantContext
+    {
+        public const string DefaultMode = "test";
+
+        public string RateLimitCacheKeyPrefix { get; init; } = "test:";
+        public string RateLimitScopeKey { get; init; } = "scope";
+        public int? RateLimit { get; init; }
+        public int RateLimitWindowMinutes { get; init; }
+        public string? Model { get; init; } = "test/context-model";
+        public LlmMode Mode { get; init; } = LlmMode.GuildAssistant;
+        public string ModeKey { get; init; } = DefaultMode;
+        public DiscordRunIdentity Identity { get; init; } = new(TestUserId, CanMutate: true);
+        public int MaxTokens { get; init; } = 1024;
+        public int MaxToolCallIterations { get; init; } = 5;
+        public int MaxToolResultChars { get; init; } = 8000;
+        public IReadOnlyCollection<string> DisabledTools { get; init; } = [];
+        public IReadOnlyCollection<string> PreloadedSkills { get; init; } = [];
+        public IReadOnlyList<ConversationTurn> History { get; init; } = [];
+        public AssistantCostRates CostRates { get; init; } = new(3m, 15m, 0.3m, 3.75m);
+        public int MaxResponseLength { get; init; } = 2000;
+        public string TruncationSuffix { get; init; } = "…";
+
+        public Task<IReadOnlyList<PromptPart>> BuildPartsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<PromptPart>>([]);
+
+        public Task<string> FormatUserMessageAsync(string rawMessage, CancellationToken cancellationToken) =>
+            Task.FromResult(rawMessage);
+
+        public Task RecordUsageAsync(string inputMessage, AssistantPipelineResult result, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     #endregion
@@ -527,7 +704,6 @@ public class AssistantMessagePipelineTests
     public async Task GuildAssistantContext_RecordUsageAsync_SetsInteractionLogId_ThenRecords()
     {
         var mockGuildService = new Mock<IGuildService>();
-        var mockPromptTemplate = new Mock<IPromptTemplate>();
         var mockInteractionLogRepo = new Mock<IAssistantInteractionLogRepository>();
         mockInteractionLogRepo
             .Setup(r => r.AddAsync(It.IsAny<AssistantInteractionLog>(), It.IsAny<CancellationToken>()))
@@ -543,7 +719,7 @@ public class AssistantMessagePipelineTests
 
         var context = new GuildAssistantContext(
             TestGuildId, channelId: 1, TestUserId, messageId: 1, rateLimit: 5, question: "q",
-            callerCanMutate: false, toolRegistry: null, mockGuildService.Object, mockPromptTemplate.Object,
+            callerCanMutate: false, Array.Empty<string>(), mockGuildService.Object,
             Mock.Of<IAssistantUsageMetricsRepository>(), mockInteractionLogRepo.Object,
             options, Mock.Of<ILogger>(), "test/model", resolvedPricing: null, usageRecorder: mockRecorder.Object);
 
@@ -566,7 +742,6 @@ public class AssistantMessagePipelineTests
     public async Task GuildAssistantContext_RecordUsageAsync_WithLoggingOff_RecordsWithNullInteractionLogId()
     {
         var mockGuildService = new Mock<IGuildService>();
-        var mockPromptTemplate = new Mock<IPromptTemplate>();
         var mockInteractionLogRepo = new Mock<IAssistantInteractionLogRepository>();
         var mockRecorder = new Mock<ILlmUsageRecorder>();
 
@@ -578,7 +753,7 @@ public class AssistantMessagePipelineTests
 
         var context = new GuildAssistantContext(
             TestGuildId, channelId: 1, TestUserId, messageId: 1, rateLimit: 5, question: "q",
-            callerCanMutate: false, toolRegistry: null, mockGuildService.Object, mockPromptTemplate.Object,
+            callerCanMutate: false, Array.Empty<string>(), mockGuildService.Object,
             Mock.Of<IAssistantUsageMetricsRepository>(), mockInteractionLogRepo.Object,
             options, Mock.Of<ILogger>(), "test/model", resolvedPricing: null, usageRecorder: mockRecorder.Object);
 
@@ -600,7 +775,6 @@ public class AssistantMessagePipelineTests
     [Fact]
     public async Task DmAssistantContext_RecordUsageAsync_SetsInteractionLogId_ThenRecords()
     {
-        var mockPromptTemplate = new Mock<IPromptTemplate>();
         var mockConversationRepo = new Mock<IDmConversationMessageRepository>();
         var mockInteractionLogRepo = new Mock<IDmAssistantInteractionLogRepository>();
         mockInteractionLogRepo
@@ -613,8 +787,8 @@ public class AssistantMessagePipelineTests
         var options = new DmAssistantOptions { LogInteractions = true, EnableCostTracking = false };
 
         var context = new DmAssistantContext(
-            TestUserId, activeGuildId: null, Mock.Of<IToolRegistry>(), new List<LlmMessage>(),
-            mockPromptTemplate.Object, mockConversationRepo.Object, mockInteractionLogRepo.Object,
+            TestUserId, activeGuildId: null, new List<ConversationTurn>(), Array.Empty<string>(),
+            mockConversationRepo.Object, mockInteractionLogRepo.Object,
             mockMetricsRepo.Object, options, Mock.Of<ILogger>(), "test/model", resolvedPricing: null,
             usageRecorder: mockRecorder.Object);
 

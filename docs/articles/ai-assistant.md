@@ -192,412 +192,13 @@ If you ask about private data, the assistant will politely decline and suggest c
   **including the ones that were never called** — "which of my tools has never been used" is the
   first question worth answering, and only the zeroes answer it.
 
-- **Prompt Surface:** What every question on this server pays for before it is read. The tool array
-  serializes at the top of each request, so a tool costs its schema whether or not the question
-  needs it. The panel shows the tools sent, the schema size in characters, an estimated token count
-  (characters ÷ 4), the characters held back, and then a per-tool table with each tool's share of
-  the prefix — marking the tools this server has turned off and the ones a skill is holding back,
-  since neither is in the request.
-
-  It measures what the surface *advertises*, not everything registered: a tool behind an unloaded
-  skill is callable once the skill loads and is not billed for until then. The same numbers are
-  logged once per surface at startup, so a change in the tool array is visible at deploy time rather
-  than on the bill.
-
-  Read it against the Tool Usage table above it. A tool that is 15% of every request and was called
-  twice in a month belongs behind a skill or turned off — and that is a decision with a number
-  attached.
-
-**Use Cases:**
-- Monitor usage trends
-- Decide whether a tool earns its place in every request, by comparing its share of the prefix with
-  how often it is actually called
-- Retire or re-enable tools based on what the assistant actually reaches for
-- Track API costs against budget
-- Identify peak usage periods
-- Optimize caching strategy based on cache hit rates
-
-### LLM Usage and Cost Ledger
-
-Every user message sent through the guild assistant, the DM (owner) assistant, or a feature-request
-conversation writes one row to the `LlmUsageRecord` ledger — tokens, cost, latency, success, and
-which model actually answered. No message text is stored there; the existing per-mode interaction
-logs keep that.
-
-**Billed vs. estimated.** `CostSource` on each row is `Billed` when OpenRouter reported a real cost
-(`usage.cost`) for that call, or `Estimated` when the fallback per-million rates were used instead
-(see [Cost Monitoring](#cost-monitoring) above). The usage dashboard's "Billed Share" figure is the
-fraction of total cost that came from billed rows — a low share means most of what you're seeing is
-an estimate, not OpenRouter's own number.
-
-**Where to look:**
-
-- **`/Admin/LlmUsage`** (`RequireAdmin`) — the portal-wide dashboard: a date-range filter (default
-  last 30 days, max 366) with optional guild and mode filters, hero totals (messages, tokens, cost,
-  billed share, failed count, average latency), and tables broken down by user, model, mode, and
-  day. Clicking a row in the "Cost by User" table opens a drill-down panel of that user's individual
-  messages (model, mode, tokens, cost with its source badge, latency, success), paged via
-  `GET api/admin/llm-usage/records`.
-- **`/guild/{guildId}/assistant-metrics`** — the same ledger, filtered to one guild, as the "Cost by
-  User" table described above.
-- **`GET api/admin/llm-usage/summary`** / **`GET api/admin/llm-usage/records`** (`LlmUsageController`,
-  `RequireAdmin`) — the API behind both pages; see `docs/articles/api-endpoints.md` for the full
-  request/response shape.
-
-**Retention and GDPR.** `AssistantInteractionLogRetentionService` sweeps daily
-(`Llm:RetentionSweepIntervalHours`, default 24h) and deletes ledger rows on the same
-`Assistant:Privacy:InteractionLogRetentionDays` window (default 90 days) as the guild interaction
-logs — no separate retention setting for the ledger. DM interaction logs are swept too, on
-`DmAssistant:InteractionLogRetentionDays`. Before this service existed, none of these tables had
-any cleanup at all. A user purge or data export includes their `LlmUsageRecords`, guild
-`AssistantInteractionLogs`, and DM `DmAssistantInteractionLogs` alongside the rest of their data.
-
----
-
-## Configuration
-
-### ApplicationOptions (Global Settings)
-
-Configuration is managed via `appsettings.json` and User Secrets. The feature is **disabled by default**.
-
-#### Feature Flags
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `GloballyEnabled` | `false` | Master switch to enable/disable assistant globally |
-| `EnabledByDefaultForNewGuilds` | `false` | Whether newly joined guilds have assistant enabled by default |
-| `ShowTypingIndicator` | `true` | Show typing indicator while the model responds |
-| `IncludeGuildContext` | `true` | Include guild ID for URL generation (keep true) |
-
-#### Rate Limiting
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `DefaultRateLimit` | `5` | Max questions per user per time window |
-| `RateLimitWindowMinutes` | `5` | Time window for rate limit (minutes) |
-| `RateLimitBypassRole` | `"Admin"` | Role required to bypass limits (Admin+ or "SuperAdmin", "Moderator", null) |
-
-#### Message Constraints
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `MaxQuestionLength` | `500` | Max question length in characters |
-| `MaxResponseLength` | `1800` | Max response length (Discord limit is 2000) |
-| `TruncationSuffix` | `"\n\n... *(response truncated)*"` | Suffix appended to truncated responses |
-
-#### Model Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `Model` | `"openrouter/auto"` | OpenRouter model slug (blank falls back to `OpenRouter:DefaultModel`) |
-| `ApiTimeoutMs` | `30000` | API call timeout in milliseconds |
-| `MaxTokens` | `512` | Maximum tokens in the model's response (~375 words) |
-| `Temperature` | `0.3` | Response creativity (0.0=deterministic, 1.0=random). Low by default because the assistant answers factual command questions |
-
-**Model slugs** are OpenRouter identifiers, not vendor model IDs — `anthropic/claude-sonnet-4`, not `claude-sonnet-4-20250514`. Any slug from https://openrouter.ai/models works. Common choices:
-- `openrouter/auto` - **Default** - OpenRouter picks a model per request; no prompt caching
-- `anthropic/claude-sonnet-4.5` - Pinned Claude model with prompt caching; predictable cost and behaviour
-- `anthropic/claude-haiku-4.5` - Fastest and cheapest Claude option
-- `openai/gpt-4o` - Non-Claude alternative (no prompt caching; see below)
-
-**Changing the model without a redeploy.** `Assistant:Sampling:Model` is the config-file default;
-an admin can override it per mode — guild assistant, DM assistant, and feature requests each have
-their own model — from **Admin → Settings → AI Models → Per-Mode Defaults**, without editing
-configuration or restarting the bot. The picker only offers models enabled on that tab's catalog
-table (nothing is enabled by default — pull the OpenRouter catalog with "Refresh from OpenRouter",
-then enable the ones you want to allow), and only tool-capable ones, since every mode sends tools.
-`ILlmModelResolver` resolves DB override → bound configuration value → `OpenRouter:DefaultModel` as
-a last resort, and the change takes effect on the *next* message — no restart, because the
-resolver's per-mode cache is invalidated on save via `ISettingsService.SettingsChanged`. Picking a
-non-Claude model does not break anything, but prompt caching (below) only pays off on Claude-family
-slugs. See `docs/articles/settings-page.md` ("AI Models Tab") for the UI details.
-
-#### Tool Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `EnableDocumentationTools` | `true` | Whether the model can call documentation tools |
-| `MaxToolRounds` | `8` | Max tool-use rounds per question (prevents loops). A round is one completion that asks for tools, not one tool call |
-| `MaxToolCallsPerQuestion` | — | Deprecated name for `MaxToolRounds`. Still binds, and still wins when both are set |
-| `ToolExecutionTimeoutMs` | `10000` | Per-tool deadline in milliseconds; an overrun tool is abandoned and the model is told so, and the loop continues. `0` disables it |
-| `MaxToolResultChars` | `8000` | Ceiling on one tool result entering conversation history (~2,000 tokens). A longer result is replaced by a truncation envelope telling the model it is reading a fragment. `0` disables the cap |
-| `DuplicateToolCallLimit` | `3` | How many times one tool may be called with identical arguments in a run before further identical calls are refused without executing the tool. `0` disables the guard |
-
-When the round budget runs out the run no longer fails. The model is asked once more for an
-answer with `tool_choice: none` — it keeps every tool result it already gathered, it just cannot
-fetch more — and the reply is prefixed with *"Heads up — I ran out of steps on this one, so this
-may be incomplete."* so the user is told it may be partial whatever the model wrote. Only if that
-call fails or comes back empty does the old error surface. The same follow-up covers a model that
-ends its turn without writing anything: one recovery call, never two, which previously reached the
-user as a blank reply.
-
-A tool result is not paid for once: it is appended to the conversation and re-sent on every later
-iteration of the loop, so one oversized read costs its tokens again on each following turn. That is
-what `MaxToolResultChars` exists to bound — individual tools should still return aggregates rather
-than dumps; the cap is the backstop that makes the next careless tool safe. The truncation envelope
-carries an explicit instruction not to re-call the tool, and `DuplicateToolCallLimit` refuses the
-repeat if the model tries anyway.
-
-#### Error Handling
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `ErrorMessage` | `"Oops, I'm having trouble thinking right now..."` | Friendly error message shown to users |
-| `MaxRetryAttempts` | `2` | API retry attempts on failure |
-| `RetryDelayMs` | `1000` | Delay between retries in milliseconds |
-
-#### Cost Monitoring
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `EnableCostTracking` | `true` | Track token usage and record costs |
-| `DailyCostThresholdUsd` | `5.00` | Daily cost alert threshold (creates alert incident if exceeded) |
-| `CostPerMillionInputTokens` | `3.00` | Fallback cost per million input tokens |
-| `CostPerMillionOutputTokens` | `15.00` | Fallback cost per million output tokens |
-
-**OpenRouter reports the real billed cost** (`usage.cost`) on every response, and that figure is what gets recorded. The `CostPerMillion*` rates are a *fallback only*, used when a response carries no cost — and because they are fixed, they are wrong for any model whose pricing differs from Claude Sonnet. Change the model, and the recorded cost stays accurate; only the fallback estimate drifts.
-
-#### Prompt Caching (Cost Optimization)
-
-Prompt caching reduces API costs by ~50% by caching the agent prompt and common documentation files. OpenRouter passes cache breakpoints through to **Claude-family models only** — other models ignore them and report zero cached tokens, so caching is safe to leave on for any slug but only pays off on Claude.
-
-The breakpoint sits on the system prompt, and its lifetime comes from `OpenRouter:PromptCacheTtl` (default `"1h"`; clear it to fall back to the provider's 5 minutes). The system prompt and the tool schemas behind it are the layer shared across every user and every question in a guild, and a guild's questions are frequently more than five minutes apart, so the longer TTL's write premium pays for itself.
-
-Two things sit in front of that breakpoint and must not move: the tool schemas serialize at position 0 of the request, ahead of the system message, so any change in their order invalidates the cache behind them. `ToolRegistry.GetEnabledTools()` therefore returns them sorted by name (ordinal) rather than in DI registration order — the symptom of getting this wrong is correct answers at roughly ten times the price, which no test catches unless one asserts the order.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `EnablePromptCaching` | `true` | Enable prompt caching (honoured by Claude-family models) |
-| `CacheCommonDocumentation` | `true` | Include common docs in cached system prompt |
-| `CachedDocumentationFiles` | `["commands-page.md", "soundboard.md", "rat-watch.md", "tts-support.md"]` | Docs to include in cache |
-| `CostPerMillionCachedTokens` | `0.30` | Cost for cached tokens (90% discount) |
-| `CostPerMillionCacheWriteTokens` | `3.75` | Cost for cache writes (on cache miss) |
-
-**Cost Comparison (Single Question):**
-- Without caching: ~$0.0078/question
-- With caching: ~$0.00375/question (50% reduction)
-
-At 100 questions/day:
-- Without caching: ~$0.78/day ($23.40/month)
-- With caching: ~$0.38/day ($11.40/month)
-
-#### Privacy and Audit
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `RequireExplicitConsent` | `true` | Require `/consent` opt-in before using assistant |
-| `LogInteractions` | `true` | Log questions and responses to audit log |
-| `InteractionLogRetentionDays` | `90` | Days to retain interaction logs before cleanup |
-
-#### Paths
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `AgentPromptPath` | `"docs/agents/assistant-agent.md"` | Path to agent behavior/security prompt |
-| `Tools:SkillsPath` | `"docs/agents/skills/guild"` | Directory of skill files for the guild assistant; blank disables skills here. Nested key only — unlike the paths above it has no flat `Assistant:SkillsPath` forwarder. Ships empty, see [Skills](#skills) |
-| `DocumentationBasePath` | `"docs/articles"` | Base directory for feature documentation, and the only directory `get_feature_documentation` may read — a feature name that resolves outside it is refused |
-| `ReadmePath` | `"README.md"` | Path to README for command lists |
-| `BaseUrl` | `null` (uses Application.BaseUrl) | Base URL for link generation in responses |
-
-### Example appsettings.json
-
-```json
-{
-  "Assistant": {
-    "GloballyEnabled": false,
-    "EnabledByDefaultForNewGuilds": false,
-    "DefaultRateLimit": 5,
-    "RateLimitWindowMinutes": 5,
-    "RateLimitBypassRole": "Admin",
-    "MaxQuestionLength": 500,
-    "MaxResponseLength": 1800,
-    "TruncationSuffix": "\n\n... *(response truncated)*",
-    "Model": "openrouter/auto",
-    "ApiTimeoutMs": 30000,
-    "MaxTokens": 512,
-    "Temperature": 0.3,
-    "AgentPromptPath": "docs/agents/assistant-agent.md",
-    "DocumentationBasePath": "docs/articles",
-    "ReadmePath": "README.md",
-    "EnableDocumentationTools": true,
-    "MaxToolRounds": 8,
-    "ToolExecutionTimeoutMs": 10000,
-    "MaxToolResultChars": 8000,
-    "DuplicateToolCallLimit": 3,
-    "ErrorMessage": "Oops, I'm having trouble thinking right now. Please try again in a moment.",
-    "MaxRetryAttempts": 2,
-    "RetryDelayMs": 1000,
-    "EnableCostTracking": true,
-    "DailyCostThresholdUsd": 5.00,
-    "CostPerMillionInputTokens": 3.00,
-    "CostPerMillionOutputTokens": 15.00,
-    "EnablePromptCaching": true,
-    "CacheCommonDocumentation": true,
-    "CachedDocumentationFiles": [
-      "commands-page.md",
-      "soundboard.md",
-      "rat-watch.md",
-      "tts-support.md"
-    ],
-    "CostPerMillionCachedTokens": 0.30,
-    "CostPerMillionCacheWriteTokens": 3.75,
-    "RequireExplicitConsent": true,
-    "LogInteractions": true,
-    "InteractionLogRetentionDays": 90,
-    "BaseUrl": null,
-    "ShowTypingIndicator": true,
-    "IncludeGuildContext": true
-  }
-}
-```
-
-### OpenRouter Options
-
-The transport-level settings live in their own `OpenRouter` section, separate from the `Assistant` feature settings above.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `ApiKey` | *(none)* | OpenRouter API key (**secret** - user secrets or environment only) |
-| `BaseUrl` | `"https://openrouter.ai/api/v1/"` | API base address (trailing slash matters - request paths are relative to it) |
-| `DefaultModel` | `"openrouter/auto"` | Model slug used when a request does not name one |
-| `MaxRetries` | `3` | Retry attempts for transient failures (HTTP 408/429/5xx, timeouts, network errors) |
-| `TimeoutSeconds` | `300` | Per-attempt request timeout |
-| `RetryBaseDelayMs` | `1000` | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
-| `EnablePromptCachingByDefault` | `true` | Add a cache breakpoint to the system prompt unless a request overrides it |
-| `PromptCacheTtl` | `"1h"` | Lifetime of that breakpoint, as Anthropic spells it (`"5m"` or `"1h"`). Empty falls back to the provider default of 5 minutes |
-| `AppUrl` | *(none)* | Site URL sent as `HTTP-Referer` (attribution on openrouter.ai rankings) |
-| `AppTitle` | `"DiscordBot"` | Application name sent as `X-Title` |
-
-```json
-{
-  "OpenRouter": {
-    "BaseUrl": "https://openrouter.ai/api/v1/",
-    "DefaultModel": "openrouter/auto",
-    "MaxRetries": 3,
-    "TimeoutSeconds": 300,
-    "RetryBaseDelayMs": 1000,
-    "EnablePromptCachingByDefault": true,
-    "PromptCacheTtl": "1h",
-    "AppTitle": "DiscordBot"
-  }
-}
-```
-
-### User Secrets Configuration
-
-The OpenRouter API key must be configured via User Secrets (never commit to version control):
-
-```bash
-cd src/DiscordBot.Bot
-dotnet user-secrets set "OpenRouter:ApiKey" "sk-or-v1-your-api-key-here"
-```
-
-To obtain an API key:
-1. Go to https://openrouter.ai/keys
-2. Sign in and create a new key
-3. Copy the key to user secrets as shown above
-
-In containers and other hosted environments, use the environment-variable form `OpenRouter__ApiKey`.
-
----
-
-## Architecture
-
-### LLM Abstraction Layer
-
-The assistant uses a provider-agnostic LLM abstraction layer that supports multiple AI providers:
-
-**Interfaces:**
-- `ILlmClient` - Core LLM provider interface (message completion, tool use, prompt caching support)
-- `IAgentRunner` - Orchestrates agentic loop (tool use cycles, conversation management)
-- `IAgentTool` - One tool: a definition and an `InvokeAsync`. The unit a new tool is written as
-- `IToolProvider` - A group of tools (definitions and execution); what the registry speaks
-- `IToolRegistry` - Holds the registered providers and routes a call to the one that owns the tool
-- `IPromptTemplate` - Loads and renders prompt templates with variable substitution
-
-**Current Provider:**
-- `OpenRouterLlmClient` (`DiscordBot.Agents.OpenRouter`) - OpenAI-compatible chat completions against OpenRouter, via an **owned typed `HttpClient`** and owned wire records (`ChatCompletionRequest.cs`, `ChatCompletionResponse.cs`). There is no LLM SDK dependency.
-- `OpenRouterMessageMapper` - translates between the neutral `LlmRequest`/`LlmResponse` DTOs and the wire records.
-
-Because OpenRouter fronts many providers, switching models is a configuration change (a different slug), not a code change.
-
-**Wire-shape notes** (these differ from a native Anthropic Messages API and are handled inside the mapper):
-- The system prompt is the **first message** in `messages`, not a top-level parameter.
-- Tool results are `role: "tool"` messages carrying a `tool_call_id`, not content blocks appended to a user turn.
-- Tool arguments arrive as a **JSON string**, which the mapper parses.
-- `finish_reason` replaces `stop_reason`.
-- Usage is reported as `prompt_tokens` / `completion_tokens`, with cached reads under `prompt_tokens_details.cached_tokens`, plus a real billed `cost` field.
-- Every request that carries tools also sends `provider.require_parameters: true`, so routing cannot select a provider that lacks function-calling support.
-- The flip side of `require_parameters`: a parameter the model itself does not support is refused (404, "No endpoints found that can handle the requested parameters") rather than dropped. Reasoning models such as the GPT-5 family do not accept `temperature`, so the client resends once without it and remembers the slug (`OpenRouterParameterSupportCache`, process lifetime) so later requests omit it up front. One failed round trip per such model per process.
-
-**Future Providers:**
-- Local models via Ollama
-- Other providers following the `ILlmClient` interface
-
-### Tool System
-
-**Writing a tool** is one file implementing `IAgentTool` plus a `ToolCatalog` entry — no provider
-class and no DI line; the assembly scan finds it, and the catalogue decides which assistant
-advertises it. The helpers (`ToolInput`, `ToolResults`, `ToolJson`) are what make the tool's
-argument reading and failure reporting match house convention by default. Full pattern, including
-when a provider is still the right shape, in
-[patterns.md § Agent Tool Authoring](../architecture/patterns.md#agent-tool-authoring).
-
-**Tool Providers:**
-- `GuildAgentToolProvider` / `DmAgentToolProvider` - The two adapters over individually authored
-  `IAgentTool`s. Each keeps the scanned tools whose `ToolCatalog` scope matches its surface, and
-  refuses a write the caller may not make before entering the tool
-  - `save_note`, `search_notes`, `get_note`, `list_notes`, `delete_note` - The DM assistant's memory
-- `DocumentationToolProvider` - Access to feature docs, command info, and guild context
-  - `get_feature_documentation` - Fetch markdown docs for a feature
-  - `search_commands` - Search available commands by keyword
-  - `get_command_details` - Get detailed info about a specific command
-  - `list_features` - List all available bot features
-
-- `UserGuildInfoToolProvider` - User and guild information
-  - `get_user_profile` - User info (username, avatar, roles)
-  - `get_guild_info` - Guild info (name, member count, icon)
-  - `get_user_roles` - List user's roles in guild
-
-**Tool Registry:**
-- Holds every registered provider and routes a tool call to the one that owns it
-- Advertises tools sorted by name, because their order is part of the prompt-cache prefix
-
-**Tool Access:**
-- `FilteredToolRegistry` narrows a registry to a guild's allow-list, resolved by
-  `IToolAccessResolver` from `AssistantGuildSettings.EnabledTools` (empty = the house default set)
-- It refuses a call to a tool outside the set as well as hiding it, because a model that saw the
-  tool in an earlier cached prefix will sometimes call it anyway
-- Per-caller permission is separate: `ToolContext.CanMutate` gates a tool that writes, rather than
-  filtering the advertised list, which would give every permission level its own prompt-cache
-  prefix. In a guild it is set from the caller's Discord permissions (Manage Server or
-  Administrator); in DMs, which are owner-only, it is always true. A tool authored as `IAgentTool`
-  declares `Mutation` and `AgentToolProvider` applies the check before entering it; the remaining
-  hand-written providers check it themselves.
-
-**Tool Specifications:**
-- One page per tool in [`docs/tools/`](../tools/README.md): purpose, dependencies, the exact
-  model-facing description, an input table, and every result shape — success and each expected
-  failure. Written when a tool is touched rather than all at once, so the pages that exist are the
-  ones that are true
-- `ToolContractTests` asserts the house rules over every registered tool: name shape and uniqueness,
-  a description between 40 and 600 characters, a well-formed object schema with every property
-  described, a `ToolCatalog` entry, a mutation refused when the caller may not write, and a missing
-  argument reported through `ToolResults` so `ToolOutcomes.Classify` counts it
-
-**Prompt Surface:**
-- `PromptSurface.Measure` puts a character and token count on what a surface advertises, measured
-  through the real wire serialization. One Information line per surface at startup, and a per-tool
-  panel on each guild's Assistant Metrics page
-- It counts the skill-aware advertised set, not everything the registry holds: a tool behind an
-  unloaded skill is not in the request and is not billed for
+- **Prompt Surface:**
+- `PromptSurfaceReporter`, built on the framework's prompt store and tools, puts a character and token count on what a surface advertises. One Information line per surface at startup, and a per-tool panel on each guild's Assistant Metrics page
+- It counts the advertised set, not everything registered: a tool behind an unloaded skill is not in the request and is not billed for
 
 **Tool Telemetry:**
-- Every tool call emits an `agent.tool {name}` span on the `DiscordBot.Agents` source, tagged with
-  the tool name, call id, owning provider, result size and an outcome — `ok`, `failed_result`,
-  `timeout`, `repeated_call`, `error` or `unknown_tool`
-- The tools a question used are also stored on its interaction log row, which is what the metrics
-  page's Tool Usage table counts, so it works whether or not a trace backend is deployed
+- The framework emits spans on the `cpike.Agent` source with `cpike.tool.*` tags (tool name, outcome, failure code) and the metrics `cpike.agent.tool.calls` and `cpike.agent.tool.duration` (seconds), labelled `gen_ai.tool.name`, `cpike.tool.outcome` and `cpike.tool.failure_code`. `cpike.Agent.OpenRouter` adds the client's own
+- The tools a question used are also stored on its interaction log row, which is what the metrics page's Tool Usage table counts, so it works whether or not a trace backend is deployed
 
 ### Skills
 
@@ -608,14 +209,14 @@ naming some tools and carrying the instructions for using them, of which the mod
 one-line summary until it decides a request is actually about it and calls `load_skill`. The tools
 a skill names are held back from the advertised tool array until then.
 
-`load_skill` is an ordinary tool with an ordinary `ToolCatalog` entry — category **Skills**, both
+`load_skill` is a framework built-in with a `ToolCatalog` entry — category **Skills**, both
 surfaces, on by default — so it appears in a server's Tool Access checklist like any other, and an
-admin who unticks it has turned skills off for that server's assistant. It disappears on its own
-when a surface has no skill files, rather than costing its schema on every request for a mechanism
+admin who unticks it has turned skills off for that server's assistant. It is added to a mode only
+when the mode has a `skills:` line, rather than costing its schema on every request for a mechanism
 with nothing to load.
 
-Skill files live in `docs/agents/skills/<surface>/`, one directory per assistant, pointed at by
-`DmAssistant:SkillsPath` and `Assistant:Tools:SkillsPath` (blank on either disables skills there).
+Skill files live in `docs/agents/prompts/skills/<surface>/` (copied to `Prompts/skills`) and a mode
+opts in with a `skills:` line, as `dm.md` does.
 Two skills ship, both on the DM side:
 
 | Skill | Loads |
@@ -626,31 +227,30 @@ Two skills ship, both on the DM side:
 Those five tools are no longer advertised to the DM assistant on every message; they arrive when the
 owner asks something moderation- or analytics-shaped and the model loads the skill that owns them.
 Everything else the surface offers — the documentation tools, the memory tools, the rest — is
-advertised exactly as before. `docs/agents/skills/guild/` ships empty, and deliberately: the DM
-assistant is multi-turn, so an activation is replayed on later turns and a skill is paid for once,
+advertised exactly as before. The guild mode has no skills, deliberately: the DM
+assistant is multi-turn, so stored activations are preloaded on later turns and a skill is paid for once,
 while the guild assistant is single-turn and would pay the loading round every time.
 
-Adding a skill is one markdown file in the right directory. There is no catalogue entry, no DI
-registration, and no code; the file is picked up without a restart, on the same cache terms as a
-prompt file. The tools it names have to exist and be advertised on that surface already — a skill
+Adding a skill is one markdown file in the right directory (plus its key on the mode's `skills:` line). There is no catalogue entry, no DI
+registration, and no code; the file is picked up without a restart (hot reload). The tools it names have to exist and be advertised on that surface already — a skill
 can only ever un-hide something the assistant was allowed to use, never widen its reach, so a name
 a guild has turned off is dropped and the model is never told it existed.
 
 The file format and the authoring advice are in
-[`docs/agents/skills/README.md`](../agents/skills/README.md); the mechanism — how the tool array is
-re-composed, and what it costs the prompt cache — is
+[`docs/agents/README.md`](../agents/README.md); the mechanism — how the tool array is
+exposed, and what it costs the prompt cache — is
 [patterns.md § Agent Skills](../architecture/patterns.md#agent-skills).
 
 ### Agentic Loop
 
-The `AgentRunner` orchestrates the model's responses with tool use:
+The framework's `AgentService` orchestrates the model's responses with tool use:
 
-1. Send user question to the model with available tools
+1. Send the user question to the model with the advertised tools
 2. The model responds with either:
    - Text answer (`finish_reason: stop`) → Return response
    - Tool calls (`finish_reason: tool_calls`) → Execute tools and send results back as `role: "tool"` messages
-   - Loop back to step 1 if more tool calls needed (max 5 calls)
-3. Extract final text answer and return
+   - Loop back to step 1 if more tool calls needed (up to `MaxToolRounds`, default 8)
+3. Extract the final text answer and return
 
 This allows the model to dynamically fetch documentation as needed rather than including everything in the prompt.
 
@@ -854,9 +454,9 @@ Actual times depend on:
 #### High costs in metrics
 
 **Mitigation:**
-1. Ensure prompt caching is enabled (`EnablePromptCaching: true`)
+1. Prompt caching is automatic (the framework marks the system prompt, history and tool results); the `Assistant:Cost` caching keys are not read
 2. Review rate limit settings (lower to reduce volume)
-3. Check cache hit rate - if low, verify `CachedDocumentationFiles` are being accessed
+3. Check the cache hit rate: the framework logs a warning when a run's second model call reads nothing from the cache (`Agent:WarnOnPromptCacheMiss`)
 4. Disable for less-used guilds
 
 ### Debug Logging
@@ -877,8 +477,8 @@ Enable verbose logging to troubleshoot:
 
 Look for logs containing:
 - `AssistantService.AskQuestionAsync`
-- `AgentRunner.RunAsync`
-- `OpenRouterLlmClient.CompleteAsync`
+- `AssistantMessagePipeline`
+- `cpike.Agent` and `cpike.Agent.OpenRouter` (set their levels in `Logging:LogLevel`)
 - Tool execution logs
 
 ---
@@ -939,7 +539,7 @@ See **[Adding Features to Assistant Knowledge](assistant-feature-updates.md)** f
 
 - **Configuration Guide:** See [Environment Configuration](environment-configuration.md) and [Configuration Guide](configuration-guide.md)
 - **Privacy Policies:** [Consent and Privacy](consent-privacy.md)
-- **Agent Prompt:** `docs/agents/assistant-agent.md`
+- **Agent Prompts:** `docs/agents/prompts/guild.md`, `docs/agents/prompts/dm.md`
 - **OpenRouter Documentation:** https://openrouter.ai/docs
 - **OpenRouter Model List:** https://openrouter.ai/models
 - **OpenRouter Privacy:** https://openrouter.ai/privacy

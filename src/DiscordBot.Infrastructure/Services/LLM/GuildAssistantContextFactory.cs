@@ -2,8 +2,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
-using DiscordBot.Agents;
-using DiscordBot.Agents.Abstractions;
+using DiscordBot.Core.Models.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DiscordBot.Infrastructure.Abstractions.LLM;
@@ -14,8 +13,6 @@ namespace DiscordBot.Infrastructure.Services.LLM;
 public class GuildAssistantContextFactory : IGuildAssistantContextFactory
 {
     private readonly IGuildService _guildService;
-    private readonly IPromptTemplate _promptTemplate;
-    private readonly IToolRegistry _toolRegistry;
     private readonly IAssistantUsageMetricsRepository _metricsRepository;
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly ILlmModelResolver _modelResolver;
@@ -23,24 +20,18 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
     private readonly ILogger<GuildAssistantContext> _logger;
     private readonly AssistantOptions _options;
     private readonly ILlmUsageRecorder _usageRecorder;
-    private readonly ISkillSessionFactory _skillSessions;
 
     public GuildAssistantContextFactory(
         IGuildService guildService,
-        IPromptTemplate promptTemplate,
-        IToolRegistry toolRegistry,
         IAssistantUsageMetricsRepository metricsRepository,
         IAssistantInteractionLogRepository interactionLogRepository,
         ILlmModelResolver modelResolver,
         IToolAccessResolver toolAccess,
         ILogger<GuildAssistantContext> logger,
         IOptions<AssistantOptions> options,
-        ILlmUsageRecorder usageRecorder,
-        ISkillSessionFactory skillSessions)
+        ILlmUsageRecorder usageRecorder)
     {
         _guildService = guildService ?? throw new ArgumentNullException(nameof(guildService));
-        _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
-        _toolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
         _metricsRepository = metricsRepository ?? throw new ArgumentNullException(nameof(metricsRepository));
         _interactionLogRepository = interactionLogRepository ?? throw new ArgumentNullException(nameof(interactionLogRepository));
         _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
@@ -48,7 +39,6 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
-        _skillSessions = skillSessions ?? throw new ArgumentNullException(nameof(skillSessions));
     }
 
     /// <inheritdoc />
@@ -63,22 +53,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         CancellationToken cancellationToken = default)
     {
         var resolved = await _modelResolver.ResolveAsync(LlmMode.GuildAssistant, cancellationToken);
-
-        // Resolved once per run, then applied as a decorator: the guild's allow-list is shared by
-        // every caller in the guild, so narrowing here still leaves one prompt-cache prefix per
-        // guild rather than one per user.
-        IToolRegistry? registry = null;
-        if (_options.Tools.EnableDocumentationTools)
-        {
-            var allowed = await _toolAccess.ResolveAsync(guildId, cancellationToken);
-            registry = new FilteredToolRegistry(_toolRegistry, allowed);
-        }
-
-        // Built from the narrowed registry, so a skill can only ever un-hide a tool this guild is
-        // already allowed. Nothing is pre-activated: the guild assistant is single-turn, so there is
-        // no previous turn to replay and a skill costs a round every time it is used.
-        var skills = await _skillSessions.CreateAsync(
-            _options.Tools.SkillsPath, registry, preActivatedKeys: null, cancellationToken);
+        var disabledTools = await DisabledToolsAsync(guildId, cancellationToken);
 
         return new GuildAssistantContext(
             guildId,
@@ -88,16 +63,31 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             rateLimit,
             question,
             callerCanMutate,
-            registry,
+            disabledTools,
             _guildService,
-            _promptTemplate,
             _metricsRepository,
             _interactionLogRepository,
             _options,
             _logger,
             resolved.Slug,
             resolved.Pricing,
-            _usageRecorder,
-            skills);
+            _usageRecorder);
+    }
+
+    /// <summary>
+    /// The guild tools this run may not use: those the guild's allow-list leaves out, or all of them
+    /// when the tools are switched off. The allow-list is shared by every caller in the guild, so this
+    /// still leaves one prompt-cache prefix per guild rather than one per user.
+    /// </summary>
+    private async Task<IReadOnlyCollection<string>> DisabledToolsAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var guildTools = ToolCatalog.ForScope(ToolScopes.Guild).Select(entry => entry.Name);
+        if (!_options.Tools.EnableDocumentationTools)
+        {
+            return guildTools.ToList();
+        }
+
+        var allowed = await _toolAccess.ResolveAsync(guildId, cancellationToken);
+        return guildTools.Where(name => !allowed.Contains(name)).ToList();
     }
 }

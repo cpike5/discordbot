@@ -1,8 +1,7 @@
 using System.Text.Json;
-using DiscordBot.Agents;
-using DiscordBot.Agents.Abstractions;
-using DiscordBot.Agents.Contracts;
+using cpike.Agent;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Services.LLM.Tooling;
 
 namespace DiscordBot.Infrastructure.Services.LLM.Tools;
 
@@ -11,11 +10,10 @@ namespace DiscordBot.Infrastructure.Services.LLM.Tools;
 /// </summary>
 public sealed class SearchNotesTool : IAgentTool
 {
-    private static readonly LlmToolDefinition ToolDefinition = new()
-    {
-        Name = "search_notes",
-        Description = "Searches the user's saved notes by keyword. Matches against both note content and tags. Use this to recall previously saved information about the user.",
-        InputSchema = ToolInput.ObjectSchema(
+    private static readonly AgentToolDefinition ToolDefinition = AgentTools.Define(
+        "search_notes",
+        "Searches the user's saved notes by keyword. Matches against both note content and tags. Use this to recall previously saved information about the user.",
+        ToolInput.ObjectSchema(
             new
             {
                 query = ToolInput.Schema("string", "Search term to find in note content or tags."),
@@ -26,26 +24,27 @@ public sealed class SearchNotesTool : IAgentTool
                     minimum: 1,
                     maximum: 50)
             },
-            "query")
-    };
+            "query"));
 
     private readonly IDmAssistantNoteRepository _notes;
+    private readonly DiscordRunContext _run;
 
     /// <summary>Creates the tool.</summary>
-    public SearchNotesTool(IDmAssistantNoteRepository notes)
+    public SearchNotesTool(IDmAssistantNoteRepository notes, DiscordRunContext run)
     {
         _notes = notes ?? throw new ArgumentNullException(nameof(notes));
+        _run = run ?? throw new ArgumentNullException(nameof(run));
     }
 
     /// <inheritdoc />
-    public LlmToolDefinition Definition => ToolDefinition;
+    public AgentToolDefinition Definition => ToolDefinition;
 
     /// <inheritdoc />
-    public async Task<ToolExecutionResult> InvokeAsync(
-        JsonElement input,
-        ToolContext context,
-        CancellationToken cancellationToken = default)
+    public async Task<string> InvokeAsync(
+        IReadOnlyDictionary<string, JsonElement> arguments,
+        CancellationToken cancellationToken)
     {
+        var input = ToolInput.ToElement(arguments);
         var query = ToolInput.GetString(input, "query");
         if (query is null)
         {
@@ -54,7 +53,7 @@ public sealed class SearchNotesTool : IAgentTool
 
         var limit = ToolInput.GetInt(input, "limit", fallback: 10, min: 1, max: 50);
 
-        var notes = await _notes.SearchAsync(query, context.UserId, limit, cancellationToken);
+        var notes = await _notes.SearchAsync(query, _run.UserId, limit, cancellationToken);
 
         return ToolResults.Json(new
         {
