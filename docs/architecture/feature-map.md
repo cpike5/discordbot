@@ -798,7 +798,7 @@ Application settings management with environment-based configuration.
 | **Configuration** | `appsettings.json`, `appsettings.{Environment}.json`, User Secrets |
 | **Options Pattern** | `IOptions<T>` dependency injection |
 | **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
-| **Admin Settings page** | `Pages/Admin/Settings` is request routing only: `ISettingsSectionService` (load, per-tab save and reset, command modules, audit log), `IAppearanceSettingsService` (Appearance tab, SuperAdmin only) and `IBotControlService` (restart and shutdown with audit log), all in `Bot/Services/Settings`. A save posts one tab and the server keeps only that category's keys |
+| **Admin Settings page** | `Pages/Admin/Settings` is request routing only: `ISettingsSectionService` (load, per-tab save and reset, command modules, audit log), `IAppearanceSettingsService` (Appearance tab, SuperAdmin only) `IBotControlService` (restart and shutdown with audit log) and `IBotProfileService` (the bot's Discord profile: username, avatar, banner, About me; `?handler=BotProfile` and `SaveBotProfile`, `bot-profile.js`), all in `Bot/Services/Settings`. A save posts one tab and the server keeps only that category's keys |
 | **Key Features** | Environment-specific settings, feature flags, service configuration |
 
 ---

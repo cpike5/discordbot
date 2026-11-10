@@ -301,6 +301,93 @@
         </div>
     </div>
 
+    <!-- Bot profile (bot-profile.js loads it from Discord when this tab opens, and saves it) -->
+    <div class="mb-6" data-bot-profile>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg">
+            <div class="px-4 sm:px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Bot profile</h2>
+                <p class="text-sm text-text-secondary mt-1">How the bot appears on Discord. Changes apply in every server.</p>
+            </div>
+
+            <p class="p-4 sm:p-6 text-sm text-text-secondary" data-bot-profile-loading role="status">Loading the profile from Discord...</p>
+
+            <div class="p-4 sm:p-6 hidden" data-bot-profile-unavailable role="status">
+                <partial name="Shared/Components/_Alert" model='new AlertViewModel { Variant = AlertVariant.Warning, Title = "Profile unavailable", Message = "" }' />
+                <button type="button" class="btn btn-secondary mt-3" data-bot-profile-retry>Try again</button>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="hidden" data-bot-profile-form data-unsaved-changes novalidate>
+                <div class="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Preview: the banner with the avatar over it, as on a Discord profile -->
+                    <div class="min-w-0">
+                        <p class="form-label block mb-1.5">Preview</p>
+                        <div class="rounded-lg border border-border-primary bg-bg-primary overflow-hidden">
+                            <div class="h-28 bg-bg-tertiary">
+                                <img data-bot-profile-banner src="" alt="Current banner" class="w-full h-full object-cover hidden" />
+                            </div>
+                            <div class="px-4 pb-4">
+                                <img data-bot-profile-avatar src="" alt="Current avatar" width="80" height="80"
+                                     class="w-20 h-20 -mt-10 rounded-full border-4 border-bg-primary bg-bg-tertiary object-cover" />
+                                <p class="mt-2 text-base font-semibold text-text-primary break-words" data-bot-profile-name></p>
+                                <p class="mt-1 text-sm text-text-secondary whitespace-pre-wrap break-words" data-bot-profile-about></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="min-w-0 space-y-4">
+                        <div class="space-y-1.5">
+                            <label for="botProfileUsername" class="form-label block">Username</label>
+                            <input type="text" id="botProfileUsername" name="username" class="form-input w-full"
+                                   minlength="2" maxlength="32" required autocomplete="off" aria-describedby="botProfileUsername-help" />
+                            <p id="botProfileUsername-help" class="text-xs text-text-secondary">2 to 32 characters. Discord allows only a couple of username changes per hour.</p>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="botProfileAboutMe" class="form-label block">About me</label>
+                            <textarea id="botProfileAboutMe" name="aboutMe" rows="4" maxlength="400" class="form-textarea w-full"
+                                      aria-describedby="botProfileAboutMe-help"></textarea>
+                            <p id="botProfileAboutMe-help" class="text-xs text-text-secondary">
+                                Shown on the bot's profile. <span data-bot-profile-about-count>0</span> of 400 characters.
+                            </p>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="botProfileAvatar" class="form-label block">Avatar</label>
+                            <input type="file" id="botProfileAvatar" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp"
+                                   class="block w-full text-sm text-text-secondary" aria-describedby="botProfileAvatar-help" />
+                            <p id="botProfileAvatar-help" class="text-xs text-text-secondary">PNG, JPEG, GIF or WebP, up to 8 MB. A square image works best.</p>
+                            <label class="flex items-center gap-2 text-sm text-text-primary">
+                                <input type="checkbox" name="removeAvatar" value="true" data-bot-profile-remove="avatar" />
+                                Remove the avatar (use Discord's default)
+                            </label>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="botProfileBanner" class="form-label block">Banner</label>
+                            <input type="file" id="botProfileBanner" name="banner" accept="image/png,image/jpeg,image/gif,image/webp"
+                                   class="block w-full text-sm text-text-secondary" aria-describedby="botProfileBanner-help" />
+                            <p id="botProfileBanner-help" class="text-xs text-text-secondary">PNG, JPEG, GIF or WebP, up to 8 MB. A wide image works best.</p>
+                            <label class="flex items-center gap-2 text-sm text-text-primary">
+                                <input type="checkbox" name="removeBanner" value="true" data-bot-profile-remove="banner" />
+                                Remove the banner
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-4 sm:px-6 py-4 border-t border-border-primary space-y-4">
+                    <div data-bot-profile-error role="alert" tabindex="-1" class="hidden">
+                        <partial name="Shared/Components/_Alert" model='new AlertViewModel { Variant = AlertVariant.Error, Title = "The profile was not saved", Message = "" }' />
+                    </div>
+                    <div class="flex flex-wrap items-center justify-end gap-3">
+                        <span data-unsaved-indicator class="hidden mr-auto text-sm text-warning">Unsaved changes</span>
+                        <button type="submit" class="btn btn-primary" data-bot-profile-save>Save profile</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Configuration Card -->
     <div class="mb-6">
         <div class="bg-bg-secondary border border-border-primary rounded-lg">
@@ -636,5 +723,6 @@
 @section Scripts {
     <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
+    <script src="~/js/bot-profile.js" asp-append-version="true"></script>
     <script src="~/js/llm-models.js" asp-append-version="true"></script>
 }

@@ -503,6 +503,8 @@ Services for managing application configuration and options.
 | `ISettingsSectionService` / `SettingsSectionService` | Bot/Interfaces, Bot/Services/Settings (scoped) | The Admin Settings tabs: load the view model, `SaveCategoryAsync` (keeps only that category's keys; the result carries `changeCount`), reset one tab or all, save command modules, audit logging. Returns `SettingsSectionResult` |
 | `IAppearanceSettingsService` / `AppearanceSettingsService` | Bot/Interfaces, Bot/Services/Settings (scoped) | The Appearance tab: SuperAdmin check, theme list, save and reset. Non-SuperAdmins cannot save or reset the Appearance category |
 | `IBotControlService` / `BotControlService` | Bot/Interfaces, Bot/Services/Settings (scoped) | The Bot Control tab: restart and shutdown with audit logging |
+| `IBotProfileService` / `BotProfileService` | Bot/Interfaces, Bot/Services/Settings (scoped) | The Bot profile card on the Bot Control tab: `LoadAsync` reads the bot's Discord profile, `SaveAsync` validates (username 2 to 32 characters, About me up to 400, images up to 8 MB and PNG/JPEG/GIF/WebP by their first bytes), sends only what changed, and audit-logs what was applied. Returns `SettingsSectionResult` |
+| `IBotProfileGateway` / `DiscordBotProfileGateway` | Bot/Interfaces, Bot/Services/Settings (singleton) | The Discord calls behind `BotProfileService`: reads the bot user and application over REST, `ModifyUserAsync` (username, avatar, banner), `SetAboutMeAsync` (the application description). No rate-limit waiting; Discord's refusals become `BotProfileGatewayException` with Discord's own wording. Unavailable in offline mode |
 
 ---
 

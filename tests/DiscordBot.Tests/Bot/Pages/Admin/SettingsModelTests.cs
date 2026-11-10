@@ -35,6 +35,7 @@ public class SettingsModelTests
             _mockSettingsSectionService.Object,
             _mockAppearanceSettingsService.Object,
             _mockBotControlService.Object,
+            Mock.Of<IBotProfileService>(),
             _mockLogger.Object);
 
         var httpContext = new DefaultHttpContext();

@@ -201,6 +201,41 @@ mode's default first); the toggle shows the refusal as a toast and reverts itsel
 
 ---
 
+### Bot Profile (Bot Control Tab)
+
+The **Bot profile** card on the Bot Control tab changes how the bot appears on Discord. These are
+not stored settings: they are read from Discord and written back to it, and they apply in every guild.
+
+| Field | Rules | Where Discord keeps it |
+|-------|-------|------------------------|
+| Username | 2 to 32 characters. Discord allows only a couple of changes per hour and refuses more | The bot user |
+| Avatar | PNG, JPEG, GIF or WebP, up to 8 MB. Can be removed (back to Discord's default) | The bot user |
+| Banner | PNG, JPEG, GIF or WebP, up to 8 MB. Can be removed | The bot user |
+| About me | Up to 400 characters. Empty clears it | The application description |
+
+How it behaves:
+
+- The profile is fetched (`GET ?handler=BotProfile`) the first time the Bot Control tab is shown,
+  so the Settings page itself never waits on Discord.
+- **Save profile** posts the card's form as multipart to `POST ?handler=SaveBotProfile`. The server
+  compares it with the current profile and sends Discord only what changed; a save with nothing
+  new answers `changeCount: 0` ("Nothing changed").
+- Images are checked by their first bytes, not by file name or content type.
+- When Discord refuses a change (the username rate limit, a name it does not allow), its own
+  message is shown. The username/avatar/banner and About me are separate Discord calls, so one can
+  succeed while the other fails; the message says which part was saved.
+- Every applied change is audit-logged (`System` / `Updated`, operation `BotProfileUpdate`) with
+  the fields that changed and the old and new username. Image contents are not logged.
+- When the bot is not logged in to Discord (including `Discord:OfflineMode`), the card shows
+  "Profile unavailable" and a save is refused with `409`.
+- The card has its own Save button. It is not a settings category, so **Save all changes**,
+  **Reset** and the restart banner do not apply to it.
+
+The bot's presence (online/idle and the status line) is not part of the profile; see
+`IBotStatusService`.
+
+---
+
 ## UI Components
 
 ### Page Layout
