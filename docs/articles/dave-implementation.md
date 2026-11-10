@@ -332,7 +332,7 @@ UDP packet
 
 ## Package Version
 
-The bot uses the official `Discord.Net` 3.20.1 NuGet package. Earlier builds ran a locally built `3.19.0-fork` (upstream 3.19.0 plus PR #3244) to get the multi-party DAVE fix described under Known Issues below; that fix has since shipped upstream, so the local feed, `nuget.config`, `local-packages/`, and the rebuild script were removed.
+The bot uses the official `Discord.Net` 3.20.2 NuGet package. Earlier builds ran a locally built `3.19.0-fork` (upstream 3.19.0 plus PR #3244) to get the multi-party DAVE fix described under Known Issues below; that fix has since shipped upstream, so the local feed, `nuget.config`, `local-packages/`, and the rebuild script were removed.
 
 ### Native libdave Library Requirements
 
