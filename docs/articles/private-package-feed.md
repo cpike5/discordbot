@@ -25,7 +25,7 @@ The packages can be packed from the framework's checkout at the release tag and 
 folder. It is the same package.
 
 ```bash
-dotnet pack cpike.Agent.sln -c Release -p:Version=0.2.0-beta.5 -o /tmp/cpike-packages
+dotnet pack cpike.Agent.sln -c Release -p:Version=0.2.0 -o /tmp/cpike-packages
 ```
 
 ```bash
