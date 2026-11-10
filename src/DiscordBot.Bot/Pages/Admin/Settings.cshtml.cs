@@ -14,8 +14,9 @@ namespace DiscordBot.Bot.Pages.Admin;
 /// Allows administrators to configure bot settings through a web UI.
 /// Data loading, saving, and audit logging are delegated to <see cref="ISettingsSectionService"/>
 /// (General/Features/Advanced/Commands), <see cref="IAppearanceSettingsService"/> (Appearance,
-/// SuperAdmin only) and <see cref="IBotControlService"/> (Bot Control tab); this page model
-/// only handles request routing and view-model assembly.
+/// SuperAdmin only), <see cref="IBotControlService"/> (Bot Control tab) and
+/// <see cref="IBotProfileService"/> (the Bot profile card on that tab); this page model only
+/// handles request routing and view-model assembly.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 public class SettingsModel : PageModel
@@ -27,6 +28,7 @@ public class SettingsModel : PageModel
     private readonly ISettingsSectionService _settingsSectionService;
     private readonly IAppearanceSettingsService _appearanceSettingsService;
     private readonly IBotControlService _botControlService;
+    private readonly IBotProfileService _botProfileService;
     private readonly ILogger<SettingsModel> _logger;
 
     /// <summary>
@@ -95,11 +97,13 @@ public class SettingsModel : PageModel
         ISettingsSectionService settingsSectionService,
         IAppearanceSettingsService appearanceSettingsService,
         IBotControlService botControlService,
+        IBotProfileService botProfileService,
         ILogger<SettingsModel> logger)
     {
         _settingsSectionService = settingsSectionService;
         _appearanceSettingsService = appearanceSettingsService;
         _botControlService = botControlService;
+        _botProfileService = botProfileService;
         _logger = logger;
     }
 
@@ -210,6 +214,57 @@ public class SettingsModel : PageModel
         _logger.LogCritical("Bot SHUTDOWN requested by user {UserId}", User.Identity?.Name);
         var userId = User.Identity?.Name ?? "Unknown";
         var result = await _botControlService.ShutdownAsync(userId);
+        return ToJsonResult(result);
+    }
+
+    /// <summary>
+    /// Handles GET requests for the bot's Discord profile. The Bot profile card asks for it when
+    /// the Bot Control tab is opened, so the page itself never waits on Discord.
+    /// </summary>
+    public async Task<IActionResult> OnGetBotProfileAsync(CancellationToken cancellationToken)
+    {
+        var result = await _botProfileService.LoadAsync(cancellationToken);
+        return new JsonResult(new
+        {
+            available = result.Available,
+            message = result.Message,
+            username = result.Profile?.Username,
+            avatarUrl = result.Profile?.AvatarUrl,
+            hasCustomAvatar = result.Profile?.HasCustomAvatar ?? false,
+            bannerUrl = result.Profile?.BannerUrl,
+            aboutMe = result.Profile?.AboutMe
+        });
+    }
+
+    /// <summary>
+    /// Handles POST requests to change the bot's Discord profile (username, avatar, banner, About me).
+    /// </summary>
+    public async Task<IActionResult> OnPostSaveBotProfileAsync(
+        string? username,
+        string? aboutMe,
+        IFormFile? avatar,
+        IFormFile? banner,
+        bool removeAvatar,
+        bool removeBanner,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Bot profile save requested by user {UserId}", User.Identity?.Name);
+        var userId = User.Identity?.Name ?? "Unknown";
+
+        await using var avatarStream = avatar?.OpenReadStream();
+        await using var bannerStream = banner?.OpenReadStream();
+
+        var result = await _botProfileService.SaveAsync(new BotProfileUpdateRequest
+        {
+            Username = username,
+            // Model binding turns an empty field into null; an empty About me means "clear it"
+            AboutMe = aboutMe ?? (Request.Form.ContainsKey("aboutMe") ? string.Empty : null),
+            Avatar = avatar != null ? new BotProfileImage(avatarStream!, avatar.Length) : null,
+            RemoveAvatar = removeAvatar,
+            Banner = banner != null ? new BotProfileImage(bannerStream!, banner.Length) : null,
+            RemoveBanner = removeBanner
+        }, userId, cancellationToken);
+
         return ToJsonResult(result);
     }
 

@@ -356,7 +356,7 @@ relates to the `NotX:Enabled` configuration switch and the Commands tab entry.
 | Features | Features | Admin+ | Feature toggle switches |
 | — | Commands | Admin+ | Command module enable/disable (separate system) |
 | Advanced | Advanced | Admin+ | Data retention policies |
-| — | Bot Control | Admin+ | Bot restart/shutdown, live status |
+| — | Bot Control | Admin+ | Bot restart/shutdown, live status, and the bot's Discord profile (username, avatar, banner, About me) |
 | AiModels | AI Models | Admin+ | OpenRouter model catalog and allowlist (`LlmModelsController` - list/refresh/enable) plus an **editable** per-mode defaults panel that saves through the normal `SettingsSectionService.SaveCategoryAsync("AiModels", ...)` path (audit and reset-to-default included for free), unlike the read-only catalog table above it. A saved slug is rejected unless it is an enabled, tool-capable catalog row - see `ILlmModelResolver` and `SettingsSectionService.ValidateAiModelSelectionsAsync`. The change takes effect on the next message with no restart (the resolver's cache is invalidated by `ISettingsService.SettingsChanged`). |
 | Appearance | Appearance | SuperAdmin only | Theme selection |
 

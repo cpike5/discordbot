@@ -93,6 +93,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ISettingsSectionService, SettingsSectionService>();
         services.AddScoped<IAppearanceSettingsService, AppearanceSettingsService>();
         services.AddScoped<IBotControlService, BotControlService>();
+        services.AddSingleton<IBotProfileGateway, DiscordBotProfileGateway>();
+        services.AddScoped<IBotProfileService, BotProfileService>();
 
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();
