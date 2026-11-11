@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="1.*" />
-    <PackageReference Include="cpike.Agent.Core" Version="0.2.0" />
+    <PackageReference Include="cpike.Agent.Core" Version="0.2.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.*" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.15" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.*" />
