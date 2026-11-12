@@ -3,11 +3,6 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Logs";
-    ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
-    {
-        ("Dashboard", "/"),
-        ("Logs", null)
-    };
 
     // Each tab is its own page load (?tab=), so only the active tab's data is read and the tab,
     // its filters and the page number all live in the address: Back and reload keep them.
@@ -16,6 +11,8 @@
         Id = "logs-tabs",
         AriaLabel = "Log types",
         NavigationMode = TabNavigationMode.PageNavigation,
+        // Pills: each tab is its own page load (design-system.md, tab levels)
+        StyleVariant = TabStyleVariant.Pills,
         PersistenceMode = TabPersistenceMode.None,
         ActiveTabId = Model.ActiveTab,
         Tabs = new List<TabItemViewModel>
@@ -43,12 +40,15 @@
 }
 
 <!-- Page Header -->
-<div class="page-header">
-    <div class="page-header-text">
-        <h1 class="page-title">Logs</h1>
-        <p class="page-subtitle">Messages the bot has logged and administrative actions taken in the portal</p>
-    </div>
-</div>
+@{
+    var pageHeader = new DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
+    {
+        Eyebrow = "Administration",
+        Title = "Logs",
+        Subtitle = "Messages the bot has logged and administrative actions taken in the portal"
+    };
+}
+<partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
 <!-- Tab Navigation -->
 <div class="mb-6">

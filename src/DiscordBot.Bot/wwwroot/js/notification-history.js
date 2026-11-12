@@ -109,7 +109,7 @@
         const total = Math.max(0, (parseInt(results.dataset.total, 10) || 0) + delta);
         results.dataset.total = String(total);
 
-        const badge = document.querySelector('[data-total-badge] .badge');
+        const badge = document.querySelector('[data-page-badge] .badge');
         if (badge) badge.textContent = Format.number(total);
 
         const summary = results.querySelector('[data-results-summary]');

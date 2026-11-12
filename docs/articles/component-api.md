@@ -78,6 +78,7 @@ Then in the view:
 | [Unsaved changes](#unsaved-changes) | Leave-page protection | `data-unsaved-changes` on any editable form |
 | [Focus the first error](#focus-the-first-error) | Focus after a failed server validation | `data-focus-first-error` on the form, plus `form-focus.js` |
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
+| [PageHeader](#pageheader-component) | The page header | Every page: eyebrow, the one `<h1>`, subtitle, badge, actions, breadcrumb below the first level |
 | [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
 | [SortDropdown](#sortdropdown-component) | Sort selection dropdown | Table headers, list sorting |
 | [FilterPanel](#filterpanel-javascript-utility) | Collapsible filter sections, live search, filter chips | Data filtering, date range selection ([list-page rule](#search-panel-and-chips-the-list-page-rule)) |
@@ -2337,6 +2338,51 @@ var customPagination = new PaginationViewModel
 
 ---
 
+## PageHeader Component
+
+`Pages/Shared/Components/_PageHeader.cshtml` with `PageHeaderViewModel`: the one page header. Every
+portal page draws its header with it; `_GuildHeader` is a thin wrapper that builds one for guild
+pages (guild icon as `Leading`, guild switcher as `EyebrowContent`). Rules in
+`design-system.md` § Application Shell.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Breadcrumbs` | `IReadOnlyList<BreadcrumbItem>` | `[]` | The trail, Home first, this page last. Drawn only when it has more than two items (`ShowBreadcrumbs`); the last item gets `aria-current="page"` |
+| `Eyebrow` | `string?` | `null` | Mono micro-label above the title: the sidebar group ("Overview", "Administration") |
+| `EyebrowContent` | `IHtmlContent?` | `null` | Markup in the eyebrow's place (the guild switcher); wins over `Eyebrow` |
+| `Leading` | `IHtmlContent?` | `null` | Markup left of the text (guild icon, avatar) |
+| `Title` | `string` | `""` | The page's only `<h1>` |
+| `HeadingLevel` | `int` | `1` | `2` only on /Components, which draws several headers |
+| `Subtitle` | `string?` | `null` | Line under the title; carries `data-page-subtitle` for scripts (Commands swaps it per tab) |
+| `Badge` | `BadgeViewModel?` | `null` | Beside the title, wrapped in `data-page-badge` (Notifications keeps its count current) |
+| `Actions` | `IReadOnlyList<HeaderAction>` | `[]` | Typed links or POST buttons (`Primary` = `btn-accent`, `Secondary`, `Link`) |
+| `ActionsContent` | `IHtmlContent?` | `null` | Free-form markup after `Actions` (confirm forms, status pills, bulk-action groups) |
+
+### Basic Usage
+
+```razor
+@{
+    Func<object?, IHtmlContent> headerActions =
+        @<a asp-page="Create" class="btn btn-primary">Create User</a>;
+    var pageHeader = new PageHeaderViewModel
+    {
+        Eyebrow = "Administration",
+        Title = "Users",
+        Subtitle = "Manage application users and their roles",
+        ActionsContent = headerActions(null)
+    };
+}
+<partial name="Shared/Components/_PageHeader" model="pageHeader" />
+```
+
+A Razor template (`@<tag>…</tag>` or `@<text>…</text>`) assigned to `Func<object?, IHtmlContent>`
+and invoked with `null` is how a page passes markup; tag helpers (`asp-page`, `asp-page-handler`)
+work inside it. The partial adds no width container: `_Layout`'s `.page-container` sets the width.
+
+---
+
 ## NavTabs Component
 
 Unified tabbed navigation component with support for page navigation, in-page panels, and AJAX content loading with full accessibility.
@@ -3736,6 +3782,9 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.8 (2026-11-12)
+- Added `_PageHeader` (`PageHeaderViewModel`); `_GuildHeader` wraps it; `_CommandHeader`, `_CommandBreadcrumb`, `_GuildBreadcrumb` and the layout's `_Breadcrumb` are gone
 
 ### Version 1.7 (2026-11-12)
 - Added `_FilterSearch` (live search, `data-filter-live`), `_ActiveFilterChips`, `QueryStringHelper`, `FilterChipHelper` and `FilterPanel.chipsHtml`; list pages' filter panels start collapsed

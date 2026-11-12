@@ -129,9 +129,9 @@ All layouts are located in `Pages/Shared/`.
 
 | Layout | File | Purpose | Used By |
 |--------|------|---------|---------|
-| **Main Layout** | `_Layout.cshtml` | Default authenticated layout with navbar, sidebar, footer | Most admin/guild pages |
+| **Main Layout** | `_Layout.cshtml` | Default authenticated layout with navbar, sidebar, footer. `.page-container` is the one content width (1440px max): pages add no `max-w-*` wrapper of their own, and draw their header with `_PageHeader` | Most admin/guild pages |
 | **Landing Layout** | `_LayoutLanding.cshtml` | Unauthenticated layout for public pages (themed, `<main>`, skip link) | Landing, Login pages |
-| **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context; the tab strip is priority-plus on desktop (`guild-nav.js` moves tabs that do not fit into a "More" menu button, keeping the active tab visible) and a dropdown on mobile; a failed POST rebuilds it through `GuildPageModelBase.PopulateGuildLayout`. The layout also fills `GuildHeaderViewModel.SwitchableGuilds` from `IGuildSwitcherService` (with `GuildSwitchTarget` URLs), so every guild page gets the guild switcher whether or not its model uses `PopulateGuildLayout` | Guild pages under `/Guilds/*/{guildId}` |
+| **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context (`_GuildHeader`, given the page's `Breadcrumb` items as its breadcrumb); the tab strip is priority-plus on desktop (`guild-nav.js` moves tabs that do not fit into a "More" menu button, keeping the active tab visible) and a dropdown on mobile; a failed POST rebuilds it through `GuildPageModelBase.PopulateGuildLayout`. The layout also fills `GuildHeaderViewModel.SwitchableGuilds` from `IGuildSwitcherService` (with `GuildSwitchTarget` URLs), so every guild page gets the guild switcher whether or not its model uses `PopulateGuildLayout` | Guild pages under `/Guilds/*/{guildId}` |
 | **Portal Layout** | `Portal/_PortalLayout.cshtml` | Member-facing layout: one-row header, sticky voice bar, `quick-actions.js`, safe-area insets; no SignalR hub scripts for members | `/Portal/*` |
 | **Error Layout** | `_ErrorLayout.cshtml` | Standalone, themed, `<main>` landmark; renders even when the theme lookup fails | `Pages/Error/Index` |
 
@@ -151,7 +151,6 @@ Every layout and standalone page (`_Layout`, `Portal/_PortalLayout`, `_ErrorLayo
 | Theme Head | `_ThemeHead.cshtml` | `theme-color` meta and the blocking first-paint theme script; needs `theme-root` on `<html>` |
 | Theme Toggle | `_ThemeToggle.cshtml` | Header button switching dark/light (`theme.js`); model = extra button classes. In `_Navbar`; the portal header has the same switch as a **Theme** item in its account menu |
 | Validation Scripts | `_ValidationScriptsPartial.cshtml` | Client-side validation script inclusion |
-| Breadcrumb | `_Breadcrumb.cshtml` | Navigation breadcrumb trail |
 | Sort Dropdown | `_SortDropdown.cshtml` | Sort control for tables/lists |
 | Setting Field | `_SettingField.cshtml` | Form field wrapper for settings pages |
 | ViewStart | `_ViewStart.cshtml` | Shared view initialization |
@@ -195,8 +194,6 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 |-----------|------|---------|-----------|
 | **NavTabs** | `_NavTabs.cshtml` | Multi-tab navigation (page/in-page/AJAX modes, `nav-tabs.js`) | `NavTabsViewModel` |
 | **Tab Panel** | `_TabPanel.cshtml` | Tablist plus panels driven by `tab-panel.js` (persistence mode: URL hash, local storage or none; arrow keys; it ignores a hash that is not its own tab id). The standard tab control for in-page tabs | `TabPanelViewModel` |
-| **Guild Breadcrumb** | `_GuildBreadcrumb.cshtml` | Guild context breadcrumb | `GuildBreadcrumbViewModel` |
-| **Command Breadcrumb** | `_CommandBreadcrumb.cshtml` | Command context breadcrumb | `CommandBreadcrumbViewModel` |
 
 ### Status & Indicators
 
@@ -243,12 +240,12 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 
 | Component | File | Purpose | ViewModel |
 |-----------|------|---------|-----------|
-| **Command Header** | `_CommandHeader.cshtml` | Command title/description header | `CommandHeaderViewModel` |
+| **Page Header** | `_PageHeader.cshtml` | The one page header: breadcrumb (only more than one level below Home), eyebrow (sidebar group), the page's single `<h1>`, subtitle (`data-page-subtitle`), badge (`data-page-badge`), typed and free-form actions. Rules in `design-system.md` § Application Shell; API in `component-api.md` | `PageHeaderViewModel` |
 | **Command Log Details Modal** | `_CommandLogDetailsModal.cshtml` | Modal for command log entry details | `CommandLogDetailsModalViewModel` |
 | **Dashboard Widget** | `_DashboardWidget.cshtml` | Dashboard widget shell: header, then a retry state (`LoadFailed`), an empty state, or a body partial (`BodyPartial` + `BodyModel`, no HTML built in C#) | `DashboardWidgetViewModel` |
 | **Widget Stat** | `Pages/Guilds/Widgets/_WidgetStat.cshtml` | One labelled figure inside a widget body | `WidgetStatViewModel` |
 | **Quick Actions Card** | `_QuickActionsCard.cshtml` | Card with action buttons/links | `QuickActionsCardViewModel` |
-| **Guild Header** | `_GuildHeader.cshtml` | Guild icon, page title and description. With another guild to switch to (`CanSwitchGuild`), the guild name above the title is a `aria-haspopup="listbox"` button opening a server-rendered listbox of `SwitchableGuilds` (a filter input above 8 guilds); `guild-switcher.js` handles keyboard (arrows, Home/End, Enter, Escape back to the button, type-ahead) and records the guild as recent from the header's `data-guild-*` | `GuildHeaderViewModel` |
+| **Guild Header** | `_GuildHeader.cshtml` | Thin wrapper over `_PageHeader`: guild breadcrumb, guild icon, page title and description. With another guild to switch to (`CanSwitchGuild`), the guild name above the title is a `aria-haspopup="listbox"` button opening a server-rendered listbox of `SwitchableGuilds` (a filter input above 8 guilds); `guild-switcher.js` handles keyboard (arrows, Home/End, Enter, Escape back to the button, type-ahead) and records the guild as recent from the header's `data-guild-*` | `GuildHeaderViewModel` |
 | **Voice Channel Panel** | `_VoiceChannelPanel.cshtml` | Voice channel list/control panel | `VoiceChannelPanelViewModel` |
 | **Currency Wallet Panel** | `_CurrencyWalletPanel.cshtml` | Holder list, ledger with paging, and the mint / fine / adjust dialog for one currency (a `quickActions` dialog; the member is chosen with the user picker, not a typed ID). Static markup filled by `currency-wallets.js`; the `CanMint` / `CanFine` / `CanAdminister` flags decide which actions are rendered at all, and Mint is disabled until a currency is chosen. Shared by the guild currency detail page and `/Admin/Currency`. | `CurrencyWalletPanelViewModel` |
 | **Currency Manage Modals** | `_CurrencyManageModals.cshtml` | The currency editor and mint authority dialogs shared by `/Guilds/{guildId}/Currency` and `/Admin/Currency` (`quickActions` dialogs; user picker, role select on the guild page, revoke asks for confirmation). | `CurrencyManageModalsViewModel` |

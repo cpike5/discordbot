@@ -1,189 +1,111 @@
 @model DiscordBot.Bot.ViewModels.Components.GuildHeaderViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@*
+    The guild page header: a thin wrapper over _PageHeader. The guild icon leads, and the guild
+    switcher (when there is another guild to switch to) takes the eyebrow's place.
+*@
 @{
-    var hasActions = Model.Actions?.Any() == true;
-    var hasStatusBadge = Model.StatusBadge != null;
+    Func<object?, IHtmlContent> leading = @<text>
+        @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
+        {
+            <img src="@Model.GuildIconUrl" alt="" class="w-12 h-12 rounded-full" />
+        }
+        else
+        {
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg" aria-hidden="true">
+                @TextDisplay.Initials(Model.GuildName)
+            </div>
+        }
+    </text>;
+
+    // Server-rendered switcher; guild-switcher.js opens it. More than 8 guilds get a filter.
+    Func<object?, IHtmlContent> switcher = @<text>
+        @{ var hasFilter = Model.SwitchableGuilds.Count > 8; }
+        <div class="guild-switcher" data-guild-switcher>
+            <button type="button"
+                    id="guildSwitcherButton"
+                    class="guild-switcher-button"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="guildSwitcherList">
+                <span class="sr-only">Server: </span>
+                <span class="guild-switcher-name">@Model.GuildName</span>
+                <span class="sr-only">. Switch server</span>
+                <svg class="guild-switcher-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <div class="guild-switcher-popover">
+                @if (hasFilter)
+                {
+                    <input type="text"
+                           class="guild-switcher-filter"
+                           role="combobox"
+                           aria-autocomplete="list"
+                           aria-expanded="false"
+                           aria-controls="guildSwitcherList"
+                           aria-label="Find a server"
+                           placeholder="Find a server…"
+                           autocomplete="off"
+                           spellcheck="false" />
+                }
+                <div id="guildSwitcherList"
+                     class="guild-switcher-list"
+                     role="listbox"
+                     aria-label="Switch server"
+                     tabindex="-1">
+                    @foreach (var guild in Model.SwitchableGuilds)
+                    {
+                        <a id="guildSwitcherOption-@guild.GuildId"
+                           href="@guild.Url"
+                           role="option"
+                           tabindex="-1"
+                           aria-selected="false"
+                           @(guild.IsCurrent ? "aria-current=page" : null)
+                           data-guild-id="@guild.GuildId"
+                           data-guild-name="@guild.Name"
+                           class="guild-switcher-option">
+                            @if (!string.IsNullOrEmpty(guild.IconUrl))
+                            {
+                                <img src="@guild.IconUrl" alt="" class="guild-switcher-avatar" loading="lazy" />
+                            }
+                            else
+                            {
+                                <span class="guild-switcher-avatar guild-switcher-avatar-initial" aria-hidden="true">@TextDisplay.Initials(guild.Name)</span>
+                            }
+                            <span class="guild-switcher-option-name">@guild.Name</span>
+                            @if (guild.IsCurrent)
+                            {
+                                <span class="sr-only">(current)</span>
+                                <svg class="guild-switcher-check" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                            }
+                        </a>
+                    }
+                </div>
+                <p class="guild-switcher-empty" hidden>No servers match.</p>
+                <span class="guild-switcher-status sr-only" role="status" aria-live="polite"></span>
+            </div>
+        </div>
+    </text>;
+
+    var header = new PageHeaderViewModel
+    {
+        Breadcrumbs = Model.Breadcrumbs,
+        EyebrowContent = Model.CanSwitchGuild ? switcher(null) : null,
+        Leading = leading(null),
+        Title = Model.PageTitle,
+        Subtitle = Model.PageDescription,
+        Badge = Model.StatusBadge,
+        Actions = Model.Actions ?? []
+    };
 }
 
 <!-- data-guild-* feed the recent guilds list (guild-switcher.js); the ID stays a string -->
-<div class="mb-8"
-     data-guild-header
+<div data-guild-header
      data-guild-id="@Model.GuildId.ToString()"
      data-guild-name="@Model.GuildName"
      data-guild-icon="@Model.GuildIconUrl">
-    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <!-- Left: Icon + Title + Description -->
-        <div class="relative flex items-center gap-4 min-w-0">
-            <!-- Guild Icon -->
-            @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
-            {
-                <img src="@Model.GuildIconUrl"
-                     alt="@Model.GuildName"
-                     class="w-12 h-12 rounded-full flex-shrink-0" />
-            }
-            else
-            {
-                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                    @TextDisplay.Initials(Model.GuildName)
-                </div>
-            }
-
-            <!-- Title + Description -->
-            <div class="min-w-0">
-                @if (Model.CanSwitchGuild)
-                {
-                    // Server-rendered switcher; guild-switcher.js opens it. More than 8 guilds get a filter.
-                    var hasFilter = Model.SwitchableGuilds.Count > 8;
-                    <div class="guild-switcher" data-guild-switcher>
-                        <button type="button"
-                                id="guildSwitcherButton"
-                                class="guild-switcher-button"
-                                aria-haspopup="listbox"
-                                aria-expanded="false"
-                                aria-controls="guildSwitcherList">
-                            <span class="sr-only">Server: </span>
-                            <span class="guild-switcher-name">@Model.GuildName</span>
-                            <span class="sr-only">. Switch server</span>
-                            <svg class="guild-switcher-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                        <div class="guild-switcher-popover">
-                            @if (hasFilter)
-                            {
-                                <input type="text"
-                                       class="guild-switcher-filter"
-                                       role="combobox"
-                                       aria-autocomplete="list"
-                                       aria-expanded="false"
-                                       aria-controls="guildSwitcherList"
-                                       aria-label="Find a server"
-                                       placeholder="Find a server…"
-                                       autocomplete="off"
-                                       spellcheck="false" />
-                            }
-                            <div id="guildSwitcherList"
-                                 class="guild-switcher-list"
-                                 role="listbox"
-                                 aria-label="Switch server"
-                                 tabindex="-1">
-                                @foreach (var guild in Model.SwitchableGuilds)
-                                {
-                                    <a id="guildSwitcherOption-@guild.GuildId"
-                                       href="@guild.Url"
-                                       role="option"
-                                       tabindex="-1"
-                                       aria-selected="false"
-                                       @(guild.IsCurrent ? "aria-current=page" : null)
-                                       data-guild-id="@guild.GuildId"
-                                       data-guild-name="@guild.Name"
-                                       class="guild-switcher-option">
-                                        @if (!string.IsNullOrEmpty(guild.IconUrl))
-                                        {
-                                            <img src="@guild.IconUrl" alt="" class="guild-switcher-avatar" loading="lazy" />
-                                        }
-                                        else
-                                        {
-                                            <span class="guild-switcher-avatar guild-switcher-avatar-initial" aria-hidden="true">@TextDisplay.Initials(guild.Name)</span>
-                                        }
-                                        <span class="guild-switcher-option-name">@guild.Name</span>
-                                        @if (guild.IsCurrent)
-                                        {
-                                            <span class="sr-only">(current)</span>
-                                            <svg class="guild-switcher-check" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        }
-                                    </a>
-                                }
-                            </div>
-                            <p class="guild-switcher-empty" hidden>No servers match.</p>
-                            <span class="guild-switcher-status sr-only" role="status" aria-live="polite"></span>
-                        </div>
-                    </div>
-                }
-                <h1 class="text-2xl font-bold text-text-primary">@Model.PageTitle</h1>
-                @if (!string.IsNullOrEmpty(Model.PageDescription))
-                {
-                    <p class="mt-1 text-sm text-text-secondary">@Model.PageDescription</p>
-                }
-            </div>
-        </div>
-
-        <!-- Right: Status Badge + Action Buttons -->
-        @if (hasActions || hasStatusBadge)
-        {
-            <div class="flex items-center gap-2">
-                @if (hasStatusBadge)
-                {
-                    <partial name="Shared/Components/_Badge" model="Model.StatusBadge" />
-                }
-                @if (hasActions)
-                {
-                    @foreach (var action in Model.Actions!)
-                    {
-                        @if (action.IsPost)
-                        {
-                            var postClass = action.Style == DiscordBot.Bot.ViewModels.Components.HeaderActionStyle.Primary
-                                ? "px-4 py-2 bg-accent-orange text-white font-medium text-sm rounded-lg hover:bg-accent-orange-hover transition-colors inline-flex items-center gap-2"
-                                : "px-3 py-2 text-sm font-medium text-text-secondary hover:text-accent-blue bg-bg-secondary border border-border-primary rounded-lg hover:border-border-focus transition-colors inline-flex items-center gap-2";
-                            <form method="post" action="@action.Url" class="inline-flex">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="@postClass">
-                                    @if (!string.IsNullOrEmpty(action.Icon))
-                                    {
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
-                                        </svg>
-                                    }
-                                    <span>@action.Label</span>
-                                </button>
-                            </form>
-                        }
-                        else if (action.Style == DiscordBot.Bot.ViewModels.Components.HeaderActionStyle.Primary)
-                        {
-                            <a href="@action.Url"
-                               @(action.OpenInNewTab ? "target=\"_blank\" rel=\"noopener noreferrer\"" : "")
-                               class="px-4 py-2 bg-accent-orange text-white font-medium text-sm rounded-lg hover:bg-accent-orange-hover transition-colors inline-flex items-center gap-2">
-                                @if (!string.IsNullOrEmpty(action.Icon))
-                                {
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
-                                    </svg>
-                                }
-                                <span>@action.Label</span>
-                            </a>
-                        }
-                        else if (action.Style == DiscordBot.Bot.ViewModels.Components.HeaderActionStyle.Secondary)
-                        {
-                            <a href="@action.Url"
-                               @(action.OpenInNewTab ? "target=\"_blank\" rel=\"noopener noreferrer\"" : "")
-                               class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-accent-blue bg-bg-secondary border border-border-primary rounded-lg hover:border-border-focus transition-colors inline-flex items-center gap-2">
-                                @if (!string.IsNullOrEmpty(action.Icon))
-                                {
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
-                                    </svg>
-                                }
-                                <span>@action.Label</span>
-                            </a>
-                        }
-                        else if (action.Style == DiscordBot.Bot.ViewModels.Components.HeaderActionStyle.Link)
-                        {
-                            <a href="@action.Url"
-                               @(action.OpenInNewTab ? "target=\"_blank\" rel=\"noopener noreferrer\"" : "")
-                               class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors inline-flex items-center gap-1">
-                                @if (!string.IsNullOrEmpty(action.Icon))
-                                {
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
-                                    </svg>
-                                }
-                                <span>@action.Label</span>
-                            </a>
-                        }
-                    }
-                }
-            </div>
-        }
-    </div>
+    <partial name="Shared/Components/_PageHeader" model="header" />
 </div>

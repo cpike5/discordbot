@@ -47,14 +47,9 @@
 
     <!-- Main Content Area -->
     <main id="main-content" class="main-content-redesign" tabindex="-1">
+        <!-- The one content width for every page (.page-container); pages add no wrapper of their own,
+             and their header is _PageHeader (breadcrumb, eyebrow, the one h1, actions) -->
         <div class="page-container">
-            <!-- Breadcrumb Navigation -->
-            @if (ViewData["Breadcrumbs"] != null)
-            {
-                @await Html.PartialAsync("_Breadcrumb")
-            }
-
-            <!-- Page Content -->
             @RenderBody()
         </div>
     </main>

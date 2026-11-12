@@ -16,10 +16,11 @@
 
 <div class="space-y-8">
     <!-- Page Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-text-primary mb-2">Component Showcase</h1>
-        <p class="text-text-secondary">Visual reference for all UI components with their various states and variants.</p>
-    </div>
+    <partial name="Components/_PageHeader" model='new PageHeaderViewModel {
+        Eyebrow = "Developer",
+        Title = "Component Showcase",
+        Subtitle = "Visual reference for all UI components with their various states and variants."
+    }' />
 
     <!-- 1. BUTTONS -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
@@ -744,6 +745,68 @@ const deleted = await quickActions.typedConfirm({
                     ClearAllUrl = "#clear-all"
                 }' />
                 <p class="text-xs text-text-secondary">Each remove link is named for its filter ("Remove filter: Role: Moderator"). Server pages build the URLs with <code>QueryStringHelper.Without</code>; pages that draw filters in script use <code>FilterPanel.chipsHtml</code>.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PAGE HEADER -->
+    @{
+        Func<object?, IHtmlContent> demoActionsContent =
+            @<span class="badge badge-warning">Free-form action content</span>;
+        Func<object?, IHtmlContent> demoLeading =
+            @<div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg" aria-hidden="true">CG</div>;
+        var demoCrumbs = new List<BreadcrumbItem>
+        {
+            new() { Label = "Home", Url = "/" },
+            new() { Label = "Servers", Url = "/Guilds" },
+            new() { Label = "Example Server", Url = "#guild" },
+            new() { Label = "Members" }
+        };
+    }
+    <section id="page-header" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Page Header</h3>
+            <p class="text-sm text-text-secondary mt-1">
+                <code>_PageHeader</code>: every page's header. Top-level pages name their sidebar group in the eyebrow and have no
+                breadcrumb; the breadcrumb appears only more than one level below Home. The title is the page's only <code>&lt;h1&gt;</code>
+                (the examples below use <code>HeadingLevel = 2</code> so this page keeps one).
+            </p>
+        </div>
+        <div class="p-6 space-y-8">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Top-level page: eyebrow, title, subtitle</h4>
+                <partial name="Components/_PageHeader" model='new PageHeaderViewModel {
+                    HeadingLevel = 2, Eyebrow = "Administration", Title = "Logs",
+                    Subtitle = "Messages the bot has logged and administrative actions taken in the portal"
+                }' />
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">With a badge and actions (typed and free-form)</h4>
+                <partial name="Components/_PageHeader" model='new PageHeaderViewModel {
+                    HeadingLevel = 2, Eyebrow = "Overview", Title = "Servers",
+                    Subtitle = "Every Discord server the bot is connected to.",
+                    Badge = new BadgeViewModel { Text = "3", Variant = BadgeVariant.Blue, Size = BadgeSize.Medium },
+                    Actions = new List<HeaderAction> {
+                        new() { Label = "Secondary", Url = "#secondary" },
+                        new() { Label = "Primary", Url = "#primary", Style = HeaderActionStyle.Primary }
+                    },
+                    ActionsContent = demoActionsContent(null)
+                }' />
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Two levels deep: breadcrumb and a leading icon (the guild header)</h4>
+                <partial name="Components/_PageHeader" model='new PageHeaderViewModel {
+                    HeadingLevel = 2, Breadcrumbs = demoCrumbs, Leading = demoLeading(null), Title = "Members",
+                    Subtitle = "Everyone in the server, with roles and activity.",
+                    Actions = new List<HeaderAction> { new() { Label = "Link action", Url = "#link", Style = HeaderActionStyle.Link } }
+                }' />
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Breadcrumb omitted one level below Home</h4>
+                <partial name="Components/_PageHeader" model='new PageHeaderViewModel {
+                    HeadingLevel = 2, Title = "Commands",
+                    Breadcrumbs = new List<BreadcrumbItem> { new() { Label = "Home", Url = "/" }, new() { Label = "Commands" } }
+                }' />
             </div>
         </div>
     </section>
