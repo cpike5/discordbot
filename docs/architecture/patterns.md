@@ -652,6 +652,14 @@ Pages do nothing for the guild switcher in the header: `_GuildLayout` fills
 `Navigation.ActiveTab`. A page whose route has values besides `guildId` sends the switcher to its
 tab's page in the other guild, never to the same entity ID.
 
+### Page Header and Width
+
+A guild page sets `Breadcrumb` and `Header` and adds no header or width markup of its own:
+`_GuildLayout` passes the breadcrumb items into `_GuildHeader`, which builds a `_PageHeader`, and
+`_Layout`'s `.page-container` sets the width. A top-level page does the same by hand: no
+`max-w-* mx-auto` wrapper, and one `<partial name="Shared/Components/_PageHeader" model="…" />`
+with the sidebar group as `Eyebrow` (see `component-api.md` § PageHeader Component).
+
 ### Usage Count
 
 24 guild pages use this pattern throughout the admin dashboard.

@@ -4,7 +4,8 @@
  *
  * Signs in, visits the audit routes at 1440x900 and 390x844 in both themes, and records the
  * status code, console errors, horizontal overflow (scrollWidth - clientWidth) and axe-core
- * serious/critical violations. Screenshots and results.json go into the output folder.
+ * serious/critical violations, plus the number of <h1>s and the first one's left edge (every top-level
+ * page's h1 should start at the same x). Screenshots and results.json go into the output folder.
  *
  *   node scripts/dev/ui-sweep.js <out-dir> [--base http://localhost:5124]
  *        [--email admin@example.com] [--password 'Audit-Pass-123!']
@@ -81,6 +82,10 @@ const ROUTES = [
   '/Admin/Settings',
   '/Admin/Notifications',
   '/Admin/LlmUsage',
+  '/Admin/Currency',
+  '/Admin/BulkPurge',
+  '/Admin/UserPurge',
+  '/Admin/RatWatchAnalytics',
   '/Account/Profile',
   '/Components',
   '/landing',
@@ -90,6 +95,8 @@ const VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844 },
 ];
 const THEMES = ['dark', 'light'];
+// The stylesheet's theme keys: 'light'/'dark' match no [data-theme] rule, so both runs used to render dark
+const THEME_KEYS = { dark: 'discord-dark', light: 'purple-dusk' };
 
 const slug = (r) => (r.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'home').slice(0, 80);
 const AXE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.2/axe.min.js';
@@ -125,19 +132,23 @@ async function signIn(browser) {
       });
       await ctx.addInitScript((t) => {
         try { localStorage.setItem('theme', t); } catch (e) { /* storage may be blocked */ }
-      }, theme);
+      }, THEME_KEYS[theme]);
       for (const route of ROUTES) {
         if (opts.only && !route.includes(opts.only)) continue;
         const page = await ctx.newPage();
         const consoleErrors = [];
         page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
         page.on('pageerror', (e) => consoleErrors.push(String(e)));
-        const row = { route, viewport: vp.name, theme, status: null, consoleErrors, overflow: null, axe: [] };
+        const row = { route, viewport: vp.name, theme, status: null, consoleErrors, overflow: null, h1Count: null, h1Left: null, axe: [] };
         try {
           const resp = await page.goto(opts.base + route, { waitUntil: 'networkidle', timeout: 30000 });
           row.status = resp ? resp.status() : null;
-          await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+          await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), THEME_KEYS[theme]);
           row.overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+          ({ count: row.h1Count, left: row.h1Left } = await page.evaluate(() => {
+            const h1s = document.querySelectorAll('h1');
+            return { count: h1s.length, left: h1s.length ? Math.round(h1s[0].getBoundingClientRect().left) : null };
+          }));
           if (opts.axe) {
             try {
               await page.addScriptTag({ url: AXE_URL });
@@ -156,7 +167,7 @@ async function signIn(browser) {
         if (row.error || (row.status !== null && row.status >= 400) || row.axe.length) failed = true;
         results.push(row);
         console.log(`${row.status ?? 'ERR'} ${vp.name}/${theme} ${route}` +
-          ` overflow=${row.overflow} console=${consoleErrors.length} axe=${row.axe.length}` +
+          ` overflow=${row.overflow} h1=${row.h1Count}@${row.h1Left} console=${consoleErrors.length} axe=${row.axe.length}` +
           (row.error ? ` error=${row.error}` : ''));
         await page.close();
       }
