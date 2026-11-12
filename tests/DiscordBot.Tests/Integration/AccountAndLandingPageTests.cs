@@ -51,6 +51,37 @@ public class AccountAndLandingPageTests : IClassFixture<AccountAndLandingPageTes
     }
 
     [Fact]
+    public async Task Landing_HeroLeadsWithSignIn_StatesTheRuntimeVersion_AndShowsAThemedScreenshot()
+    {
+        using var anonymous = _app.Host.CreateAnonymousClient();
+
+        var html = await anonymous.GetStringAsync("/landing");
+
+        var hero = html[html.IndexOf("<h1", StringComparison.Ordinal)..html.IndexOf("</section>", StringComparison.Ordinal)];
+        hero.Should().MatchRegex("href=\"/Account/Login\"[^>]*>\\s*Sign in", "the primary hero button signs in");
+        hero.Should().Contain("View on GitHub");
+        hero.Should().Contain("Moderation, soundboard, text-to-speech and an AI assistant");
+        hero.Should().NotContain("does a bunch of stuff");
+
+        html.Should().Contain($".NET {Environment.Version.Major}");
+        html.Should().NotContain(".NET 8");
+
+        html.Should().Contain("srcset=\"/images/landing/dashboard-dark.webp\" media=\"(prefers-color-scheme: dark)\"");
+        html.Should().MatchRegex("<img src=\"/images/landing/dashboard-light.webp\" width=\"1440\" height=\"900\" loading=\"lazy\"[^>]*alt=\"[^\"]{20,}\"");
+    }
+
+    [Fact]
+    public async Task Landing_FeatureCardsAreVisibleByDefault_AndOnlyAnimateWhenMotionIsAllowed()
+    {
+        using var anonymous = _app.Host.CreateAnonymousClient();
+
+        var html = await anonymous.GetStringAsync("/landing");
+
+        html.Should().Contain(".feature-card { opacity: 1; }");
+        html.Should().MatchRegex("@media \\(prefers-reduced-motion: no-preference\\) \\{\\s*\\.feature-card \\{\\s*opacity: 0;");
+    }
+
+    [Fact]
     public async Task Login_HasOneH1_AndAUsernameAutocomplete_AndAFocusScript()
     {
         using var anonymous = _app.Host.CreateAnonymousClient();
