@@ -643,6 +643,15 @@ public class IndexModel : PaginatedGuildPageModel
 | `PopulateGuildLayout()` | `async Task<bool>` | Loads guild data; returns false if guild not found |
 | `ErrorMessage` | `string?` | Page-level error for the current request only (not `[TempData]`); render it with `_Alert`. Action results use `TempData.SetErrorToast` instead (see [Page Model Pattern](#page-model-pattern)) |
 
+### Guild Switcher
+
+Pages do nothing for the guild switcher in the header: `_GuildLayout` fills
+`GuildHeaderViewModel.SwitchableGuilds` itself (from `IGuildSwitcherService`, URLs from
+`GuildSwitchTarget`), because about half the guild pages set `Header` directly instead of calling
+`PopulateGuildLayout`. A new guild page gets it for free as long as it uses `_GuildLayout` and sets
+`Navigation.ActiveTab`. A page whose route has values besides `guildId` sends the switcher to its
+tab's page in the other guild, never to the same entity ID.
+
 ### Usage Count
 
 24 guild pages use this pattern throughout the admin dashboard.

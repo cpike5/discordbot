@@ -427,9 +427,9 @@ Dashboard for managing guild-wide settings, enabling/disabling features, member 
 | Aspect | Components |
 |--------|------------|
 | **UI Pages** | Admin: Guild settings, feature flags, member directory |
-| **Services** | `IGuildService`, `IUserDiscordGuildService`, `IPermissionService`, `IGuildDetailsAggregator` (`Bot/Services/Guilds`) |
+| **Services** | `IGuildService`, `IUserDiscordGuildService`, `IPermissionService`, `IGuildDetailsAggregator` (`Bot/Services/Guilds`), `IGuildSwitcherService` (guild switcher and recent guilds) |
 | **Database Entities** | `Guild`, `UserDiscordGuild`, `GuildMember` |
-| **Key Features** | Feature toggles, member sync, role-based access control. `Guilds/Details` is thin: `GuildDetailsAggregator` loads the guild and each widget section separately, so one failing section shows a retry widget and the rest still render; `Guilds/Edit` saves audio settings only when they loaded (`AudioSettingsLoaded`) |
+| **Key Features** | Feature toggles, member sync, role-based access control. `Guilds/Details` is thin: `GuildDetailsAggregator` loads the guild and each widget section separately, so one failing section shows a retry widget and the rest still render; `Guilds/Edit` saves audio settings only when they loaded (`AudioSettingsLoaded`). **Guild switcher:** on every guild page the guild name above the title opens a list of the guilds the user can open (`IGuildSwitcherService`); choosing one keeps the same page (`GuildSwitchTarget`: same page when its only route value is `guildId`, else the active tab's page, else Overview). **Recent guilds:** `guild-switcher.js` keeps the last 3 guilds opened in `localStorage['recentGuilds']` (per browser) and lists them under Servers in the sidebar, pruned to the IDs the user can still open |
 
 ---
 
