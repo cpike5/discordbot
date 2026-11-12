@@ -113,6 +113,32 @@ public class ModerationScreensTests : IClassFixture<ModerationScreensTests.AppFi
     }
 
     [Fact]
+    public async Task Members_SearchBoxIsOutsideTheCollapsedPanel_AndKeepsItsTerm()
+    {
+        var html = await _app.Host.Client.GetStringAsync($"/Guilds/{GuildId}/Members?SearchTerm=chatty");
+
+        html.Should().Contain("data-filter-live").And.Contain("value=\"chatty\"");
+        html.IndexOf("data-filter-live", StringComparison.Ordinal)
+            .Should().BeLessThan(html.IndexOf("id=\"filterToggle\"", StringComparison.Ordinal), "the search sits above the panel");
+        html.Should().Contain("aria-expanded=\"false\"", "the panel starts collapsed");
+        html.Should().NotContain("data-active-filter-chips", "a search term is the visible box, not a chip");
+    }
+
+    [Fact]
+    public async Task Members_ActiveFilters_ShowAsNamedChipsThatDropOnlyThatFilter()
+    {
+        var html = await _app.Host.Client.GetStringAsync(
+            $"/Guilds/{GuildId}/Members?SearchTerm=chatty&JoinedAfter=2020-01-01&ActivityFilter=active-week&pageNumber=2");
+
+        html.Should().Contain("data-active-filter-chips")
+            .And.Contain("Joined after: Jan 1, 2020")
+            .And.Contain("Activity: Active This Week")
+            .And.Contain("aria-label=\"Remove filter: Joined after: Jan 1, 2020\"");
+        // Removing the date keeps the search and the activity filter and starts over at page 1
+        html.Should().Contain($"href=\"/Guilds/{GuildId}/Members?SearchTerm=chatty&amp;ActivityFilter=active-week\"");
+    }
+
+    [Fact]
     public async Task Members_ExportCsv_DownloadsWithUtcHeaders()
     {
         var response = await _app.Host.Client.GetAsync($"/Guilds/{GuildId}/Members?handler=Export&SearchTerm=chatty");
