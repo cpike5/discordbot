@@ -40,16 +40,16 @@ else if (Model.ViewModel.TotalCount > 0)
     <!-- Desktop table -->
     <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full table-compact">
                 <caption class="sr-only">Scheduled messages for @Model.ViewModel.GuildName</caption>
                 <thead class="bg-bg-tertiary border-b border-border-primary">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Message</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Channel</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Schedule</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Next run</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Message</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Channel</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Schedule</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Next run</th>
+                        <th scope="col" class="px-6 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border-primary">
@@ -57,19 +57,19 @@ else if (Model.ViewModel.TotalCount > 0)
                     {
                         var expired = message.StatusDisplay == "Expired";
                         <tr class="table-row hover:bg-bg-hover transition-colors @(expired ? "opacity-70" : "")">
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 whitespace-nowrap">
                                 <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = message.StatusDisplay, Variant = StatusVariant(message.StatusDisplay), Style = BadgeStyle.Subtle, Size = BadgeSize.Small, IsPill = true }" />
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6">
                                 <div class="max-w-xs">
                                     <p class="text-sm text-text-primary truncate" title="@message.MessagePreview">@message.MessagePreview</p>
                                     <p class="text-xs text-text-secondary mt-0.5">Created @DisplayFormat.Time(message.CreatedAt, "date")</p>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-sm text-text-primary whitespace-nowrap">@message.ChannelName</td>
-                            <td class="px-6 py-4 text-sm text-text-primary whitespace-nowrap">@message.ScheduleDescription</td>
-                            <td class="px-6 py-4 text-sm text-text-primary whitespace-nowrap">@DisplayFormat.Time(message.NextExecutionAt, "datetime-short", empty: "Not scheduled")</td>
-                            <td class="px-6 py-4">
+                            <td class="px-6 text-sm text-text-primary whitespace-nowrap">@message.ChannelName</td>
+                            <td class="px-6 text-sm text-text-primary whitespace-nowrap">@message.ScheduleDescription</td>
+                            <td class="px-6 text-sm text-text-primary whitespace-nowrap">@DisplayFormat.Time(message.NextExecutionAt, "datetime-short", empty: "Not scheduled")</td>
+                            <td class="px-6">
                                 <div class="flex items-center justify-end gap-1 row-actions">
                                     <a asp-page="Edit" asp-route-guildId="@guildId" asp-route-id="@message.Id"
                                        class="row-action-btn row-action-btn-accent"
