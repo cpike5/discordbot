@@ -81,7 +81,7 @@
                    class="@GetTabClass(tab)"
                    id="@tabElementId"
                    role="tab"
-                   aria-selected="@(isActive ? "true" : "false")"
+                   aria-current="@(isActive ? "page" : null)"
                    aria-disabled="@(tab.Disabled ? "true" : null)"
                    tabindex="@(tab.Disabled ? "-1" : null)"
                    data-tab-id="@tab.Id">

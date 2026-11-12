@@ -113,7 +113,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/Portal/TTS/{guildId}` | `Pages/Portal/TTS/Index.cshtml` | Member TTS: message (limit from `AzureSpeech:MaxTextLength`), presets with a name dialog, preview, history |
 | `/Portal/VOX/{guildId}` | `Pages/Portal/VOX/Index.cshtml` | Member VOX composer and clip browser, keyboard-reachable history |
 
-The three share `Pages/Portal/_PortalLayout.cshtml` and mobile-first behaviour (plan decision D13): a one-row header on phones, the voice panel as a sticky bar above the content (`display: contents` on `.sidebar` under 1024px lets the sidebar's panels reorder), 44px touch targets, safe-area insets. When the guild's `EnableMemberPortal` is off each renders `Portal/Shared/_PortalDisabled.cshtml` ("The member portal is off") instead. With `AudioEnabled` off the page opens with `_PortalAudioDisabledWarning`.
+The three share `Pages/Portal/_PortalLayout.cshtml` and mobile-first behaviour (plan decision D13): a one-row header on phones, the voice panel as a sticky bar above the content (`display: contents` on `.sidebar` under 1024px lets the sidebar's panels reorder), 44px touch targets, safe-area insets. When the guild's `EnableMemberPortal` is off each renders `Portal/Shared/_PortalDisabled.cshtml` ("The member portal is off") instead. With `AudioEnabled` off the page opens with `_PortalAudioDisabledWarning`. The header (`Portal/Shared/_PortalHeader.cshtml`) carries the guild avatar (icon, or two letters on the `GuildAvatar.ClassFor` fill the admin dashboard uses), the section tabs (the current one is ember with a 2px underline and `aria-current="page"`) and the account menu `Portal/Shared/_PortalUserMenu.cshtml` (name and email, **Admin portal** for a user who passes the `RequireViewer` policy, **Theme**, **Sign out** as an antiforgery POST to `/Account/Logout`; `wwwroot/js/portal-user-menu.js` does open/close, Escape and arrow keys). The portal's selects are the shared `.form-select`. Under 481px the Soundboard grid is three columns of compact tiles (about 105px wide: preview and favourite in the top corners, the name on two lines at most, plays and duration on one line), so a phone shows about 15 sounds instead of 6.
 
 ### Error Pages
 
@@ -149,7 +149,7 @@ Every layout and standalone page (`_Layout`, `Portal/_PortalLayout`, `_ErrorLayo
 | Toast Container | `_ToastContainer.cshtml` | Toast container and live regions, plus toasts queued through `TempData.Set*Toast` (as JSON for `toast.js`). Rendered by `_Layout` and `_PortalLayout`; do not include it in pages |
 | Mobile Search | `_MobileSearchOverlay.cshtml` | Mobile-friendly search overlay |
 | Theme Head | `_ThemeHead.cshtml` | `theme-color` meta and the blocking first-paint theme script; needs `theme-root` on `<html>` |
-| Theme Toggle | `_ThemeToggle.cshtml` | Header button switching dark/light (`theme.js`); model = extra button classes. In `_Navbar` and the portal header |
+| Theme Toggle | `_ThemeToggle.cshtml` | Header button switching dark/light (`theme.js`); model = extra button classes. In `_Navbar`; the portal header has the same switch as a **Theme** item in its account menu |
 | Validation Scripts | `_ValidationScriptsPartial.cshtml` | Client-side validation script inclusion |
 | Breadcrumb | `_Breadcrumb.cshtml` | Navigation breadcrumb trail |
 | Sort Dropdown | `_SortDropdown.cshtml` | Sort control for tables/lists |
@@ -264,7 +264,7 @@ Partials that belong to one page. They are fetched as HTML fragments (`ApiClient
 | Settings | `Admin/_SettingsTabFooter` | Per-tab Save, error alert and status line, driven by `settings.js` |
 | Guild Details widgets | `Guilds/Widgets/_ActivityBody`, `_AssistantBody`, `_AudioBody`, `_MembersBody`, `_RatWatchBody`, `_RemindersBody`, `_ScheduledMessagesBody`, `_WidgetStat` | Bodies rendered inside `_DashboardWidget` (`BodyPartial` + `BodyModel`) |
 | Members | `Guilds/Members/_MemberDetailModal` | Member detail dialog (`quickActions.openDialog`), filled from the members API; not a route |
-| Member portal | `Portal/Shared/_PortalHeader`, `_PortalDisabled`, `_PortalAudioDisabledWarning`, `_PortalLanding`, `_PortalUnauthorized` | `_PortalDisabled` is what every portal page renders when the guild's `EnableMemberPortal` is off |
+| Member portal | `Portal/Shared/_PortalHeader`, `_PortalUserMenu`, `_PortalDisabled`, `_PortalAudioDisabledWarning`, `_PortalLanding`, `_PortalUnauthorized` | `_PortalDisabled` is what every portal page renders when the guild's `EnableMemberPortal` is off |
 
 ### TTS & Audio Components
 
