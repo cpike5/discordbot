@@ -193,6 +193,7 @@ Services for user lifecycle, guild membership, and user data operations.
 | `IUserDiscordGuildService` | Core Interfaces | Cross-mapping of user/guild relationships |
 | `UserDiscordGuildService` | Bot/Services | Manages user presence across multiple Discord guilds |
 | `IGuildService` | Core Interfaces | Guild-level operations and metadata |
+| `IGuildSwitcherService` / `GuildSwitcherService` | Core Interfaces, Bot/Services/Guild (scoped) | The active guilds a user can open, for the guild switcher (`_GuildHeader`) and the sidebar's recent guilds. Asks `IAuthorizationService` with each guild as the resource and a `GuildAccessRequirement`, so it follows the `GuildAccess` policy (`GuildAccessHandler`) exactly; SuperAdmins skip the per-guild checks. Cached per user for 60 seconds; a failure gives an empty list (plain heading), never a broken page |
 | `IGuildDetailsAggregator` / `GuildDetailsAggregator` | Bot/Interfaces, Bot/Services/Guilds (scoped) | Builds the `Guilds/Details` page: one `GuildDetailsAggregateDto` with the guild record plus every widget (welcome, scheduled messages, Rat Watch, reminders, members, audio, assistant). Each section loads on its own, so one failure becomes a retry widget and the rest still render. Keeps `Details.cshtml.cs` to routing and view-model assembly |
 | `MemberSyncService` | Bot/Services | Background service: full guild member sync on startup + daily reconciliation |
 | `MemberSyncQueue` | Bot/Services | Queues pending member sync operations |

@@ -1,10 +1,26 @@
 @using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Routing
+@inject DiscordBot.Core.Interfaces.IGuildSwitcherService GuildSwitcher
 @{
     Layout = "_Layout";
 
     GuildNavBarViewModel navModel = (GuildNavBarViewModel)Model.Navigation;
     var orderedTabs = navModel.Tabs.OrderBy(t => t.Order).ToList();
     var activeTab = orderedTabs.FirstOrDefault(t => t.Id == navModel.ActiveTab);
+
+    // The guild switcher's list is filled here rather than by each page model: this layout is the
+    // one place every guild page (and every failed POST that re-renders one) goes through.
+    GuildHeaderViewModel header = (GuildHeaderViewModel)Model.Header;
+    if (header.GuildId != 0)
+    {
+        var switchable = await GuildSwitcher.GetAccessibleGuildsAsync(User, Context.RequestAborted);
+        var routeTemplate = (Context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText;
+        header = header with
+        {
+            SwitchableGuilds = GuildSwitchTarget.BuildOptions(header.GuildId, navModel.ActiveTab, routeTemplate, switchable)
+        };
+    }
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -12,7 +28,7 @@
     @await Html.PartialAsync("Components/_GuildBreadcrumb", (GuildBreadcrumbViewModel)Model.Breadcrumb)
 
     <!-- Guild Header -->
-    @await Html.PartialAsync("Components/_GuildHeader", (GuildHeaderViewModel)Model.Header)
+    @await Html.PartialAsync("Components/_GuildHeader", header)
 
     <!-- Guild Navigation Bar -->
     <div class="guild-nav-container mb-6" id="guildNavContainer">

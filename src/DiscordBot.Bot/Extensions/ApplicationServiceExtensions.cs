@@ -52,6 +52,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IBotService, BotService>();
         services.AddScoped<IDashboardStatsProvider, DashboardStatsProvider>();
         services.AddScoped<IGuildService, GuildService>();
+        services.AddScoped<IGuildSwitcherService, GuildSwitcherService>();
         services.AddScoped<ICommandLogService, CommandLogService>();
         services.AddScoped<ICommandAnalyticsService, CommandAnalyticsService>();
         services.AddScoped<ICommandMetadataService, CommandMetadataService>();

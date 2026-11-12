@@ -3295,6 +3295,129 @@
   .guild-nav-more-button, .guild-nav-more-chevron, .guild-nav-more-menu, .guild-nav-more-item { transition: none; }
 }
 
+/* Guild switcher (guild-switcher.js): the guild name above the page title opens a list of guilds. */
+.guild-switcher { position: relative; margin-bottom: 0.125rem; }
+.guild-switcher-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  min-height: 1.75rem;
+  margin-left: -0.375rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.guild-switcher-button:hover,
+.guild-switcher-button[aria-expanded="true"] { color: var(--color-text-primary); background-color: var(--color-bg-hover); }
+.guild-switcher-button:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: 2px; }
+.guild-switcher-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guild-switcher-chevron { width: 1rem; height: 1rem; flex-shrink: 0; transition: transform var(--transition-fast); }
+.guild-switcher-button[aria-expanded="true"] .guild-switcher-chevron { transform: rotate(180deg); }
+.guild-switcher-popover {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  left: -0.375rem;
+  z-index: var(--z-popover);
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.375rem;
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--surface-highlight);
+  /* Closed, it takes no space at all: a hidden-but-laid-out popover widens the page on phones */
+  display: none;
+}
+.guild-switcher-popover.active { display: block; animation: guild-switcher-in var(--duration-fast) ease-out; }
+@keyframes guild-switcher-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+/* Phones: the name can sit far right of the avatar, so the list hangs from the whole header row */
+@media (max-width: 639px) {
+  .guild-switcher { position: static; }
+  .guild-switcher-popover { left: 0; width: min(20rem, 100%); }
+}
+.guild-switcher-filter {
+  width: 100%;
+  margin-bottom: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-md);
+}
+.guild-switcher-filter:focus { outline: 2px solid var(--color-accent-blue); outline-offset: -1px; }
+.guild-switcher-list { max-height: min(22rem, 60vh); overflow-y: auto; }
+/* Focus stays on the list; the highlighted option (aria-activedescendant) shows where it is */
+.guild-switcher-list:focus, .guild-switcher-list:focus-visible { outline: none; }
+.guild-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+}
+.guild-switcher-option[hidden] { display: none; }
+.guild-switcher-option.is-active { background-color: var(--color-nav-hover); box-shadow: inset 0 0 0 2px var(--color-accent-blue); }
+.guild-switcher-option[aria-current="page"] { font-weight: 600; }
+.guild-switcher-option-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guild-switcher-avatar { width: 1.5rem; height: 1.5rem; flex-shrink: 0; border-radius: 9999px; object-fit: cover; }
+.guild-switcher-avatar-initial,
+.sidebar-recent-guild-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-hover);
+}
+.guild-switcher-check { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--color-accent-orange); }
+.guild-switcher-empty { padding: 0.5rem 0.75rem; font-size: 0.875rem; color: var(--color-text-tertiary); }
+
+/* Recent guilds under Servers in the sidebar (and the mobile drawer, which is the same element) */
+.sidebar-recent-guilds { margin: 0.125rem 0 0.25rem; padding: 0 0 0 1.25rem; list-style: none; }
+.sidebar-recent-guilds[hidden] { display: none; }
+.sidebar-recent-guild {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.sidebar-recent-guild:hover { color: var(--color-text-primary); background-color: var(--color-nav-hover); }
+.sidebar-recent-guild:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: -2px; }
+.sidebar-recent-guild.active { color: var(--color-text-primary); background-color: var(--color-nav-active); font-weight: 600; }
+.sidebar-recent-guild-avatar { width: 1.125rem; height: 1.125rem; flex-shrink: 0; border-radius: 9999px; object-fit: cover; }
+.sidebar-recent-guild-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The icon-only rail has no room for names */
+.sidebar-redesign.collapsed .sidebar-recent-guilds { display: none; }
+@media (min-width: 1024px) {
+  html.sidebar-collapsed .sidebar-recent-guilds { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guild-switcher-button, .guild-switcher-chevron, .sidebar-recent-guild { transition: none; }
+  .guild-switcher-popover.active { animation: none; }
+}
+
 /* -----------------------------------------------------------------------------
    8. PURPLE DUSK — component overrides that need more than a token swap
    ----------------------------------------------------------------------------- */

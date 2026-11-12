@@ -40,6 +40,48 @@ public record GuildHeaderViewModel
     /// Optional status badge displayed in the header (separate from action buttons).
     /// </summary>
     public BadgeViewModel? StatusBadge { get; set; }
+
+    /// <summary>
+    /// The guilds the user can switch to, the current one included, in display order. Filled by
+    /// <c>_GuildLayout</c> from <c>IGuildSwitcherService</c>, so every guild page gets it.
+    /// </summary>
+    public IReadOnlyList<GuildSwitcherOption> SwitchableGuilds { get; init; } = [];
+
+    /// <summary>
+    /// True when there is another guild to switch to: the guild name becomes the switcher button.
+    /// </summary>
+    public bool CanSwitchGuild => SwitchableGuilds.Any(g => !g.IsCurrent);
+}
+
+/// <summary>
+/// One guild in the guild switcher.
+/// </summary>
+public record GuildSwitcherOption
+{
+    /// <summary>
+    /// Discord guild ID, as a string (snowflakes do not fit a JavaScript number).
+    /// </summary>
+    public string GuildId { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Guild name.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Guild icon URL, or null for the initials fallback.
+    /// </summary>
+    public string? IconUrl { get; init; }
+
+    /// <summary>
+    /// Where choosing this guild goes (see <c>GuildSwitchTarget</c>).
+    /// </summary>
+    public string Url { get; init; } = string.Empty;
+
+    /// <summary>
+    /// True for the guild the page is about.
+    /// </summary>
+    public bool IsCurrent { get; init; }
 }
 
 /// <summary>
