@@ -14,6 +14,18 @@
         ClearUrl = Url.Page("RatWatchAnalytics"),
         HasActiveFilters = hasFilters
     };
+    var chipList = new List<ActiveFilterChip>();
+    if (Model.GuildId.HasValue)
+    {
+        var guildName = Model.EnabledGuilds.FirstOrDefault(g => g.GuildId == Model.GuildId.Value)?.Name ?? Model.GuildId.Value.ToString();
+        chipList.Add(new ActiveFilterChip($"Server: {guildName}", QueryStringHelper.Without(Model.Request, "GuildId")));
+    }
+    chipList.AddRange(FilterChipHelper.DateRange(Model.Request, Model.StartDate, Model.EndDate));
+    var filterChips = new ActiveFilterChipsViewModel
+    {
+        Chips = chipList,
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "GuildId", "StartDate", "EndDate")
+    };
     var loadFailed = !string.IsNullOrEmpty(Model.ErrorMessage);
 
     // The figures behind each chart, as text (see _ChartDataTable)
@@ -87,7 +99,7 @@
     <filter-panel title="Filters"
                   is-collapsible="true"
                   active-filter-count="@(hasFilters ? 1 : 0)"
-                  default-expanded="true">
+                  default-expanded="false">
         <form method="get" id="filterForm">
             <div class="mb-4">
                 <label for="GuildId" class="block text-sm font-medium text-text-primary mb-2">Server</label>
@@ -104,6 +116,8 @@
             <partial name="Shared/Components/_DateRangeFilter" model="dateFilter" />
         </form>
     </filter-panel>
+
+    <partial name="Shared/Components/_ActiveFilterChips" model="filterChips" />
 
     @if (loadFailed)
     {

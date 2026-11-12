@@ -1,0 +1,27 @@
+@model DiscordBot.Bot.ViewModels.Components.ActiveFilterChipsViewModel
+@*
+    The filters applied to a list, as removable chips between the filter panel and the list.
+    Each remove link is the page URL without that filter and back on page 1
+    (QueryStringHelper.Without / WithoutValue) and names its filter for screen readers. Pages that
+    build chips in script use FilterPanel.chipsHtml (shared/filter-panel.js), which writes the same markup.
+*@
+@if (Model.Chips.Count > 0)
+{
+    <div class="flex flex-wrap items-center gap-2 mb-4" role="group" aria-label="@Model.Label" data-active-filter-chips>
+        @foreach (var chip in Model.Chips)
+        {
+            <span class="badge badge-gray badge-pill badge-case" data-filter-chip>
+                @chip.Label
+                <a href="@chip.RemoveUrl" class="badge-remove" aria-label="Remove filter: @chip.Label" title="Remove filter">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </a>
+            </span>
+        }
+        @if (Model.Chips.Count > 1 && !string.IsNullOrEmpty(Model.ClearAllUrl))
+        {
+            <a href="@Model.ClearAllUrl" class="text-sm text-accent-blue hover:underline" data-clear-all>Clear all</a>
+        }
+    </div>
+}

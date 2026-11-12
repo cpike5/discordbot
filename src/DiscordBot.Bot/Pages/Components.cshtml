@@ -722,6 +722,32 @@ const deleted = await quickActions.typedConfirm({
         </div>
     </section>
 
+    <!-- Search and filter chips -->
+    <section id="filter-chips" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Search and Filter Chips</h3>
+            <p class="text-sm text-text-secondary mt-1">The list-page rule: the search box is always visible and filters as you type (<code>data-filter-live</code>, 300ms), other filters sit in a collapsed panel, and what is applied shows as removable chips with Clear all</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-2"><code>_FilterSearch</code></h4>
+                <partial name="Components/_FilterSearch" model='new FilterSearchViewModel { Id = "demo-filter-search", Placeholder = "Search by username or ID", Label = "Search members" }' />
+                <p class="text-xs text-text-secondary">Inert here: <code>shared/filter-panel.js</code> is not loaded on the showcase, so typing does not reload the page.</p>
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-2"><code>_ActiveFilterChips</code></h4>
+                <partial name="Components/_ActiveFilterChips" model='new ActiveFilterChipsViewModel {
+                    Chips = new List<ActiveFilterChip> {
+                        new("Role: Moderator", "#remove-role"),
+                        new("Joined after: Nov 1, 2026", "#remove-joined")
+                    },
+                    ClearAllUrl = "#clear-all"
+                }' />
+                <p class="text-xs text-text-secondary">Each remove link is named for its filter ("Remove filter: Role: Moderator"). Server pages build the URLs with <code>QueryStringHelper.Without</code>; pages that draw filters in script use <code>FilterPanel.chipsHtml</code>.</p>
+            </div>
+        </div>
+    </section>
+
     <!-- 12. NAVIGATION TABS -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">

@@ -1,7 +1,24 @@
 @page
 @model DiscordBot.Bot.Pages.Admin.Users.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "User Management";
+
+    // Applied filters as chips; each remove link keeps the others and goes back to page 1
+    var userChipList = new List<ActiveFilterChip>();
+    if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
+        userChipList.Add(new ActiveFilterChip($"Search: {Model.SearchTerm}", QueryStringHelper.Without(Model.Request, "SearchTerm")));
+    if (!string.IsNullOrWhiteSpace(Model.RoleFilter))
+        userChipList.Add(new ActiveFilterChip($"Role: {Model.RoleFilter}", QueryStringHelper.Without(Model.Request, "RoleFilter")));
+    if (Model.ActiveFilter.HasValue)
+        userChipList.Add(new ActiveFilterChip($"Status: {(Model.ActiveFilter.Value ? "Active" : "Inactive")}", QueryStringHelper.Without(Model.Request, "ActiveFilter")));
+    if (Model.DiscordLinkedFilter.HasValue)
+        userChipList.Add(new ActiveFilterChip($"Discord: {(Model.DiscordLinkedFilter.Value ? "Linked" : "Not linked")}", QueryStringHelper.Without(Model.Request, "DiscordLinkedFilter")));
+    var userChips = new ActiveFilterChipsViewModel
+    {
+        Chips = userChipList,
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "SearchTerm", "RoleFilter", "ActiveFilter", "DiscordLinkedFilter")
+    };
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -91,6 +108,8 @@
             </div>
         </form>
     </div>
+
+    <partial name="Shared/Components/_ActiveFilterChips" model="userChips" />
 
     <!-- Users Table -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
