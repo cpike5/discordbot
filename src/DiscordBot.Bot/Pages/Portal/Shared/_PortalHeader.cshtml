@@ -55,9 +55,7 @@
                     }
                     else
                     {
-                        <div class="guild-icon-fallback">
-                            @TextDisplay.Initials(Model.GuildName, 1)
-                        </div>
+                        <div class="guild-icon-fallback @GuildAvatar.ClassFor(Model.GuildId)" aria-hidden="true">@TextDisplay.Initials(Model.GuildName)</div>
                     }
                 </div>
                 <div class="header-text">
@@ -70,7 +68,7 @@
                     <span class="status-dot"></span>
                     @(Model.IsOnline ? "Online" : "Offline")
                 </div>
-                <partial name="_ThemeToggle" model="@("btn btn-secondary btn-icon")" />
+                <partial name="~/Pages/Portal/Shared/_PortalUserMenu.cshtml" />
             </div>
         </div>
 

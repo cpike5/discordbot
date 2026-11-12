@@ -309,17 +309,6 @@ public class IndexModel : PageModel
     {
         var guildList = guilds.ToList();
 
-        // Avatar fills for initials: token classes (white text reads on every fill), whole names so
-        // Tailwind finds them
-        var avatarClasses = new[]
-        {
-            "bg-accent-orange",
-            "bg-accent-blue",
-            "bg-success",
-            "bg-info",
-            "bg-accent-purple"
-        };
-
         var serverItems = guildList.Select(guild =>
         {
             var commandsToday = commandCountsByGuild.TryGetValue(guild.Id, out var count) ? count : 0;
@@ -336,7 +325,7 @@ public class IndexModel : PageModel
             var initials = GenerateInitials(guild.Name);
 
             // Same server, same colour, every render
-            var avatarClass = avatarClasses[(int)(guild.Id % (uint)avatarClasses.Length)];
+            var avatarClass = GuildAvatar.ClassFor(guild.Id);
 
             return new ConnectedServerItemViewModel
             {

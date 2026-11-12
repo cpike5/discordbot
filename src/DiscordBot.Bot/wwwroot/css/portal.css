@@ -394,11 +394,11 @@ body.portal-page {
 .guild-icon-fallback {
     width: 100%;
     height: 100%;
-    background-color: var(--color-discord);
+    /* The fill is a bg-* token class from GuildAvatar.ClassFor, the same one the admin dashboard uses */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1rem;
     font-weight: bold;
     color: white;
 }

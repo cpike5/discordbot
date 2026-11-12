@@ -226,16 +226,19 @@
 /* ===== VARIANT: PORTAL ===== */
 /* Clean underline style; the active tab is ember like every other selected state */
 
+/* The rule under the strip is an inset shadow, and each tab keeps its own 2px border inside the
+   strip. The strip scrolls (overflow-x: auto makes overflow-y auto as well), so the old layout, a
+   strip border with tabs pulled down over it by margin-bottom: -2px, had the active tab's underline
+   clipped away entirely. Inside the strip nothing is clipped, and a tab's border paints over the shadow. */
 .tab-panel-portal .tab-panel-tabs {
     gap: 0.5rem;
-    border-bottom: 2px solid var(--color-border-secondary);
+    box-shadow: inset 0 -2px 0 var(--color-border-secondary);
 }
 
 .tab-panel-portal .tab-panel-tab {
     color: var(--color-text-secondary);
     padding: 0.75rem 1.25rem;
     border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
 }
 
 .tab-panel-portal .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
@@ -244,6 +247,8 @@
 }
 
 .tab-panel-portal .tab-panel-tab.active {
+    /* In the light theme ember is plum, close to the inactive text, so weight carries the cue too */
+    font-weight: 600;
     color: var(--color-accent-orange);
     border-bottom-color: var(--color-accent-orange);
 }
