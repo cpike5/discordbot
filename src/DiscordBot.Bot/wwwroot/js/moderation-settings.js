@@ -262,6 +262,12 @@
         byId('advancedMode').classList.toggle('hidden', simple);
     }
 
+    /** "Save overview" only matters once the mode differs from what is saved. */
+    function syncOverviewActions(form, dirty) {
+        var actions = form.querySelector('[data-overview-actions]');
+        if (actions) actions.classList.toggle('hidden', !dirty);
+    }
+
     function setupMode() {
         var form = byId('overviewForm');
         var checked = form.querySelector('input[name="mode"]:checked');
@@ -270,6 +276,10 @@
         form.addEventListener('change', function (e) {
             if (e.target.name === 'mode') showMode(e.target.value);
         });
+        form.addEventListener('unsavedchange', function (e) {
+            syncOverviewActions(form, !!(e.detail && e.detail.dirty));
+        });
+        syncOverviewActions(form, !!(window.UnsavedChanges && UnsavedChanges.isDirty(form)));
     }
 
     function presetRadios() {
@@ -587,7 +597,10 @@
         });
     }
 
-    if (document.readyState === 'loading') {
+    if (typeof document === 'undefined') {
+        // Node (tests): no page to wire, only the pure helpers
+        if (typeof module !== 'undefined' && module.exports) module.exports = { syncOverviewActions: syncOverviewActions };
+    } else if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
