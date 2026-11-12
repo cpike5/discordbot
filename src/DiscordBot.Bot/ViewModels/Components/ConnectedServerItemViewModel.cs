@@ -39,9 +39,9 @@ public record ConnectedServerItemViewModel
     public int MemberCount { get; init; }
 
     /// <summary>
-    /// Gets the connection status of the server (Online, Idle, or Offline).
+    /// Gets the activity status of the server (ActiveToday, Quiet, or Left).
     /// </summary>
-    public ServerConnectionStatus Status { get; init; }
+    public ServerActivityStatus Status { get; init; }
 
     /// <summary>
     /// Gets the number of commands executed in this server today.

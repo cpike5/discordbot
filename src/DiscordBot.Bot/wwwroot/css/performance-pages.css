@@ -236,6 +236,12 @@
     border: 1px solid rgba(var(--color-warning-rgb), 0.3);
 }
 
+.health-status-neutral {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-primary);
+}
+
 .health-status-error {
     background: rgba(var(--color-error-fill-rgb), 0.15);
     color: var(--color-error);

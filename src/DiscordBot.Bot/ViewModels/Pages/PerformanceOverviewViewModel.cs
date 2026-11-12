@@ -8,7 +8,7 @@ namespace DiscordBot.Bot.ViewModels.Pages;
 public record PerformanceOverviewViewModel
 {
     /// <summary>
-    /// Gets the overall health status (Healthy, Warning, Critical).
+    /// Gets the overall health status (Healthy, Warning, Critical, Offline).
     /// </summary>
     public string OverallStatus { get; init; } = "Healthy";
 
@@ -33,9 +33,17 @@ public record PerformanceOverviewViewModel
     public double AvgCommandResponseMs { get; init; }
 
     /// <summary>
-    /// Gets the number of commands executed in the selected time range.
+    /// Gets the number of commands executed in the selected time range, from the command log
+    /// (the same source as the dashboard's "Commands (24h)").
     /// </summary>
     public int CommandsInRange { get; init; }
+
+    /// <summary>
+    /// Gets the number of executions the in-memory metrics measured in the range. It is empty
+    /// after every restart, so the latency and error-rate cards use it, not <see cref="CommandsInRange"/>,
+    /// to decide whether they have data.
+    /// </summary>
+    public int CommandsMeasured { get; init; }
 
     /// <summary>
     /// Gets the selected time range in hours (24, 168 or 720).
@@ -111,24 +119,12 @@ public record PerformanceOverviewViewModel
     /// <summary>
     /// Gets the CSS class for overall health status badge.
     /// </summary>
-    public string OverallStatusClass => OverallStatus.ToLowerInvariant() switch
-    {
-        "healthy" => "health-status-healthy",
-        "warning" => "health-status-warning",
-        "critical" => "health-status-error",
-        _ => "health-status-healthy"
-    };
+    public string OverallStatusClass => HealthStatusDisplay.For(OverallStatus).CssClass;
 
     /// <summary>
     /// Gets the display text for overall health status badge.
     /// </summary>
-    public string OverallStatusText => OverallStatus.ToLowerInvariant() switch
-    {
-        "healthy" => "Operational",
-        "warning" => "Degraded",
-        "critical" => "Critical",
-        _ => "Operational"
-    };
+    public string OverallStatusText => HealthStatusDisplay.For(OverallStatus).Text;
 
     /// <summary>
     /// Gets the CSS class for bot health status.

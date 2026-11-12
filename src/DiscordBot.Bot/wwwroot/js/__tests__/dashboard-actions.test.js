@@ -49,11 +49,12 @@ function fakeDocument() {
 
 const format = { number: (n) => n.toLocaleString('en-US') };
 
-test('statusStyle maps each status and treats an unknown one as Offline', () => {
-    assert.equal(DashboardActions.statusStyle('Online').badge, 'badge-success');
-    assert.equal(DashboardActions.statusStyle('Idle').badge, 'badge-warning');
-    assert.equal(DashboardActions.statusStyle('Offline').badge, 'badge-gray');
-    assert.equal(DashboardActions.statusStyle('Whatever').badge, 'badge-gray');
+test('statusStyle reads the label, badge and tooltip from the payload and distrusts unknown badge classes', () => {
+    const active = DashboardActions.statusStyle({ statusLabel: 'Active today', statusBadge: 'badge-success', statusTitle: 'Ran commands today' });
+    assert.deepEqual(active, { label: 'Active today', badge: 'badge-success', title: 'Ran commands today' });
+    assert.equal(DashboardActions.statusStyle({ statusLabel: 'Quiet', statusBadge: 'badge-gray' }).badge, 'badge-gray');
+    assert.equal(DashboardActions.statusStyle({ statusBadge: 'x" onclick="y' }).badge, 'badge-gray');
+    assert.equal(DashboardActions.statusStyle(null).label, '');
 });
 
 test('viewAllLabel shows the total only when the card shows some of the servers', () => {
@@ -78,7 +79,7 @@ test('renderServers draws one row per server from the payload', () => {
         totalServerCount: 9,
         servers: [{
             id: '123456789012345678', name: 'Test <b>Server</b>', iconUrl: null, initials: 'TS',
-            avatarClass: 'bg-accent-orange', memberCount: 1234, status: 'Online', commandsToday: 7, detailUrl: '/Guilds/Details/123456789012345678'
+            avatarClass: 'bg-accent-orange', memberCount: 1234, status: 'ActiveToday', statusLabel: 'Active today', statusBadge: 'badge-success', statusTitle: 'Ran commands today', commandsToday: 7, detailUrl: '/Guilds/Details/123456789012345678'
         }]
     }, format);
 
@@ -87,7 +88,7 @@ test('renderServers draws one row per server from the payload', () => {
     assert.equal(doc.fields.name.textContent, 'Test <b>Server</b>', 'the name goes in as text, never as markup');
     assert.equal(doc.fields.members.textContent, '1,234');
     assert.equal(doc.fields.commands.textContent, '7');
-    assert.equal(doc.fields.status.textContent, 'Online');
+    assert.equal(doc.fields.status.textContent, 'Active today');
     assert.equal(doc.fields.status.className, 'badge badge-success');
     assert.equal(doc.fields.avatar.textContent, 'TS');
     assert.match(doc.fields.avatar.className, /text-white bg-accent-orange/);
@@ -113,12 +114,25 @@ test('renderServers uses the icon when there is one', () => {
     const doc = fakeDocument();
     DashboardActions.renderServers(doc, {
         totalServerCount: 1,
-        servers: [{ id: '1', name: 'A', iconUrl: 'https://cdn.example/a.png', initials: 'A', avatarClass: 'bg-success', memberCount: 1, status: 'Idle', commandsToday: 0, detailUrl: '/Guilds/Details/1' }]
+        servers: [{ id: '1', name: 'A', iconUrl: 'https://cdn.example/a.png', initials: 'A', avatarClass: 'bg-success', memberCount: 1, status: 'Quiet', statusLabel: 'Quiet', statusBadge: 'badge-gray', commandsToday: 0, detailUrl: '/Guilds/Details/1' }]
     }, format);
 
     assert.equal(doc.fields.avatar.children.length, 1);
     assert.equal(doc.fields.avatar.children[0].attrs.src, 'https://cdn.example/a.png');
     assert.equal(doc.fields.avatar.textContent, '');
+});
+
+test('renderServers shows the offline note only while the bot is not connected', () => {
+    const doc = fakeDocument();
+    const note = element();
+    note.hidden = true;
+    const getById = doc.getElementById;
+    doc.getElementById = (id) => (id === 'connected-servers-offline-note' ? note : getById(id));
+
+    DashboardActions.renderServers(doc, { totalServerCount: 0, servers: [], botConnected: false }, format);
+    assert.equal(note.hidden, false);
+    DashboardActions.renderServers(doc, { totalServerCount: 0, servers: [], botConnected: true }, format);
+    assert.equal(note.hidden, true);
 });
 
 test('renderServers does nothing without the card on the page', () => {

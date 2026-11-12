@@ -26,6 +26,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
     private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
     private readonly IInstrumentedCache _instrumentedCache;
     private readonly IAuthorizationService _authorizationService;
+    private readonly ICommandLogService _commandLogService;
     private readonly ILogger<PerformanceDashboardAggregator> _logger;
 
     public PerformanceDashboardAggregator(
@@ -40,6 +41,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         IDatabaseMetricsCollector databaseMetricsCollector,
         IInstrumentedCache instrumentedCache,
         IAuthorizationService authorizationService,
+        ICommandLogService commandLogService,
         ILogger<PerformanceDashboardAggregator> logger)
     {
         _connectionStateService = connectionStateService;
@@ -53,6 +55,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         _databaseMetricsCollector = databaseMetricsCollector;
         _instrumentedCache = instrumentedCache;
         _authorizationService = authorizationService;
+        _commandLogService = commandLogService;
         _logger = logger;
     }
 
@@ -89,6 +92,12 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             var commandAggregates = await aggregatesTask;
             var activeAlerts = await alertsTask;
 
+            // How many commands ran comes from the command log, the same source as the dashboard's
+            // "Commands (24h)", so the two pages agree and a restart does not zero it. The in-memory
+            // aggregates (empty after every start) still supply latency and the error rate.
+            var commandLogCounts = await _commandLogService.GetCommandStatsAsync(DateTime.UtcNow.AddHours(-hours), cancellationToken);
+            var commandsInRange = commandLogCounts.Values.Sum();
+
             // Process command metrics (everything in the selected range, so the caption is true)
             var totalCommands = commandAggregates.Sum(a => a.ExecutionCount);
             var totalErrors = commandAggregates.Sum(a => (int)(a.ExecutionCount * (a.ErrorRate / 100.0)));
@@ -114,7 +123,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             var rateLimitHits = rateLimitEvents.Count;
 
             // Determine overall status based on alerts and health
-            var overallHealthStatus = DetermineOverallStatus(overallStatus, activeAlerts.Count);
+            var overallHealthStatus = DetermineOverallStatus(overallStatus, activeAlerts.Count, connectionState);
 
             var overview = new PerformanceOverviewViewModel
             {
@@ -122,7 +131,8 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
                 BotHealth = botHealth,
                 Uptime30DaysPercent = uptime30d,
                 AvgCommandResponseMs = avgResponseTime,
-                CommandsInRange = totalCommands,
+                CommandsInRange = commandsInRange,
+                CommandsMeasured = totalCommands,
                 TimeRangeHours = hours,
                 ErrorRate = overallErrorRate,
                 ActiveAlertCount = activeAlerts.Count,
@@ -181,8 +191,14 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         }
     }
 
-    private static string DetermineOverallStatus(string serviceStatus, int activeAlertCount)
+    private static string DetermineOverallStatus(string serviceStatus, int activeAlertCount, GatewayConnectionState connectionState)
     {
+        // Whatever the other checks say, a bot that is not on the gateway is offline
+        if (connectionState != GatewayConnectionState.Connected)
+        {
+            return HealthStatusDisplay.Offline;
+        }
+
         // Critical if services are unhealthy or there are critical alerts
         if (serviceStatus.Equals("Critical", StringComparison.OrdinalIgnoreCase))
         {

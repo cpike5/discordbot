@@ -25,6 +25,7 @@ public class PerformanceDashboardAggregatorTests
     private readonly Mock<IDatabaseMetricsCollector> _mockDatabaseMetricsCollector = new();
     private readonly Mock<IInstrumentedCache> _mockInstrumentedCache = new();
     private readonly Mock<IAuthorizationService> _mockAuthorizationService = new();
+    private readonly Mock<ICommandLogService> _mockCommandLogService = new();
     private readonly PerformanceDashboardAggregator _aggregator;
 
     public PerformanceDashboardAggregatorTests()
@@ -41,6 +42,7 @@ public class PerformanceDashboardAggregatorTests
             _mockDatabaseMetricsCollector.Object,
             _mockInstrumentedCache.Object,
             _mockAuthorizationService.Object,
+            _mockCommandLogService.Object,
             Mock.Of<ILogger<PerformanceDashboardAggregator>>());
 
         _mockConnectionStateService.Setup(s => s.GetCurrentState()).Returns(GatewayConnectionState.Connected);
@@ -60,6 +62,40 @@ public class PerformanceDashboardAggregatorTests
         _mockApiRequestTracker.Setup(t => t.GetUsageStatistics(It.IsAny<int>())).Returns(Array.Empty<ApiUsageDto>());
         _mockApiRequestTracker.Setup(t => t.GetRateLimitEvents(It.IsAny<int>())).Returns(Array.Empty<RateLimitEventDto>());
         _mockCpuHistoryService.Setup(s => s.GetCurrentCpu()).Returns(5.0);
+        _mockCommandLogService
+            .Setup(s => s.GetCommandStatsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int>());
+    }
+
+    [Theory]
+    [InlineData(GatewayConnectionState.Disconnected)]
+    [InlineData(GatewayConnectionState.Connecting)]
+    public async Task BuildOverviewAsync_WhenGatewayNotConnected_IsOfflineWhateverElseSays(GatewayConnectionState state)
+    {
+        _mockConnectionStateService.Setup(s => s.GetCurrentState()).Returns(state);
+
+        var result = await _aggregator.BuildOverviewAsync();
+
+        result.Overview.OverallStatus.Should().Be("Offline");
+        result.Shell.OverallStatus.Should().Be("Offline");
+        result.Overview.OverallStatusText.Should().Be("Offline");
+        result.Overview.OverallStatusClass.Should().Be("health-status-error");
+    }
+
+    [Fact]
+    public async Task BuildOverviewAsync_CommandTotalComesFromTheCommandLogNotTheEmptyInMemoryMetrics()
+    {
+        _mockCommandLogService
+            .Setup(s => s.GetCommandStatsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int> { ["ping"] = 30, ["play"] = 8 });
+
+        var result = await _aggregator.BuildOverviewAsync(24);
+
+        result.Overview.CommandsInRange.Should().Be(38);
+        result.Overview.CommandsMeasured.Should().Be(0, "latency cards must not pretend to have samples");
+        _mockCommandLogService.Verify(s => s.GetCommandStatsAsync(
+            It.Is<DateTime?>(d => d.HasValue && Math.Abs((DateTime.UtcNow.AddHours(-24) - d.Value).TotalMinutes) < 5),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -129,9 +165,17 @@ public class PerformanceDashboardAggregatorTests
                 new CommandPerformanceAggregateDto { CommandName = "help", ExecutionCount = 30, AvgMs = 40 }
             });
 
+        _mockCommandLogService
+            .Setup(s => s.GetCommandStatsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int> { ["ping"] = 80, ["help"] = 40 });
+
         var result = await _aggregator.BuildOverviewAsync(168);
 
-        result.Overview.CommandsInRange.Should().Be(100);
+        result.Overview.CommandsInRange.Should().Be(120, "the total is the command log's for the whole range");
+        result.Overview.CommandsMeasured.Should().Be(100);
+        _mockCommandLogService.Verify(s => s.GetCommandStatsAsync(
+            It.Is<DateTime?>(d => d.HasValue && Math.Abs((DateTime.UtcNow.AddHours(-168) - d.Value).TotalMinutes) < 5),
+            It.IsAny<CancellationToken>()), Times.Once);
         result.Overview.TimeRangeCaption.Should().Be("Last 7 days");
     }
 
