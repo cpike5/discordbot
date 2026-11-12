@@ -23,15 +23,19 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
     'use strict';
 
-    var STATUS_STYLES = {
-        Online: { badge: 'badge-success', title: 'Ran commands today' },
-        Idle: { badge: 'badge-warning', title: 'Active, no commands today' },
-        Offline: { badge: 'badge-gray', title: 'The bot is no longer in this server' }
-    };
+    var BADGE_CLASSES = ['badge-success', 'badge-warning', 'badge-error', 'badge-info', 'badge-gray'];
 
-    /** Badge class and tooltip for a server status; anything unknown reads as Offline. */
-    function statusStyle(status) {
-        return STATUS_STYLES[status] || STATUS_STYLES.Offline;
+    /**
+     * Label, badge class and tooltip for a row. The words come from the payload (the label map is
+     * in C#, ServerActivityDisplay); an unknown badge class falls back to the neutral one.
+     */
+    function statusStyle(server) {
+        var s = server || {};
+        return {
+            label: s.statusLabel || '',
+            badge: BADGE_CLASSES.indexOf(s.statusBadge) >= 0 ? s.statusBadge : 'badge-gray',
+            title: s.statusTitle || ''
+        };
     }
 
     /** "View all" or "View all 12" when the card shows only some of the servers. */
@@ -86,11 +90,11 @@
         q('members').textContent = number(server.memberCount || 0);
         q('commands').textContent = number(server.commandsToday || 0);
 
-        var style = statusStyle(server.status);
+        var style = statusStyle(server);
         var badge = q('status');
         badge.className = 'badge ' + style.badge;
         badge.setAttribute('title', style.title);
-        badge.textContent = server.status || 'Offline';
+        badge.textContent = style.label;
 
         var copy = q('copy');
         copy.setAttribute('data-copy-server-id', String(server.id));
@@ -119,6 +123,9 @@
         if (head) head.hidden = !any;
         var empty = doc.getElementById('connected-servers-empty');
         if (empty) empty.hidden = any;
+
+        var note = doc.getElementById('connected-servers-offline-note');
+        if (note && typeof data.botConnected === 'boolean') note.hidden = data.botConnected;
 
         var viewAll = doc.getElementById('connected-servers-view-all');
         if (viewAll) {
