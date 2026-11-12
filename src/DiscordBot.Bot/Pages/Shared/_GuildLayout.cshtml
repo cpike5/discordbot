@@ -16,9 +16,27 @@
 
     <!-- Guild Navigation Bar -->
     <div class="guild-nav-container mb-6" id="guildNavContainer">
-        <!-- Desktop: Horizontal tabs using TabPanel -->
-        <div class="hidden sm:block">
+        <!-- Desktop: Horizontal tabs using TabPanel. guild-nav.js moves tabs that do not fit into the
+             More menu; without JavaScript the strip scrolls and the (hidden) More menu stays unused. -->
+        <div class="hidden sm:block guild-nav-desktop" data-guild-nav>
             @await Html.PartialAsync("Components/_TabPanel", GuildNavBarHelper.CreateGuildNavBar(navModel.GuildId, navModel.ActiveTab, navModel.Tabs))
+            <div class="guild-nav-more" data-guild-nav-more hidden>
+                <button type="button"
+                        id="guildNavMoreButton"
+                        class="guild-nav-more-button"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="guildNavMoreMenu">
+                    <span class="guild-nav-more-label">More</span>
+                    <svg class="guild-nav-more-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <ul id="guildNavMoreMenu"
+                    class="guild-nav-more-menu"
+                    role="menu"
+                    aria-labelledby="guildNavMoreButton"></ul>
+            </div>
         </div>
 
         <!-- Mobile: Dropdown -->

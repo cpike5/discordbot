@@ -139,9 +139,9 @@
          */
         bindKeyboardNavigation: function(tablist, tabs, navigationMode) {
             const self = this;
-            const enabledTabs = Array.from(tabs).filter(tab => !tab.disabled && !tab.hasAttribute('aria-disabled'));
-
             tablist.addEventListener('keydown', function(e) {
+                // Tabs that a page hides (the guild strip's overflow) cannot take focus
+                const enabledTabs = Array.from(tabs).filter(tab => !tab.disabled && !tab.hasAttribute('aria-disabled') && !tab.hidden);
                 const currentTab = document.activeElement;
                 if (!currentTab || !currentTab.matches(self.config.tabSelector)) return;
 

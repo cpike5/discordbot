@@ -131,7 +131,7 @@ All layouts are located in `Pages/Shared/`.
 |--------|------|---------|---------|
 | **Main Layout** | `_Layout.cshtml` | Default authenticated layout with navbar, sidebar, footer | Most admin/guild pages |
 | **Landing Layout** | `_LayoutLanding.cshtml` | Unauthenticated layout for public pages (themed, `<main>`, skip link) | Landing, Login pages |
-| **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context; a failed POST rebuilds it through `GuildPageModelBase.PopulateGuildLayout` | Guild pages under `/Guilds/*/{guildId}` |
+| **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context; the tab strip is priority-plus on desktop (`guild-nav.js` moves tabs that do not fit into a "More" menu button, keeping the active tab visible) and a dropdown on mobile; a failed POST rebuilds it through `GuildPageModelBase.PopulateGuildLayout` | Guild pages under `/Guilds/*/{guildId}` |
 | **Portal Layout** | `Portal/_PortalLayout.cshtml` | Member-facing layout: one-row header, sticky voice bar, `quick-actions.js`, safe-area insets; no SignalR hub scripts for members | `/Portal/*` |
 | **Error Layout** | `_ErrorLayout.cshtml` | Standalone, themed, `<main>` landmark; renders even when the theme lookup fails | `Pages/Error/Index` |
 
@@ -489,7 +489,7 @@ All under `src/DiscordBot.Bot/wwwroot/js/` unless noted. One file per page or wi
 | Charts | `chart-theme.js`, `analytics-charts.js`, `performance/components/chart-utils.js` | Token-driven Chart.js theming and the chart helpers built on it |
 | Live status | `dashboard-hub.js`, `connection-banner.js`, `bot-status-refresh.js`, `dashboard-stats.js`, `dashboard-realtime.js`, `dashboard-actions.js` | Hub connection and states, banner, bot status, dashboard stats/feed/actions |
 | Theme / PWA | `theme.js`, `pwa.js` (+ `sw.js` at the root) | Theme switching without reload; service worker registration |
-| Navigation | `navigation.js`, `guild-nav.js`, `notification-bell.js`, `search.js`, `preview-popup.js` | Shell chrome, bell disclosure, search, user/guild preview popups |
+| Navigation | `navigation.js`, `guild-nav.js`, `notification-bell.js`, `search.js`, `preview-popup.js` | Shell chrome, guild tab overflow (More menu) and mobile dropdown, bell disclosure, search, user/guild preview popups |
 | Filter panel | `shared/filter-panel.js` | `toggleFilterPanel()`, and the `data-date-preset` buttons of `_DateRangeFilter` |
 | AJAX Sort | `ajax-sort.js` | Re-renders a list from a `?handler=Partial` URL when `_SortDropdown` changes |
 | Pages | `commands-page.js`, `settings.js`, `performance/*`, `soundboard-admin.js`, `tts-page.js`, `audio-settings.js`, `portal-*.js`, `currency/*`, ... | One controller per page or widget; see the page's row above |
