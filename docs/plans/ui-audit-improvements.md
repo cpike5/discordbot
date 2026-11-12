@@ -1,6 +1,6 @@
 # UI Audit Improvements: Implementation Plan
 
-**Status:** proposed. Nothing in this document is implemented yet.
+**Status:** implemented on branch `claude/modest-cray-86ztrk` (all nine items). Follow-ups are listed in § 13.
 **Source:** UI audit of 2026-11-12, run against the app in offline mode on PostgreSQL with seeded
 data (3 guilds, 40 members, 300 command logs, 12 sounds), signed in as SuperAdmin, at 1440px and
 390px.
@@ -731,3 +731,13 @@ These don't block starting. Each has a recommended default that the plan assumes
 - SQLite: nothing here touches the schema or migrations.
 - Live voice state, real member counts and SignalR updates need a connected bot. § 2's hub
   changes must be checked against a real gateway connection before release.
+
+### Follow-ups found during implementation
+
+- **Guild access in full search.** `GuildsSearchProvider` calls `IGuildService.GetGuildsAsync` without the user, so `/Search` lists every guild to any signed-in user. The navbar suggestions and the guild switcher filter through `IAuthorizationService` with `GuildAccessRequirement`; the full search should too.
+- **Dead authorization handler.** `GuildAccessAuthorizationHandler` is never registered; `Bot/Authorization/GuildAccessHandler.cs` is the one that runs, and it ignores `UserGuildAccess` grants. Decide which rules are intended.
+- **Landing screenshot** was captured in offline mode, so it shows "Bot is Offline" and zero members. Recapture against a connected bot or replace with an illustration (D6).
+- **Pre-existing axe findings** from the sweep: mobile `.topbar-brand` link name, colour contrast on the connection chip and Performance status cards, unfocusable scroll regions (Logs table, activity feed, System Health), portal VOX panel ARIA, Portal Soundboard nested interactive controls, Soundboard `#file-input` label.
+- **Console 404s** on guild Details, Members and Reminders pages during the sweep; not yet traced.
+- **Headers not converted** to `_PageHeader`: Search, Users Details/Create/Edit, Command log Details, Audit and Message log Details, Account/Profile.
+- **Not verified:** a real gateway connection (§ 2 hub changes), Moderator/Viewer passes in a browser, keyboard-only and screen-reader passes.
