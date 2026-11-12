@@ -29,6 +29,11 @@ public class LandingModel : PageModel
     public string Version => _applicationOptions.Version;
 
     /// <summary>
+    /// Gets the major version of the .NET runtime the app is running on, so the page cannot go stale.
+    /// </summary>
+    public int DotNetMajorVersion => Environment.Version.Major;
+
+    /// <summary>
     /// Handles GET requests for the landing page.
     /// </summary>
     public void OnGet()
