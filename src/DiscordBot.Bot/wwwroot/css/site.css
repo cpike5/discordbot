@@ -3212,8 +3212,87 @@
 @media (max-width: 640px) {
   .guild-nav-tabs { display: none; }
 }
+
+/* Desktop priority-plus strip (guild-nav.js): tabs that do not fit move into the More menu. */
+.guild-nav-desktop { position: relative; }
+.guild-nav-enhanced .tab-panel-tabs { overflow: visible; }
+.guild-nav-enhanced .tab-panel-container::before,
+.guild-nav-enhanced .tab-panel-container::after { display: none; }
+.guild-nav-desktop .tab-panel-tab[hidden] { display: none; }
+.guild-nav-more {
+  position: absolute;
+  /* Inside the pill bar: its 1px border plus 0.25rem padding */
+  top: calc(0.25rem + 1px);
+  right: calc(0.25rem + 1px);
+}
+.guild-nav-more[hidden] { display: none; }
+.guild-nav-more-button {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.guild-nav-more-button:hover { color: var(--color-text-primary); background-color: var(--color-bg-hover); }
+.guild-nav-more-button:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: 2px; }
+.guild-nav-more-button.active { color: var(--color-text-primary); background-color: var(--color-bg-tertiary); box-shadow: var(--shadow-sm), var(--surface-highlight); }
+.guild-nav-more-button[aria-expanded="true"] .guild-nav-more-chevron { transform: rotate(180deg); }
+.guild-nav-more-chevron { width: 1rem; height: 1rem; flex-shrink: 0; transition: transform var(--transition-fast); }
+.guild-nav-more-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: var(--z-popover);
+  min-width: 14rem;
+  margin: 0;
+  padding: 0.375rem;
+  list-style: none;
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--surface-highlight);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: top right;
+  /* Visibility flips at the end when closing but at once when opening, so the first item can take focus */
+  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility 0s linear var(--duration-fast);
+}
+.guild-nav-more-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+.guild-nav-more-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+.guild-nav-more-item:hover { background-color: var(--color-nav-hover); }
+.guild-nav-more-item:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: -2px; background-color: var(--color-nav-hover); }
+.guild-nav-more-item.active { background-color: var(--color-nav-active); font-weight: 600; }
+.guild-nav-more-item .tab-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
+.guild-nav-more-item.active .tab-icon { color: var(--color-accent-orange); }
 @media (prefers-reduced-motion: reduce) {
   .status-glass, .btn-glass, .guild-nav-tab, .guild-nav-dropdown-button, .guild-nav-dropdown-item { transition: none; }
+  .guild-nav-more-button, .guild-nav-more-chevron, .guild-nav-more-menu, .guild-nav-more-item { transition: none; }
 }
 
 /* -----------------------------------------------------------------------------
