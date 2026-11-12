@@ -201,45 +201,45 @@ else
     <!-- Desktop table (md and up) -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg hidden md:block">
         <div class="overflow-x-auto">
-            <table class="w-full" aria-label="Server members">
+            <table class="w-full table-compact" aria-label="Server members">
                 <thead class="bg-bg-tertiary">
                     <tr>
-                        <th scope="col" class="px-4 py-4 text-left w-12">
+                        <th scope="col" class="px-4 text-left w-12">
                             <input type="checkbox" data-select-all class="w-4 h-4 rounded border-border-primary cursor-pointer" aria-label="Select all members on this page" />
                         </th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Joined</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Last active</th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Joined</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Last active</th>
+                        <th scope="col" class="px-6 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border-primary">
                     @foreach (var member in members)
                     {
                         <tr class="hover:bg-bg-hover/50 transition-colors">
-                            <td class="px-4 py-4">
+                            <td class="px-4">
                                 <input type="checkbox" data-select-item="@member.UserId" class="w-4 h-4 rounded border-border-primary cursor-pointer" aria-label="Select @member.DisplayName" />
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6">
                                 <div class="flex items-center gap-3">
                                     @if (!string.IsNullOrEmpty(member.AvatarUrl))
                                     {
-                                        <img src="@member.AvatarUrl" alt="" class="w-10 h-10 rounded-full flex-shrink-0" loading="lazy" />
+                                        <img src="@member.AvatarUrl" alt="" class="table-avatar rounded-full flex-shrink-0" loading="lazy" />
                                     }
                                     else
                                     {
-                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
+                                        <div class="table-avatar rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-xs flex-shrink-0" aria-hidden="true">
                                             @TextDisplay.Initials(member.DisplayName)
                                         </div>
                                     }
-                                    <div class="min-w-0">
+                                    <div class="min-w-0 lg:flex lg:items-baseline lg:gap-2">
                                         <p class="font-medium text-text-primary truncate preview-trigger" data-preview-type="user" data-user-id="@member.UserId" data-context-guild-id="@Model.GuildId">@member.DisplayName</p>
                                         <p class="text-xs text-text-secondary font-mono truncate">@@@member.Username</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6">
                                 <div class="flex flex-wrap gap-1">
                                     @{
                                         var visibleRoles = member.Roles.Take(3).ToList();
@@ -263,10 +263,10 @@ else
                                     }
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                            <td class="px-6 text-text-secondary text-sm hidden lg:table-cell">
                                 <span data-utc="@member.JoinedAtUtcIso" data-format="date"></span>
                             </td>
-                            <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">
+                            <td class="px-6 text-text-secondary text-sm hidden xl:table-cell">
                                 @if (member.LastActiveAt.HasValue)
                                 {
                                     <span data-utc="@member.LastActiveAtUtcIso" data-format="relative"></span>
@@ -276,7 +276,7 @@ else
                                     <span class="text-text-secondary">Never</span>
                                 }
                             </td>
-                            <td class="px-6 py-4 text-right">
+                            <td class="px-6 text-right">
                                 <button type="button"
                                         class="btn btn-ghost btn-sm text-accent-blue"
                                         data-member-view="@member.UserId"

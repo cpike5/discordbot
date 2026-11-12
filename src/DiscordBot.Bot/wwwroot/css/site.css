@@ -653,6 +653,21 @@
     box-shadow: var(--shadow-md), var(--surface-highlight);
   }
 
+  /* Dense tables: shorter rows and a 32px avatar. Cells carry no vertical padding of their own,
+     so the modifier is the only thing setting the row height. */
+  .table-compact th,
+  .table-compact td,
+  .table-compact .table-cell,
+  .table-compact .table-cell-header {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+  .table-compact .table-avatar {
+    width: 2rem;
+    height: 2rem;
+    object-fit: cover;
+  }
+
   .hero-metric-card {
     position: relative;
     padding: 1.25rem 1.25rem 1.125rem;
@@ -707,6 +722,14 @@
     height: 2.5rem;
     border-radius: var(--radius-md);
     flex-shrink: 0;
+  }
+
+  /* Phones: two hero cards per row, so the value font and padding shrink and the icon goes */
+  @media (max-width: 639.98px) {
+    .hero-metric-card { padding: 0.875rem 0.875rem 0.75rem; }
+    .hero-metric-value { font-size: 1.5rem; margin-top: 0.375rem; }
+    .hero-metric-label { font-size: 0.625rem; letter-spacing: 0.06em; }
+    .hero-metric-icon { display: none; }
   }
 
   .trend-up { color: var(--color-success); }
@@ -881,6 +904,7 @@
     line-height: 1.5;
     resize: vertical;
   }
+  .form-select-sm { min-height: 2rem; padding-top: 0.25rem; padding-bottom: 0.25rem; padding-left: 0.625rem; font-size: 0.75rem; }
   .form-input-sm { min-height: 1.875rem; padding: 0.25rem 0.625rem; font-size: 0.75rem; }
   .form-input-lg { min-height: 2.75rem; padding: 0.625rem 1rem; font-size: 1rem; }
   .form-input[readonly] { background-color: var(--color-bg-secondary); }
@@ -4732,7 +4756,8 @@
   .form-input-lg {
     font-size: 1rem;
   }
-  .form-input-sm {
+  .form-input-sm,
+  .form-select-sm {
     min-height: 2.75rem;
   }
 

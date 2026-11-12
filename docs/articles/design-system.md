@@ -1999,12 +1999,20 @@ Use the `data-utc` attribute pattern to automatically convert stored UTC timesta
   border-right: none;
 }
 
-/* Compact table */
+/* Compact table: set the modifier on the <table>; cells carry no vertical padding of their own */
+.table-compact th,
+.table-compact td,
 .table-compact .table-cell,
 .table-compact .table-cell-header {
-  padding: 0.5rem 0.75rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
 }
+.table-compact .table-avatar { width: 2rem; height: 2rem; }   /* 32px avatar */
 ```
+
+Use `table-compact` on dense list tables (Members) so rows are about 52px instead of 80px. Leave the
+horizontal padding (`px-*`) on the cells, drop any `py-*` utility from them (utilities would win over
+the modifier), and give avatars `table-avatar` instead of `w-10 h-10`.
 
 ---
 
