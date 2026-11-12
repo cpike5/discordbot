@@ -210,7 +210,12 @@
             committed = value;
             if (typeof input.dispatchEvent === 'function' && typeof root.CustomEvent === 'function') {
                 const event = new root.CustomEvent('filter-live', { bubbles: true, cancelable: true, detail: { name, value } });
-                if (!input.dispatchEvent(event)) return true; // the page handles it
+                if (!input.dispatchEvent(event)) {
+                    // The page filters in script and may change the box itself (Clear filters),
+                    // so what was "last searched" is not tracked here
+                    committed = null;
+                    return true;
+                }
             }
             rememberFocus(input);
             navigate(liveUrl(href(), name, value));

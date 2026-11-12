@@ -123,11 +123,30 @@ test('matchesQuery needs every term, in any order, ignoring case', () => {
     assert.equal(C.matchesQuery(text, 'sound tts'), false);
 });
 
-test('countFilters counts only the fields a tab reads', () => {
+test('countFilters counts only the panel fields a tab reads, not the visible search box', () => {
     const filters = { StartDate: '2026-09-01', EndDate: '', GuildId: '1', SearchTerm: 'bob' };
-    assert.equal(C.countFilters('execution-logs', filters), 3);
+    assert.equal(C.countFilters('execution-logs', filters), 2);
     assert.equal(C.countFilters('analytics', filters), 2);
     assert.equal(C.countFilters('command-list', filters), 0);
+});
+
+test('filterChips names each applied filter and leaves the search term to its own box', () => {
+    const filters = { StartDate: '2026-09-01', EndDate: '2026-09-30', GuildId: '123456789012345678', CommandName: 'ping', StatusFilter: 'false', SearchTerm: 'bob' };
+    const day = (d) => new Date(Date.UTC(2026, 8, d)).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    const chips = C.filterChips('execution-logs', filters, { GuildId: { '123456789012345678': 'Test Guild' } });
+    assert.deepEqual(chips, [
+        { label: 'From: ' + day(1), key: 'StartDate' },
+        { label: 'To: ' + day(30), key: 'EndDate' },
+        { label: 'Server: Test Guild', key: 'GuildId' },
+        { label: 'Command: ping', key: 'CommandName' },
+        { label: 'Status: Failure', key: 'StatusFilter' }
+    ]);
+});
+
+test('filterChips only reads the fields its tab uses, and an empty range makes no chip', () => {
+    const filters = { StartDate: '', EndDate: '', GuildId: '1', CommandName: 'ping' };
+    assert.deepEqual(C.filterChips('analytics', filters).map((c) => c.key), ['GuildId']);
+    assert.deepEqual(C.filterChips('command-list', filters), []);
 });
 
 test('pageFromHref reads pageNumber and nothing else', () => {
