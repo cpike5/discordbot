@@ -2,11 +2,6 @@
 @model DiscordBot.Bot.Pages.Admin.Performance.IndexModel
 @{
     ViewData["Title"] = "Bot Performance";
-    ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
-    {
-        ("Dashboard", "/"),
-        ("Bot Performance", null)
-    };
 }
 
 @section Styles {
@@ -14,30 +9,29 @@
     <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
 }
 
-<!-- Page Header -->
-<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-    <div class="flex items-center gap-3">
-        <div>
-            <h1 class="page-title">Bot Performance</h1>
-            <p class="page-subtitle">Health, command, API and system metrics for the bot</p>
-        </div>
-    </div>
-
-    <!-- Overall Health Status -->
-    <div class="health-status @Model.ViewModel.OverallStatusClass">
-        @{
-            var statusIcon = Model.ViewModel.OverallStatus.ToLowerInvariant() switch
-            {
-                "healthy" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>",
-                "warning" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"" /></svg>",
-                "critical" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>",
-                _ => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>"
-            };
-        }
-        @Html.Raw(statusIcon)
-        <span>@Model.ViewModel.OverallStatusText</span>
-    </div>
-</div>
+<!-- Page Header: the overall health status sits in the action area -->
+@{
+    var statusIcon = Model.ViewModel.OverallStatus.ToLowerInvariant() switch
+    {
+        "healthy" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>",
+        "warning" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"" /></svg>",
+        "critical" or "offline" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>",
+        _ => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>"
+    };
+    Func<object?, IHtmlContent> healthStatus =
+        @<div class="health-status @Model.ViewModel.OverallStatusClass">
+            @Html.Raw(statusIcon)
+            <span>@Model.ViewModel.OverallStatusText</span>
+        </div>;
+    var pageHeader = new DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
+    {
+        Eyebrow = "Overview",
+        Title = "Bot Performance",
+        Subtitle = "Health, command, API and system metrics for the bot",
+        ActionsContent = healthStatus(null)
+    };
+}
+<partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
 <!-- Navigation tabs -->
 <div class="mb-4">
@@ -45,7 +39,8 @@
         var performanceTabs = new DiscordBot.Bot.ViewModels.Components.TabPanelViewModel
         {
             Id = "performanceTabs",
-            StyleVariant = DiscordBot.Bot.ViewModels.Components.TabStyleVariant.Underline,
+            // Pills: each section is its own ?tab= address with its own data (design-system.md, tab levels)
+            StyleVariant = DiscordBot.Bot.ViewModels.Components.TabStyleVariant.Pills,
             // tab-panel.js owns the tablist (arrow keys, focus, announcements) and raises `tabchange`;
             // dashboard.js loads the content, because it needs the time range, a cache and the hub
             // subscription. The tab and range live in the query string (?tab=…&hours=…), which

@@ -1,26 +1,48 @@
 @page
 @model DiscordBot.Bot.Pages.Admin.Users.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "User Management";
+
+    // Applied filters as chips; each remove link keeps the others and goes back to page 1
+    var userChipList = new List<ActiveFilterChip>();
+    if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
+        userChipList.Add(new ActiveFilterChip($"Search: {Model.SearchTerm}", QueryStringHelper.Without(Model.Request, "SearchTerm")));
+    if (!string.IsNullOrWhiteSpace(Model.RoleFilter))
+        userChipList.Add(new ActiveFilterChip($"Role: {Model.RoleFilter}", QueryStringHelper.Without(Model.Request, "RoleFilter")));
+    if (Model.ActiveFilter.HasValue)
+        userChipList.Add(new ActiveFilterChip($"Status: {(Model.ActiveFilter.Value ? "Active" : "Inactive")}", QueryStringHelper.Without(Model.Request, "ActiveFilter")));
+    if (Model.DiscordLinkedFilter.HasValue)
+        userChipList.Add(new ActiveFilterChip($"Discord: {(Model.DiscordLinkedFilter.Value ? "Linked" : "Not linked")}", QueryStringHelper.Without(Model.Request, "DiscordLinkedFilter")));
+    var userChips = new ActiveFilterChipsViewModel
+    {
+        Chips = userChipList,
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "SearchTerm", "RoleFilter", "ActiveFilter", "DiscordLinkedFilter")
+    };
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
-    <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
-        <div>
-            <h1 class="page-title">Users</h1>
-            <p class="mt-1 text-sm text-text-secondary">Manage application users and their roles</p>
-        </div>
-        @if (Model.ViewModel.CanCreateUsers)
+    <!-- Page Header -->
+    @{
+        Func<object?, IHtmlContent> headerActions = @<text>
+            @if (Model.ViewModel.CanCreateUsers)
+            {
+                <a asp-page="Create" class="btn btn-primary">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create User
+                </a>
+            }
+        </text>;
+        var pageHeader = new DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
         {
-            <a asp-page="Create" class="btn btn-primary">
-                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Create User
-            </a>
-        }
-    </div>
+            Eyebrow = "Administration",
+            Title = "Users",
+            Subtitle = "Manage application users and their roles",
+            ActionsContent = headerActions(null)
+        };
+    }
+    <partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
     <!-- Search and Filters -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
@@ -92,18 +114,20 @@
         </form>
     </div>
 
+    <partial name="Shared/Components/_ActiveFilterChips" model="userChips" />
+
     <!-- Users Table -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-border-primary">
+            <table class="min-w-full divide-y divide-border-primary table-compact">
                 <thead class="bg-bg-tertiary">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Role</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Discord</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Last sign-in</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                        <th scope="col" class="px-6 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                        <th scope="col" class="px-6 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Role</th>
+                        <th scope="col" class="px-6 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Discord</th>
+                        <th scope="col" class="px-6 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Last sign-in</th>
+                        <th scope="col" class="px-6 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border-primary">
@@ -112,7 +136,7 @@
                         @foreach (var user in Model.ViewModel.Users)
                         {
                             <tr class="hover:bg-bg-tertiary/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 whitespace-nowrap">
                                     <div class="flex items-center">
                                         @if (!string.IsNullOrEmpty(user.DiscordAvatarUrl))
                                         {
@@ -133,7 +157,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 whitespace-nowrap">
                                     @{
                                         var badgeVariant = user.HighestRole switch
                                         {
@@ -146,7 +170,7 @@
                                     }
                                     <partial name="Shared/Components/_Badge" model="new DiscordBot.Bot.ViewModels.Components.BadgeViewModel { Text = user.HighestRole, Variant = badgeVariant, Size = DiscordBot.Bot.ViewModels.Components.BadgeSize.Small }" />
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 whitespace-nowrap">
                                     @if (user.IsLockedOut)
                                     {
                                         <span class="inline-flex items-center px-2.5 py-0.5 mr-1 rounded-full text-xs font-medium bg-warning/20 text-warning" title="Too many failed sign-ins. The lock lifts by itself.">Locked out</span>
@@ -170,7 +194,7 @@
                                         </span>
                                     }
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 whitespace-nowrap">
                                     @if (user.IsDiscordLinked)
                                     {
                                         <div class="flex items-center text-sm text-text-primary">
@@ -185,7 +209,7 @@
                                         <span class="text-sm text-text-tertiary">-</span>
                                     }
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                <td class="px-6 whitespace-nowrap text-sm text-text-secondary">
                                     @if (user.LastLoginAt.HasValue)
                                     {
                                         <span data-utc="@user.LastLoginAtUtcIso" data-format="date"></span>
@@ -195,7 +219,7 @@
                                         <span class="text-text-tertiary">Never</span>
                                     }
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <td class="px-6 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex justify-end items-center gap-3">
                                         <a asp-page="Details" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80" aria-label="View @user.Email">
                                             View
@@ -280,7 +304,6 @@
             Showing @((Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1) to @Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount) of @Model.ViewModel.TotalCount.ToString("N0") @(Model.ViewModel.TotalCount == 1 ? "user" : "users")
         </div>
     }
-</div>
 
 @section Scripts {
     <script src="~/js/users-index.js" asp-append-version="true"></script>

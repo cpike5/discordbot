@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Bot.ViewModels.Components.Enums;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
@@ -159,6 +160,61 @@ public class DashboardIndexModelTests
         var text = System.Text.Json.JsonSerializer.Serialize(json.Value);
         text.Should().Contain("\"id\":\"1\"", "a snowflake must reach JavaScript as a string");
         text.Should().Contain("\"commandsToday\":4");
+    }
+
+    [Theory]
+    [InlineData("Connected")]
+    [InlineData("Disconnected")]
+    public async Task OnGet_GuildBadgesDescribeActivityWhateverTheBotConnectionIs(string connectionState)
+    {
+        var model = CreateModel("Moderator");
+        _bot.Setup(b => b.GetStatus()).Returns(new BotStatusDto { ConnectionState = connectionState });
+        _guilds.Setup(g => g.GetAllGuildsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<GuildDto>
+        {
+            new() { Id = 1, Name = "Busy", IsActive = true, MemberCount = 5 },
+            new() { Id = 2, Name = "Calm", IsActive = true, MemberCount = 4 },
+            new() { Id = 3, Name = "Gone", IsActive = false, MemberCount = 3 }
+        });
+        _commandLogs.Setup(c => c.GetCommandCountsByGuildAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<ulong, int> { [1] = 4, [3] = 2 });
+
+        await model.OnGetAsync();
+
+        model.ConnectedServers.Servers.ToDictionary(s => s.Name, s => s.Status).Should().Equal(
+            new Dictionary<string, ServerActivityStatus>
+            {
+                ["Busy"] = ServerActivityStatus.ActiveToday,
+                ["Calm"] = ServerActivityStatus.Quiet,
+                ["Gone"] = ServerActivityStatus.Left
+            }, "an inactive guild is Left even if it logged commands today");
+        model.ConnectedServers.BotConnected.Should().Be(connectionState == "Connected");
+    }
+
+    [Fact]
+    public async Task OnGetConnectedServers_CarriesLabelsAndBadgeClassesSoTheScriptHasNoCopy()
+    {
+        var model = CreateModel("Moderator");
+        _bot.Setup(b => b.GetStatus()).Returns(new BotStatusDto { ConnectionState = "Disconnected" });
+
+        var result = await model.OnGetConnectedServersAsync();
+
+        var text = System.Text.Json.JsonSerializer.Serialize(result.Should().BeOfType<JsonResult>().Subject.Value);
+        text.Should().Contain("\"status\":\"ActiveToday\"");
+        text.Should().Contain("\"statusLabel\":\"Active today\"");
+        text.Should().Contain("\"statusBadge\":\"badge-success\"");
+        text.Should().Contain("\"botConnected\":false");
+    }
+
+    [Theory]
+    [InlineData(ServerActivityStatus.ActiveToday, "Active today", "badge-success")]
+    [InlineData(ServerActivityStatus.Quiet, "Quiet", "badge-gray")]
+    [InlineData(ServerActivityStatus.Left, "Left", "badge-gray")]
+    public void ServerActivityDisplay_NamesEachStatus(ServerActivityStatus status, string label, string badge)
+    {
+        var display = ServerActivityDisplay.For(status);
+
+        display.Label.Should().Be(label);
+        display.BadgeClass.Should().Be(badge);
     }
 
     [Fact]

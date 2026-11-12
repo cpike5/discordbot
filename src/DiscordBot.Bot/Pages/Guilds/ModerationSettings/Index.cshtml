@@ -54,7 +54,7 @@
     {
         Name = "preset",
         Legend = "Protection level",
-        HelpText = "Choosing a level replaces your Spam, Content and Raid settings, including the blocklist. You are asked first.",
+        HelpText = "Choosing a level applies it straight away, after you confirm. It replaces your Spam, Content and Raid settings, including the blocklist.",
         SelectedValue = vm.SimplePreset,
         Columns = 3,
         Options = new List<RadioCardViewModel>
@@ -80,7 +80,7 @@
     <div data-tab-panel-for="modSettingsTabs" data-tab-id="overview" id="modSettingsTabs-panel-overview" role="tabpanel" aria-labelledby="modSettingsTabs-tab-overview" class="p-4 sm:p-6">
         <form id="overviewForm" method="post" novalidate data-unsaved-changes data-settings-form="overview" class="mb-8">
             <partial name="Shared/Components/_RadioCardGroup" model="modeGroup" />
-            <div class="mt-6 pt-6 border-t border-border-secondary flex flex-wrap items-center justify-end gap-3">
+            <div class="mt-6 pt-6 border-t border-border-secondary flex flex-wrap items-center justify-end gap-3 hidden" data-overview-actions>
                 <span class="text-sm text-warning hidden" data-unsaved-indicator>Unsaved changes</span>
                 <button type="submit" class="btn btn-primary" data-loading-text="Saving…">Save overview</button>
             </div>

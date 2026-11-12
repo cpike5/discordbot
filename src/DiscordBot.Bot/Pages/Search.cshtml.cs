@@ -1,7 +1,9 @@
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
@@ -154,6 +156,95 @@ public class SearchModel : PageModel
         return Page();
     }
 
+    /// <summary>The fewest characters the suggestions answer, as the full search.</summary>
+    internal const int SuggestMinLength = 2;
+
+    /// <summary>The longest term the suggestions look at; anything after it is dropped.</summary>
+    internal const int SuggestMaxLength = 100;
+
+    /// <summary>The most servers the suggestions list.</summary>
+    internal const int SuggestMaxGuilds = 5;
+
+    /// <summary>The most commands the suggestions list.</summary>
+    internal const int SuggestMaxCommands = 3;
+
+    /// <summary>
+    /// Live suggestions for the navbar search (<c>GET /Search?handler=Suggest&amp;q=</c>): up to five
+    /// servers and three slash commands, as JSON. Pages are matched in the browser from the
+    /// sidebar, so they are not here. Guild ids are strings: a snowflake does not survive a trip
+    /// through a JavaScript number.
+    /// </summary>
+    /// <remarks>
+    /// A server is listed only when the user passes <see cref="GuildAccessRequirement"/> for it, the
+    /// check its overview page makes, so a suggestion never names a server the user cannot open.
+    /// </remarks>
+    public async Task<IActionResult> OnGetSuggestAsync(string? q, CancellationToken cancellationToken)
+    {
+        var term = q?.Trim() ?? string.Empty;
+        if (term.Length > SuggestMaxLength)
+        {
+            term = term[..SuggestMaxLength].TrimEnd();
+        }
+
+        if (term.Length < SuggestMinLength)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Search term too short",
+                Detail = $"Enter at least {SuggestMinLength} characters to search."
+            });
+        }
+
+        // Two cheap single-category queries (the service takes one category or all of them).
+        // Ask for more servers than are shown, since some may be dropped by the access check.
+        var guildResult = await _searchService.SearchAsync(new SearchQueryDto
+        {
+            SearchTerm = term,
+            MaxResultsPerCategory = SuggestMaxGuilds * 2,
+            CategoryFilter = SearchCategory.Guilds
+        }, User, cancellationToken);
+
+        var commandResult = await _searchService.SearchAsync(new SearchQueryDto
+        {
+            SearchTerm = term,
+            MaxResultsPerCategory = SuggestMaxCommands,
+            CategoryFilter = SearchCategory.Commands
+        }, User, cancellationToken);
+
+        var guilds = new List<SearchSuggestGuild>(SuggestMaxGuilds);
+        foreach (var item in guildResult.Guilds.Items)
+        {
+            if (guilds.Count == SuggestMaxGuilds)
+                break;
+
+            if (!ulong.TryParse(item.Id, out var guildId))
+            {
+                _logger.LogWarning("Skipping guild suggestion with malformed ID: {Id}", item.Id);
+                continue;
+            }
+
+            var access = await _authorizationService.AuthorizeAsync(User, guildId, new GuildAccessRequirement());
+            if (!access.Succeeded)
+                continue;
+
+            guilds.Add(new SearchSuggestGuild(
+                guildId.ToString(),
+                item.Title,
+                $"/Guilds/Details/{guildId}",
+                item.IconUrl));
+        }
+
+        var commands = commandResult.Commands.Items
+            .Take(SuggestMaxCommands)
+            .Select(item => new SearchSuggestCommand(
+                item.Title.StartsWith('/') ? item.Title : "/" + item.Title,
+                "/Commands?q=" + Uri.EscapeDataString(item.Id)))
+            .ToList();
+
+        return new JsonResult(new SearchSuggestResponse(term, guilds, commands));
+    }
+
     private async Task<IReadOnlyList<GuildSelectorItem>> LoadUserGuildsAsync(CancellationToken cancellationToken)
     {
         var appUser = await _userManager.GetUserAsync(User);
@@ -245,3 +336,20 @@ public class SearchModel : PageModel
         };
     }
 }
+
+/// <summary>
+/// The navbar search suggestions (<see cref="SearchModel.OnGetSuggestAsync"/>), serialized camelCase.
+/// </summary>
+/// <param name="Term">The term that was searched, trimmed and capped.</param>
+/// <param name="Guilds">Servers the user may open, best match first.</param>
+/// <param name="Commands">Slash commands whose name matches.</param>
+public sealed record SearchSuggestResponse(
+    string Term,
+    IReadOnlyList<SearchSuggestGuild> Guilds,
+    IReadOnlyList<SearchSuggestCommand> Commands);
+
+/// <summary>A server suggestion. <paramref name="Id"/> is a string so JavaScript keeps every digit.</summary>
+public sealed record SearchSuggestGuild(string Id, string Name, string Url, string? IconUrl);
+
+/// <summary>A slash command suggestion, opening the command list filtered to it.</summary>
+public sealed record SearchSuggestCommand(string Name, string Url);

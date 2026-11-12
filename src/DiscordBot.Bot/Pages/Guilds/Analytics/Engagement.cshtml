@@ -13,6 +13,7 @@
         ClearUrl = Url.Page("Engagement", new { guildId = Model.ViewModel.GuildId }),
         HasActiveFilters = hasDateFilter
     };
+    var dateChips = new ActiveFilterChipsViewModel { Chips = FilterChipHelper.DateRange(Model.Request, Model.StartDate, Model.EndDate) };
     var loadFailed = !string.IsNullOrEmpty(Model.ErrorMessage);
 
     // The figures behind each chart, as text (see _ChartDataTable)
@@ -43,11 +44,13 @@
 <filter-panel title="Filters"
               is-collapsible="true"
               active-filter-count="@(hasDateFilter ? 1 : 0)"
-              default-expanded="true">
+              default-expanded="false">
     <form method="get" id="filterForm">
         <partial name="Shared/Components/_DateRangeFilter" model="dateFilter" />
     </form>
 </filter-panel>
+
+<partial name="Shared/Components/_ActiveFilterChips" model="dateChips" />
 
 @if (loadFailed)
 {

@@ -24,24 +24,15 @@
     const string syncIcon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- The sync buttons post through ApiClient, which reads the token from the page -->
     @Html.AntiForgeryToken()
 
     <!-- Page Header -->
-    <div class="page-header">
-        <div class="page-header-text">
-            <p class="page-eyebrow">Servers</p>
-            <div class="flex items-center gap-3">
-                <h1 class="page-title">Servers</h1>
-                <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = DisplayFormat.Number(Model.ViewModel.TotalCount), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
-            </div>
-            <p class="page-subtitle">Every Discord server the bot is connected to, with membership and status.</p>
-        </div>
-        <div class="page-actions">
-            @if (User.IsInRole("SuperAdmin") || User.IsInRole("Admin"))
-            {
-                <form method="post" asp-page-handler="SyncAll"
+    @{
+        Func<object?, IHtmlContent>? syncAllAction = null;
+        if (User.IsInRole("SuperAdmin") || User.IsInRole("Admin"))
+        {
+            syncAllAction = @<form method="post" asp-page-handler="SyncAll"
                       data-submit-guard
                       data-confirm-title="Sync every server?"
                       data-confirm-message="The bot re-reads the name, icon and member count of every server it is in from Discord. This can take a moment."
@@ -51,10 +42,18 @@
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@syncIcon" /></svg>
                         Sync all
                     </button>
-                </form>
-            }
-        </div>
-    </div>
+                </form>;
+        }
+        var pageHeader = new PageHeaderViewModel
+        {
+            Eyebrow = "Overview",
+            Title = "Servers",
+            Subtitle = "Every Discord server the bot is connected to, with membership and status.",
+            Badge = new BadgeViewModel { Text = DisplayFormat.Number(Model.ViewModel.TotalCount), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium },
+            ActionsContent = syncAllAction?.Invoke(null)
+        };
+    }
+    <partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
     <!-- Filtered View Info Banner -->
     @if (Model.IsFiltered)
@@ -273,7 +272,6 @@
             </div>
         }
     }
-</div>
 
 @section Scripts {
     <script src="~/js/confirm-forms.js" asp-append-version="true"></script>

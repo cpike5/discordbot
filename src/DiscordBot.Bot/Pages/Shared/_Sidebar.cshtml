@@ -1,6 +1,7 @@
 @inject DiscordBot.Core.Interfaces.IVersionService VersionService
 @inject Microsoft.Extensions.Options.IOptions<DiscordBot.Core.Configuration.ObservabilityOptions> ObservabilityOptions
 @inject DiscordBot.Core.Interfaces.IBotService BotService
+@inject DiscordBot.Core.Interfaces.IGuildSwitcherService GuildSwitcher
 @inject Microsoft.Extensions.Options.IOptions<DiscordBot.Bot.Services.BotConfiguration> BotConfig
 @{
     // The footer says what the bot is actually doing. bot-status-refresh.js keeps it current; this
@@ -92,6 +93,19 @@
           </svg>
           <span class="sidebar-link-text">Servers</span>
         </a>
+        @{
+            // Recent guilds (guild-switcher.js fills it from localStorage). Only for users with more
+            // than one guild; the IDs say which stored entries the user may still open.
+            var accessibleGuilds = await GuildSwitcher.GetAccessibleGuildsAsync(User, Context.RequestAborted);
+        }
+        @if (accessibleGuilds.Count > 1)
+        {
+          <ul class="sidebar-recent-guilds"
+              data-recent-guilds
+              data-accessible-guild-ids="@string.Join(",", accessibleGuilds.Select(g => g.Id.ToString()))"
+              aria-label="Recent servers"
+              hidden></ul>
+        }
       </authorize>
 
       <!-- Commands - visible to Viewer+ -->

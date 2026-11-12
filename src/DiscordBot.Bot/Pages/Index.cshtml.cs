@@ -9,7 +9,6 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Components.Enums;
-using static DiscordBot.Bot.ViewModels.Components.Enums.ServerConnectionStatus;
 
 namespace DiscordBot.Bot.Pages;
 
@@ -180,7 +179,7 @@ public class IndexModel : PageModel
         BuildBotStatusBanner(statusDto, stats);
         BuildHeroMetrics(stats);
         BuildActivityTimeline(recentLogsResponse.Items, ratWatchActivity);
-        BuildConnectedServersWidget(guilds, commandCountsByGuild);
+        BuildConnectedServersWidget(guilds, commandCountsByGuild, BotStatusBanner.IsOnline);
 
         return Page();
     }
@@ -306,37 +305,27 @@ public class IndexModel : PageModel
         };
     }
 
-    private void BuildConnectedServersWidget(IEnumerable<GuildDto> guilds, IDictionary<ulong, int> commandCountsByGuild)
+    private void BuildConnectedServersWidget(IEnumerable<GuildDto> guilds, IDictionary<ulong, int> commandCountsByGuild, bool botConnected)
     {
         var guildList = guilds.ToList();
-
-        // Avatar fills for initials: token classes (white text reads on every fill), whole names so
-        // Tailwind finds them
-        var avatarClasses = new[]
-        {
-            "bg-accent-orange",
-            "bg-accent-blue",
-            "bg-success",
-            "bg-info",
-            "bg-accent-purple"
-        };
 
         var serverItems = guildList.Select(guild =>
         {
             var commandsToday = commandCountsByGuild.TryGetValue(guild.Id, out var count) ? count : 0;
 
             // Determine status
-            var status = ServerConnectionStatus.Offline;
+            // Activity only: the bot's connection is reported once, by the card header and banner
+            var status = ServerActivityStatus.Left;
             if (guild.IsActive)
             {
-                status = commandsToday > 0 ? ServerConnectionStatus.Online : ServerConnectionStatus.Idle;
+                status = commandsToday > 0 ? ServerActivityStatus.ActiveToday : ServerActivityStatus.Quiet;
             }
 
             // Generate initials from guild name
             var initials = GenerateInitials(guild.Name);
 
             // Same server, same colour, every render
-            var avatarClass = avatarClasses[(int)(guild.Id % (uint)avatarClasses.Length)];
+            var avatarClass = GuildAvatar.ClassFor(guild.Id);
 
             return new ConnectedServerItemViewModel
             {
@@ -361,7 +350,8 @@ public class IndexModel : PageModel
             Title = "Connected Servers",
             ViewAllUrl = Url.Page("/Guilds/Index") ?? "/Guilds",
             Servers = serverItems,
-            TotalServerCount = guildList.Count
+            TotalServerCount = guildList.Count,
+            BotConnected = botConnected
         };
 
         _logger.LogDebug("Built Connected Servers widget with {DisplayedCount} of {TotalCount} servers",
@@ -411,11 +401,12 @@ public class IndexModel : PageModel
 
         var guilds = await _guildService.GetAllGuildsAsync();
         var commandCountsByGuild = await _commandLogService.GetCommandCountsByGuildAsync(DateTime.UtcNow.Date);
-        BuildConnectedServersWidget(guilds, commandCountsByGuild);
+        BuildConnectedServersWidget(guilds, commandCountsByGuild, _botService.GetStatus().ConnectionState == "Connected");
 
         return new JsonResult(new
         {
             totalServerCount = ConnectedServers.TotalServerCount,
+            botConnected = ConnectedServers.BotConnected,
             servers = ConnectedServers.Servers.Select(s => new
             {
                 id = s.Id.ToString(),
@@ -425,6 +416,9 @@ public class IndexModel : PageModel
                 avatarClass = s.AvatarClass,
                 memberCount = s.MemberCount,
                 status = s.Status.ToString(),
+                statusLabel = ServerActivityDisplay.For(s.Status).Label,
+                statusBadge = ServerActivityDisplay.For(s.Status).BadgeClass,
+                statusTitle = ServerActivityDisplay.For(s.Status).Title,
                 commandsToday = s.CommandsToday,
                 detailUrl = s.DetailUrl
             })

@@ -47,14 +47,9 @@
 
     <!-- Main Content Area -->
     <main id="main-content" class="main-content-redesign" tabindex="-1">
+        <!-- The one content width for every page (.page-container); pages add no wrapper of their own,
+             and their header is _PageHeader (breadcrumb, eyebrow, the one h1, actions) -->
         <div class="page-container">
-            <!-- Breadcrumb Navigation -->
-            @if (ViewData["Breadcrumbs"] != null)
-            {
-                @await Html.PartialAsync("_Breadcrumb")
-            }
-
-            <!-- Page Content -->
             @RenderBody()
         </div>
     </main>
@@ -95,7 +90,10 @@
     <!-- Bot Status Auto-Refresh -->
     <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
     <!-- Search Keyboard Shortcuts -->
+    <script src="~/js/search-suggest.js" asp-append-version="true"></script>
     <script src="~/js/search.js" asp-append-version="true"></script>
+    <!-- Guild switcher (guild header) and recent guilds (sidebar) -->
+    <script src="~/js/guild-switcher.js" asp-append-version="true"></script>
     <!-- Preview Popup Module -->
     <script src="~/js/preview-popup.js" asp-append-version="true"></script>
     <!-- Theme Manager Module -->

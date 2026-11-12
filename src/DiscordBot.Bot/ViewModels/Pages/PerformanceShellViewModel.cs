@@ -7,31 +7,19 @@ namespace DiscordBot.Bot.ViewModels.Pages;
 public record PerformanceShellViewModel
 {
     /// <summary>
-    /// Gets the overall health status (Healthy, Warning, Critical).
+    /// Gets the overall health status (Healthy, Warning, Critical, Offline).
     /// </summary>
     public string OverallStatus { get; init; } = "Healthy";
 
     /// <summary>
     /// Gets the CSS class for overall health status badge.
     /// </summary>
-    public string OverallStatusClass => OverallStatus.ToLowerInvariant() switch
-    {
-        "healthy" => "health-status-healthy",
-        "warning" => "health-status-warning",
-        "critical" => "health-status-error",
-        _ => "health-status-healthy"
-    };
+    public string OverallStatusClass => HealthStatusDisplay.For(OverallStatus).CssClass;
 
     /// <summary>
     /// Gets the display text for overall health status badge.
     /// </summary>
-    public string OverallStatusText => OverallStatus.ToLowerInvariant() switch
-    {
-        "healthy" => "Operational",
-        "warning" => "Degraded",
-        "critical" => "Critical",
-        _ => "Operational"
-    };
+    public string OverallStatusText => HealthStatusDisplay.For(OverallStatus).Text;
 
     /// <summary>
     /// Gets the number of active performance alerts.

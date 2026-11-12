@@ -1,0 +1,27 @@
+@model DiscordBot.Bot.ViewModels.Components.FilterSearchViewModel
+@*
+    The always-visible search box above a list. It filters as you type: shared/filter-panel.js
+    (data-filter-live) waits 300ms after the last key, then reloads the page with the value in the
+    query string and puts the caret back. Without scripts it is a plain GET form that keeps the
+    other applied filters as hidden inputs.
+*@
+<form method="get" role="search" class="mb-4" data-filter-search>
+    @foreach (var pair in Model.Hidden)
+    {
+        <input type="hidden" name="@pair.Key" value="@pair.Value" />
+    }
+    <label for="@Model.Id" class="sr-only">@Model.Label</label>
+    <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="search"
+               id="@Model.Id"
+               name="@Model.Name"
+               value="@Model.Value"
+               autocomplete="off"
+               placeholder="@Model.Placeholder"
+               data-filter-live
+               class="form-input w-full pl-10" />
+    </div>
+</form>

@@ -109,7 +109,7 @@
         const total = Math.max(0, (parseInt(results.dataset.total, 10) || 0) + delta);
         results.dataset.total = String(total);
 
-        const badge = document.querySelector('[data-total-badge] .badge');
+        const badge = document.querySelector('[data-page-badge] .badge');
         if (badge) badge.textContent = Format.number(total);
 
         const summary = results.querySelector('[data-results-summary]');
@@ -374,12 +374,9 @@
         const panel = document.querySelector('[data-filter-panel]');
         if (!panel) return;
 
+        // Collapsed unless the person opened it before: what is applied shows as chips below it
         const saved = readPanelState();
-        const hasFilters = panel.dataset.hasActiveFilters === 'true';
-        // With no saved choice: open when filters are applied or the screen is wide enough that
-        // the panel does not push the results out of view
-        const roomy = window.matchMedia && window.matchMedia('(min-width: 1024px)').matches;
-        setPanelExpanded(saved !== null ? saved : (hasFilters || roomy), false);
+        setPanelExpanded(saved !== null ? saved : false, false);
     }
 
     function highlightPreset() {

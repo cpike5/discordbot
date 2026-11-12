@@ -14,6 +14,18 @@
         ClearUrl = Url.Page("RatWatchAnalytics"),
         HasActiveFilters = hasFilters
     };
+    var chipList = new List<ActiveFilterChip>();
+    if (Model.GuildId.HasValue)
+    {
+        var guildName = Model.EnabledGuilds.FirstOrDefault(g => g.GuildId == Model.GuildId.Value)?.Name ?? Model.GuildId.Value.ToString();
+        chipList.Add(new ActiveFilterChip($"Server: {guildName}", QueryStringHelper.Without(Model.Request, "GuildId")));
+    }
+    chipList.AddRange(FilterChipHelper.DateRange(Model.Request, Model.StartDate, Model.EndDate));
+    var filterChips = new ActiveFilterChipsViewModel
+    {
+        Chips = chipList,
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "GuildId", "StartDate", "EndDate")
+    };
     var loadFailed = !string.IsNullOrEmpty(Model.ErrorMessage);
 
     // The figures behind each chart, as text (see _ChartDataTable)
@@ -45,49 +57,26 @@
     };
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm flex-wrap">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary" aria-hidden="true">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium" aria-current="page">Rat Watch Analytics</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-text-primary">Global Rat Watch Analytics</h1>
-            <p class="mt-1 text-sm text-text-secondary">
-                @if (Model.GuildId.HasValue)
-                {
-                    <span>Analytics for @Model.ViewModel.GuildName</span>
-                }
-                else if (loadFailed)
-                {
-                    <span>Cross-server metrics and trends</span>
-                }
-                else
-                {
-                    <span>Cross-server metrics and trends (@DisplayFormat.Plural(Model.EnabledGuilds.Count, "server") with Rat Watch enabled)</span>
-                }
-            </p>
-        </div>
-    </div>
+    <!-- Page Header (top level, so no breadcrumb) -->
+    @{
+        var ratWatchSubtitle = Model.GuildId.HasValue
+            ? $"Analytics for {Model.ViewModel.GuildName}"
+            : loadFailed
+                ? "Cross-server metrics and trends"
+                : $"Cross-server metrics and trends ({DisplayFormat.Plural(Model.EnabledGuilds.Count, "server")} with Rat Watch enabled)";
+        var pageHeader = new DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
+        {
+            Eyebrow = "Overview",
+            Title = "Global Rat Watch Analytics",
+            Subtitle = ratWatchSubtitle
+        };
+    }
+    <partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
     <filter-panel title="Filters"
                   is-collapsible="true"
                   active-filter-count="@(hasFilters ? 1 : 0)"
-                  default-expanded="true">
+                  default-expanded="false">
         <form method="get" id="filterForm">
             <div class="mb-4">
                 <label for="GuildId" class="block text-sm font-medium text-text-primary mb-2">Server</label>
@@ -104,6 +93,8 @@
             <partial name="Shared/Components/_DateRangeFilter" model="dateFilter" />
         </form>
     </filter-panel>
+
+    <partial name="Shared/Components/_ActiveFilterChips" model="filterChips" />
 
     @if (loadFailed)
     {
@@ -319,7 +310,6 @@
         </div>
     }
     }
-</div>
 
 @section Scripts {
     <!-- Chart.js Library -->

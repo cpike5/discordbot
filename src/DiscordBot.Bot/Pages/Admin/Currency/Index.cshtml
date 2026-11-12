@@ -8,15 +8,16 @@
     ViewData["Title"] = "Currency";
 }
 
-<div class="page-header">
-    <div class="page-header-text">
-        <h1 class="page-title">Bot-wide currency</h1>
-        <p class="page-subtitle">
-            Currencies that exist across every server, including the credit that will back paid features.
-            Server administrators can price their own features in these; only you can create or change them.
-        </p>
-    </div>
-</div>
+<!-- Page Header -->
+@{
+    var pageHeader = new DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
+    {
+        Eyebrow = "Administration",
+        Title = "Bot-wide currency",
+        Subtitle = "Currencies that exist across every server, including the credit that will back paid features. Server administrators can price their own features in these; only you can create or change them."
+    };
+}
+<partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
 <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">

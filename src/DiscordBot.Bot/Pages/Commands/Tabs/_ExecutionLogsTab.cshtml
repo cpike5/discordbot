@@ -59,30 +59,30 @@ else
     <!-- Desktop table -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
         <div class="relative overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full table-compact">
                 <caption class="sr-only">Command execution logs, newest first</caption>
                 <thead class="bg-bg-tertiary">
                     <tr>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Time</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Command</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Server</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">User</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Duration</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider"><span class="sr-only">Actions</span></th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Time</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Command</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Server</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">User</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Duration</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border-primary">
                     @foreach (var log in Model.Logs)
                     {
                         <tr class="hover:bg-bg-hover/50 transition-colors">
-                            <td class="px-6 py-4 text-text-secondary text-sm whitespace-nowrap">
+                            <td class="px-6 text-text-secondary text-sm whitespace-nowrap">
                                 @DisplayFormat.Time(log.ExecutedAt, "datetime-seconds")
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6">
                                 <span class="font-mono text-sm text-accent-blue break-all">/@log.CommandName</span>
                             </td>
-                            <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                            <td class="px-6 text-text-secondary text-sm hidden lg:table-cell">
                                 @if (log.GuildId.HasValue)
                                 {
                                     <span class="preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
@@ -92,13 +92,13 @@ else
                                     @log.GuildName
                                 }
                             </td>
-                            <td class="px-6 py-4 text-text-secondary text-sm">
+                            <td class="px-6 text-text-secondary text-sm">
                                 <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" data-context-guild-id="@log.GuildId">@log.Username</span>
                             </td>
-                            <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell whitespace-nowrap">
+                            <td class="px-6 text-text-secondary text-sm hidden xl:table-cell whitespace-nowrap">
                                 @(log.ResponseTimeMs) ms
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6">
                                 <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(log.Success
                                     ? new BadgeViewModel { Text = "Success", Variant = BadgeVariant.Success, Size = BadgeSize.Small }
                                     : new BadgeViewModel { Text = "Failed", Variant = BadgeVariant.Error, Size = BadgeSize.Small })" />
@@ -107,7 +107,7 @@ else
                                     <div class="mt-1 text-xs text-error truncate max-w-xs" title="@log.ErrorMessage">@log.ErrorMessage</div>
                                 }
                             </td>
-                            <td class="px-6 py-4 text-right">
+                            <td class="px-6 text-right">
                                 <button type="button" data-log-id="@log.Id" aria-label="View details of /@log.CommandName"
                                         class="btn btn-secondary btn-sm">View</button>
                             </td>

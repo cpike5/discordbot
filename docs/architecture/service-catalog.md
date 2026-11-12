@@ -193,6 +193,7 @@ Services for user lifecycle, guild membership, and user data operations.
 | `IUserDiscordGuildService` | Core Interfaces | Cross-mapping of user/guild relationships |
 | `UserDiscordGuildService` | Bot/Services | Manages user presence across multiple Discord guilds |
 | `IGuildService` | Core Interfaces | Guild-level operations and metadata |
+| `IGuildSwitcherService` / `GuildSwitcherService` | Core Interfaces, Bot/Services/Guild (scoped) | The active guilds a user can open, for the guild switcher (`_GuildHeader`) and the sidebar's recent guilds. Asks `IAuthorizationService` with each guild as the resource and a `GuildAccessRequirement`, so it follows the `GuildAccess` policy (`GuildAccessHandler`) exactly; SuperAdmins skip the per-guild checks. Cached per user for 60 seconds; a failure gives an empty list (plain heading), never a broken page |
 | `IGuildDetailsAggregator` / `GuildDetailsAggregator` | Bot/Interfaces, Bot/Services/Guilds (scoped) | Builds the `Guilds/Details` page: one `GuildDetailsAggregateDto` with the guild record plus every widget (welcome, scheduled messages, Rat Watch, reminders, members, audio, assistant). Each section loads on its own, so one failure becomes a retry widget and the rest still render. Keeps `Details.cshtml.cs` to routing and view-model assembly |
 | `MemberSyncService` | Bot/Services | Background service: full guild member sync on startup + daily reconciliation |
 | `MemberSyncQueue` | Bot/Services | Queues pending member sync operations |
@@ -536,6 +537,7 @@ Lightweight helper classes for common formatting, validation, and calculation ta
 | `PurgeDisplay` | Bot/Helpers | Plain names for the purge pages' per-table record counts (`CountLabel(key)`); the bulk-purge entity types are an enum and read through `DisplayName()` |
 | `EnumDisplayExtensions` | Core/Extensions | `DisplayName()`, `DisplayNameLower()`, `Description()` from `[Display]` on an enum member, falling back to `Humanize(...)`; the one text for any enum in copy ("Cleared early" for a `RatWatchStatus`, not the enum name) |
 | `TextDisplay` | Bot/Helpers | Cuts user text by text element, not UTF-16 unit: `Initials`, `WordInitials`, `Truncate`, `Take`; script twin is `format.js` |
+| `GuildAvatar` | Bot/Helpers | `ClassFor(guildId)`: the token background class behind a guild's initials; the admin dashboard and the member portal header both call it, so a guild keeps one colour |
 | `ConsentDisplay` | Bot/Helpers | `Via(source)` names where a consent change was made ("the web portal", "a Discord command") |
 | `UserDisplay` | Bot/Helpers | Shows `Unknown#id` resolver results as "Unknown user" |
 | `FormFieldState` | Bot/Helpers | Glue between `ModelState` and the form partials (`FieldError`, `StateOf`, channel select options) |

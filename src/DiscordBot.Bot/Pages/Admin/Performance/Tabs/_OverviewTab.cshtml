@@ -41,7 +41,7 @@
         </div>
         <div class="status-card-content">
             <span class="status-card-label">Avg Response</span>
-            <span class="status-card-value">@(Model.CommandsInRange > 0 ? $"{Model.AvgCommandResponseMs:F0} ms" : "No data")</span>
+            <span class="status-card-value">@(Model.CommandsMeasured > 0 ? $"{Model.AvgCommandResponseMs:F0} ms" : "No data")</span>
         </div>
     </a>
 
@@ -139,7 +139,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </div>
-        @if (Model.CommandsInRange > 0)
+        @if (Model.CommandsMeasured > 0)
         {
             <div class="metric-value">@Model.ErrorRate.ToString("F1")<span class="metric-unit">%</span></div>
         }
@@ -147,7 +147,7 @@
         {
             <div class="metric-value metric-value-empty">&mdash;</div>
         }
-        <div class="metric-caption">@(Model.CommandsInRange > 0 ? Model.TimeRangeCaption : "No commands yet")</div>
+        <div class="metric-caption">@(Model.CommandsMeasured > 0 ? Model.TimeRangeCaption : "No timing data yet")</div>
     </div>
 </div>
 

@@ -303,6 +303,10 @@
         const metricsSection = banner.querySelector('[data-metrics-section]');
         if (metricsSection) metricsSection.classList.toggle('hidden', !connected);
 
+        // The Connected Servers card says once, in its header, when the bot is offline
+        const offlineNote = document.querySelector('[data-connected-servers-offline-note]');
+        if (offlineNote) offlineNote.hidden = connected;
+
         const latency = data.latencyMs !== undefined ? data.latencyMs : data.latency;
         const latencyElement = banner.querySelector('[data-latency]');
         if (latencyElement && latency !== undefined && latency !== null) latencyElement.textContent = latency;

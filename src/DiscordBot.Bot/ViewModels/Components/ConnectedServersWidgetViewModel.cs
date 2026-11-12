@@ -31,4 +31,10 @@ public record ConnectedServersWidgetViewModel
     /// Shows when there are more servers than displayed in the widget.
     /// </summary>
     public bool ShowViewAll => TotalServerCount > Servers.Count;
+
+    /// <summary>
+    /// Gets whether the bot is connected to Discord. When false the card header says the
+    /// activity shown comes from the log; the rows never claim a server is online.
+    /// </summary>
+    public bool BotConnected { get; init; } = true;
 }

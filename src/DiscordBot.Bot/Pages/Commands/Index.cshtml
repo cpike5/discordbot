@@ -30,14 +30,10 @@
         _ => "All registered slash commands"
     };
 
-    var headerModel = new CommandHeaderViewModel { Title = "Commands", Subtitle = subtitle, ActiveTab = activeTab };
-    var breadcrumbModel = new CommandBreadcrumbViewModel { ActiveTab = activeTab };
+    // command-tabs.js swaps the subtitle ([data-page-subtitle]) when the tab changes
+    var headerModel = new PageHeaderViewModel { Eyebrow = "Overview", Title = "Commands", Subtitle = subtitle };
 
-    // Filters present in the URL open the filter panels (the default date range is applied by the script)
-    var logsHasFilters = Model.StartDate.HasValue || Model.EndDate.HasValue || Model.GuildId.HasValue
-        || !string.IsNullOrWhiteSpace(Model.SearchTerm) || !string.IsNullOrWhiteSpace(Model.CommandName)
-        || Model.StatusFilter.HasValue;
-    var analyticsHasFilters = Model.StartDate.HasValue || Model.EndDate.HasValue || Model.GuildId.HasValue;
+    // The filter panels start collapsed; the filters in use show as chips under them (commands-page.js)
 
     var commandAutocomplete = new AutocompleteInputViewModel
     {
@@ -56,9 +52,8 @@
     private static readonly string FunnelPath = "M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-commands-page data-active-tab="@activeTab">
-    <partial name="Shared/Components/_CommandBreadcrumb" model="breadcrumbModel" />
-    <partial name="Shared/Components/_CommandHeader" model="headerModel" />
+<div data-commands-page data-active-tab="@activeTab">
+    <partial name="Shared/Components/_PageHeader" model="headerModel" />
 
     <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span class="text-sm text-text-secondary">
@@ -84,7 +79,21 @@
 
     <!-- Tab 2: Execution Logs -->
     <div id="commandTabs-panel-execution-logs" data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" @(activeTab == "execution-logs" ? "" : "hidden")>
-        <details class="group bg-bg-secondary border border-border-primary rounded-lg mb-6" data-filter-panel="execution-logs" @(logsHasFilters ? "open" : "")>
+        <!-- Search: always visible, filters the logs as you type. It belongs to the filter form below (form attribute) -->
+        <div class="mb-4" role="search">
+            <label for="logs-SearchTerm" class="sr-only">Search command logs</label>
+            <div class="relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="search" id="logs-SearchTerm" name="SearchTerm" form="logs-filter-form" value="@Model.SearchTerm" autocomplete="off"
+                       data-filter-live
+                       placeholder="Search by user, command or server"
+                       class="form-input w-full pl-10" />
+            </div>
+        </div>
+
+        <details class="group bg-bg-secondary border border-border-primary rounded-lg mb-4" data-filter-panel="execution-logs">
             <summary class="flex items-center justify-between gap-3 px-5 py-4 cursor-pointer list-none rounded-lg">
                 <span class="flex items-center gap-3">
                     <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@FunnelPath" /></svg>
@@ -95,7 +104,7 @@
             </summary>
 
             <div class="border-t border-border-primary p-4 sm:p-6">
-                <form method="get" action="@Url.Page("/Commands/Index")" data-commands-filter-form="execution-logs" novalidate>
+                <form method="get" id="logs-filter-form" action="@Url.Page("/Commands/Index")" data-commands-filter-form="execution-logs" novalidate>
                     <input type="hidden" name="tab" value="execution-logs" />
 
                     <div class="mb-4">
@@ -140,13 +149,6 @@
                     </div>
                     <p id="logs-range-error" class="hidden text-sm text-error mb-4" role="alert" data-range-error></p>
 
-                    <div class="mb-4">
-                        <label for="logs-SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
-                        <input type="search" id="logs-SearchTerm" name="SearchTerm" value="@Model.SearchTerm" autocomplete="off"
-                               placeholder="User names, command names, servers"
-                               class="form-input w-full" />
-                    </div>
-
                     <div class="flex flex-wrap items-center gap-3">
                         <button type="submit" class="btn btn-primary">Apply filters</button>
                         <button type="button" data-commands-action="clear-filters" class="btn btn-secondary">Clear filters</button>
@@ -155,12 +157,15 @@
             </div>
         </details>
 
+        <!-- Applied filters, drawn by commands-page.js (FilterPanel.chipsHtml) -->
+        <div data-filter-chips="execution-logs"></div>
+
         <div data-tab-content tabindex="-1" class="outline-none"></div>
     </div>
 
     <!-- Tab 3: Analytics -->
     <div id="commandTabs-panel-analytics" data-tab-panel-for="commandTabs" data-tab-id="analytics" role="tabpanel" aria-labelledby="commandTabs-tab-analytics" @(activeTab == "analytics" ? "" : "hidden")>
-        <details class="group bg-bg-secondary border border-border-primary rounded-lg mb-6" data-filter-panel="analytics" @(analyticsHasFilters ? "open" : "")>
+        <details class="group bg-bg-secondary border border-border-primary rounded-lg mb-4" data-filter-panel="analytics">
             <summary class="flex items-center justify-between gap-3 px-5 py-4 cursor-pointer list-none rounded-lg">
                 <span class="flex items-center gap-3">
                     <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@FunnelPath" /></svg>
@@ -214,6 +219,9 @@
             </div>
         </details>
 
+        <!-- Applied filters, drawn by commands-page.js (FilterPanel.chipsHtml) -->
+        <div data-filter-chips="analytics"></div>
+
         <div data-tab-content tabindex="-1" class="outline-none"></div>
     </div>
 </div>
@@ -234,6 +242,7 @@
     <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script src="~/js/command-tabs.js" asp-append-version="true"></script>
     <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
     <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script src="~/js/command-log-modal.js" asp-append-version="true"></script>
     <script src="~/js/commands-charts.js" asp-append-version="true"></script>

@@ -92,14 +92,17 @@
 /* ===== VARIANT: UNDERLINE ===== */
 /* Light background with bottom border on active tab (default style) */
 
+/* The strip scrolls (overflow-x: auto makes overflow-y auto as well), so a strip border with tabs
+   pulled down over it by margin-bottom: -2px clips the active underline away. The rule under the
+   strip is an inset shadow instead and each tab keeps its 2px border inside the strip, as in the
+   portal variant below. */
 .tab-panel-underline .tab-panel-tabs {
     gap: 0.25rem;
-    border-bottom: 2px solid var(--color-border-primary);
+    box-shadow: inset 0 -2px 0 var(--color-border-primary);
 }
 
 .tab-panel-underline .tab-panel-tab {
     border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
 }
 
 .tab-panel-underline .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
@@ -183,14 +186,14 @@
 /* ===== VARIANT: BORDERED ===== */
 /* Full borders around tabs with Discord branding on active state */
 
+/* Inset shadow for the strip rule, not a border under tabs pulled down over it: see the underline variant */
 .tab-panel-bordered .tab-panel-tabs {
     gap: 0.5rem;
-    border-bottom: 2px solid var(--color-border-secondary);
+    box-shadow: inset 0 -2px 0 var(--color-border-secondary);
 }
 
 .tab-panel-bordered .tab-panel-tab {
     border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
 }
 
 .tab-panel-bordered .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
@@ -226,16 +229,19 @@
 /* ===== VARIANT: PORTAL ===== */
 /* Clean underline style; the active tab is ember like every other selected state */
 
+/* The rule under the strip is an inset shadow, and each tab keeps its own 2px border inside the
+   strip. The strip scrolls (overflow-x: auto makes overflow-y auto as well), so the old layout, a
+   strip border with tabs pulled down over it by margin-bottom: -2px, had the active tab's underline
+   clipped away entirely. Inside the strip nothing is clipped, and a tab's border paints over the shadow. */
 .tab-panel-portal .tab-panel-tabs {
     gap: 0.5rem;
-    border-bottom: 2px solid var(--color-border-secondary);
+    box-shadow: inset 0 -2px 0 var(--color-border-secondary);
 }
 
 .tab-panel-portal .tab-panel-tab {
     color: var(--color-text-secondary);
     padding: 0.75rem 1.25rem;
     border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
 }
 
 .tab-panel-portal .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
@@ -244,6 +250,8 @@
 }
 
 .tab-panel-portal .tab-panel-tab.active {
+    /* In the light theme ember is plum, close to the inactive text, so weight carries the cue too */
+    font-weight: 600;
     color: var(--color-accent-orange);
     border-bottom-color: var(--color-accent-orange);
 }
@@ -443,8 +451,8 @@
     padding: 0 1rem;
 }
 
-.tab-panel-container.tab-panel-card .tab-panel-tabs {
-    border-bottom-color: var(--color-border-secondary);
+.tab-panel-container.tab-panel-card.tab-panel-underline .tab-panel-tabs {
+    box-shadow: inset 0 -2px 0 var(--color-border-secondary);
 }
 
 .tab-panel-container.tab-panel-card::before {

@@ -653,6 +653,21 @@
     box-shadow: var(--shadow-md), var(--surface-highlight);
   }
 
+  /* Dense tables: shorter rows and a 32px avatar. Cells carry no vertical padding of their own,
+     so the modifier is the only thing setting the row height. */
+  .table-compact th,
+  .table-compact td,
+  .table-compact .table-cell,
+  .table-compact .table-cell-header {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+  .table-compact .table-avatar {
+    width: 2rem;
+    height: 2rem;
+    object-fit: cover;
+  }
+
   .hero-metric-card {
     position: relative;
     padding: 1.25rem 1.25rem 1.125rem;
@@ -707,6 +722,14 @@
     height: 2.5rem;
     border-radius: var(--radius-md);
     flex-shrink: 0;
+  }
+
+  /* Phones: two hero cards per row, so the value font and padding shrink and the icon goes */
+  @media (max-width: 639.98px) {
+    .hero-metric-card { padding: 0.875rem 0.875rem 0.75rem; }
+    .hero-metric-value { font-size: 1.5rem; margin-top: 0.375rem; }
+    .hero-metric-label { font-size: 0.625rem; letter-spacing: 0.06em; }
+    .hero-metric-icon { display: none; }
   }
 
   .trend-up { color: var(--color-success); }
@@ -881,6 +904,7 @@
     line-height: 1.5;
     resize: vertical;
   }
+  .form-select-sm { min-height: 2rem; padding-top: 0.25rem; padding-bottom: 0.25rem; padding-left: 0.625rem; font-size: 0.75rem; }
   .form-input-sm { min-height: 1.875rem; padding: 0.25rem 0.625rem; font-size: 0.75rem; }
   .form-input-lg { min-height: 2.75rem; padding: 0.625rem 1rem; font-size: 1rem; }
   .form-input[readonly] { background-color: var(--color-bg-secondary); }
@@ -1864,8 +1888,30 @@
     padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--color-border-secondary);
   }
+  .page-header-main {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .page-header-leading {
+    flex-shrink: 0;
+  }
   .page-header-text {
     min-width: 0;
+  }
+  .page-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+  .page-title-row .page-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .page-header-badge {
+    display: inline-flex;
   }
   .page-title {
     font-family: var(--font-display);
@@ -3212,8 +3258,210 @@
 @media (max-width: 640px) {
   .guild-nav-tabs { display: none; }
 }
+
+/* Desktop priority-plus strip (guild-nav.js): tabs that do not fit move into the More menu. */
+.guild-nav-desktop { position: relative; }
+.guild-nav-enhanced .tab-panel-tabs { overflow: visible; }
+.guild-nav-enhanced .tab-panel-container::before,
+.guild-nav-enhanced .tab-panel-container::after { display: none; }
+.guild-nav-desktop .tab-panel-tab[hidden] { display: none; }
+.guild-nav-more {
+  position: absolute;
+  /* Inside the pill bar: its 1px border plus 0.25rem padding */
+  top: calc(0.25rem + 1px);
+  right: calc(0.25rem + 1px);
+}
+.guild-nav-more[hidden] { display: none; }
+.guild-nav-more-button {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.guild-nav-more-button:hover { color: var(--color-text-primary); background-color: var(--color-bg-hover); }
+.guild-nav-more-button:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: 2px; }
+.guild-nav-more-button.active { color: var(--color-text-primary); background-color: var(--color-bg-tertiary); box-shadow: var(--shadow-sm), var(--surface-highlight); }
+.guild-nav-more-button[aria-expanded="true"] .guild-nav-more-chevron { transform: rotate(180deg); }
+.guild-nav-more-chevron { width: 1rem; height: 1rem; flex-shrink: 0; transition: transform var(--transition-fast); }
+.guild-nav-more-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: var(--z-popover);
+  min-width: 14rem;
+  margin: 0;
+  padding: 0.375rem;
+  list-style: none;
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--surface-highlight);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: top right;
+  /* Visibility flips at the end when closing but at once when opening, so the first item can take focus */
+  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility 0s linear var(--duration-fast);
+}
+.guild-nav-more-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+.guild-nav-more-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+.guild-nav-more-item:hover { background-color: var(--color-nav-hover); }
+.guild-nav-more-item:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: -2px; background-color: var(--color-nav-hover); }
+.guild-nav-more-item.active { background-color: var(--color-nav-active); font-weight: 600; }
+.guild-nav-more-item .tab-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
+.guild-nav-more-item.active .tab-icon { color: var(--color-accent-orange); }
 @media (prefers-reduced-motion: reduce) {
   .status-glass, .btn-glass, .guild-nav-tab, .guild-nav-dropdown-button, .guild-nav-dropdown-item { transition: none; }
+  .guild-nav-more-button, .guild-nav-more-chevron, .guild-nav-more-menu, .guild-nav-more-item { transition: none; }
+}
+
+/* Guild switcher (guild-switcher.js): the guild name above the page title opens a list of guilds. */
+.guild-switcher { position: relative; margin-bottom: 0.125rem; }
+.guild-switcher-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  min-height: 1.75rem;
+  margin-left: -0.375rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.guild-switcher-button:hover,
+.guild-switcher-button[aria-expanded="true"] { color: var(--color-text-primary); background-color: var(--color-bg-hover); }
+.guild-switcher-button:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: 2px; }
+.guild-switcher-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guild-switcher-chevron { width: 1rem; height: 1rem; flex-shrink: 0; transition: transform var(--transition-fast); }
+.guild-switcher-button[aria-expanded="true"] .guild-switcher-chevron { transform: rotate(180deg); }
+.guild-switcher-popover {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  left: -0.375rem;
+  z-index: var(--z-popover);
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.375rem;
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--surface-highlight);
+  /* Closed, it takes no space at all: a hidden-but-laid-out popover widens the page on phones */
+  display: none;
+}
+.guild-switcher-popover.active { display: block; animation: guild-switcher-in var(--duration-fast) ease-out; }
+@keyframes guild-switcher-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+/* Phones: the name can sit far right of the avatar, so the list hangs from the whole header row */
+@media (max-width: 639px) {
+  .guild-switcher { position: static; }
+  .guild-switcher-popover { left: 0; width: min(20rem, 100%); }
+}
+.guild-switcher-filter {
+  width: 100%;
+  margin-bottom: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-md);
+}
+.guild-switcher-filter:focus { outline: 2px solid var(--color-accent-blue); outline-offset: -1px; }
+.guild-switcher-list { max-height: min(22rem, 60vh); overflow-y: auto; }
+/* Focus stays on the list; the highlighted option (aria-activedescendant) shows where it is */
+.guild-switcher-list:focus, .guild-switcher-list:focus-visible { outline: none; }
+.guild-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+}
+.guild-switcher-option[hidden] { display: none; }
+.guild-switcher-option.is-active { background-color: var(--color-nav-hover); box-shadow: inset 0 0 0 2px var(--color-accent-blue); }
+.guild-switcher-option[aria-current="page"] { font-weight: 600; }
+.guild-switcher-option-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guild-switcher-avatar { width: 1.5rem; height: 1.5rem; flex-shrink: 0; border-radius: 9999px; object-fit: cover; }
+.guild-switcher-avatar-initial,
+.sidebar-recent-guild-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-hover);
+}
+.guild-switcher-check { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--color-accent-orange); }
+.guild-switcher-empty { padding: 0.5rem 0.75rem; font-size: 0.875rem; color: var(--color-text-tertiary); }
+
+/* Recent guilds under Servers in the sidebar (and the mobile drawer, which is the same element) */
+.sidebar-recent-guilds { margin: 0.125rem 0 0.25rem; padding: 0 0 0 1.25rem; list-style: none; }
+.sidebar-recent-guilds[hidden] { display: none; }
+.sidebar-recent-guild {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.sidebar-recent-guild:hover { color: var(--color-text-primary); background-color: var(--color-nav-hover); }
+.sidebar-recent-guild:focus-visible { outline: 2px solid var(--color-accent-blue); outline-offset: -2px; }
+.sidebar-recent-guild.active { color: var(--color-text-primary); background-color: var(--color-nav-active); font-weight: 600; }
+.sidebar-recent-guild-avatar { width: 1.125rem; height: 1.125rem; flex-shrink: 0; border-radius: 9999px; object-fit: cover; }
+.sidebar-recent-guild-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The icon-only rail has no room for names */
+.sidebar-redesign.collapsed .sidebar-recent-guilds { display: none; }
+@media (min-width: 1024px) {
+  html.sidebar-collapsed .sidebar-recent-guilds { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guild-switcher-button, .guild-switcher-chevron, .sidebar-recent-guild { transition: none; }
+  .guild-switcher-popover.active { animation: none; }
 }
 
 /* -----------------------------------------------------------------------------
@@ -4047,10 +4295,121 @@
     opacity: 0.5;
   }
 
+  /* Live suggestions (search-suggest.js), in the same dropdown and in the mobile overlay */
+  .recent-searches-dropdown.search-suggest-mode {
+    max-height: min(70vh, 32rem);
+  }
+
+  .search-suggest-progress {
+    position: sticky;
+    top: 0;
+    height: 2px;
+    overflow: hidden;
+    background-color: var(--color-border-primary);
+  }
+
+  .search-suggest-progress::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 35%;
+    background-color: var(--color-accent-orange);
+    animation: search-suggest-progress 1s ease-in-out infinite;
+  }
+
+  @keyframes search-suggest-progress {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(300%); }
+  }
+
+  .search-suggest-message {
+    margin: 0;
+    padding: 0.625rem 1rem 0;
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+
+  .search-suggest-message.is-error {
+    color: var(--color-error);
+  }
+
+  .search-suggest-list {
+    padding: 0.375rem 0.5rem 0.5rem;
+  }
+
+  .search-suggest-heading {
+    padding: 0.5rem 0.75rem 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .search-suggest-option {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 2px solid transparent;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+    text-decoration: none;
+  }
+
+  .search-suggest-option:hover,
+  .search-suggest-option.is-active {
+    background-color: var(--color-bg-hover);
+  }
+
+  .search-suggest-option.is-active {
+    border-left-color: var(--color-accent-orange);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  .search-suggest-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .search-suggest-all {
+    margin-top: 0.25rem;
+    color: var(--color-text-secondary);
+  }
+
+  .search-suggest-avatar {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    object-fit: cover;
+  }
+
+  .search-suggest-avatar-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    background-color: var(--color-bg-hover);
+  }
+
   /* Reduced motion support */
   @media (prefers-reduced-motion: reduce) {
     .recent-searches-dropdown {
       transition: none;
+    }
+
+    .search-suggest-progress::after {
+      animation: none;
+      width: 100%;
+      opacity: 0.6;
     }
   }
 
@@ -4143,6 +4502,11 @@
     gap: 1rem;
     padding: 3rem 1.5rem;
     color: var(--color-text-tertiary);
+  }
+
+  /* display:flex above outranks the .hidden utility, so the empty state stayed under the results */
+  .mobile-search-empty.hidden {
+    display: none;
   }
 
 /* Reduced motion support for mobile search */
@@ -4537,7 +4901,8 @@
   .form-input-lg {
     font-size: 1rem;
   }
-  .form-input-sm {
+  .form-input-sm,
+  .form-select-sm {
     min-height: 2.75rem;
   }
 

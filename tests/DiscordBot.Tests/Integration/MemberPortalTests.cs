@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
@@ -48,6 +50,69 @@ public class MemberPortalTests : IClassFixture<MemberPortalTests.AppFixture>
         var html = await _app.Host.Client.GetStringAsync(string.Format(urlFormat, GuildId));
 
         html.Should().Contain("Smoke Test Guild Portal");
+    }
+
+    [Theory]
+    [InlineData("Soundboard", "soundboard")]
+    [InlineData("TTS", "tts")]
+    [InlineData("VOX", "vox")]
+    public async Task PortalHeader_MarksTheCurrentSectionWithAriaCurrent(string page, string tabId)
+    {
+        var html = await _app.Member.GetStringAsync($"/Portal/{page}/{GuildId}");
+
+        // Links are not tabs: the current section is aria-current, not aria-selected, and only it carries it
+        Regex.Matches(html, "id=\"portalTabs-tab-[a-z]+\"[^>]*aria-current=\"page\"").Should().HaveCount(1);
+        Regex.IsMatch(html, $"id=\"portalTabs-tab-{tabId}\"[^>]*aria-current=\"page\"")
+            .Should().BeTrue("the active portal tab is the one for this page");
+        Regex.IsMatch(html, "id=\"portalTabs-tab-[a-z]+\"[^>]*aria-selected").Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("/Portal/Soundboard/{0}")]
+    [InlineData("/Portal/TTS/{0}")]
+    [InlineData("/Portal/VOX/{0}")]
+    public async Task PortalHeader_ShowsTheAccountMenu_WithoutAdminLinkForAMember(string urlFormat)
+    {
+        var html = await _app.Member.GetStringAsync(string.Format(urlFormat, GuildId));
+
+        html.Should().Contain("id=\"portalUserMenu\"");
+        html.Should().Contain("Sign out");
+        html.Should().Contain("data-theme-toggle");
+        html.Should().NotContain("data-portal-admin-link", "a portal member holds no admin-portal role");
+        html.Should().Contain("portal-user-menu.js");
+    }
+
+    [Theory]
+    [InlineData("/Portal/Soundboard/{0}")]
+    [InlineData("/Portal/TTS/{0}")]
+    [InlineData("/Portal/VOX/{0}")]
+    public async Task PortalHeader_ShowsTheAdminPortalLink_ForAnAdmin(string urlFormat)
+    {
+        var html = await _app.Host.Client.GetStringAsync(string.Format(urlFormat, GuildId));
+
+        html.Should().Contain("data-portal-admin-link");
+        html.Should().Contain("Admin portal");
+    }
+
+    [Fact]
+    public async Task PortalHeader_SignOutIsAnAntiforgeryPostToLogout()
+    {
+        var html = await _app.Member.GetStringAsync($"/Portal/Soundboard/{GuildId}");
+
+        var form = Regex.Match(html, "<form[^>]*action=\"/Account/Logout[^\"]*\"[^>]*>(.*?)</form>", RegexOptions.Singleline);
+        form.Success.Should().BeTrue("the menu posts to /Account/Logout");
+        form.Value.Should().Contain("method=\"post\"");
+        form.Value.Should().Contain("__RequestVerificationToken");
+    }
+
+    [Fact]
+    public async Task PortalHeader_GuildWithoutIcon_ShowsTwoLetterAvatarFromTheSharedPalette()
+    {
+        var html = await _app.Member.GetStringAsync($"/Portal/Soundboard/{GuildId}");
+
+        // "Smoke Test Guild" -> "SM", in the colour GuildAvatar.ClassFor gives this guild everywhere
+        html.Should().MatchRegex(
+            $"class=\"guild-icon-fallback {Regex.Escape(GuildAvatar.ClassFor(GuildId))}\"[^>]*>SM<");
     }
 
     [Fact]

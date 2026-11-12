@@ -183,9 +183,42 @@
         return terms.every(function (term) { return text.indexOf(term) >= 0; });
     }
 
-    /** How many filters a tab is using, for the badge on its Filters panel. */
+    /**
+     * How many filters a tab is using, for the badge on its Filters panel. The search term is
+     * not counted: its box sits above the panel, and the badge matches the chips below it.
+     */
     function countFilters(tab, filters) {
-        return (TAB_FIELDS[tab] || []).filter(function (name) { return !!filters[name]; }).length;
+        return (TAB_FIELDS[tab] || []).filter(function (name) { return name !== 'SearchTerm' && !!filters[name]; }).length;
+    }
+
+    /** A YYYY-MM-DD day as "Nov 5, 2026" (the day itself, in the viewer's locale), or the text as it is. */
+    function formatDay(value) {
+        var ms = parseDay(value);
+        if (ms === null) return String(value);
+        return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    }
+
+    /**
+     * The filters a tab is using, as named chips for the row under its Filters panel. `key` is the
+     * field the remove button drops. The search term has no chip: its box is always visible.
+     * @param {Object} lookup display names: { GuildId: { '<id>': 'Server name' } }
+     * @returns {{label: string, key: string}[]}
+     */
+    function filterChips(tab, filters, lookup) {
+        var names = (lookup && lookup.GuildId) || {};
+        var chips = [];
+        (TAB_FIELDS[tab] || []).forEach(function (name) {
+            var value = filters[name];
+            if (!value || name === 'SearchTerm') return;
+            var label;
+            if (name === 'StartDate') label = 'From: ' + formatDay(value);
+            else if (name === 'EndDate') label = 'To: ' + formatDay(value);
+            else if (name === 'GuildId') label = 'Server: ' + (names[value] || value);
+            else if (name === 'CommandName') label = 'Command: ' + value;
+            else label = 'Status: ' + (String(value) === 'true' ? 'Success' : 'Failure');
+            chips.push({ label: label, key: name });
+        });
+        return chips;
     }
 
     /** The page number a pagination link points at (`?pageNumber=3`), or null. */
@@ -255,6 +288,7 @@
         needsDefaultRange: needsDefaultRange,
         matchesQuery: matchesQuery,
         countFilters: countFilters,
+        filterChips: filterChips,
         pageFromHref: pageFromHref
     };
 
@@ -353,6 +387,44 @@
             badge.textContent = n + ' active';
             badge.classList.toggle('hidden', n === 0);
         }
+
+        renderChips(tab);
+    }
+
+    /** The chips under a tab's Filters panel: each applied filter, named, with a remove button. */
+    function renderChips(tab) {
+        var slot = $('[data-filter-chips="' + tab + '"]');
+        if (!slot || !window.FilterPanel) return;
+        var lookup = { GuildId: {} };
+        var select = field(formFor(tab), 'GuildId');
+        if (select && select.options) {
+            Array.prototype.forEach.call(select.options, function (option) {
+                if (option.value) lookup.GuildId[option.value] = option.textContent.trim();
+            });
+        }
+        slot.innerHTML = window.FilterPanel.chipsHtml(filterChips(tab, current.filters, lookup));
+    }
+
+    /** Drops these filters from a tab (one chip, or Clear all) and reloads its results. */
+    function removeFilters(tab, keys) {
+        var form = formFor(tab);
+        keys.forEach(function (name) {
+            if (name === 'StartDate' || name === 'EndDate') current.filters[name] = '';
+            else delete current.filters[name];
+            var input = field(form, name);
+            if (input && name !== 'CommandName') input.value = '';
+        });
+        if (keys.indexOf('CommandName') >= 0) {
+            var picker = window.AutocompleteManager && window.AutocompleteManager.get('CommandName-search');
+            if (picker) picker.clear();
+        }
+        current.page = 1;
+        current.tab = tab;
+        showRangeError(tab, '');
+        shareAcross(tab);
+        updateFormChrome(tab);
+        syncUrl('push');
+        load(tab, { focus: true });
     }
 
     function showRangeError(tab, message) {
@@ -632,6 +704,20 @@
             return;
         }
 
+        var chip = target.closest('[data-chip-key]');
+        var chipTab = chip || target.closest('[data-chip-clear-all]');
+        if (chipTab) {
+            var chips = chipTab.closest('[data-filter-chips]');
+            var chipsTab = chips && chips.getAttribute('data-filter-chips');
+            if (chipsTab && TAB_FIELDS[chipsTab]) {
+                var keys = chip
+                    ? [chip.getAttribute('data-chip-key')]
+                    : filterChips(chipsTab, current.filters).map(function (c) { return c.key; });
+                removeFilters(chipsTab, keys);
+            }
+            return;
+        }
+
         var clear = target.closest('[data-commands-action="clear-filters"]');
         if (clear) {
             clearFilters(current.tab === 'analytics' ? 'analytics' : 'execution-logs');
@@ -680,6 +766,15 @@
         if (!form) return;
         event.preventDefault();
         applyForm(form.getAttribute('data-commands-filter-form'));
+    }
+
+    /** The visible log search (data-filter-live) asks for a new search: apply it here, no page reload. */
+    function onFilterLive(event) {
+        var form = event.target.form;
+        var tab = form && form.getAttribute('data-commands-filter-form');
+        if (!tab || !TAB_FIELDS[tab]) return;
+        event.preventDefault();
+        applyForm(tab);
     }
 
     function onInput(event) {
@@ -748,6 +843,7 @@
         document.addEventListener('click', onClick);
         document.addEventListener('submit', onSubmit);
         document.addEventListener('input', onInput);
+        document.addEventListener('filter-live', onFilterLive);
         // Back and Forward: the URL is the state, so load the view it describes
         // (a hash-only step, such as the skip link, does not change the view: leave it alone)
         shownLocation = window.location.pathname + window.location.search;

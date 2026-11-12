@@ -237,10 +237,8 @@
     function initFilterPanel() {
         let saved = null;
         try { saved = localStorage.getItem(FILTER_PANEL_KEY); } catch (e) { /* storage blocked */ }
-        const roomy = window.matchMedia && window.matchMedia('(min-width: 1024px)').matches;
-        const filtersActive = !!(document.querySelector('#GuildId') && document.querySelector('#GuildId').value) ||
-            !!(document.querySelector('#Mode') && document.querySelector('#Mode').value);
-        setPanelExpanded(saved === 'true' || saved === 'false' ? saved === 'true' : (filtersActive || roomy), false);
+        // Collapsed unless the person opened it before: what is applied shows as chips below it
+        setPanelExpanded(saved === 'true', false);
     }
 
     function highlightPreset() {

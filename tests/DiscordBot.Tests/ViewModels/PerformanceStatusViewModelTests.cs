@@ -12,6 +12,25 @@ namespace DiscordBot.Tests.ViewModels;
 public class PerformanceStatusViewModelTests
 {
     [Theory]
+    [InlineData("Healthy", "Operational", "health-status-healthy")]
+    [InlineData("Warning", "Degraded", "health-status-warning")]
+    [InlineData("Critical", "Critical", "health-status-error")]
+    [InlineData("Offline", "Offline", "health-status-error")]
+    [InlineData("offline", "Offline", "health-status-error")]
+    [InlineData("SomethingNew", "Unknown", "health-status-neutral")]
+    [InlineData("", "Unknown", "health-status-neutral")]
+    public void OverallStatus_ShownIdenticallyOnBothViewModels(string status, string text, string cls)
+    {
+        var overview = new PerformanceOverviewViewModel { OverallStatus = status };
+        var shell = new PerformanceShellViewModel { OverallStatus = status };
+
+        overview.OverallStatusText.Should().Be(text);
+        overview.OverallStatusClass.Should().Be(cls);
+        shell.OverallStatusText.Should().Be(text);
+        shell.OverallStatusClass.Should().Be(cls);
+    }
+
+    [Theory]
     [InlineData("Connected", "Healthy", "text-success")]
     [InlineData("Connected", "Warning", "text-warning")]
     [InlineData("Connected", "Critical", "text-error")]

@@ -488,18 +488,52 @@ The shell is three fixed regions driven entirely by CSS custom properties (`--na
 
 Collapsing is a single class, `html.sidebar-collapsed`, set by `navigation.js` and by the inline FOUC script; all three regions respond to it. Below 1024px the rail becomes an off-canvas drawer with `.mobile-overlay`.
 
-Page headers use the `.page-header` pattern:
+**One width.** `.page-container` in `_Layout.cshtml` is the only content container. Pages add no
+`max-w-* mx-auto px-* py-*` wrapper of their own, so every page's `<h1>` starts at the same x (the
+§ 11 sweep records it as `h1Left`). Narrow forms (`Users/Create`, `Users/Edit`, `Guilds/Edit`) may
+still centre a `max-w-3xl` form inside the container.
+
+**One header.** Every page draws its header with the `_PageHeader` partial
+(`PageHeaderViewModel`, see `component-api.md`), which renders the `.page-header` markup:
 
 ```html
-<div class="page-header">
-    <div class="page-header-text">
-        <p class="page-eyebrow">Overview</p>          <!-- optional mono micro-label -->
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">One sentence of context.</p>
+<header class="page-header" data-page-header>
+    <div class="page-header-main">
+        <div class="page-header-text">
+            <p class="page-eyebrow">Overview</p>           <!-- the sidebar group -->
+            <div class="page-title-row">
+                <h1 class="page-title">Dashboard</h1>     <!-- the page's only h1 -->
+                <span class="page-header-badge" data-page-badge>…</span>
+            </div>
+            <p class="page-subtitle" data-page-subtitle>One sentence of context.</p>
+        </div>
     </div>
     <div class="page-actions"><button class="btn btn-primary">Action</button></div>
-</div>
+</header>
 ```
+
+Rules:
+
+- **Eyebrow** names the sidebar group of a top-level page: "Overview" (Dashboard, Servers,
+  Commands, Bot Performance, Rat Watch Analytics, Settings) or "Administration" (Users, Logs,
+  Notifications, LLM Usage, Currency, Bulk Purge, User Purge). Guild pages put the guild switcher
+  in its place.
+- **Breadcrumb** only for a page more than one level below Home (`Home › Servers › Guild › Page`).
+  A top-level page never shows `Home › Page`; the partial drops a two-item trail on its own.
+- **One `<h1>`** per page, always the header title.
+- **Actions** sit on the right: typed `HeaderAction`s, or free-form markup for forms, status
+  pills and bulk-action groups.
+
+**Two tab levels.** `_TabPanel` style follows what the tabs do, not where they are:
+
+| Tabs that… | Style | Examples |
+|---|---|---|
+| move between pages, or between sections that each have their own address and load their own data (`?tab=`) | **Pills** (`TabStyleVariant.Pills`) | guild navigation strip, Bot Performance, Logs, Rat Watch (Overview / Analytics / Incidents), the audio pages, guild Currency |
+| switch sections within one page | **Underline** (`TabStyleVariant.Underline`, the default) | Commands, Settings, Moderation Settings, member moderation, Rat Watch leaderboards, portal VOX clip groups (`_NavTabs`) |
+
+The member portal keeps its own `Portal` variant. Underline-style strips draw their rule as an inset
+`box-shadow`, not a border with tabs pulled over it by a negative margin: the strip scrolls, and a
+scrolling box clips anything that hangs below it (the active underline).
 
 ## 4. Component Guidelines
 
@@ -1999,12 +2033,20 @@ Use the `data-utc` attribute pattern to automatically convert stored UTC timesta
   border-right: none;
 }
 
-/* Compact table */
+/* Compact table: set the modifier on the <table>; cells carry no vertical padding of their own */
+.table-compact th,
+.table-compact td,
 .table-compact .table-cell,
 .table-compact .table-cell-header {
-  padding: 0.5rem 0.75rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
 }
+.table-compact .table-avatar { width: 2rem; height: 2rem; }   /* 32px avatar */
 ```
+
+Use `table-compact` on dense list tables (Members, command execution logs, Reminders, Scheduled Messages, Admin › Users) so rows are about 52px instead of 80px. Leave the
+horizontal padding (`px-*`) on the cells, drop any `py-*` utility from them (utilities would win over
+the modifier), and give avatars `table-avatar` instead of `w-10 h-10`.
 
 ---
 

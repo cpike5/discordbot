@@ -33,86 +33,124 @@
     var deleteQuery = QueryString.Create(deleteParams.Append(
         new KeyValuePair<string, string?>("before", Model.RenderedAtUtc.ToString("O")))).Value ?? string.Empty;
 
+    var searchBar = new FilterSearchViewModel
+    {
+        Value = Model.SearchTerm,
+        Placeholder = "Search by title or message",
+        Label = "Search notifications",
+        Hidden = QueryStringHelper.Pairs(Model.Request.Query, "SearchTerm")
+    };
+
+    // Applied filters as chips; the default window has its own chip below and the search term its own box
+    var chipList = new List<ActiveFilterChip>();
+    if (Model.Type.HasValue)
+    {
+        var typeLabel = Model.Type.Value switch
+        {
+            NotificationType.PerformanceAlert => "Performance alert",
+            NotificationType.BotStatus => "Bot status",
+            NotificationType.GuildEvent => "Server event",
+            NotificationType.CommandError => "Command error",
+            _ => Model.Type.Value.ToString()
+        };
+        chipList.Add(new ActiveFilterChip($"Type: {typeLabel}", QueryStringHelper.Without(Model.Request, "Type")));
+    }
+    if (Model.IsRead.HasValue)
+    {
+        chipList.Add(new ActiveFilterChip($"Status: {(Model.IsRead.Value ? "Read" : "Unread")}", QueryStringHelper.Without(Model.Request, "IsRead")));
+    }
+    if (Model.Severity.HasValue)
+    {
+        chipList.Add(new ActiveFilterChip($"Severity: {Model.Severity.Value}", QueryStringHelper.Without(Model.Request, "Severity")));
+    }
+    if (!Model.DefaultWindowApplied && Model.StartDate.HasValue)
+    {
+        chipList.Add(new ActiveFilterChip($"From: {Model.StartDate.Value:MMM d, yyyy}", QueryStringHelper.Without(Model.Request, "StartDate")));
+    }
+    if (!Model.DefaultWindowApplied && Model.EndDate.HasValue)
+    {
+        chipList.Add(new ActiveFilterChip($"To: {Model.EndDate.Value:MMM d, yyyy}", QueryStringHelper.Without(Model.Request, "EndDate")));
+    }
+    if (Model.GuildId.HasValue)
+    {
+        var guildName = Model.AvailableGuilds.FirstOrDefault(g => g.Id == Model.GuildId.Value)?.Name ?? Model.GuildId.Value.ToString();
+        chipList.Add(new ActiveFilterChip($"Server: {guildName}", QueryStringHelper.Without(Model.Request, "GuildId")));
+    }
+    var filterChips = new ActiveFilterChipsViewModel
+    {
+        Chips = chipList,
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "Type", "IsRead", "Severity", "StartDate", "EndDate", "GuildId", "AllTime")
+    };
+
     // The chip under the header: the default window, and only while it is the default
     var firstPageUrl = Url.Page("Index", new { AllTime = Model.AllTime ? true : (bool?)null });
 }
 
-<div class="page-header">
-    <div class="page-header-text">
-        <div class="flex items-center gap-3">
-            <h1 class="page-title">Notifications</h1>
-            <span id="notificationTotalBadge" data-total-badge>
-                <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = DisplayFormat.Number(Model.ViewModel.TotalCount), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
-            </span>
-        </div>
-        <p class="page-subtitle">Alerts and events for your account. Mark them read or clear them out here.</p>
-    </div>
-    <div class="page-actions">
-        <!-- Bulk Actions (shown when items are selected) -->
-        <div id="bulkActions" class="hidden flex flex-wrap items-center gap-2" role="group" aria-label="Actions for the selected notifications">
-            <span class="text-sm text-text-secondary" aria-live="polite"><span id="selectedCount">0</span> selected</span>
-            <button type="button" id="markSelectedRead" class="btn btn-secondary btn-sm">
-                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                Mark read
-            </button>
-            <button type="button" id="deleteSelected" class="btn btn-error btn-sm">
-                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Delete
-            </button>
-        </div>
-        <button type="button" id="markAllRead" class="btn btn-secondary">
-            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+<!-- Page Header: the total badge (data-page-badge) is kept current by notification-history.js -->
+@{
+    Func<object?, IHtmlContent> headerActions = @<text>
+    <!-- Bulk Actions (shown when items are selected) -->
+    <div id="bulkActions" class="hidden flex flex-wrap items-center gap-2" role="group" aria-label="Actions for the selected notifications">
+        <span class="text-sm text-text-secondary" aria-live="polite"><span id="selectedCount">0</span> selected</span>
+        <button type="button" id="markSelectedRead" class="btn btn-secondary btn-sm">
+            <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
-            Mark all read
+            Mark read
         </button>
-        <button type="button" id="deleteAll" class="btn btn-secondary"
-                data-delete-query="@deleteQuery"
-                data-delete-scope="@deleteScope"
-                data-delete-filtered="@((deleteParams.Count > 0).ToString().ToLowerInvariant())"
-                @(Model.ViewModel.TotalCount == 0 ? "disabled" : null)>
-            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <button type="button" id="deleteSelected" class="btn btn-error btn-sm">
+            <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-            @(deleteParams.Count > 0 ? "Delete all shown" : "Delete all")
+            Delete
         </button>
-        @if (hasFilters)
-        {
-            <a asp-page="Index" class="btn btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Clear filters
-            </a>
-        }
     </div>
-</div>
-
-@if (Model.DefaultWindowApplied)
-{
-    <!-- The default window, as a chip you can clear (decision D14) -->
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-        <span class="badge badge-gray badge-pill">
-            Last 7 days
-            <a asp-page="Index" asp-route-AllTime="true" class="badge-remove" aria-label="Clear the Last 7 days filter and show every date" title="Show every date">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </a>
-        </span>
-    </div>
+    <button type="button" id="markAllRead" class="btn btn-secondary">
+        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        Mark all read
+    </button>
+    <button type="button" id="deleteAll" class="btn btn-secondary"
+            data-delete-query="@deleteQuery"
+            data-delete-scope="@deleteScope"
+            data-delete-filtered="@((deleteParams.Count > 0).ToString().ToLowerInvariant())"
+            @(Model.ViewModel.TotalCount == 0 ? "disabled" : null)>
+        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        @(deleteParams.Count > 0 ? "Delete all shown" : "Delete all")
+    </button>
+    @if (hasFilters)
+    {
+        <a asp-page="Index" class="btn btn-secondary">
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear filters
+        </a>
+    }
+    </text>;
+    var pageHeader = new PageHeaderViewModel
+    {
+        Eyebrow = "Administration",
+        Title = "Notifications",
+        Subtitle = "Alerts and events for your account. Mark them read or clear them out here.",
+        Badge = new BadgeViewModel { Text = DisplayFormat.Number(Model.ViewModel.TotalCount), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium },
+        ActionsContent = headerActions(null)
+    };
 }
+<partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
-<!-- Filter Panel -->
+<!-- Search: always visible, filters as you type -->
+<partial name="Shared/Components/_FilterSearch" model="searchBar" />
+
+<!-- Filter Panel (collapsed; what is applied shows as chips below) -->
 <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6" data-filter-panel data-has-active-filters="@hasFilters.ToString().ToLowerInvariant()">
     <button type="button"
             id="filterToggle"
             class="w-full flex items-center justify-between px-4 sm:px-5 py-4 text-left"
-            aria-expanded="true"
+            aria-expanded="false"
             aria-controls="filterContent"
             data-filter-toggle>
         <div class="flex items-center gap-3 min-w-0">
@@ -120,7 +158,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
             <span class="text-lg font-semibold text-text-primary">Filters</span>
-            @if (hasFilters)
+            @if (CountActiveFilters() > 0)
             {
                 <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
                     Text = $"{CountActiveFilters()} active",
@@ -134,9 +172,11 @@
         </svg>
     </button>
 
-    <div id="filterContent">
+    <div id="filterContent" hidden>
         <div class="border-t border-border-primary p-4 sm:p-6">
             <form method="get" id="filterForm" data-submit-guard>
+                <!-- The search box lives above the panel; Apply filters keeps its value -->
+                <input type="hidden" name="SearchTerm" value="@Model.SearchTerm" />
                 <!-- Quick Date Presets: local dates, filled by notification-history.js -->
                 <div class="mb-4" role="group" aria-labelledby="datePresetLabel">
                     <span id="datePresetLabel" class="block text-sm font-medium text-text-primary mb-2">Quick date range</span>
@@ -209,17 +249,6 @@
                     </div>
                 </div>
 
-                <div class="mt-4">
-                    <label for="SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
-                    <input type="search"
-                           id="SearchTerm"
-                           name="SearchTerm"
-                           value="@Model.SearchTerm"
-                           placeholder="Search by title or message..."
-                           autocomplete="off"
-                           class="form-input w-full max-w-md" />
-                </div>
-
                 <div class="flex flex-wrap items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
                     <button type="submit" class="btn btn-primary">Apply filters</button>
                     <a asp-page="Index" class="btn btn-secondary">Reset</a>
@@ -228,6 +257,23 @@
         </div>
     </div>
 </div>
+
+@if (Model.DefaultWindowApplied)
+{
+    <!-- The default window, as a chip you can clear (decision D14) -->
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+        <span class="badge badge-gray badge-pill">
+            Last 7 days
+            <a asp-page="Index" asp-route-AllTime="true" class="badge-remove" aria-label="Clear the Last 7 days filter and show every date" title="Show every date">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </a>
+        </span>
+    </div>
+}
+
+<partial name="Shared/Components/_ActiveFilterChips" model="filterChips" />
 
 <!-- Results: replaced in place after an action, so scroll position and the filter panel stay put -->
 <div id="notificationResults"
@@ -478,7 +524,7 @@
         if (Model.Severity.HasValue) count++;
         if (Model.ViewModel.Filters.StartDate.HasValue) count++;
         if (Model.ViewModel.Filters.EndDate.HasValue) count++;
-        if (!string.IsNullOrWhiteSpace(Model.SearchTerm)) count++;
+        // The search term is not counted: its box sits above the panel, outside this summary
         if (Model.GuildId.HasValue) count++;
         return count;
     }
@@ -531,5 +577,6 @@
 
 @section Scripts {
     <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
     <script src="~/js/notification-history.js" asp-append-version="true"></script>
 }

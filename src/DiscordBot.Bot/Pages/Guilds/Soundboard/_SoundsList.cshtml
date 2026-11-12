@@ -48,7 +48,7 @@
                         <td class="px-3 py-3 text-text-secondary text-sm whitespace-nowrap" data-cell="duration" data-label="Duration">@sound.DurationFormatted</td>
                         <td class="px-3 py-3 text-text-secondary text-sm" data-cell="plays" data-label="Plays">@sound.PlayCount</td>
                         <td class="px-3 py-3" data-cell="category">
-                            <select class="category-assign-select bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary py-1 px-2 focus:outline-none focus:border-accent-orange cursor-pointer max-w-[8.5rem]"
+                            <select class="category-assign-select form-select form-select-sm max-w-[9.5rem]"
                                     data-sound-id="@sound.Id"
                                     data-sound-name="@sound.Name"
                                     data-current-category="@(sound.CategoryId?.ToString() ?? "")"

@@ -643,6 +643,23 @@ public class IndexModel : PaginatedGuildPageModel
 | `PopulateGuildLayout()` | `async Task<bool>` | Loads guild data; returns false if guild not found |
 | `ErrorMessage` | `string?` | Page-level error for the current request only (not `[TempData]`); render it with `_Alert`. Action results use `TempData.SetErrorToast` instead (see [Page Model Pattern](#page-model-pattern)) |
 
+### Guild Switcher
+
+Pages do nothing for the guild switcher in the header: `_GuildLayout` fills
+`GuildHeaderViewModel.SwitchableGuilds` itself (from `IGuildSwitcherService`, URLs from
+`GuildSwitchTarget`), because about half the guild pages set `Header` directly instead of calling
+`PopulateGuildLayout`. A new guild page gets it for free as long as it uses `_GuildLayout` and sets
+`Navigation.ActiveTab`. A page whose route has values besides `guildId` sends the switcher to its
+tab's page in the other guild, never to the same entity ID.
+
+### Page Header and Width
+
+A guild page sets `Breadcrumb` and `Header` and adds no header or width markup of its own:
+`_GuildLayout` passes the breadcrumb items into `_GuildHeader`, which builds a `_PageHeader`, and
+`_Layout`'s `.page-container` sets the width. A top-level page does the same by hand: no
+`max-w-* mx-auto` wrapper, and one `<partial name="Shared/Components/_PageHeader" model="…" />`
+with the sidebar group as `Eyebrow` (see `component-api.md` § PageHeader Component).
+
 ### Usage Count
 
 24 guild pages use this pattern throughout the admin dashboard.

@@ -87,23 +87,23 @@ else
         <!-- Desktop table -->
         <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full">
+                <table class="w-full table-compact">
                     <caption class="sr-only">Reminders for @Model.ViewModel.GuildName</caption>
                     <thead class="bg-bg-tertiary border-b border-border-primary">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Message</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Due</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Created</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
-                            <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                            <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                            <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Message</th>
+                            <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Due</th>
+                            <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Created</th>
+                            <th scope="col" class="px-6 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border-primary">
                         @foreach (var reminder in Model.ViewModel.Reminders)
                         {
                             <tr class="table-row hover:bg-bg-hover transition-colors">
-                                <td class="px-6 py-4">
+                                <td class="px-6">
                                     <div class="flex items-center gap-3">
                                         @if (!string.IsNullOrEmpty(reminder.AvatarUrl))
                                         {
@@ -118,19 +118,19 @@ else
                                         <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@reminder.UserId" data-context-guild-id="@guildId">@reminder.Username</span>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4">
+                                <td class="px-6">
                                     <span class="text-sm text-text-secondary max-w-[250px] truncate block" title="@reminder.Message">@reminder.MessagePreview</span>
                                     @if (reminder.Status == ReminderStatus.Failed && !string.IsNullOrEmpty(reminder.LastError))
                                     {
                                         <span class="text-xs text-error block mt-1 max-w-[250px] break-words">Last error: @reminder.LastError</span>
                                     }
                                 </td>
-                                <td class="px-6 py-4 text-sm text-text-primary whitespace-nowrap">@DisplayFormat.Time(reminder.TriggerAt, "datetime-short")</td>
-                                <td class="px-6 py-4 text-sm text-text-secondary whitespace-nowrap">@DisplayFormat.Time(reminder.CreatedAt, "datetime-short")</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 text-sm text-text-primary whitespace-nowrap">@DisplayFormat.Time(reminder.TriggerAt, "datetime-short")</td>
+                                <td class="px-6 text-sm text-text-secondary whitespace-nowrap">@DisplayFormat.Time(reminder.CreatedAt, "datetime-short")</td>
+                                <td class="px-6 whitespace-nowrap">
                                     <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = reminder.StatusText, Variant = StatusVariant(reminder.Status), Style = BadgeStyle.Subtle, Size = BadgeSize.Small, IsPill = true }" />
                                 </td>
-                                <td class="px-6 py-4">
+                                <td class="px-6">
                                     <div class="flex items-center justify-end gap-1 row-actions">
                                         @if (reminder.CanCancel)
                                         {

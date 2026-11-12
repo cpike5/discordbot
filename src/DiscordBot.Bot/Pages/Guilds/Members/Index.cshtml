@@ -18,6 +18,41 @@
         PrimaryActionUrl = clearFiltersUrl,
         PrimaryActionIconPath = ""
     };
+    var searchBar = new FilterSearchViewModel
+    {
+        Value = Model.SearchTerm,
+        Placeholder = "Search by username, display name, or user ID",
+        Label = "Search members",
+        Hidden = QueryStringHelper.Pairs(Model.Request.Query, "SearchTerm")
+    };
+
+    // The applied filters, each with the URL that drops just that one (and goes back to page 1).
+    // The search term is not a chip: it is the visible box above.
+    var chips = new List<ActiveFilterChip>();
+    foreach (var roleId in Model.RoleFilter ?? new List<ulong>())
+    {
+        var roleName = Model.AvailableRoles.FirstOrDefault(r => r.Id == roleId)?.Name ?? roleId.ToString();
+        chips.Add(new ActiveFilterChip($"Role: {roleName}", QueryStringHelper.WithoutValue(Model.Request, "RoleFilter", roleId.ToString())));
+    }
+    if (Model.JoinedAfter.HasValue)
+    {
+        chips.Add(new ActiveFilterChip($"Joined after: {Model.JoinedAfter.Value:MMM d, yyyy}", QueryStringHelper.Without(Model.Request, "JoinedAfter")));
+    }
+    if (Model.JoinedBefore.HasValue)
+    {
+        chips.Add(new ActiveFilterChip($"Joined before: {Model.JoinedBefore.Value:MMM d, yyyy}", QueryStringHelper.Without(Model.Request, "JoinedBefore")));
+    }
+    if (!string.IsNullOrWhiteSpace(Model.ActivityFilter))
+    {
+        var activityLabel = IndexModel.ActivityOptions.TryGetValue(Model.ActivityFilter, out var found) ? found : Model.ActivityFilter;
+        chips.Add(new ActiveFilterChip($"Activity: {activityLabel}", QueryStringHelper.Without(Model.Request, "ActivityFilter")));
+    }
+    var chipsModel = new ActiveFilterChipsViewModel
+    {
+        Chips = chips,
+        // Clear all keeps the sort and the search: it clears the panel's filters
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "RoleFilter", "JoinedAfter", "JoinedBefore", "ActivityFilter")
+    };
     var firstTimeEmpty = new EmptyStateViewModel
     {
         Type = EmptyStateType.NoData,
@@ -26,33 +61,22 @@
     };
 }
 
-<!-- Filter Panel -->
+<!-- Search: always visible, filters as you type -->
+<partial name="Shared/Components/_FilterSearch" model="searchBar" />
+
+<!-- Filter Panel (collapsed; what is applied shows as chips below) -->
 <filter-panel title="Filters"
               is-collapsible="true"
-              active-filter-count="@Model.ActiveFilterCount"
-              default-expanded="@Model.HasActiveFilters"
+              active-filter-count="@(Model.ActiveFilterCount - (string.IsNullOrWhiteSpace(Model.SearchTerm) ? 0 : 1))"
+              default-expanded="false"
               use-hidden-toggle="true">
     <form method="get" id="filterForm">
         <input type="hidden" name="GuildId" value="@Model.GuildId" />
+        <!-- The search box lives above the panel; Apply filters keeps its value -->
+        <input type="hidden" name="SearchTerm" value="@Model.SearchTerm" />
 
-        <!-- Row 1: Search and Role Filter -->
+        <!-- Row 1: Role Filter -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-                <label for="SearchTerm" class="form-label block mb-1">Search</label>
-                <div class="relative">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input type="search"
-                           id="SearchTerm"
-                           name="SearchTerm"
-                           value="@Model.SearchTerm"
-                           autocomplete="off"
-                           placeholder="Username, display name, or user ID..."
-                           class="form-input pl-10" />
-                </div>
-            </div>
-
             <!-- Role filter: a disclosure holding a group of checkboxes -->
             <div>
                 <span id="roleFilterLabel" class="form-label block mb-1">Roles</span>
@@ -160,6 +184,8 @@
     </form>
 </filter-panel>
 
+<partial name="Shared/Components/_ActiveFilterChips" model="chipsModel" />
+
 <!-- Selection announcements for screen readers (the count in the toolbar is visual) -->
 <p class="sr-only" role="status" data-selection-status></p>
 
@@ -201,45 +227,45 @@ else
     <!-- Desktop table (md and up) -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg hidden md:block">
         <div class="overflow-x-auto">
-            <table class="w-full" aria-label="Server members">
+            <table class="w-full table-compact" aria-label="Server members">
                 <thead class="bg-bg-tertiary">
                     <tr>
-                        <th scope="col" class="px-4 py-4 text-left w-12">
+                        <th scope="col" class="px-4 text-left w-12">
                             <input type="checkbox" data-select-all class="w-4 h-4 rounded border-border-primary cursor-pointer" aria-label="Select all members on this page" />
                         </th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Joined</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Last active</th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Joined</th>
+                        <th scope="col" class="px-6 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Last active</th>
+                        <th scope="col" class="px-6 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border-primary">
                     @foreach (var member in members)
                     {
                         <tr class="hover:bg-bg-hover/50 transition-colors">
-                            <td class="px-4 py-4">
+                            <td class="px-4">
                                 <input type="checkbox" data-select-item="@member.UserId" class="w-4 h-4 rounded border-border-primary cursor-pointer" aria-label="Select @member.DisplayName" />
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6">
                                 <div class="flex items-center gap-3">
                                     @if (!string.IsNullOrEmpty(member.AvatarUrl))
                                     {
-                                        <img src="@member.AvatarUrl" alt="" class="w-10 h-10 rounded-full flex-shrink-0" loading="lazy" />
+                                        <img src="@member.AvatarUrl" alt="" class="table-avatar rounded-full flex-shrink-0" loading="lazy" />
                                     }
                                     else
                                     {
-                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
+                                        <div class="table-avatar rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-xs flex-shrink-0" aria-hidden="true">
                                             @TextDisplay.Initials(member.DisplayName)
                                         </div>
                                     }
-                                    <div class="min-w-0">
+                                    <div class="min-w-0 lg:flex lg:items-baseline lg:gap-2">
                                         <p class="font-medium text-text-primary truncate preview-trigger" data-preview-type="user" data-user-id="@member.UserId" data-context-guild-id="@Model.GuildId">@member.DisplayName</p>
                                         <p class="text-xs text-text-secondary font-mono truncate">@@@member.Username</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6">
                                 <div class="flex flex-wrap gap-1">
                                     @{
                                         var visibleRoles = member.Roles.Take(3).ToList();
@@ -263,10 +289,10 @@ else
                                     }
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                            <td class="px-6 text-text-secondary text-sm hidden lg:table-cell">
                                 <span data-utc="@member.JoinedAtUtcIso" data-format="date"></span>
                             </td>
-                            <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">
+                            <td class="px-6 text-text-secondary text-sm hidden xl:table-cell">
                                 @if (member.LastActiveAt.HasValue)
                                 {
                                     <span data-utc="@member.LastActiveAtUtcIso" data-format="relative"></span>
@@ -276,7 +302,7 @@ else
                                     <span class="text-text-secondary">Never</span>
                                 }
                             </td>
-                            <td class="px-6 py-4 text-right">
+                            <td class="px-6 text-right">
                                 <button type="button"
                                         class="btn btn-ghost btn-sm text-accent-blue"
                                         data-member-view="@member.UserId"
@@ -408,6 +434,7 @@ else
 <partial name="Guilds/Members/_MemberDetailModal" model="canViewProfiles" />
 
 @section Scripts {
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
     <script src="~/js/bulk-selection.js" asp-append-version="true"></script>
     <script src="~/js/member-directory.js" asp-append-version="true"></script>
     <script>

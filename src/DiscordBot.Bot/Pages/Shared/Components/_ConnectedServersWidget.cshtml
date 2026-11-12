@@ -6,15 +6,11 @@
     it. The rows are also drawn from script after "Sync All" (wwwroot/js/dashboard-actions.js
     clones #connected-server-template), so a change to the row markup belongs in both. The caller
     decides who sees the card; there is no role check in here.
+
+    The badge says what the server did (Active today / Quiet / Left), never whether the bot is
+    connected: the header note says that once. Labels come from ServerActivityDisplay, and the
+    refresh JSON carries them to the script, so the words live only in C#.
 *@
-@functions {
-    private static (string Badge, string Title) StatusStyle(ServerConnectionStatus status) => status switch
-    {
-        ServerConnectionStatus.Online => ("badge-success", "Ran commands today"),
-        ServerConnectionStatus.Idle => ("badge-warning", "Active, no commands today"),
-        _ => ("badge-gray", "The bot is no longer in this server")
-    };
-}
 
 <template id="connected-server-template">
     <li class="connected-server" data-row>
@@ -24,7 +20,7 @@
         </div>
         <div class="connected-server-meta">
             <span class="connected-server-cell"><span class="connected-server-label">Members</span><span data-field="members"></span></span>
-            <span class="connected-server-cell"><span class="connected-server-label">Status</span><span class="badge" data-field="status"></span></span>
+            <span class="connected-server-cell"><span class="connected-server-label">Activity</span><span class="badge" data-field="status"></span></span>
             <span class="connected-server-cell"><span class="connected-server-label">Commands today</span><span data-field="commands"></span></span>
         </div>
         <div class="connected-server-actions row-actions">
@@ -39,7 +35,10 @@
 
 <section class="card connected-servers h-full flex flex-col overflow-hidden" id="connected-servers" aria-labelledby="connected-servers-title">
     <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-border-primary">
-        <h2 id="connected-servers-title" class="text-lg font-semibold text-text-primary">@Model.Title</h2>
+        <div class="min-w-0">
+            <h2 id="connected-servers-title" class="text-lg font-semibold text-text-primary">@Model.Title</h2>
+            <p class="text-xs text-text-secondary" id="connected-servers-offline-note" data-connected-servers-offline-note @(Model.BotConnected ? "hidden" : "")>Bot offline: activity is from the log</p>
+        </div>
         <a href="@Model.ViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" id="connected-servers-view-all">
             @(Model.ShowViewAll ? $"View all {DisplayFormat.Number(Model.TotalServerCount)}" : "View all")
         </a>
@@ -48,7 +47,7 @@
     <div class="connected-servers-head" id="connected-servers-head" aria-hidden="true" @(Model.Servers.Any() ? "" : "hidden")>
         <span>Server</span>
         <span>Members</span>
-        <span>Status</span>
+        <span>Activity</span>
         <span>Commands today</span>
         <span></span>
     </div>
@@ -56,7 +55,7 @@
     <ul class="connected-servers-list flex-grow" id="connected-servers-list" role="list" @(Model.Servers.Any() ? "" : "hidden")>
         @foreach (var server in Model.Servers)
         {
-            var (badge, statusTitle) = StatusStyle(server.Status);
+            var (statusLabel, badge, statusTitle) = ServerActivityDisplay.For(server.Status);
             <li class="connected-server" data-row data-server-id="@server.Id">
                 <div class="connected-server-main">
                     @if (!string.IsNullOrEmpty(server.IconUrl))
@@ -71,7 +70,7 @@
                 </div>
                 <div class="connected-server-meta">
                     <span class="connected-server-cell"><span class="connected-server-label">Members</span><span data-field="members">@DisplayFormat.Number(server.MemberCount)</span></span>
-                    <span class="connected-server-cell"><span class="connected-server-label">Status</span><span class="badge @badge" data-field="status" title="@statusTitle">@server.Status</span></span>
+                    <span class="connected-server-cell"><span class="connected-server-label">Activity</span><span class="badge @badge" data-field="status" title="@statusTitle">@statusLabel</span></span>
                     <span class="connected-server-cell"><span class="connected-server-label">Commands today</span><span data-field="commands">@DisplayFormat.Number(server.CommandsToday)</span></span>
                 </div>
                 <div class="connected-server-actions row-actions">
