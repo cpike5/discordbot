@@ -103,7 +103,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 |-------|------|---------|
 | `/Commands` | `Pages/Commands/Index.cshtml` | Command List (debounced client-side search, `?q=`), Execution Logs and Analytics tabs. Tab, filters, page and open log are all in the query string; `commands-page.js` is the one controller. See `docs/articles/unified-command-pages.md`. |
 | `/CommandLogs/Details/{id}` | `Pages/CommandLogs/Details.cshtml` | One command log (moderator). `?returnUrl=` sets where Back goes. |
-| `/Search` | `Pages/Search.cshtml` | Unified search. Shows its validation message and the true total; command log results open the Details page for moderators and the Commands log dialog for everyone else. |
+| `/Search` | `Pages/Search.cshtml` | Unified search. Shows its validation message and the true total; command log results open the Details page for moderators and the Commands log dialog for everyone else. Handlers: `Suggest` (GET JSON, `?handler=Suggest&q=`): the navbar's live suggestions, up to 5 servers the user may open (each passes `GuildAccessRequirement`, ids as strings) and 3 slash commands (`/Commands?q=`); 400 problem JSON for a term under 2 characters, terms capped at 100 |
 
 ### Portal Pages (User Self-Service)
 
@@ -143,11 +143,11 @@ Every layout and standalone page (`_Layout`, `Portal/_PortalLayout`, `_ErrorLayo
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Navbar | `_Navbar.cshtml` | Top navigation bar; the user menu is a disclosure (button with `aria-expanded`, plain links, no `role=menu`) |
+| Navbar | `_Navbar.cshtml` | Top navigation bar; the user menu is a disclosure (button with `aria-expanded`, plain links, no `role=menu`). The search input is a combobox (`search-suggest.js`): from 2 characters it lists matching sidebar pages (no request), servers and commands (`/Search?handler=Suggest`) and a See all row; arrows, Enter and Escape work the list, Enter with nothing highlighted submits to `/Search` (or opens the only matching server); recent searches show for an empty input |
 | Sidebar | `_Sidebar.cshtml` | Left sidebar with navigation (admin/authenticated). `inert` while the mobile drawer is closed (`navigation.js`). The footer shows the bot's real state (rendered from `IBotService`, kept current by `bot-status-refresh.js`) and a `data-stale-badge` |
 | Connection Banner | `_ConnectionBanner.cshtml` | Floating "Reconnecting…" banner and its announcer, hidden while the SignalR hub is up (`connection-banner.js`). Rendered by `_Layout` only |
 | Toast Container | `_ToastContainer.cshtml` | Toast container and live regions, plus toasts queued through `TempData.Set*Toast` (as JSON for `toast.js`). Rendered by `_Layout` and `_PortalLayout`; do not include it in pages |
-| Mobile Search | `_MobileSearchOverlay.cshtml` | Mobile-friendly search overlay |
+| Mobile Search | `_MobileSearchOverlay.cshtml` | Mobile-friendly search overlay; shows the same suggestions as the navbar in `#mobile-search-results` |
 | Theme Head | `_ThemeHead.cshtml` | `theme-color` meta and the blocking first-paint theme script; needs `theme-root` on `<html>` |
 | Theme Toggle | `_ThemeToggle.cshtml` | Header button switching dark/light (`theme.js`); model = extra button classes. In `_Navbar` and the portal header |
 | Validation Scripts | `_ValidationScriptsPartial.cshtml` | Client-side validation script inclusion |
@@ -489,7 +489,7 @@ All under `src/DiscordBot.Bot/wwwroot/js/` unless noted. One file per page or wi
 | Charts | `chart-theme.js`, `analytics-charts.js`, `performance/components/chart-utils.js` | Token-driven Chart.js theming and the chart helpers built on it |
 | Live status | `dashboard-hub.js`, `connection-banner.js`, `bot-status-refresh.js`, `dashboard-stats.js`, `dashboard-realtime.js`, `dashboard-actions.js` | Hub connection and states, banner, bot status, dashboard stats/feed/actions |
 | Theme / PWA | `theme.js`, `pwa.js` (+ `sw.js` at the root) | Theme switching without reload; service worker registration |
-| Navigation | `navigation.js`, `guild-nav.js`, `notification-bell.js`, `search.js`, `preview-popup.js` | Shell chrome, bell disclosure, search, user/guild preview popups |
+| Navigation | `navigation.js`, `guild-nav.js`, `notification-bell.js`, `search.js`, `search-suggest.js`, `preview-popup.js` | Shell chrome, bell disclosure, search and its live suggestions, user/guild preview popups |
 | Filter panel | `shared/filter-panel.js` | `toggleFilterPanel()`, and the `data-date-preset` buttons of `_DateRangeFilter` |
 | AJAX Sort | `ajax-sort.js` | Re-renders a list from a `?handler=Partial` URL when `_SortDropdown` changes |
 | Pages | `commands-page.js`, `settings.js`, `performance/*`, `soundboard-admin.js`, `tts-page.js`, `audio-settings.js`, `portal-*.js`, `currency/*`, ... | One controller per page or widget; see the page's row above |

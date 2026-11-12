@@ -7,6 +7,11 @@
     const RECENT_SEARCHES_KEY = 'recentSearches';
     const MAX_RECENT_SEARCHES = 5;
     const DROPDOWN_ID = 'recent-searches-dropdown';
+    const SUGGEST_MODE_CLASS = 'search-suggest-mode';
+
+    // Live suggestions (search-suggest.js) for the navbar input and the mobile overlay
+    let navbarSuggest = null;
+    let mobileSuggest = null;
 
     function getSearchInput() {
         return document.getElementById(SEARCH_INPUT_ID);
@@ -30,6 +35,7 @@
     function clearAndBlurSearch() {
         const input = getSearchInput();
         if (input) {
+            if (navbarSuggest) navbarSuggest.reset();
             input.value = '';
             input.blur();
         }
@@ -210,7 +216,17 @@
         if (!dropdown) return;
 
         renderRecentSearches();
+        dropdown.classList.remove(SUGGEST_MODE_CLASS);
         dropdown.classList.add('active');
+        dropdown.style.opacity = '';
+        dropdown.style.visibility = '';
+    }
+
+    // The suggestions share the recent-searches dropdown; their markup is rendered by search-suggest.js
+    function showSuggestionsDropdown() {
+        const dropdown = createDropdown();
+        if (!dropdown) return;
+        dropdown.classList.add(SUGGEST_MODE_CLASS, 'active');
         dropdown.style.opacity = '';
         dropdown.style.visibility = '';
     }
@@ -230,10 +246,25 @@
 
         const form = input.closest('form');
 
-        // Show recent searches on focus when input is empty
+        // Suggestions as the user types. Enter with nothing to open is left alone, so the form
+        // submits to /Search as it always has.
+        if (window.SearchSuggest) {
+            navbarSuggest = window.SearchSuggest.attach({
+                input,
+                panel: createDropdown(),
+                listboxId: 'navbar-search-listbox',
+                show: showSuggestionsDropdown,
+                hide: hideRecentSearches,
+                onOpen: saveRecentSearch
+            });
+        }
+
+        // Show recent searches on focus when input is empty, and the suggestions again otherwise
         input.addEventListener('focus', () => {
             if (input.value.trim().length === 0) {
                 showRecentSearches();
+            } else if (navbarSuggest) {
+                navbarSuggest.update(input.value);
             }
         });
 
@@ -245,6 +276,7 @@
         container.addEventListener('focusout', (event) => {
             if (event.relatedTarget && container.contains(event.relatedTarget)) return;
             blurTimeout = setTimeout(() => {
+                if (navbarSuggest) navbarSuggest.collapse();
                 hideRecentSearches();
             }, 150);
         });
@@ -259,8 +291,10 @@
             }
 
             if (input.value.trim().length === 0) {
+                if (navbarSuggest) navbarSuggest.reset();
                 showRecentSearches();
-            } else {
+            } else if (!navbarSuggest || !navbarSuggest.update(input.value)) {
+                // One character: nothing to suggest yet
                 hideRecentSearches();
             }
         });
@@ -314,6 +348,7 @@
             overlay.classList.remove('active');
             document.body.style.overflow = '';
 
+            if (mobileSuggest) mobileSuggest.reset();
             if (input) {
                 input.value = '';
             }
@@ -398,6 +433,33 @@
 
         if (!overlay || !input) return;
 
+        const results = document.getElementById('mobile-search-results');
+        if (window.SearchSuggest && results) {
+            mobileSuggest = window.SearchSuggest.attach({
+                input,
+                panel: results,
+                listboxId: 'mobile-search-listbox',
+                show() {
+                    const recent = document.getElementById('mobile-recent-searches');
+                    if (recent) recent.classList.add('hidden');
+                    hideMobileEmptyState();
+                    results.classList.remove('hidden');
+                },
+                hide() {
+                    results.classList.add('hidden');
+                },
+                onOpen: saveRecentSearch,
+                onSubmit: goToFullSearch
+            });
+        }
+
+        function goToFullSearch(value) {
+            if (value.length > 0) {
+                saveRecentSearch(value);
+                window.location.href = '/Search?q=' + encodeURIComponent(value);
+            }
+        }
+
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && overlay.classList.contains('active')) {
                 e.preventDefault();
@@ -415,8 +477,9 @@
             const value = input.value.trim();
 
             if (value.length === 0) {
+                if (mobileSuggest) mobileSuggest.reset();
                 renderMobileRecentSearches();
-            } else {
+            } else if (!mobileSuggest || !mobileSuggest.update(value)) {
                 const recent = document.getElementById('mobile-recent-searches');
                 if (recent) recent.classList.add('hidden');
                 hideMobileEmptyState();
@@ -429,15 +492,14 @@
             }
         });
 
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const value = input.value.trim();
-                if (value.length > 0) {
-                    saveRecentSearch(value);
-                    window.location.href = '/Search?q=' + encodeURIComponent(value);
+        // With suggestions attached, their keydown handler decides what Enter does
+        if (!mobileSuggest) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    goToFullSearch(input.value.trim());
                 }
-            }
-        });
+            });
+        }
     }
 
     // Expose mobile search functions globally
