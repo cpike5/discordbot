@@ -40,14 +40,16 @@
     };
 }
 
-<div class="page-header">
-    <div class="page-header-text">
-        <h1 class="page-title">LLM Usage</h1>
-        <p class="page-subtitle">
-            Token usage and cost across every assistant mode, @Model.StartDate?.ToString("MMM d") &ndash; @Model.EndDate?.ToString("MMM d, yyyy")
-        </p>
-    </div>
-</div>
+<!-- Page Header -->
+@{
+    var pageHeader = new DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
+    {
+        Eyebrow = "Administration",
+        Title = "LLM Usage",
+        Subtitle = $"Token usage and cost across every assistant mode, {Model.StartDate?.ToString("MMM d")} – {Model.EndDate?.ToString("MMM d, yyyy")}"
+    };
+}
+<partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
 <!-- Filters -->
 <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6" data-llm-filter-panel>

@@ -1,0 +1,127 @@
+@model DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@*
+    The one page header (UI audit § 10): breadcrumb only below the first level, eyebrow, the page's
+    single <h1>, subtitle, badge, actions. The layout already constrains the width, so this partial
+    adds no container of its own.
+*@
+
+@if (Model.ShowBreadcrumbs)
+{
+    var lastIndex = Model.Breadcrumbs.Count - 1;
+    <nav aria-label="Breadcrumb" class="breadcrumb">
+        <ol class="breadcrumb-list flex-wrap">
+            @for (var i = 0; i <= lastIndex; i++)
+            {
+                var crumb = Model.Breadcrumbs[i];
+                var isLast = i == lastIndex;
+                <li class="breadcrumb-item">
+                    @if (isLast || string.IsNullOrEmpty(crumb.Url))
+                    {
+                        <span class="breadcrumb-current" aria-current="@(isLast ? "page" : null)">@crumb.Label</span>
+                    }
+                    else
+                    {
+                        <a href="@crumb.Url" class="breadcrumb-link">@crumb.Label</a>
+                    }
+                </li>
+                @if (!isLast)
+                {
+                    <li class="breadcrumb-separator" aria-hidden="true">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </li>
+                }
+            }
+        </ol>
+    </nav>
+}
+
+<header class="page-header" data-page-header>
+    <div class="page-header-main">
+        @if (Model.Leading != null)
+        {
+            <div class="page-header-leading">@Model.Leading</div>
+        }
+        <div class="page-header-text">
+            @if (Model.EyebrowContent != null)
+            {
+                @Model.EyebrowContent
+            }
+            else if (!string.IsNullOrEmpty(Model.Eyebrow))
+            {
+                <p class="page-eyebrow">@Model.Eyebrow</p>
+            }
+            <div class="page-title-row">
+                @if (Model.HeadingLevel == 1)
+                {
+                    <h1 class="page-title">@Model.Title</h1>
+                }
+                else
+                {
+                    <h2 class="page-title">@Model.Title</h2>
+                }
+                @if (Model.Badge != null)
+                {
+                    <span class="page-header-badge" data-page-badge>
+                        <partial name="Shared/Components/_Badge" model="Model.Badge" />
+                    </span>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Subtitle))
+            {
+                <p class="page-subtitle" data-page-subtitle>@Model.Subtitle</p>
+            }
+        </div>
+    </div>
+
+    @if (Model.HasActions)
+    {
+        <div class="page-actions">
+            @foreach (var action in Model.Actions)
+            {
+                var actionClass = action.Style switch
+                {
+                    HeaderActionStyle.Primary => "btn btn-accent inline-flex items-center gap-2",
+                    HeaderActionStyle.Link => "text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors inline-flex items-center gap-1",
+                    _ => "btn btn-secondary inline-flex items-center gap-2"
+                };
+                if (action.IsPost)
+                {
+                    <form method="post" action="@action.Url" class="inline-flex">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="@actionClass">
+                            @if (!string.IsNullOrEmpty(action.Icon))
+                            {
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
+                                </svg>
+                            }
+                            <span>@action.Label</span>
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <a href="@action.Url"
+                       target="@(action.OpenInNewTab ? "_blank" : null)"
+                       rel="@(action.OpenInNewTab ? "noopener noreferrer" : null)"
+                       class="@actionClass">
+                        @if (!string.IsNullOrEmpty(action.Icon))
+                        {
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
+                            </svg>
+                        }
+                        <span>@action.Label</span>
+                    </a>
+                }
+            }
+            @if (Model.ActionsContent != null)
+            {
+                @Model.ActionsContent
+            }
+        </div>
+    }
+</header>

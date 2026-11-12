@@ -142,7 +142,8 @@ public class IndexModel : PortalPageModelBase
             GroupTabs = new NavTabsViewModel
             {
                 ContainerId = "voxGroupTabs",
-                StyleVariant = NavTabStyle.Pills,
+                // In-page sections take underline tabs; pills are for moving between pages
+                StyleVariant = NavTabStyle.Underline,
                 NavigationMode = NavMode.InPage,
                 PersistenceMode = NavPersistence.Hash,
                 Tabs = new List<NavTabItem>

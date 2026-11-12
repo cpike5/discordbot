@@ -1888,8 +1888,30 @@
     padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--color-border-secondary);
   }
+  .page-header-main {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .page-header-leading {
+    flex-shrink: 0;
+  }
   .page-header-text {
     min-width: 0;
+  }
+  .page-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+  .page-title-row .page-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .page-header-badge {
+    display: inline-flex;
   }
   .page-title {
     font-family: var(--font-display);

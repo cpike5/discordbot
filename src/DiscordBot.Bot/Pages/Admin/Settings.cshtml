@@ -29,7 +29,8 @@
         Id = tabsId,
         Tabs = tabs,
         ActiveTabId = active,
-        StyleVariant = TabStyleVariant.Pills,
+        // Underline: the categories are sections of one page (design-system.md, tab levels)
+        StyleVariant = TabStyleVariant.Underline,
         // The address (?category=) is the tab's persistence; settings.js keeps it current
         PersistenceMode = TabPersistenceMode.None,
         AriaLabel = "Settings sections"
@@ -53,26 +54,30 @@
 <partial name="Components/_RestartBanner" model="Model.ViewModel.IsRestartPending" />
 
 <!-- Page Header -->
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="page-title">Settings</h1>
-        <p class="page-subtitle">Manage your bot configuration and preferences</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-3">
-        <button type="button" class="btn btn-secondary" data-modal-open="reset-all">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Reset all
-        </button>
-        <button type="button" class="btn btn-primary" data-settings-save-all>
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-            Save all changes
-        </button>
-    </div>
-</div>
+@{
+    Func<object?, IHtmlContent> headerActions = @<text>
+    <button type="button" class="btn btn-secondary" data-modal-open="reset-all">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Reset all
+    </button>
+    <button type="button" class="btn btn-primary" data-settings-save-all>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        Save all changes
+    </button>
+    </text>;
+    var pageHeader = new PageHeaderViewModel
+    {
+        Eyebrow = "Overview",
+        Title = "Settings",
+        Subtitle = "Manage your bot configuration and preferences",
+        ActionsContent = headerActions(null)
+    };
+}
+<partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
 <!-- Tabs -->
 <div class="mb-6">

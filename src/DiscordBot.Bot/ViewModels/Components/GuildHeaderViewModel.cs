@@ -48,6 +48,12 @@ public record GuildHeaderViewModel
     public IReadOnlyList<GuildSwitcherOption> SwitchableGuilds { get; init; } = [];
 
     /// <summary>
+    /// The breadcrumb trail drawn above the header. Filled by <c>_GuildLayout</c> from the page's
+    /// <c>Breadcrumb</c>, so page models keep setting that one property.
+    /// </summary>
+    public IReadOnlyList<BreadcrumbItem> Breadcrumbs { get; init; } = [];
+
+    /// <summary>
     /// True when there is another guild to switch to: the guild name becomes the switcher button.
     /// </summary>
     public bool CanSwitchGuild => SwitchableGuilds.Any(g => !g.IsCurrent);

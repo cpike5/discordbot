@@ -12,6 +12,7 @@
     // The guild switcher's list is filled here rather than by each page model: this layout is the
     // one place every guild page (and every failed POST that re-renders one) goes through.
     GuildHeaderViewModel header = (GuildHeaderViewModel)Model.Header;
+    header = header with { Breadcrumbs = ((GuildBreadcrumbViewModel)Model.Breadcrumb).Items };
     if (header.GuildId != 0)
     {
         var switchable = await GuildSwitcher.GetAccessibleGuildsAsync(User, Context.RequestAborted);
@@ -23,71 +24,66 @@
     }
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    @await Html.PartialAsync("Components/_GuildBreadcrumb", (GuildBreadcrumbViewModel)Model.Breadcrumb)
+<!-- Breadcrumb and guild header (_PageHeader); the layout's page container sets the width -->
+@await Html.PartialAsync("Components/_GuildHeader", header)
 
-    <!-- Guild Header -->
-    @await Html.PartialAsync("Components/_GuildHeader", header)
-
-    <!-- Guild Navigation Bar -->
-    <div class="guild-nav-container mb-6" id="guildNavContainer">
-        <!-- Desktop: Horizontal tabs using TabPanel. guild-nav.js moves tabs that do not fit into the
-             More menu; without JavaScript the strip scrolls and the (hidden) More menu stays unused. -->
-        <div class="hidden sm:block guild-nav-desktop" data-guild-nav>
-            @await Html.PartialAsync("Components/_TabPanel", GuildNavBarHelper.CreateGuildNavBar(navModel.GuildId, navModel.ActiveTab, navModel.Tabs))
-            <div class="guild-nav-more" data-guild-nav-more hidden>
-                <button type="button"
-                        id="guildNavMoreButton"
-                        class="guild-nav-more-button"
-                        aria-haspopup="menu"
-                        aria-expanded="false"
-                        aria-controls="guildNavMoreMenu">
-                    <span class="guild-nav-more-label">More</span>
-                    <svg class="guild-nav-more-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-                <ul id="guildNavMoreMenu"
-                    class="guild-nav-more-menu"
-                    role="menu"
-                    aria-labelledby="guildNavMoreButton"></ul>
-            </div>
-        </div>
-
-        <!-- Mobile: Dropdown -->
-        <div class="guild-nav-dropdown sm:hidden">
+<!-- Guild Navigation Bar -->
+<div class="guild-nav-container mb-6" id="guildNavContainer">
+    <!-- Desktop: Horizontal tabs using TabPanel. guild-nav.js moves tabs that do not fit into the
+         More menu; without JavaScript the strip scrolls and the (hidden) More menu stays unused. -->
+    <div class="hidden sm:block guild-nav-desktop" data-guild-nav>
+        @await Html.PartialAsync("Components/_TabPanel", GuildNavBarHelper.CreateGuildNavBar(navModel.GuildId, navModel.ActiveTab, navModel.Tabs))
+        <div class="guild-nav-more" data-guild-nav-more hidden>
             <button type="button"
-                    id="guildNavDropdownToggle"
-                    class="guild-nav-dropdown-button"
-                    aria-haspopup="true"
-                    aria-expanded="false">
-                <span id="guildNavSelectedText">@(activeTab?.Label ?? "Navigation")</span>
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    id="guildNavMoreButton"
+                    class="guild-nav-more-button"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="guildNavMoreMenu">
+                <span class="guild-nav-more-label">More</span>
+                <svg class="guild-nav-more-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
-            <div id="guildNavDropdownMenu"
-                 class="hidden guild-nav-dropdown-menu"
-                 role="region"
-                 aria-label="Server navigation menu">
-                @foreach (var tab in orderedTabs)
-                {
-                    var isActive = navModel.ActiveTab == tab.Id;
-
-                    <a href="@tab.GetUrl(navModel.GuildId)"
-                       class="guild-nav-dropdown-item @(isActive ? "active" : "")">
-                        @tab.Label
-                    </a>
-                }
-            </div>
+            <ul id="guildNavMoreMenu"
+                class="guild-nav-more-menu"
+                role="menu"
+                aria-labelledby="guildNavMoreButton"></ul>
         </div>
     </div>
 
-    <!-- Page Content -->
-    <div class="guild-page-content">
-        @RenderBody()
+    <!-- Mobile: Dropdown -->
+    <div class="guild-nav-dropdown sm:hidden">
+        <button type="button"
+                id="guildNavDropdownToggle"
+                class="guild-nav-dropdown-button"
+                aria-haspopup="true"
+                aria-expanded="false">
+            <span id="guildNavSelectedText">@(activeTab?.Label ?? "Navigation")</span>
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+        <div id="guildNavDropdownMenu"
+             class="hidden guild-nav-dropdown-menu"
+             role="region"
+             aria-label="Server navigation menu">
+            @foreach (var tab in orderedTabs)
+            {
+                var isActive = navModel.ActiveTab == tab.Id;
+
+                <a href="@tab.GetUrl(navModel.GuildId)"
+                   class="guild-nav-dropdown-item @(isActive ? "active" : "")">
+                    @tab.Label
+                </a>
+            }
+        </div>
     </div>
+</div>
+
+<!-- Page Content -->
+<div class="guild-page-content">
+    @RenderBody()
 </div>
 
 @section Styles {

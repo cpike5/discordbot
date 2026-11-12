@@ -28,12 +28,16 @@
     };
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
-    <div class="mb-6">
-        <h1 class="page-title">User Data Purge</h1>
-        <p class="mt-1 text-sm text-text-secondary">Permanently delete everything stored about one Discord user (GDPR right to erasure)</p>
-    </div>
+    <!-- Page Header -->
+    @{
+        var pageHeader = new DiscordBot.Bot.ViewModels.Components.PageHeaderViewModel
+        {
+            Eyebrow = "Administration",
+            Title = "User Data Purge",
+            Subtitle = "Permanently delete everything stored about one Discord user (GDPR right to erasure)"
+        };
+    }
+    <partial name="Shared/Components/_PageHeader" model="pageHeader" />
 
     <!-- Warning Notice -->
     <div class="mb-6 p-4 bg-error-bg border border-error-border rounded-lg">
@@ -265,7 +269,6 @@
             </div>
         </div>
     </div>
-</div>
 
 @section Scripts {
     <script src="~/js/form-focus.js" asp-append-version="true"></script>
