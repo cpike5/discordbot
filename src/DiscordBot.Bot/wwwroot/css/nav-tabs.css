@@ -136,15 +136,16 @@
 /* Light background container with bottom border on active tab */
 /* Matches GuildNavBar/PerformanceTabs pattern */
 
+/* The list scrolls, so the rule under it is an inset shadow rather than a border with the items pulled
+   down over it by a negative margin, which clipped the active underline (see tab-panel.css) */
 .nav-tabs-underline .nav-tabs-list {
     gap: 0.25rem;
-    border-bottom: 2px solid var(--color-border-primary);
+    box-shadow: inset 0 -2px 0 var(--color-border-primary);
 }
 
 .nav-tabs-underline .nav-tabs-item {
     padding: 0.75rem 1rem;
     border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
 }
 
 .nav-tabs-underline .nav-tabs-item:hover:not(.active):not(.disabled) {
@@ -221,15 +222,15 @@
 /* Underline style with Discord branding colors */
 /* Matches Portal Header pattern */
 
+/* Inset shadow for the rule, as in the underline variant */
 .nav-tabs-bordered .nav-tabs-list {
     gap: 0.5rem;
-    border-bottom: 2px solid var(--color-border-secondary);
+    box-shadow: inset 0 -2px 0 var(--color-border-secondary);
 }
 
 .nav-tabs-bordered .nav-tabs-item {
     padding: 0.75rem 1.25rem;
     border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
 }
 
 .nav-tabs-bordered .nav-tabs-item:hover:not(.active):not(.disabled) {
