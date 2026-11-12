@@ -5,6 +5,28 @@
 @{
     ViewData["Title"] = "LLM Usage";
     var hasFilters = Model.GuildId.HasValue || Model.Mode.HasValue;
+
+    // Applied filters as chips. The date range is a chip only when the URL sets one: the default
+    // 30 days is already in the page subtitle.
+    var chipList = new List<ActiveFilterChip>();
+    if (Model.GuildId.HasValue)
+    {
+        var guildName = Model.Guilds.FirstOrDefault(g => g.Id == Model.GuildId.Value)?.Name ?? Model.GuildId.Value.ToString();
+        chipList.Add(new ActiveFilterChip($"Server: {guildName}", QueryStringHelper.Without(Model.Request, "GuildId")));
+    }
+    if (Model.Mode.HasValue)
+    {
+        chipList.Add(new ActiveFilterChip($"Mode: {Model.Mode.Value.DisplayName()}", QueryStringHelper.Without(Model.Request, "Mode")));
+    }
+    if (Model.Request.Query.ContainsKey("StartDate") || Model.Request.Query.ContainsKey("EndDate"))
+    {
+        chipList.Add(new ActiveFilterChip($"Dates: {Model.StartDate:MMM d} – {Model.EndDate:MMM d, yyyy}", QueryStringHelper.Without(Model.Request, "StartDate", "EndDate")));
+    }
+    var filterChips = new ActiveFilterChipsViewModel
+    {
+        Chips = chipList,
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "GuildId", "Mode", "StartDate", "EndDate")
+    };
     var noUsage = new EmptyStateViewModel
     {
         Type = hasFilters ? EmptyStateType.NoResults : EmptyStateType.NoData,
@@ -29,7 +51,7 @@
 
 <!-- Filters -->
 <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6" data-llm-filter-panel>
-    <button type="button" id="llmUsageFilterToggle" class="w-full flex items-center justify-between px-4 sm:px-5 py-4 text-left" aria-expanded="true" aria-controls="llmUsageFilterContent" data-llm-filter-toggle>
+    <button type="button" id="llmUsageFilterToggle" class="w-full flex items-center justify-between px-4 sm:px-5 py-4 text-left" aria-expanded="false" aria-controls="llmUsageFilterContent" data-llm-filter-toggle>
         <div class="flex items-center gap-3">
             <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -45,7 +67,7 @@
         </svg>
     </button>
 
-    <div id="llmUsageFilterContent">
+    <div id="llmUsageFilterContent" hidden>
         <div class="border-t border-border-primary p-4 sm:p-5">
             <form method="get" id="llmUsageFilterForm" data-submit-guard>
                 <input type="hidden" name="UserTimezone" id="UserTimezone" value="@Model.UserTimezone" />
@@ -102,6 +124,8 @@
         </div>
     </div>
 </div>
+
+<partial name="Shared/Components/_ActiveFilterChips" model="filterChips" />
 
 <!-- Hero Stats -->
 <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">

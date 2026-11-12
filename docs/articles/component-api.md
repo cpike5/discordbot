@@ -80,7 +80,7 @@ Then in the view:
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
 | [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
 | [SortDropdown](#sortdropdown-component) | Sort selection dropdown | Table headers, list sorting |
-| [FilterPanel](#filterpanel-javascript-utility) | Collapsible filter sections | Data filtering, date range selection |
+| [FilterPanel](#filterpanel-javascript-utility) | Collapsible filter sections, live search, filter chips | Data filtering, date range selection ([list-page rule](#search-panel-and-chips-the-list-page-rule)) |
 | [VoiceChannelPanel](#voicechannelpanel-component) | Voice channel controls | Audio portals, admin voice pages |
 
 ---
@@ -2989,6 +2989,38 @@ onclick="setDatePreset('30days')"  // Last 30 days
 - Member Directory (`Members/Index.cshtml`)
 - Notifications (`Admin/Notifications/Index.cshtml`)
 
+### Search, panel and chips: the list-page rule
+
+Every list page follows one rule (UI audit § 7):
+
+1. **The search box is always visible**, above the panel, never inside it. Use the `_FilterSearch`
+   partial (`FilterSearchViewModel`: `Id`, `Name`, `Value`, `Label`, `Placeholder`, `Hidden`). Its
+   input carries `data-filter-live`: `filter-panel.js` waits 300ms after the last keystroke (Enter
+   and the clear button act at once), then loads the same page with the value in the query string
+   (paging reset, other filters kept) and puts focus and caret back after the reload. Without
+   scripts it is a plain GET form whose `Hidden` pairs (`QueryStringHelper.Pairs`) keep the other
+   filters.
+   A page that filters in script instead (Commands > Execution Logs) listens for the cancelable
+   `filter-live` event on the input (`detail: { name, value }`) and calls `preventDefault()`;
+   nothing navigates then. The panel's own form needs the search value as a hidden input, so
+   "Apply filters" does not drop it (or give the input the `form` attribute).
+2. **Other filters stay in the panel, collapsed by default.** The `<filter-panel>` tag helper
+   opens only when the page passes `default-expanded="true"`; pages should not (Members, Rat Watch,
+   Analytics and the rest pass `false`). The "N active" badge is a summary of the panel's filters
+   and does not count the search term.
+3. **Applied filters show as chips** between the panel and the list, with Clear all. Use
+   `_ActiveFilterChips` (`ActiveFilterChipsViewModel`: `Chips` of `ActiveFilterChip(Label, RemoveUrl)`,
+   `ClearAllUrl`, `Label`). It renders nothing when there are no chips, and each remove link has
+   `aria-label="Remove filter: {label}"`.
+   - Build `RemoveUrl` with `QueryStringHelper.Without(Request, "Key")` (drops every value of the
+     key) or `QueryStringHelper.WithoutValue(Request, "RoleFilter", "123")` (drops one value of a
+     repeated key). Both keep every other key, repeated ones included, and drop `pageNumber`.
+   - `FilterChipHelper.DateRange(Request, start, end)` gives the one "Dates: A – B" chip that the
+     analytics-style pages share, only when the URL sets a range.
+   - Pages that draw filters in script call `FilterPanel.chipsHtml([{ label, key }])` for the same
+     markup (remove buttons carry `data-chip-key`, Clear all `data-chip-clear-all`); labels go
+     through `SafeHtml.escape`.
+
 ---
 
 ## VoiceChannelPanel Component
@@ -3704,6 +3736,9 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.7 (2026-11-12)
+- Added `_FilterSearch` (live search, `data-filter-live`), `_ActiveFilterChips`, `QueryStringHelper`, `FilterChipHelper` and `FilterPanel.chipsHtml`; list pages' filter panels start collapsed
 
 ### Version 1.6 (2026-10-03)
 - Added Bulk Selection (`bulk-selection.js`)

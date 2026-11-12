@@ -139,6 +139,22 @@ public class ModerationScreensTests : IClassFixture<ModerationScreensTests.AppFi
     }
 
     [Fact]
+    public async Task ListPages_ShowAppliedFiltersAsChips_WithNamedRemoveLinks()
+    {
+        var users = await _app.Host.Client.GetStringAsync("/Admin/Users?RoleFilter=Admin&SearchTerm=a&pageNumber=2");
+        users.Should().Contain("aria-label=\"Remove filter: Role: Admin\"")
+            .And.Contain("href=\"/Admin/Users?SearchTerm=a\"");
+
+        var notifications = await _app.Host.Client.GetStringAsync("/Admin/Notifications?IsRead=false&SearchTerm=disk");
+        notifications.Should().Contain("aria-label=\"Remove filter: Status: Unread\"")
+            .And.Contain("href=\"/Admin/Notifications?SearchTerm=disk\"")
+            .And.Contain("data-filter-live", "the search box is outside the panel");
+
+        var analytics = await _app.Host.Client.GetStringAsync($"/Guilds/Analytics/{GuildId}?StartDate=2026-11-01&EndDate=2026-11-10");
+        analytics.Should().Contain("Dates: Nov 1, 2026").And.Contain("Nov 10, 2026", "the chip names the range (the dash is HTML-encoded)");
+    }
+
+    [Fact]
     public async Task Members_ExportCsv_DownloadsWithUtcHeaders()
     {
         var response = await _app.Host.Client.GetAsync($"/Guilds/{GuildId}/Members?handler=Export&SearchTerm=chatty");

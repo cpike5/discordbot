@@ -67,7 +67,7 @@
 <!-- Filter Panel (collapsed; what is applied shows as chips below) -->
 <filter-panel title="Filters"
               is-collapsible="true"
-              active-filter-count="@Model.ActiveFilterCount"
+              active-filter-count="@(Model.ActiveFilterCount - (string.IsNullOrWhiteSpace(Model.SearchTerm) ? 0 : 1))"
               default-expanded="false"
               use-hidden-toggle="true">
     <form method="get" id="filterForm">

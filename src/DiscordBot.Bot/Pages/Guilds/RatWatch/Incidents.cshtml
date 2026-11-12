@@ -58,11 +58,43 @@
         Id = "MinVoteCount", Name = "MinVoteCount", Label = "Minimum total votes", Type = "number",
         Value = vm.Filters.MinVoteCount?.ToString(), InputMode = "numeric", Min = "0", Placeholder = "For example 5"
     };
-    var keywordInput = new FormInputViewModel
+    var searchBar = new FilterSearchViewModel
     {
-        Id = "Keyword", Name = "Keyword", Label = "Keyword in message", Value = vm.Filters.Keyword,
-        Placeholder = "Search custom messages"
+        Id = "Keyword", Name = "Keyword", Value = vm.Filters.Keyword,
+        Label = "Search incident messages", Placeholder = "Search custom messages",
+        Hidden = QueryStringHelper.Pairs(Model.Request.Query, "Keyword")
     };
+
+    // Applied filters as chips (the keyword is the visible box above; the default date range is not a filter)
+    var chipList = new List<ActiveFilterChip>();
+    if (vm.Filters.Statuses.Count > 0 && vm.Filters.Statuses.Count < RatWatchIncidentsViewModel.AllStatuses.Count)
+    {
+        chipList.Add(new ActiveFilterChip("Status: " + string.Join(", ", vm.Filters.Statuses), QueryStringHelper.Without(Model.Request, "Statuses")));
+    }
+    if (!vm.Filters.DatesAreDefault && (vm.Filters.StartDate.HasValue || vm.Filters.EndDate.HasValue))
+    {
+        var from = vm.Filters.StartDate.HasValue ? vm.Filters.StartDate.Value.ToString("MMM d, yyyy") : "any time";
+        var to = vm.Filters.EndDate.HasValue ? vm.Filters.EndDate.Value.ToString("MMM d, yyyy") : "now";
+        chipList.Add(new ActiveFilterChip($"Dates: {from} – {to}", QueryStringHelper.Without(Model.Request, "StartDate", "EndDate")));
+    }
+    if (!string.IsNullOrWhiteSpace(vm.Filters.AccusedUser))
+    {
+        chipList.Add(new ActiveFilterChip($"Accused: {vm.Filters.AccusedUser}", QueryStringHelper.Without(Model.Request, "AccusedUser")));
+    }
+    if (!string.IsNullOrWhiteSpace(vm.Filters.InitiatorUser))
+    {
+        chipList.Add(new ActiveFilterChip($"Initiator: {vm.Filters.InitiatorUser}", QueryStringHelper.Without(Model.Request, "InitiatorUser")));
+    }
+    if (vm.Filters.MinVoteCount is > 0)
+    {
+        chipList.Add(new ActiveFilterChip($"Min votes: {vm.Filters.MinVoteCount}", QueryStringHelper.Without(Model.Request, "MinVoteCount")));
+    }
+    var filterChips = new ActiveFilterChipsViewModel
+    {
+        Chips = chipList,
+        ClearAllUrl = QueryStringHelper.Without(Model.Request, "Statuses", "StartDate", "EndDate", "AccusedUser", "InitiatorUser", "MinVoteCount")
+    };
+    var panelFilterCount = chipList.Count;
 }
 
 @section Styles {
@@ -100,11 +132,14 @@
 <div data-incident-page data-guild-id="@vm.GuildId"
      data-detail-url="@Url.Page("Incidents", "IncidentDetail", new { guildId = vm.GuildId, incidentId = "__id__" })">
 
-<!-- Filter Panel -->
+<!-- Search: always visible, filters as you type -->
+<partial name="Shared/Components/_FilterSearch" model="searchBar" />
+
+<!-- Filter Panel (collapsed; what is applied shows as chips below) -->
 <filter-panel title="Filters"
               is-collapsible="true"
-              active-filter-count="@vm.ActiveFilterCount"
-              default-expanded="true">
+              active-filter-count="@panelFilterCount"
+              default-expanded="false">
     <form method="get" asp-page="Incidents" asp-route-guildId="@vm.GuildId" class="space-y-4">
         <fieldset>
             <legend class="block text-sm font-medium text-text-primary mb-2">Status</legend>
@@ -131,8 +166,10 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <partial name="Shared/Components/_FormInput" model="minVotesInput" />
-            <partial name="Shared/Components/_FormInput" model="keywordInput" />
         </div>
+
+        <!-- The keyword search lives above the panel; Apply filters keeps its value -->
+        <input type="hidden" name="Keyword" value="@vm.Filters.Keyword" />
 
         <!-- Sort and page size stay as they are when the filters change -->
         <input type="hidden" name="SortBy" value="@vm.Filters.SortBy" />
@@ -158,6 +195,8 @@
         </div>
     </form>
 </filter-panel>
+
+<partial name="Shared/Components/_ActiveFilterChips" model="filterChips" />
 
 @if (loadFailed)
 {
