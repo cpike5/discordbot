@@ -145,6 +145,49 @@
     </div>
 </section>
 
+<!-- Watchlist -->
+<section class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6" aria-labelledby="watchlistHeading"
+         id="watchlistSection" data-watchlist-section>
+    <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+        <div class="min-w-0">
+            <h2 id="watchlistHeading" class="text-lg font-semibold text-text-primary">Watchlist</h2>
+            <p class="text-sm text-text-secondary mt-1">Users moderators are keeping an eye on in this server. This list covers the whole server, not just this member.</p>
+        </div>
+        <span id="watchlistCount" class="text-sm text-text-secondary" role="status"></span>
+    </div>
+
+    <form id="watchlistAddForm" class="mb-4" novalidate>
+        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] gap-3 sm:items-end">
+            <div>
+                <label for="watchlistUserId" class="form-label block mb-1.5">User ID</label>
+                <input type="text" id="watchlistUserId" name="userId" inputmode="numeric" autocomplete="off" spellcheck="false"
+                       value="@Model.UserId" maxlength="20"
+                       aria-describedby="watchlistFormError"
+                       class="form-input w-full font-mono" @(canAttribute ? "" : "disabled") />
+            </div>
+            <div>
+                <label for="watchlistReason" class="form-label block mb-1.5">Reason <span class="text-text-tertiary font-normal">(optional)</span></label>
+                <input type="text" id="watchlistReason" name="reason" maxlength="500" dir="auto" autocomplete="off"
+                       class="form-input w-full" @(canAttribute ? "" : "disabled") />
+            </div>
+            <button type="submit" id="watchlistAddBtn" class="btn btn-primary" data-loading-text="Adding…" @(canAttribute ? "" : "disabled")>Add to watchlist</button>
+        </div>
+        <p id="watchlistFormError" class="form-error mt-1 hidden" role="alert"></p>
+    </form>
+
+    <p id="watchlistLoading" class="text-sm text-text-secondary">Loading the watchlist…</p>
+    <p id="watchlistLoadError" class="form-error hidden" role="alert"></p>
+    <ul id="watchlistList" class="divide-y divide-border-primary hidden" aria-label="Watchlist entries"></ul>
+    <div id="watchlistEmpty" class="hidden">
+        <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+            Type = EmptyStateType.NoData,
+            Title = noWatchlistTitle,
+            Description = noWatchlistText,
+            Size = EmptyStateSize.Compact
+        }" />
+    </div>
+</section>
+
 <!-- Tabs -->
 <partial name="Shared/Components/_TabPanel" model="tabs" />
 
@@ -326,6 +369,7 @@
 
 @section Scripts {
     <script src="~/js/user-moderation-profile.js" asp-append-version="true"></script>
+    <script src="~/js/user-watchlist.js" asp-append-version="true"></script>
     <script>
         // IDs are strings so Discord snowflakes keep every digit
         window.moderationGuildId = '@Model.GuildId';
@@ -340,6 +384,8 @@
     private const string noCasesText = "This user has no warnings, mutes, kicks or bans on record.";
     private const string noNotesTitle = "No notes yet";
     private const string noNotesText = "Add a note above to leave context for other moderators.";
+    private const string noWatchlistTitle = "Nobody on the watchlist";
+    private const string noWatchlistText = "Add a user by ID above to keep track of them.";
     private const string noFlagsTitle = "No flagged events";
     private const string noFlagsText = "Auto-moderation has not flagged this user.";
 }

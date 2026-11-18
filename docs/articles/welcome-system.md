@@ -201,7 +201,7 @@ When `IncludeAvatar` is `true` and `UseEmbed` is `true`:
 
 ## Slash Commands
 
-There are none. The `/welcome` commands (show, enable, disable, channel, message, test) and `WelcomeModule` were removed; the welcome system is configured entirely from the portal (see below).
+There are none. The `/welcome` commands (show, enable, disable, channel, message, test) and `WelcomeModule` were removed; the welcome system is configured entirely from the portal (see below). The old `/welcome test` is now the **Send test** button on the welcome page, backed by `POST /api/guilds/{guildId}/welcome/test`.
 
 ---
 
@@ -225,6 +225,7 @@ There are none. The `/welcome` commands (show, enable, disable, channel, message
 - Embed color picker
 - Token help panel (collapsible)
 - Save/Cancel buttons
+- **Send test** button: posts the saved welcome message to the welcome channel with you as the new member (needs a linked Discord account; save first, because the test uses saved settings)
 
 **Right Column: Live Preview**
 - Discord-styled message preview
@@ -422,6 +423,25 @@ Returned when configuration doesn't exist, guild not found, or user not found in
 Returned when `previewUserId` is 0 or null.
 
 **Use Case:** Test message template rendering before enabling or after changes.
+
+### POST /api/guilds/{guildId}/welcome/test
+
+Sends the rendered welcome message to the configured welcome channel, with the signed-in admin as the new member. Reuses `IWelcomeService.SendWelcomeMessageAsync`, so the channel, embed and avatar settings match a real join.
+
+**Request Body:** none
+
+**Response: 200 OK**
+```json
+{ "message": "Test welcome message sent", "channelId": "987654321098765432" }
+```
+
+**Response: 400 Bad Request**: welcome is not set up, is disabled, has no channel, or has an empty message.
+
+**Response: 403 Forbidden** (`DISCORD_LINK_REQUIRED`): the signed-in account has no linked Discord account.
+
+**Response: 500**: the send failed (admin not in the server, channel gone, or the bot cannot post there).
+
+**Audit:** `Message` / `CommandExecuted`, actor is the admin, target `WelcomeConfiguration`, details `action = welcome_test_sent`, `source = portal`. Only successful sends are logged.
 
 ---
 

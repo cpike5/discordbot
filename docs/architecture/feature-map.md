@@ -198,9 +198,9 @@ Moderator watchlist to flag users for closer monitoring without taking action. I
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | None. The `/watchlist` commands were removed; the watchlist is reachable through `WatchlistController` (REST API) |
+| **Discord Commands** | None. The `/watchlist` commands were removed; use the Watchlist section on the member moderation page (also reachable through `WatchlistController`, REST API) |
 | **Services** | `IWatchlistService` |
-| **UI Pages** | Admin: Watchlist management |
+| **UI Pages** | Admin: Watchlist section on Guilds/Members/Moderation (list, add by user ID with optional reason, confirmed remove) |
 | **Database Entities** | `Watchlist` |
 | **Key Features** | Reason tracking, timestamp recording, moderator-only visibility |
 
@@ -438,7 +438,7 @@ Automated welcome messages and member verification upon joining guild.
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | None. The `/welcome` commands were removed; configure in the portal (Guilds/Welcome) |
+| **Discord Commands** | None. The `/welcome` commands were removed; configure in the portal (Guilds/Welcome), including the "Send test" button that replaces `/welcome test` |
 | **Services** | `IWelcomeService` |
 | **UI Pages** | Admin: Welcome configuration page |
 | **Database Entities** | `WelcomeConfiguration`, `VerificationCode` |

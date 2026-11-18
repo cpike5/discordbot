@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Core.DTOs;
@@ -15,11 +16,13 @@ public class WatchlistEntryDto
     /// <summary>
     /// Gets or sets the Discord guild snowflake ID.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
     /// Gets or sets the Discord user snowflake ID of the watched user.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong UserId { get; set; }
 
     /// <summary>
@@ -30,6 +33,7 @@ public class WatchlistEntryDto
     /// <summary>
     /// Gets or sets the Discord user snowflake ID of who added this user to the watchlist.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong AddedByUserId { get; set; }
 
     /// <summary>
@@ -56,16 +60,19 @@ public class WatchlistAddDto
     /// <summary>
     /// Gets or sets the Discord guild snowflake ID where this entry will be created.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
     /// Gets or sets the Discord user snowflake ID of the user to add to the watchlist.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong UserId { get; set; }
 
     /// <summary>
     /// Gets or sets the Discord user snowflake ID of the moderator adding this entry.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong AddedByUserId { get; set; }
 
     /// <summary>

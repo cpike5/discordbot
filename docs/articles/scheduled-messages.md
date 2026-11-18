@@ -31,7 +31,7 @@ The Scheduled Messages feature enables administrators to create, manage, and aut
 
 ## Slash Commands
 
-There are none. `/schedule-list`, `/schedule-create`, `/schedule-delete`, `/schedule-toggle` and `/schedule-run` (and `ScheduleModule` / `ScheduleComponentModule`) were removed. Scheduled messages are managed in the portal under Guilds > Scheduled Messages (list, create, edit, delete, enable/disable); see [Admin UI Pages](#admin-ui-pages). There is no manual "run now" action in the portal.
+There are none. `/schedule-list`, `/schedule-create`, `/schedule-delete`, `/schedule-toggle` and `/schedule-run` (and `ScheduleModule` / `ScheduleComponentModule`) were removed. Scheduled messages are managed in the portal under Guilds > Scheduled Messages (list, create, edit, delete, enable/disable); see [Admin UI Pages](#admin-ui-pages). The old `/schedule-run` is now the **Run now** row action on the list page, which asks for confirmation and then calls `POST /api/guilds/{guildId}/scheduled-messages/{id}/execute`.
 
 ---
 
@@ -155,7 +155,7 @@ The scheduled messages feature provides three Razor Pages for web-based manageme
 
 - **Paginated List**: Display scheduled messages with customizable page size (default: 20, max: 100)
 - **Status Indicators**: Visual icons for enabled/disabled state
-- **Quick Actions**: Toggle enable/disable, delete with inline confirmation
+- **Quick Actions**: Run now (confirmation dialog, then a success or error toast), toggle enable/disable, delete with inline confirmation
 - **Channel Resolution**: Displays channel names resolved from Discord client
 - **Guild Context**: Guild icon and name displayed in page header
 - **Success/Error Messages**: TempData-based feedback for actions
@@ -169,7 +169,7 @@ The scheduled messages feature provides three Razor Pages for web-based manageme
 | **Frequency** | Schedule frequency (e.g., "Daily", "Custom (0 9 * * 1,5)") |
 | **Next Execution** | Local timestamp of next scheduled execution |
 | **Status** | Enabled/Disabled badge |
-| **Actions** | Edit, Toggle, Delete buttons |
+| **Actions** | Edit, Run now, Toggle, Delete buttons |
 
 #### Actions
 

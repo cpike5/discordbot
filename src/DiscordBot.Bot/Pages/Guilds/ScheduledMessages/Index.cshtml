@@ -18,6 +18,7 @@
 
     // Icon paths shared by the table and the cards
     const string editIcon = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z";
+    const string runIcon = "M12 19l9 2-9-18-9 18 9-2zm0 0v-8";
     const string pauseIcon = "M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z";
     const string resumeIcon = "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z";
     const string deleteIcon = "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16";
@@ -78,6 +79,13 @@ else if (Model.ViewModel.TotalCount > 0)
                                     </a>
                                     @if (!expired)
                                     {
+                                        <button type="button" class="row-action-btn row-action-btn-accent"
+                                                data-run-now="@message.Id"
+                                                data-run-label="@message.MessagePreview"
+                                                data-run-channel="@message.ChannelName"
+                                                aria-label="Run now: @message.MessagePreview" title="Run now">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@runIcon" /></svg>
+                                        </button>
                                         <form method="post" asp-page-handler="Toggle" asp-route-guildId="@guildId" asp-route-messageId="@message.Id"
                                               asp-route-pageNumber="@Model.ViewModel.Page" asp-route-pageSize="@Model.ViewModel.PageSize" data-submit-guard class="inline">
                                             <button type="submit" class="row-action-btn"
@@ -136,6 +144,10 @@ else if (Model.ViewModel.TotalCount > 0)
                     <a asp-page="Edit" asp-route-guildId="@guildId" asp-route-id="@message.Id" class="btn btn-secondary btn-sm flex-1 justify-center min-h-[44px]">Edit</a>
                     @if (!expired)
                     {
+                        <button type="button" class="btn btn-secondary btn-sm flex-1 justify-center min-h-[44px]"
+                                data-run-now="@message.Id"
+                                data-run-label="@message.MessagePreview"
+                                data-run-channel="@message.ChannelName">Run now</button>
                         <form method="post" asp-page-handler="Toggle" asp-route-guildId="@guildId" asp-route-messageId="@message.Id"
                               asp-route-pageNumber="@Model.ViewModel.Page" asp-route-pageSize="@Model.ViewModel.PageSize" data-submit-guard class="flex-1 flex">
                             <button type="submit" class="btn btn-secondary btn-sm flex-1 justify-center min-h-[44px]">@(message.IsEnabled ? "Pause" : "Resume")</button>
@@ -186,5 +198,10 @@ else
 }
 
 @section Scripts {
+    <script>
+        // IDs are strings so Discord snowflakes keep every digit
+        window.scheduledMessagesGuildId = '@guildId';
+    </script>
     <script src="~/js/confirm-forms.js" asp-append-version="true"></script>
+    <script src="~/js/scheduled-message-run.js" asp-append-version="true"></script>
 }

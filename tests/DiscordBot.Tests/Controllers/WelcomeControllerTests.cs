@@ -1,11 +1,14 @@
 using DiscordBot.Bot.Controllers;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Security.Claims;
 
 namespace DiscordBot.Tests.Controllers;
 
@@ -15,6 +18,8 @@ namespace DiscordBot.Tests.Controllers;
 public class WelcomeControllerTests
 {
     private readonly Mock<IWelcomeService> _mockWelcomeService;
+    private readonly Mock<IAuditLogService> _mockAuditLog;
+    private readonly Mock<IAuditLogBuilder> _mockAuditBuilder;
     private readonly Mock<ILogger<WelcomeController>> _mockLogger;
     private readonly WelcomeController _controller;
 
@@ -22,7 +27,17 @@ public class WelcomeControllerTests
     {
         _mockWelcomeService = new Mock<IWelcomeService>();
         _mockLogger = new Mock<ILogger<WelcomeController>>();
-        _controller = new WelcomeController(_mockWelcomeService.Object, _mockLogger.Object);
+        _mockAuditLog = new Mock<IAuditLogService>();
+        _mockAuditBuilder = new Mock<IAuditLogBuilder>();
+        _mockAuditBuilder.Setup(b => b.ForCategory(It.IsAny<AuditLogCategory>())).Returns(_mockAuditBuilder.Object);
+        _mockAuditBuilder.Setup(b => b.WithAction(It.IsAny<AuditLogAction>())).Returns(_mockAuditBuilder.Object);
+        _mockAuditBuilder.Setup(b => b.ByUser(It.IsAny<string>())).Returns(_mockAuditBuilder.Object);
+        _mockAuditBuilder.Setup(b => b.InGuild(It.IsAny<ulong>())).Returns(_mockAuditBuilder.Object);
+        _mockAuditBuilder.Setup(b => b.OnTarget(It.IsAny<string>(), It.IsAny<string>())).Returns(_mockAuditBuilder.Object);
+        _mockAuditBuilder.Setup(b => b.WithDetails(It.IsAny<object>())).Returns(_mockAuditBuilder.Object);
+        _mockAuditBuilder.Setup(b => b.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockAuditLog.Setup(a => a.CreateBuilder()).Returns(_mockAuditBuilder.Object);
+        _controller = new WelcomeController(_mockWelcomeService.Object, _mockAuditLog.Object, _mockLogger.Object);
 
         // Setup HttpContext for GetCorrelationId() extension method
         _controller.ControllerContext = new ControllerContext
@@ -553,6 +568,156 @@ public class WelcomeControllerTests
             s => s.PreviewWelcomeMessageAsync(guildId, userId, cancellationToken),
             Times.Once,
             "the cancellation token should be passed to the service");
+    }
+
+    #endregion
+
+    #region SendTestMessage Tests
+
+    private const ulong TestGuildId = 123456789UL;
+    private const ulong TestAdminId = 555000111UL;
+
+    private void SignInAsDiscordUser(ulong? discordUserId)
+    {
+        var claims = new List<Claim>();
+        if (discordUserId.HasValue)
+        {
+            claims.Add(new Claim(ClaimsPrincipalExtensions.DiscordUserIdClaimType, discordUserId.Value.ToString()));
+        }
+
+        _controller.ControllerContext.HttpContext.User =
+            new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
+    }
+
+    private static WelcomeConfigurationDto ReadyConfig() => new()
+    {
+        GuildId = TestGuildId,
+        IsEnabled = true,
+        WelcomeChannelId = 987654321UL,
+        WelcomeMessage = "Welcome {user}!"
+    };
+
+    [Fact]
+    public async Task SendTestMessage_ReturnsOkAndAuditLogs_WhenMessageSent()
+    {
+        // Arrange
+        SignInAsDiscordUser(TestAdminId);
+        _mockWelcomeService
+            .Setup(s => s.GetConfigurationAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ReadyConfig());
+        _mockWelcomeService
+            .Setup(s => s.SendWelcomeMessageAsync(TestGuildId, TestAdminId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.SendTestMessage(TestGuildId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        _mockWelcomeService.Verify(
+            s => s.SendWelcomeMessageAsync(TestGuildId, TestAdminId, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "the signed-in admin stands in as the new member");
+        _mockAuditBuilder.Verify(b => b.ByUser(TestAdminId.ToString()), Times.Once);
+        _mockAuditBuilder.Verify(b => b.InGuild(TestGuildId), Times.Once);
+        _mockAuditBuilder.Verify(b => b.LogAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SendTestMessage_ReturnsBadRequest_WhenWelcomeDisabled()
+    {
+        // Arrange
+        SignInAsDiscordUser(TestAdminId);
+        var config = ReadyConfig();
+        config.IsEnabled = false;
+        _mockWelcomeService
+            .Setup(s => s.GetConfigurationAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        // Act
+        var result = await _controller.SendTestMessage(TestGuildId, CancellationToken.None);
+
+        // Assert
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequest.Value.Should().BeOfType<ApiErrorDto>().Which.Detail.Should().Contain("disabled");
+        _mockWelcomeService.Verify(
+            s => s.SendWelcomeMessageAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _mockAuditBuilder.Verify(b => b.LogAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendTestMessage_ReturnsBadRequest_WhenNoChannelConfigured()
+    {
+        // Arrange
+        SignInAsDiscordUser(TestAdminId);
+        var config = ReadyConfig();
+        config.WelcomeChannelId = null;
+        _mockWelcomeService
+            .Setup(s => s.GetConfigurationAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        // Act
+        var result = await _controller.SendTestMessage(TestGuildId, CancellationToken.None);
+
+        // Assert
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequest.Value.Should().BeOfType<ApiErrorDto>().Which.Detail.Should().Contain("channel");
+        _mockWelcomeService.Verify(
+            s => s.SendWelcomeMessageAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task SendTestMessage_ReturnsBadRequest_WhenNoConfigurationExists()
+    {
+        // Arrange
+        SignInAsDiscordUser(TestAdminId);
+        _mockWelcomeService
+            .Setup(s => s.GetConfigurationAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WelcomeConfigurationDto?)null);
+
+        // Act
+        var result = await _controller.SendTestMessage(TestGuildId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task SendTestMessage_Returns500AndDoesNotAudit_WhenSendFails()
+    {
+        // Arrange
+        SignInAsDiscordUser(TestAdminId);
+        _mockWelcomeService
+            .Setup(s => s.GetConfigurationAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ReadyConfig());
+        _mockWelcomeService
+            .Setup(s => s.SendWelcomeMessageAsync(TestGuildId, TestAdminId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.SendTestMessage(TestGuildId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+        _mockAuditBuilder.Verify(b => b.LogAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendTestMessage_ReturnsForbidden_WhenNoLinkedDiscordAccount()
+    {
+        // Arrange
+        SignInAsDiscordUser(null);
+
+        // Act
+        var result = await _controller.SendTestMessage(TestGuildId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        _mockWelcomeService.Verify(
+            s => s.SendWelcomeMessageAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     #endregion
