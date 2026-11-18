@@ -278,12 +278,12 @@ DbContext Disposed (changes saved)
 ### In Command Modules
 
 ```csharp
-public class AdminModule : InteractionModuleBase<SocketInteractionContext>
+public class ExampleModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IGuildRepository _guildRepository;
-    private readonly ILogger<AdminModule> _logger;
+    private readonly ILogger<ExampleModule> _logger;
 
-    public AdminModule(IGuildRepository guildRepository, ILogger<AdminModule> logger)
+    public ExampleModule(IGuildRepository guildRepository, ILogger<ExampleModule> logger)
     {
         _guildRepository = guildRepository;
         _logger = logger;

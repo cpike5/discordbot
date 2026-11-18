@@ -166,7 +166,7 @@ Private annotations on users visible only to moderators. Used for tracking behav
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/modnote add`, `/modnote view`, `/modnote delete`, `/modnote list` (ModNoteModule) |
+| **Discord Commands** | None. The `/modnote` commands were removed; notes are managed in the portal (Guilds/Members/Moderation) |
 | **Services** | `IModNoteService` |
 | **UI Pages** | Admin: Mod notes management |
 | **Database Entities** | `ModNote` |
@@ -182,7 +182,7 @@ Tag system for categorizing user behavioral concerns and issues (e.g., "Spam", "
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/modtag add`, `/modtag remove`, `/modtag list` (ModTagModule) |
+| **Discord Commands** | None. The `/modtag` commands were removed; tags are managed in the portal (Guilds/Members/Moderation, ModerationSettings) |
 | **Services** | `IModTagService` |
 | **UI Pages** | Admin: Tag management page |
 | **Database Entities** | `ModTag`, `UserModTag` |
@@ -198,7 +198,7 @@ Moderator watchlist to flag users for closer monitoring without taking action. I
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/watchlist add`, `/watchlist remove`, `/watchlist view` (WatchlistModule) |
+| **Discord Commands** | None. The `/watchlist` commands were removed; the watchlist is reachable through `WatchlistController` (REST API) |
 | **Services** | `IWatchlistService` |
 | **UI Pages** | Admin: Watchlist management |
 | **Database Entities** | `Watchlist` |
@@ -214,7 +214,7 @@ Query and view historical moderation cases with filtering by user, action type, 
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/history user`, `/history stats`, context menu integration (ModerationHistoryModule, ModerationHistoryComponentModule) |
+| **Discord Commands** | None. `/modlog`, `/case`, `/reason` and `/modexport` were removed; case history is in the portal (Guilds/Members/Moderation) |
 | **Services** | `IModerationService`, `ISearchService` |
 | **UI Pages** | Admin: Detailed moderation history with filtering and export |
 | **Database Entities** | `ModerationCase` |
@@ -228,7 +228,7 @@ Quick statistics on moderator performance and guild moderation trends.
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/modstats` (ModStatsModule) |
+| **Discord Commands** | None. `/modstats` was removed |
 | **Services** | `IModerationService` |
 | **Database Entities** | `ModerationCase` |
 | **Key Features** | Moderator action counts, case resolution tracking, trend analysis |
@@ -241,7 +241,7 @@ Detailed user investigation interface showing moderation history, activity patte
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/investigate` (InvestigateModule) |
+| **Discord Commands** | None. `/investigate` was removed |
 | **Services** | `IInvestigationService`, `IModerationService`, `ISearchService` |
 | **UI Pages** | Admin: Investigation dashboard |
 | **Database Entities** | `ModerationCase`, `ModNote`, `Watchlist`, `MessageLog`, `CommandLog` |
@@ -280,7 +280,7 @@ Community-driven accountability system where users flag suspicious messages for 
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `Rat Watch` (context menu), `/rat-clear`, `/rat-stats`, `/rat-settings`, `/rat-leaderboard` (RatWatchModule, RatWatchComponentModule) |
+| **Discord Commands** | `Rat Watch` (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard` (RatWatchModule, RatWatchComponentModule) |
 | **Services** | `IRatWatchService`, `IRatWatchStatusService`, `IDashboardUpdateService` |
 | **UI Pages** | Guild: Rat Watch Settings (`Index`), Analytics and Incidents (incident dialog, CSV export of all filtered rows via `?handler=ExportCsv`); Portal: leaderboard; Admin: Rat Watch analytics (`RatWatchAnalytics.cshtml`, shares `rat-watch-analytics.js`) |
 | **Database Entities** | `RatWatch`, `RatRecord`, `RatVote`, `GuildRatWatchSettings` |
@@ -305,7 +305,7 @@ Ledger-backed virtual currency. Authorized people create currencies scoped to a 
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/wallet balance`, `/wallet history`, `/wallet pay`, `/wallet mint`, `/wallet fine` (WalletModule, WalletComponentModule); `/currency create`, `/currency list` (CurrencyModule) |
+| **Discord Commands** | `/wallet balance`, `/wallet history`, `/wallet pay` (WalletModule, WalletComponentModule). Creating currencies, minting and fines are portal-only (`/Guilds/{guildId}/Currency`, `WalletsController`) |
 | **Services** | `ICurrencyService`, `IWalletService`, `IMintService`, `IChargeService`, `IChargeHoldStore` |
 | **Repositories** | `ICurrencyRepository`, `IWalletRepository`, `ILedgerRepository`, `IPriceRepository`, `IMintAuthorityRepository` |
 | **UI Pages** | `/Guilds/{guildId}/Currency` (list, create, rules, mint authorities), `/Guilds/{guildId}/Currency/{currencyId}` (wallets, ledger, mint/fine/adjust, reconcile), `/Guilds/{guildId}/Currency/Prices` (soundboard prices), `/Admin/Currency` (bot-wide currencies); portal soundboard price badges |
@@ -316,7 +316,7 @@ Ledger-backed virtual currency. Authorized people create currencies scoped to a 
 
 **Autocomplete**: `CurrencyAutocompleteHandler` suggests the currencies visible in the guild — the guild's own plus the active globals — and sends the currency ID as the value.
 
-**Preconditions**: `[RequireGuildActive]`, `[RequireCurrencyEnabled]`; `/wallet fine` adds `[RequireModerator]`, `/currency create` requires Discord Administrator, `/wallet pay` carries `[RateLimitTransfers]`.
+**Preconditions**: `[RequireGuildActive]`, `[RequireCurrencyEnabled]`; `/wallet pay` carries `[RateLimitTransfers]`.
 
 **Priced features**: soundboard playback (`soundboard:{soundId}`) is the first and, so far, only
 consumer of `IChargeService`. See the Soundboard section above. The Prices page writes its entries
@@ -343,7 +343,7 @@ Admin-configurable recurring messages sent to specified channels. Supports cron 
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/schedule-list`, `/schedule-create`, `/schedule-edit`, `/schedule-delete` (ScheduleModule, ScheduleComponentModule) |
+| **Discord Commands** | None. The `/schedule-*` commands were removed; manage messages in the portal (Guilds/ScheduledMessages) |
 | **Services** | `IScheduledMessageService`, `ScheduledMessageExecutionService`, `IInteractionStateService` |
 | **UI Pages** | Admin: Scheduled messages management with CRUD operations |
 | **Database Entities** | `ScheduledMessage` |
@@ -351,30 +351,30 @@ Admin-configurable recurring messages sent to specified channels. Supports cron 
 
 **Supported Frequencies**: Daily, Weekly, Monthly, Custom (cron expression)
 
-**Preconditions**: `[RequireAdmin]`, `[RequireGuildActive]`
+**Preconditions**: portal access to the guild (no slash commands remain)
 
 ---
 
 ### Not-X (Twitter/X Link Previews)
 
-Automatic or manual preview embeds for X/Twitter links, using the fxtwitter API to fetch tweet data. Supports sensitive-only filtering, channel routing, and per-guild configuration.
+Automatic preview embeds for X/Twitter links, using the fxtwitter API to fetch tweet data. Supports sensitive-only filtering, channel routing, and per-guild configuration.
+
+> **No way to change per-guild settings right now.** The `/notx` commands and the `Fetch Tweet` context menu were removed, and there is no portal page for `NotXGuildSettings` yet. `NotXMessageHandler` still runs using whatever settings are already stored for each guild.
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/notx enable`, `/notx disable`, `/notx status`, `/notx sensitive-only`, `/notx channel set`, `/notx channel clear`, `/notx monitor add`, `/notx monitor remove`, `/notx monitor clear` (NotXCommandModule); `Fetch Tweet` context menu (NotXContextMenuModule) |
+| **Discord Commands** | None. `/notx` (all subcommands) and the `Fetch Tweet` context menu were removed |
 | **Handlers** | `NotXMessageHandler` (auto-detects tweet URLs in messages) |
-| **Preconditions** | `RequireNotXEnabled` (global config + `Features:NotXEnabled`; per-guild state deliberately excluded) |
 | **Services** | `INotXService`, `FxTwitterClient`, `NotXEmbedBuilder`, `TweetUrlExtractor` |
 | **Database Entities** | `NotXGuildSettings` |
-| **Configuration** | `NotXOptions` (`NotX` section) — `Enabled` is a config kill switch that also deregisters `/notx` and the `Fetch Tweet` context menu; `Features:NotXEnabled` (Features tab) is the hot global toggle; `NotXCommandModule` (Commands tab) toggles registration |
+| **Configuration** | `NotXOptions` (`NotX` section) — `Enabled` is a config kill switch that makes `NotXMessageHandler` ignore every message; `Features:NotXEnabled` (Features tab) is the hot global toggle checked by `NotXService` |
 | **External Services** | fxtwitter API (tweet metadata and media) |
-| **Key Features** | Auto-detect tweet URLs, sensitive-only mode, output channel routing, monitored channel filtering, context menu manual fetch, guild-level kill-switch, global portal toggle, config kill-switch (`NotX:Enabled`) |
-| **Rate Limiting** | 5 commands per 60 seconds |
+| **Key Features** | Auto-detect tweet URLs, sensitive-only mode, output channel routing, monitored channel filtering, guild-level kill-switch, global portal toggle, config kill-switch (`NotX:Enabled`) |
 
 **Architecture Flow**:
 ```
-Tweet URL posted (or context menu) →
-  NotXMessageHandler / NotXContextMenuModule →
+Tweet URL posted →
+  NotXMessageHandler →
   TweetUrlExtractor (parse URL) →
   NotXService (settings gate check) →
   FxTwitterClient (fetch tweet data) →
@@ -382,7 +382,6 @@ Tweet URL posted (or context menu) →
   Post embed to output channel
 ```
 
-**Preconditions**: `[RequireGuildActive]`, `[RequireUserPermission(ManageGuild)]` (config commands)
 
 ---
 
@@ -390,9 +389,11 @@ Tweet URL posted (or context menu) →
 
 AI-powered feature request submission with optional multi-step DM conversation for requirements gathering. Includes prompt injection detection and configurable conversation flow.
 
+> **The Discord entry point was removed.** `/feature-request` (and `FeatureRequestModule`, `FeatureRequestComponentModule`) no longer exist, so the AI DM conversation flow described below is currently unreachable. The portal list (`/Guilds/{guildId}/FeatureRequests`) and the stored `FeatureRequest` rows remain.
+
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/feature-request` (FeatureRequestModule, FeatureRequestComponentModule) |
+| **Discord Commands** | None. `/feature-request` was removed |
 | **Handlers** | `FeatureRequestDmHandler` (multi-step DM conversation) |
 | **Services** | `IFeatureRequestService`, `FeatureRequestConversationService`, `InputValidationService`, `PromptInjectionFilter`, `FeatureRequestToolProvider` |
 | **Database Entities** | `FeatureRequest`, `FeatureRequestRejection` |
@@ -400,9 +401,9 @@ AI-powered feature request submission with optional multi-step DM conversation f
 | **Key Features** | Direct submit for detailed requests (100+ chars), multi-step DM conversation for brief requests, AI requirements gathering, prompt injection filtering, configurable conversation timeout and turn limits, doc generation integration |
 | **Rate Limiting** | 3 per hour |
 
-**Architecture Flow**:
+**Architecture Flow** (historical; no longer reachable from Discord):
 ```
-User invokes /feature-request →
+User invoked /feature-request →
   FeatureRequestModule (validate input) →
   Short description? → Button: "Refine in DM" or "Submit as-is"
     → DM path: FeatureRequestDmHandler →
@@ -413,8 +414,6 @@ User invokes /feature-request →
   → FeatureRequestService.SubmitAsync() →
   FeatureRequest entity persisted
 ```
-
-**Preconditions**: `[RequireGuildActive]`
 
 ---
 
@@ -439,7 +438,7 @@ Automated welcome messages and member verification upon joining guild.
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | Welcome command integration via `WelcomeModule` |
+| **Discord Commands** | None. The `/welcome` commands were removed; configure in the portal (Guilds/Welcome) |
 | **Services** | `IWelcomeService` |
 | **UI Pages** | Admin: Welcome configuration page |
 | **Database Entities** | `WelcomeConfiguration`, `VerificationCode` |

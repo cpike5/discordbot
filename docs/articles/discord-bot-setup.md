@@ -443,7 +443,7 @@ See [Identity Configuration](identity-configuration.md) for complete authenticat
 
 ## Next Steps
 
-- Review [Admin Commands](admin-commands.md) for available slash commands
+- See [Admin Commands (Removed)](admin-commands.md) for where the former admin commands moved in the portal
 - Learn about [Interactive Components](interactive-components.md) for building button-based interactions
 - Configure [Identity and Authentication](identity-configuration.md) for the admin web UI
 - Explore the [REST API Endpoints](api-endpoints.md) for programmatic bot management

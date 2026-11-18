@@ -74,7 +74,7 @@
       href: consent-privacy.md
 - name: Bot Features
   items:
-    - name: Admin Commands
+    - name: Admin Commands (Removed)
       href: admin-commands.md
     - name: Utility Commands
       href: utility-commands.md
@@ -94,7 +94,7 @@
       href: virtual-currency.md
     - name: Permissions
       href: permissions.md
-    - name: Feature Requests
+    - name: Feature Requests (command removed)
       href: feature-request-command/README.md
     - name: not-X
       href: not-x/README.md

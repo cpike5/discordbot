@@ -194,7 +194,7 @@ erDiagram
 | **CommandModuleConfiguration** | Enable/disable state and metadata for each Discord command module | `ModuleName` (string, PK), `IsEnabled`, `DisplayName`, `Description`, `Category`, `RequiresRestart`, `LastModifiedAt`, `LastModifiedBy` (nullable) | Standalone (global, not per-guild) |
 
 **Notes:**
-- `ModuleName` is the primary key and must match the class name of the command module (e.g., `"AdminModule"`, `"RatWatchModule"`).
+- `ModuleName` is the primary key and must match the class name of the command module (e.g., `"ReminderModule"`, `"RatWatchModule"`).
 - `Category` groups modules in the admin UI; valid values: Admin, Moderation, Features, Audio, Utility, Core.
 - `RequiresRestart = true` means toggling the module requires a bot process restart to take effect.
 - This entity is global, not scoped to a specific guild.
@@ -301,7 +301,7 @@ erDiagram
 **Notes:**
 - No message text is stored here - the existing per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`) keep that; this table exists purely for cross-mode cost/usage aggregation.
 - **Deliberately has no foreign keys** to `Users` or `Guilds`, unlike `AssistantInteractionLog`/`DmAssistantInteractionLog` (which do cascade-delete off `User`). This is a ledger keyed on Discord snowflakes, not a relational join target: a DM user may have no `Users` row at all, and deleting a `User`/`Guild` row must never cascade-delete cost history out from under retention/reporting. `UserId`/`GuildId` are plain `ulong`/`ulong?` columns with covering indexes - any relationship to `Users`/`Guilds` implied by an ER diagram line is logical (matching id values), not an enforced database relationship.
-- `GuildId` is null only for DM assistant rows. Feature-request rows always carry the guild the `/feature-request` command was run in, even though the conversation itself happens over DM - `FeatureRequestConversationService.RunAgentAsync` passes that guild id through.
+- `GuildId` is null only for DM assistant rows. Feature-request rows always carry the guild the (now removed) `/feature-request` command was run in, even though the conversation itself happens over DM - `FeatureRequestConversationService.RunAgentAsync` passes that guild id through.
 - Written by `ILlmUsageRecorder` (Bot layer) off a bounded background channel, mirroring `IAuditLogQueue`/`AuditLogQueueProcessor` - recording never adds latency to a reply.
 - `AssistantMessagePipeline` builds the record once (shared by the guild and DM assistants); `FeatureRequestConversationService` builds and records its own row per agent turn, since feature requests do not go through the shared pipeline.
 - Indexed on `(UserId, Timestamp)`, `(GuildId, Timestamp)`, `(Mode, Timestamp)`, `(Model, Timestamp)` for the grouped dashboard queries and retention cleanup.

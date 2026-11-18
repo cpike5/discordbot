@@ -520,7 +520,7 @@ Design documents are available in the `docs/designs/` directory:
 
 ### Related Features
 
-- [Admin Commands](admin-commands.md) - Administrative slash commands
+- [Admin Commands (Removed)](admin-commands.md) - Where the removed admin commands moved in the portal
 - [Scheduled Messages](scheduled-messages.md) - Similar background service pattern
 - [Database Schema](database-schema.md) - Database entity relationships
 

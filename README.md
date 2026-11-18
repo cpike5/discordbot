@@ -174,7 +174,7 @@ dotnet run --project src/DiscordBot.Bot
 # Verify:
 # - Bot appears online in Discord
 # - Admin UI accessible at https://localhost:5001
-# - Test with /ping command in Discord
+# - Test with the /userinfo command in Discord
 # - Check logs in logs/discordbot-YYYY-MM-DD.log
 ```
 
@@ -236,11 +236,8 @@ For detailed architecture documentation, see [docs/architecture/system-overview.
 
 Commands are organized by feature. All commands use Discord's slash command system.
 
-### 🔧 General & Utility
-- `/ping` - Check bot latency and responsiveness
+### 🔧 Utility
 - `/userinfo [user]` - Display detailed user information
-- `/serverinfo` - Display server statistics and information
-- `/roleinfo <role>` - Display role information and permissions
 
 See [utility-commands.md](docs/articles/utility-commands.md) for details.
 
@@ -252,15 +249,11 @@ See [utility-commands.md](docs/articles/utility-commands.md) for details.
 - `/kick <user> [reason]` - Kick a user from the server (requires Kick Members permission)
 - `/ban <user> [reason]` - Ban a user from the server (requires Ban Members permission)
 - `/mute <user> <duration> [reason]` - Temporarily mute a user
+- `/unban <user>` - Unban a user
+- **Warn User** (Context Menu) - Right-click a message to warn its author
 - `/purge <count>` - Delete multiple messages from channel
 
-**History & Management:**
-- `/mod-history <user>` - View a user's moderation history
-- `/mod-stats [user]` - View moderation statistics for guild or specific moderator
-- `/mod-notes add/list/delete` - Manage moderator notes on users
-- `/mod-tag add/remove/list` - Manage user tags for tracking
-- `/watchlist add/remove/list` - Manage user watchlist for enhanced monitoring
-- `/investigate <user>` - Comprehensive user investigation report
+**History & Management:** case history, moderator notes and tags are managed in the web portal (Guilds > Members > Moderation); the watchlist is available through the REST API. There are no slash commands for these.
 
 ### 🐀 Rat Watch
 **Prerequisites:** Rat Watch enabled for guild
@@ -271,7 +264,8 @@ Accountability system for tracking commitments with community voting.
 - `/rat-clear` - Clear yourself from all active Rat Watches in the server
 - `/rat-stats [user]` - View a user's rat record (guilty verdicts, recent incidents)
 - `/rat-leaderboard` - View the top rats in the server
-- `/rat-settings [timezone]` - Configure Rat Watch settings (Admin only)
+
+Rat Watch settings (timezone, voting duration, etc.) are configured in the web portal.
 
 See [rat-watch.md](docs/articles/rat-watch.md) for voting workflow and analytics.
 
@@ -287,14 +281,7 @@ Features tool usage, conversation history, and cost tracking. See [ai-assistant.
 
 ### ⏰ Scheduling & Reminders
 
-**Scheduled Messages** (Admin only)
-- `/schedule-list` - List scheduled messages for the server
-- `/schedule-create` - Create a new scheduled message (one-time, recurring, or cron)
-- `/schedule-delete` - Delete a scheduled message
-- `/schedule-toggle` - Enable/disable a scheduled message
-- `/schedule-run` - Manually trigger a scheduled message
-
-See [scheduled-messages.md](docs/articles/scheduled-messages.md).
+**Scheduled Messages** are managed in the web portal (Guilds > Scheduled Messages); there are no slash commands. See [scheduled-messages.md](docs/articles/scheduled-messages.md).
 
 **Personal Reminders** (All users)
 - `/remind set <time> <message>` - Set a personal reminder (e.g., "10m", "tomorrow 3pm")
@@ -330,21 +317,13 @@ See [tts-support.md](docs/articles/tts-support.md). Requires Azure Speech subscr
 See [vox-system-spec.md](docs/articles/vox-system-spec.md). Uses static clip libraries with FFmpeg concatenation.
 
 ### 👋 Welcome System
-**Prerequisites:** Admin permissions
 
-- `/welcome show` - Display current welcome configuration
-- `/welcome enable` - Enable welcome messages
-- `/welcome disable` - Disable welcome messages
-- `/welcome channel <channel>` - Set welcome message channel
-- `/welcome message <message>` - Set custom welcome message text
-- `/welcome test [user]` - Test welcome message delivery
-
-See [welcome-system.md](docs/articles/welcome-system.md).
+Welcome messages are configured in the web portal (Guilds > Welcome); there are no slash commands. See [welcome-system.md](docs/articles/welcome-system.md).
 
 ### 🔐 Consent & Privacy
 
 - `/consent grant/revoke/status` - Manage data collection consent preferences
-- `/privacy preview-delete/delete-data` - View privacy information and request data deletion
+- `/privacy preview-delete/export-data/delete-data` - Preview, export, and request deletion of your data
 
 Users control consent for: message logging, assistant interactions, and analytics. See [consent-privacy.md](docs/articles/consent-privacy.md).
 
@@ -354,12 +333,9 @@ Users control consent for: message logging, assistant interactions, and analytic
 
 Generates a verification code to enter in admin UI. See [bot-verification.md](docs/articles/bot-verification.md).
 
-### 🔧 Admin Commands
-**Prerequisites:** Admin or SuperAdmin role
+### 🔧 Admin
 
-- `/status` - Display bot status and statistics
-- `/guilds` - List connected guilds
-- `/shutdown` - Gracefully shut down the bot (owner only)
+The former `/status`, `/guilds` and `/shutdown` commands were removed; use the admin portal (dashboard, Admin > Performance, Admin > Settings > Bot Control). See [admin-commands.md](docs/articles/admin-commands.md).
 
 ## Logging
 

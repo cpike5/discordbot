@@ -84,20 +84,12 @@ Shows:
 
 Displays the top 10 users by guilty verdict count with medals for top 3.
 
-### /rat-settings [timezone]
+### Settings (portal only)
 
-**Description:** View or configure Rat Watch settings
-**Parameters:**
-- `timezone` (optional): Set the timezone for parsing times like "10pm"
-**Required Permissions:** Administrator
-**Preconditions:** RequireGuildActive, RequireRatWatchEnabled
-
-Available timezones:
-- Eastern Time
-- Central Time
-- Mountain Time
-- Pacific Time
-- UTC
+`/rat-settings` was removed. The guild timezone (used to parse times like
+"10pm"), voting duration, max advance hours, enable/disable and public
+leaderboard are configured on the portal's Rat Watch page
+(`/Guilds/RatWatch/{guildId}`).
 
 ---
 

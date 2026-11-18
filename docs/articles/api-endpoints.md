@@ -7289,12 +7289,12 @@ GET /api/autocomplete/commands?search=ping
 ```json
 [
   {
-    "id": "ping",
-    "displayText": "/ping - Check bot latency and response time"
+    "id": "userinfo",
+    "displayText": "/userinfo - Display detailed information about a user"
   },
   {
-    "id": "admin ping",
-    "displayText": "/admin ping - Admin-only ping command"
+    "id": "remind set",
+    "displayText": "/remind set - Set a personal reminder"
   }
 ]
 ```
@@ -7303,8 +7303,8 @@ GET /api/autocomplete/commands?search=ping
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | Full command name (e.g., "ping" or "admin info") |
-| `displayText` | string | Command name with description (e.g., "/ping - Description") |
+| `id` | string | Full command name (e.g., "userinfo" or "remind set") |
+| `displayText` | string | Command name with description (e.g., "/userinfo - Description") |
 
 **Error Responses:**
 
@@ -7683,7 +7683,7 @@ curl -X POST "https://localhost:5001/api/portal/vox/123456789012345678/stop" \
 - [MVP Implementation Plan](mvp-plan.md) - Full development roadmap
 - [Database Schema](database-schema.md) - Entity definitions and relationships
 - [Repository Pattern](repository-pattern.md) - Data access implementation
-- [Admin Commands](admin-commands.md) - Discord slash command reference
+- [Admin Commands (Removed)](admin-commands.md) - Where the removed admin commands moved in the portal
 - [Authorization Policies](authorization-policies.md) - Role-based authorization
 - [VOX System Spec](vox-system-spec.md) - VOX clip library architecture and slash commands
 - [VOX UI Spec](vox-ui-spec.md) - VOX Portal UI/UX specification

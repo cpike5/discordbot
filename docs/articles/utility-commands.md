@@ -1,12 +1,12 @@
 ---
 uid: utility-commands
 title: Utility Commands
-description: Information commands for users, servers, and roles
+description: The /userinfo information command
 ---
 
 # Utility Commands
 
-This document provides a comprehensive reference for utility slash commands that allow users to query information about users, servers, and roles. Utility commands are informational and do not modify any data.
+This document provides a comprehensive reference for the utility slash command that lets users query information about a user. The only utility command is `/userinfo`; `/serverinfo` and `/roleinfo` were removed. Utility commands are informational and do not modify any data.
 
 ## Overview
 
@@ -85,145 +85,6 @@ Key Permissions:
 
 ---
 
-### /serverinfo
-
-**Description:** Display detailed information about the current Discord server (guild)
-
-**Parameters:** None
-
-**Permission:** None (available to all guild members)
-
-**Preconditions:** `RequireGuildActive`
-
-**Response Type:** Ephemeral embed message
-
-**Fields:**
-- **Owner** - The guild owner's mention and ID
-- **Server ID** - Discord snowflake ID
-- **Created** - Timestamp when the guild was created (relative format)
-- **Members** - Total member count
-- **Text Channels** - Number of text channels
-- **Voice Channels** - Number of voice channels
-- **Roles** - Total role count
-- **Boost Status** - Current boost level and number of boosts
-- **Vanity URL** - Custom invite URL (if configured)
-- **Features** - Notable guild features (verified, partnered, community, etc.)
-
-**Response Formatting:**
-- Embed color varies by boost level:
-  - No boost: Gray
-  - Level 1: Pink
-  - Level 2: Lighter pink
-  - Level 3: White/highest tier
-- Guild icon displayed as embed thumbnail
-- Server banner as embed image (if available)
-- Current timestamp in footer
-
-**Usage Example:**
-```
-/serverinfo
-```
-
-**Sample Output:**
-```
-🏰 Server Information
-
-Owner: @ServerOwner (ID: 123456789012345678)
-Server ID: 987654321098765432
-Created: 3 years ago
-
-Members: 1,250
-Text Channels: 25
-Voice Channels: 8
-Roles: 15
-
-Boost Status: Level 2 (15 boosts)
-Vanity URL: discord.gg/mycommunity
-
-Features:
-• Community
-• News Channels
-• Invite Splash
-```
-
-**Edge Cases:**
-- If guild has no vanity URL, field is omitted
-- If guild has no special features, "Features" field shows "None"
-- Channel counts include categories
-- Member count may include bots
-
----
-
-### /roleinfo <role>
-
-**Description:** Display detailed information about a guild role
-
-**Parameters:**
-- `role` (required) - The role to query information about
-
-**Permission:** None (available to all guild members)
-
-**Preconditions:** `RequireGuildActive`
-
-**Response Type:** Ephemeral embed message
-
-**Fields:**
-- **Role Name** - Display name of the role
-- **Role ID** - Discord snowflake ID
-- **Color** - Hex color code
-- **Members** - Number of users with this role
-- **Position** - Role hierarchy position
-- **Created** - Timestamp when the role was created (relative format)
-- **Mentionable** - Whether the role can be mentioned by non-admins
-- **Hoisted** - Whether the role is displayed separately in the member list
-- **Permissions** - Summary of granted permissions
-- **Dangerous Permissions** - Highlighted warning if role has Administrator, Manage Roles, or other high-risk permissions
-
-**Response Formatting:**
-- Embed color matches role color
-- Role mention displayed in title
-- Dangerous permissions shown in red warning field
-- Permissions displayed as bullet list
-
-**Usage Example:**
-```
-/roleinfo role:@Moderator
-```
-
-**Sample Output:**
-```
-🎭 Role Information
-
-@Moderator
-Role ID: 456789012345678901
-Color: #5865F2
-Members: 12
-Position: 5
-Created: 8 months ago
-
-Mentionable: Yes
-Hoisted: Yes
-
-Permissions:
-• Kick Members
-• Ban Members
-• Manage Messages
-• Mute Members
-
-⚠️ Dangerous Permissions Detected:
-• Manage Roles
-• Manage Channels
-```
-
-**Edge Cases:**
-- Cannot query @everyone role (filtered out in autocomplete)
-- If role has no members, displays "Members: 0"
-- If role has default color, displays "Color: Default"
-- If role has no dangerous permissions, warning field is omitted
-- Managed roles (bot roles, booster role) are marked with "(Managed)" tag
-
----
-
 ## Preconditions
 
 ### RequireGuildActive Attribute
@@ -285,7 +146,7 @@ Discord timestamp formats used:
 
 ### Dangerous Permissions
 
-The `/userinfo` and `/roleinfo` commands highlight dangerous permissions that grant significant control:
+The `/userinfo` command highlights dangerous permissions that grant significant control:
 
 **Dangerous Permission List:**
 - **Administrator** - Full control over guild (bypasses all permissions)
@@ -369,14 +230,6 @@ User not found in this guild.
 Correlation ID: 7a3f9b2c8d1e4f5a
 ```
 
-**Role Not Found:**
-```
-Error
-Role not found in this guild.
-
-Correlation ID: 7a3f9b2c8d1e4f5a
-```
-
 **Internal Error:**
 ```
 Error
@@ -433,15 +286,12 @@ public async Task UserInfoAsync(IUser? user = null)
 
 **For Users:**
 1. Use `/userinfo` to check your own join date, roles, and permissions
-2. Use `/serverinfo` to see server statistics and boost status
-3. Use `/roleinfo` to understand role permissions before requesting assignment
-4. All responses are private - safe to check sensitive information
+2. All responses are private - safe to check sensitive information
 
 **For Moderators:**
 1. Use `/userinfo @user` to verify member roles and permissions
-2. Use `/roleinfo @role` to audit role permissions for security
-3. Check "Dangerous Permissions" warnings when assigning roles
-4. Use correlation IDs to report issues to bot administrators
+2. Check "Dangerous Permissions" warnings when assigning roles
+3. Use correlation IDs to report issues to bot administrators
 
 ### Command Design Patterns
 
@@ -476,7 +326,7 @@ If a guild becomes inactive, contact bot administrators to reactivate through th
 
 ## Related Documentation
 
-- [Admin Commands](admin-commands.md) - Administrative slash commands
+- [Admin Commands (Removed)](admin-commands.md) - Where the removed admin commands moved in the portal
 - [Interactive Components](interactive-components.md) - Button interactions and state management
 - [Database Schema](database-schema.md) - CommandLog entity and relationships
 - [Permissions](permissions.md) - Precondition attribute documentation

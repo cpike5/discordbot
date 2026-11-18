@@ -1,6 +1,8 @@
-# Feature Request Command
+# Feature Request Command (removed)
 
-Documentation for the `/feature-request` Discord slash command — a feature that allows guild members to submit bot feature ideas, guides them through a requirements-gathering conversation, auto-generates structured proposal documents via Claude Code, and provides an admin review workflow in the web portal.
+> **Status: the Discord command was removed.** `/feature-request`, `FeatureRequestModule` and `FeatureRequestComponentModule` no longer exist, so the AI DM conversation flow described in these documents is currently unreachable. The portal list at `/Guilds/{guildId}/FeatureRequests` and stored `FeatureRequest` rows remain. The rest of this page describes the feature as it behaved before removal.
+
+Documentation for the former `/feature-request` Discord slash command — a feature that allows guild members to submit bot feature ideas, guides them through a requirements-gathering conversation, auto-generates structured proposal documents via Claude Code, and provides an admin review workflow in the web portal.
 
 ---
 
@@ -14,7 +16,7 @@ Documentation for the `/feature-request` Discord slash command — a feature tha
 
 ## Feature Summary
 
-- **Command:** `/feature-request description:<text>`
+- **Command:** `/feature-request description:<text>` (removed)
 - **Available to:** All guild members (subject to per-guild module toggle)
 - **Rate limit:** 3 submissions per user per hour
 - **Conversation:** Optional DM-based requirements gathering (up to 3 questions); skippable for detailed descriptions
