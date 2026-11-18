@@ -83,6 +83,28 @@
         });
     }
 
+    // "Send test" posts the saved configuration to the welcome channel, with the admin as the member
+    var testButton = document.getElementById('welcome-send-test');
+    if (testButton) {
+        testButton.addEventListener('click', async function () {
+            var guildId = form.getAttribute('data-guild-id');
+            if (!guildId || testButton.getAttribute('aria-busy') === 'true') return;
+
+            LoadingManager.setButtonLoading(testButton, true, 'Sending...');
+            try {
+                await ApiClient.post('/api/guilds/' + encodeURIComponent(guildId) + '/welcome/test', {},
+                    { errorMessage: 'Could not send the test message. Try again.' });
+                toast.success('Test welcome message sent to the welcome channel.');
+            } catch (err) {
+                if (!err || !err.sessionExpired) {
+                    toast.error((err && err.message) || 'Could not send the test message. Try again.');
+                }
+            } finally {
+                LoadingManager.setButtonLoading(testButton, false);
+            }
+        });
+    }
+
     form.addEventListener('input', updatePreview);
     form.addEventListener('change', updatePreview);
     updatePreview();
