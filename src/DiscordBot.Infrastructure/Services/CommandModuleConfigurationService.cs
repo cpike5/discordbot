@@ -26,31 +26,17 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
     private static readonly List<DefaultModuleDefinition> DefaultModules = new()
     {
         // Core modules (always enabled, no restart required)
-        new("GeneralModule", "General", "Basic bot commands like /ping", "Core", false),
         new("VerifyAccountModule", "Verify Account", "Account verification commands", "Core", false),
         new("ConsentModule", "Consent", "Privacy consent management commands", "Core", false),
 
-        // Administrative modules
-        new("AdminModule", "Admin", "Administrative commands for server management", "Admin", true),
-        new("WelcomeModule", "Welcome", "Welcome message configuration commands", "Admin", true),
-        new("ScheduleModule", "Scheduled Messages", "Commands for scheduling messages", "Admin", true),
-
         // Moderation modules
         new("ModerationActionModule", "Moderation Actions", "Commands for warn, kick, ban, mute, purge", "Moderation", true),
-        new("ModerationHistoryModule", "Moderation History", "View moderation case history", "Moderation", true),
-        new("ModStatsModule", "Moderator Stats", "View moderator statistics", "Moderation", true),
-        new("ModNoteModule", "Mod Notes", "Add and manage moderator notes on users", "Moderation", true),
-        new("ModTagModule", "Mod Tags", "Tag and categorize users for moderation", "Moderation", true),
-        new("WatchlistModule", "Watchlist", "Manage user watchlists", "Moderation", true),
-        new("InvestigateModule", "Investigate", "Investigate user activity and history", "Moderation", true),
 
         // Feature modules
         new("RatWatchModule", "Rat Watch", "Rat Watch accountability feature", "Features", true),
         new("ReminderModule", "Reminders", "Personal reminder commands", "Features", true),
         new("PrivacyModule", "Privacy", "User data privacy and GDPR deletion commands", "Features", true),
-        new("NotXCommandModule", "not-X", "X/Twitter link preview commands, including the \"Fetch Tweet\" context menu", "Features", true),
-        new("WalletModule", "Wallet", "Virtual currency balances, history, payments, mints and fines", "Features", true),
-        new("CurrencyModule", "Currency", "Create and list virtual currencies for this server", "Features", true),
+        new("WalletModule", "Wallet", "Virtual currency balances, history and payments", "Features", true),
 
         // Audio modules
         new("TtsModule", "Text-to-Speech", "Text-to-speech commands", "Audio", true),
@@ -59,7 +45,7 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
         new("VoxModule", "VOX", "Half-Life style concatenated clip announcements (/vox, /fvox, /hgrunt)", "Audio", true),
 
         // Utility modules
-        new("UtilityModule", "Utility", "Utility commands like /userinfo, /serverinfo", "Utility", true)
+        new("UtilityModule", "Utility", "The /userinfo command", "Utility", true)
     };
 
     public CommandModuleConfigurationService(

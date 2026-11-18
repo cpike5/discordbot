@@ -288,8 +288,8 @@ public class CommandMetadataService : ICommandMetadataService
     /// <summary>
     /// Gets a friendly display name from a module class name.
     /// </summary>
-    /// <param name="moduleName">The module class name (e.g., "GeneralModule").</param>
-    /// <returns>The formatted display name (e.g., "General").</returns>
+    /// <param name="moduleName">The module class name (e.g., "ReminderModule").</param>
+    /// <returns>The formatted display name (e.g., "Reminder").</returns>
     private static string GetDisplayName(string moduleName)
     {
         // Remove "Module" suffix if present

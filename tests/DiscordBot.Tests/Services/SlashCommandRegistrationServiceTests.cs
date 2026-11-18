@@ -47,7 +47,7 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private SlashCommandRegistrationService CreateService(ulong? testGuildId, bool notXEnabled = true)
+    private SlashCommandRegistrationService CreateService(ulong? testGuildId)
     {
         var config = Options.Create(new BotConfiguration
         {
@@ -65,8 +65,7 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
             serviceProvider,
             config,
             _mockLogger.Object,
-            _mockCommandModuleConfigService.Object,
-            Options.Create(new NotXOptions { Enabled = notXEnabled }));
+            _mockCommandModuleConfigService.Object);
     }
 
     [Fact]
@@ -137,9 +136,9 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
 
         method.Should().NotBeNull("IsInteractionModule should exist as a private static helper");
 
-        var result = (bool)method!.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.AdminModule) })!;
+        var result = (bool)method!.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.ReminderModule) })!;
 
-        result.Should().BeTrue("AdminModule inherits InteractionModuleBase<SocketInteractionContext>");
+        result.Should().BeTrue("ReminderModule inherits InteractionModuleBase<SocketInteractionContext>");
     }
 
     [Fact]
@@ -165,103 +164,32 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
 
         method.Should().NotBeNull("IsNestedSubModule should exist as a private static helper");
 
-        var channel = (bool)method!.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.NotXCommandModule.ChannelSubModule) })!;
-        var monitor = (bool)method.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.NotXCommandModule.MonitorSubModule) })!;
-        var parent = (bool)method.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.NotXCommandModule) })!;
+        var nested = (bool)method!.Invoke(null, new object[] { typeof(NestedGroupFixtureModule.ChildSubModule) })!;
+        var parent = (bool)method.Invoke(null, new object[] { typeof(NestedGroupFixtureModule) })!;
 
-        channel.Should().BeTrue("ChannelSubModule is declared inside NotXCommandModule");
-        monitor.Should().BeTrue("MonitorSubModule is declared inside NotXCommandModule");
-        parent.Should().BeFalse("NotXCommandModule is a top-level module");
+        nested.Should().BeTrue("ChildSubModule is declared inside NestedGroupFixtureModule");
+        parent.Should().BeFalse("NestedGroupFixtureModule is a top-level module");
     }
 
     [Fact]
-    public async Task AddModuleAsync_WithNotXCommandModule_ShouldBuildNestedSubGroupsWithParent()
+    public async Task AddModuleAsync_WithNestedGroupModule_ShouldBuildNestedSubGroupsWithParent()
     {
-        // Registering only the top-level module must produce the nested channel/monitor groups;
-        // registering the nested type on its own is what Discord.NET rejects.
+        // Registering only the top-level module must produce the nested group; registering
+        // the nested type on its own is what Discord.NET rejects.
         var services = new ServiceCollection()
-            .AddSingleton(Mock.Of<INotXService>())
             .AddLogging()
             .BuildServiceProvider();
 
-        var module = await _interactionService.AddModuleAsync(typeof(DiscordBot.Bot.Commands.NotXCommandModule), services);
+        var module = await _interactionService.AddModuleAsync(typeof(NestedGroupFixtureModule), services);
 
-        module.SlashGroupName.Should().Be("notx");
-        module.SubModules.Select(m => m.SlashGroupName).Should().BeEquivalentTo("channel", "monitor");
+        module.SlashGroupName.Should().Be("fixture");
+        module.SubModules.Select(m => m.SlashGroupName).Should().BeEquivalentTo("child");
 
         var act = async () => await _interactionService.AddModuleAsync(
-            typeof(DiscordBot.Bot.Commands.NotXCommandModule.ChannelSubModule), services);
+            typeof(NestedGroupFixtureModule.ChildSubModule), services);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Could not build the module*");
-    }
-
-    [Fact]
-    public void GetConfigurationDisabledModules_WithNotXEnabled_ShouldReturnEmptySet()
-    {
-        var result = SlashCommandRegistrationService.GetConfigurationDisabledModules(
-            new NotXOptions { Enabled = true });
-
-        result.Should().BeEmpty("an enabled feature must not have its modules filtered out");
-    }
-
-    [Fact]
-    public void GetConfigurationDisabledModules_WithNotXDisabled_ShouldContainBothNotXModules()
-    {
-        // Both modules must be named: the context menu command lives in its own top-level
-        // module (it cannot sit inside a [Group]), so the component-module parent lookup
-        // in DiscoverAndLoadModulesAsync would never catch it.
-        var result = SlashCommandRegistrationService.GetConfigurationDisabledModules(
-            new NotXOptions { Enabled = false });
-
-        // nameof keeps this honest: renaming either module breaks the build here rather
-        // than silently leaving the kill switch matching a name that no longer exists.
-        result.Should().BeEquivalentTo(new[]
-        {
-            nameof(DiscordBot.Bot.Commands.NotXCommandModule),
-            nameof(DiscordBot.Bot.Commands.NotXContextMenuModule)
-        });
-    }
-
-    [Fact]
-    public void GetConfigurationDisabledModules_ShouldMatchModuleNamesCaseInsensitively()
-    {
-        // Module names are compared against the database configuration case-insensitively
-        // elsewhere in the service; this set must behave the same way.
-        var result = SlashCommandRegistrationService.GetConfigurationDisabledModules(
-            new NotXOptions { Enabled = false });
-
-        result.Contains("notxcommandmodule").Should().BeTrue();
-        result.Contains("NOTXCONTEXTMENUMODULE").Should().BeTrue();
-    }
-
-    [Fact]
-    public void GetConfigurationDisabledModules_ShouldNameOnlyTopLevelInteractionModules()
-    {
-        // The skip in DiscoverAndLoadModulesAsync matches on Type.Name of the top-level
-        // modules it discovers, so every name here must belong to a discoverable module —
-        // a nested sub-group or a non-module name would never match and the commands would
-        // register anyway.
-        var disabled = SlashCommandRegistrationService.GetConfigurationDisabledModules(
-            new NotXOptions { Enabled = false });
-
-        var isInteractionModule = typeof(SlashCommandRegistrationService).GetMethod(
-            "IsInteractionModule",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        var isNestedSubModule = typeof(SlashCommandRegistrationService).GetMethod(
-            "IsNestedSubModule",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-
-        var discoverableModuleNames = typeof(SlashCommandRegistrationService).Assembly
-            .GetTypes()
-            .Where(t => t.IsClass
-                && !t.IsAbstract
-                && (bool)isInteractionModule.Invoke(null, new object[] { t })!
-                && !(bool)isNestedSubModule.Invoke(null, new object[] { t })!)
-            .Select(t => t.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        disabled.Should().OnlyContain(name => discoverableModuleNames.Contains(name));
     }
 
     [Theory]
@@ -276,52 +204,16 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public void ResolveCompanionParentModule_WithNotXContextMenuModule_ShouldReturnNotXCommandModule()
-    {
-        // The Commands tab presents not-X as one feature with a single toggle, but the
-        // context menu command needs its own top-level module (it cannot sit inside a
-        // [Group]). Without this mapping, disabling not-X would leave "Fetch Tweet"
-        // registered and working.
-        var result = SlashCommandRegistrationService.ResolveCompanionParentModule(
-            nameof(DiscordBot.Bot.Commands.NotXContextMenuModule));
-
-        result.Should().Be(nameof(DiscordBot.Bot.Commands.NotXCommandModule));
-    }
-
-    [Fact]
     public void ResolveCompanionParentModule_WithModuleOwningItsToggle_ShouldReturnNull()
     {
         // A null result routes the module to the normal database lookups, so any module with
         // its own configuration row must not be mistaken for a companion.
         SlashCommandRegistrationService
-            .ResolveCompanionParentModule(nameof(DiscordBot.Bot.Commands.NotXCommandModule))
+            .ResolveCompanionParentModule(nameof(DiscordBot.Bot.Commands.ReminderModule))
             .Should().BeNull();
         SlashCommandRegistrationService
-            .ResolveCompanionParentModule(nameof(DiscordBot.Bot.Commands.AdminModule))
+            .ResolveCompanionParentModule(nameof(DiscordBot.Bot.Commands.WalletModule))
             .Should().BeNull();
-    }
-
-    [Fact]
-    public void ResolveCompanionParentModule_ShouldNameParentsThatHaveADatabaseToggle()
-    {
-        // Every companion parent must be a module the Commands tab actually lists, otherwise
-        // the companion follows a toggle that can never be disabled. NotXCommandModule was
-        // missing from DefaultModules before this feature gained a UI switch, which is
-        // exactly the regression this guards.
-        var defaultModules = typeof(DiscordBot.Infrastructure.Services.CommandModuleConfigurationService)
-            .GetField("DefaultModules",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
-            .GetValue(null);
-
-        var seededNames = ((System.Collections.IEnumerable)defaultModules!)
-            .Cast<object>()
-            .Select(d => (string)d.GetType().GetProperty("ModuleName")!.GetValue(d)!)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var parent = SlashCommandRegistrationService.ResolveCompanionParentModule(
-            nameof(DiscordBot.Bot.Commands.NotXContextMenuModule))!;
-
-        seededNames.Should().Contain(parent);
     }
 
     [Fact]
@@ -334,5 +226,23 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
         var act = async () => await service.RegisterCommandsAsync();
 
         await act.Should().NotThrowAsync();
+    }
+}
+
+/// <summary>
+/// A top-level <c>[Group]</c> module with a nested sub-group, used to exercise nested-module
+/// discovery without depending on a production module having that shape.
+/// </summary>
+[Group("fixture", "Test fixture group")]
+public class NestedGroupFixtureModule : InteractionModuleBase<SocketInteractionContext>
+{
+    [SlashCommand("ping", "Fixture command")]
+    public Task PingAsync() => Task.CompletedTask;
+
+    [Group("child", "Nested fixture group")]
+    public class ChildSubModule : InteractionModuleBase<SocketInteractionContext>
+    {
+        [SlashCommand("ping", "Nested fixture command")]
+        public Task PingAsync() => Task.CompletedTask;
     }
 }

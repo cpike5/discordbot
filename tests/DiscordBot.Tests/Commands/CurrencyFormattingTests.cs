@@ -39,7 +39,7 @@ public class CurrencyFormattingTests
         var result = CurrencyFormatting.ResolveCurrency(Array.Empty<CurrencyDto>(), null);
 
         result.Success.Should().BeFalse();
-        result.Error.Should().Contain("/currency create");
+        result.Error.Should().Contain("admin portal");
     }
 
     [Fact]

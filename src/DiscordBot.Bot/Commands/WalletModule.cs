@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 namespace DiscordBot.Bot.Commands;
 
 /// <summary>
-/// The <c>/wallet</c> command group: balances, history, transfers, mints and fines.
+/// The <c>/wallet</c> command group: balances, history and transfers.
 /// Everything here reads the currencies visible in the guild — the guild's own plus the active
 /// global ones — and refuses with the service's own reason when a balance rule says no.
 /// </summary>
@@ -26,8 +26,6 @@ public class WalletModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly ICurrencyService _currencyService;
     private readonly IWalletService _walletService;
-    private readonly IMintService _mintService;
-    private readonly IModerationService _moderationService;
     private readonly IInteractionStateService _stateService;
     private readonly CurrencyOptions _options;
     private readonly ILogger<WalletModule> _logger;
@@ -38,16 +36,12 @@ public class WalletModule : InteractionModuleBase<SocketInteractionContext>
     public WalletModule(
         ICurrencyService currencyService,
         IWalletService walletService,
-        IMintService mintService,
-        IModerationService moderationService,
         IInteractionStateService stateService,
         IOptions<CurrencyOptions> options,
         ILogger<WalletModule> logger)
     {
         _currencyService = currencyService;
         _walletService = walletService;
-        _mintService = mintService;
-        _moderationService = moderationService;
         _stateService = stateService;
         _options = options.Value;
         _logger = logger;
@@ -74,7 +68,7 @@ public class WalletModule : InteractionModuleBase<SocketInteractionContext>
             await FollowupAsync(
                 embed: EmbedHelper.EmptyState(
                     "No Currencies",
-                    "There are no currencies in this server yet. An administrator can create one with `/currency create`."),
+                    "There are no currencies in this server yet. An administrator can create one in the admin portal."),
                 ephemeral: true);
             return;
         }
@@ -256,155 +250,6 @@ public class WalletModule : InteractionModuleBase<SocketInteractionContext>
             embed: CurrencyFormatting.PayConfirmationEmbed(user.Id, amount, chosen, note),
             components: components,
             ephemeral: true);
-    }
-
-    /// <summary>
-    /// Creates units and credits them to a member. Only a mint authority may do this.
-    /// </summary>
-    [SlashCommand("mint", "Create currency and give it to a member")]
-    public async Task MintAsync(
-        [Summary("user", "Who receives the units")] IUser user,
-        [Summary("amount", "How much to create")] long amount,
-        [Summary("currency", "Which currency to mint")]
-        [Autocomplete(typeof(CurrencyAutocompleteHandler))] string? currency = null,
-        [Summary("reason", "Why these units exist")] string reason = "Manual mint")
-    {
-        await DeferAsync(ephemeral: true);
-
-        var visible = await _currencyService.GetVisibleInGuildAsync(Context.Guild.Id);
-        var resolution = CurrencyFormatting.ResolveCurrency(visible, currency);
-
-        if (!resolution.Success)
-        {
-            await FollowupAsync(embed: EmbedHelper.Error("Pick a Currency", resolution.Error!), ephemeral: true);
-            return;
-        }
-
-        var chosen = resolution.Currency!;
-
-        var result = await _mintService.MintAsync(
-            chosen.Id,
-            user.Id,
-            amount,
-            reason,
-            LedgerSource.Manual,
-            $"mint:{chosen.Id}:{user.Id}:{Guid.NewGuid()}",
-            Context.User.Id);
-
-        if (!result.Success)
-        {
-            _logger.LogInformation(
-                "Mint refused for user {UserId} on currency {CurrencyId}: {Error}",
-                Context.User.Id, chosen.Id, result.Error);
-
-            await FollowupAsync(
-                embed: EmbedHelper.Error("Mint Refused", CurrencyFormatting.DescribeError(result.Error, symbol: chosen.Symbol, amount: amount)),
-                ephemeral: true);
-            return;
-        }
-
-        await FollowupAsync(
-            embed: CurrencyFormatting.MintReceiptEmbed(
-                user.Id, amount, chosen, reason, result.Transaction?.BalanceAfter ?? 0),
-            ephemeral: true);
-    }
-
-    /// <summary>
-    /// Fines a member. Guild currencies only, and the amount is clamped at zero or at the
-    /// currency's debt floor.
-    /// </summary>
-    [SlashCommand("fine", "Fine a member")]
-    [RequireModerator]
-    public async Task FineAsync(
-        [Summary("user", "Who to fine")] IUser user,
-        [Summary("amount", "How much to take")] long amount,
-        [Summary("reason", "Why they are being fined")] string reason,
-        [Summary("currency", "Which currency to fine in")]
-        [Autocomplete(typeof(CurrencyAutocompleteHandler))] string? currency = null,
-        [Summary("open-case", "Also open a mod case for this fine")] bool openCase = false)
-    {
-        await DeferAsync(ephemeral: true);
-
-        if (user.Id == Context.User.Id)
-        {
-            await FollowupAsync(embed: EmbedHelper.Error("Not Allowed", "You can't fine yourself."), ephemeral: true);
-            return;
-        }
-
-        if (user.IsBot)
-        {
-            await FollowupAsync(embed: EmbedHelper.Error("Not Allowed", "Bots don't hold wallets."), ephemeral: true);
-            return;
-        }
-
-        // A moderator cannot fine an administrator; that is the same hierarchy rule the other
-        // moderation commands follow.
-        if (Context.Guild.GetUser(user.Id) is { GuildPermissions.Administrator: true }
-            && Context.User is SocketGuildUser { GuildPermissions.Administrator: false })
-        {
-            await FollowupAsync(
-                embed: EmbedHelper.Error("Not Allowed", "You can't fine an administrator."),
-                ephemeral: true);
-            return;
-        }
-
-        var visible = await _currencyService.GetVisibleInGuildAsync(Context.Guild.Id);
-
-        // Fines are a guild moderation action, so global currencies are not offered here.
-        var guildCurrencies = visible.Where(c => c.Scope == CurrencyScope.Guild).ToList();
-        var resolution = CurrencyFormatting.ResolveCurrency(guildCurrencies, currency);
-
-        if (!resolution.Success)
-        {
-            await FollowupAsync(embed: EmbedHelper.Error("Pick a Currency", resolution.Error!), ephemeral: true);
-            return;
-        }
-
-        var chosen = resolution.Currency!;
-
-        Guid? caseId = null;
-        long? caseNumber = null;
-
-        if (openCase)
-        {
-            try
-            {
-                var modCase = await _moderationService.CreateCaseAsync(new ModerationCaseCreateDto
-                {
-                    GuildId = Context.Guild.Id,
-                    TargetUserId = user.Id,
-                    ModeratorUserId = Context.User.Id,
-                    Type = CaseType.Note,
-                    Reason = $"Fine: {reason}"
-                });
-
-                caseId = modCase.Id;
-                caseNumber = modCase.CaseNumber;
-            }
-            catch (Exception ex)
-            {
-                // The fine is the point; a failed case link should not swallow it.
-                _logger.LogError(ex, "Failed to open a mod case for a fine in guild {GuildId}", Context.Guild.Id);
-            }
-        }
-
-        var result = await _walletService.FineAsync(
-            chosen.Id, user.Id, amount, reason, Context.User.Id, caseId);
-
-        if (!result.Success)
-        {
-            await FollowupAsync(
-                embed: EmbedHelper.Error("Fine Refused", CurrencyFormatting.DescribeError(result.Error, symbol: chosen.Symbol, amount: amount)),
-                ephemeral: true);
-            return;
-        }
-
-        _logger.LogInformation(
-            "User {TargetId} fined {Amount} of currency {CurrencyId} by moderator {ModeratorId} in guild {GuildId}",
-            user.Id, amount, chosen.Id, Context.User.Id, Context.Guild.Id);
-
-        await FollowupAsync(
-            embed: CurrencyFormatting.FineReceiptEmbed(user.Id, amount, result, chosen, reason, caseNumber));
     }
 
     /// <summary>
