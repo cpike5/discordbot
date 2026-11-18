@@ -56,6 +56,16 @@ public class BotHostedService : IHostedService
     private readonly IBotUptimeProvider _uptimeProvider;
     private bool _initialConnectionComplete;
 
+    // Bot status notifications are debounced: Discord regularly asks the bot to reconnect and
+    // Discord.NET resumes within a second or two, so a disconnect is only notified once it has
+    // lasted NotificationOptions.BotDisconnectGraceSeconds, and a reconnect only when its
+    // disconnect was notified. The generation is bumped by every connect and disconnect, so a
+    // pending disconnect check knows whether the outage it was waiting on is still the current one.
+    private readonly object _statusNotificationLock = new();
+    private long _connectionGeneration;
+    private bool _disconnectNotified;
+    private DateTime _disconnectedAtUtc;
+
     public BotHostedService(
         DiscordSocketClient client,
         InteractionHandler interactionHandler,
@@ -384,19 +394,27 @@ public class BotHostedService : IHostedService
                 })
             });
 
-            // Create admin notification for reconnection (skip initial startup)
-            if (_initialConnectionComplete)
+            // Create admin notification for reconnection, but only when the outage was long enough
+            // that its disconnect was notified (skips initial startup and routine gateway reconnects)
+            bool notifyReconnect;
+            TimeSpan downtime;
+            lock (_statusNotificationLock)
+            {
+                _connectionGeneration++;
+                notifyReconnect = _initialConnectionComplete && _disconnectNotified;
+                downtime = DateTime.UtcNow - _disconnectedAtUtc;
+                _disconnectNotified = false;
+                _initialConnectionComplete = true;
+            }
+
+            if (notifyReconnect)
             {
                 _backgroundTaskRunner.Run(
                     _ => CreateBotStatusNotificationAsync(
                         "Bot Connected",
-                        $"Bot reconnected to Discord. Latency: {_client.Latency}ms, Guilds: {_client.Guilds.Count}",
+                        $"Bot reconnected to Discord after {FormatDowntime(downtime)}. Latency: {_client.Latency}ms, Guilds: {_client.Guilds.Count}",
                         isConnected: true),
                     "CreateBotStatusNotification.Connected");
-            }
-            else
-            {
-                _initialConnectionComplete = true;
             }
 
             BotActivitySource.SetSuccess(activity);
@@ -449,12 +467,44 @@ public class BotHostedService : IHostedService
                 })
             });
 
-            // Create admin notification for disconnection
+            // Create admin notification for disconnection once it has outlasted the grace period.
+            // Discord routinely requests reconnects (GatewayReconnectException, "Server requested a
+            // reconnect") and the client resumes almost immediately; those should not page anyone.
+            long generation;
+            lock (_statusNotificationLock)
+            {
+                generation = ++_connectionGeneration;
+                _disconnectedAtUtc = DateTime.UtcNow;
+            }
+
             var disconnectMessage = exception != null
                 ? $"Bot disconnected from Discord. Reason: {exception.Message}"
                 : "Bot disconnected from Discord.";
+            var grace = TimeSpan.FromSeconds(Math.Max(0, _notificationOptions.BotDisconnectGraceSeconds));
             _backgroundTaskRunner.Run(
-                _ => CreateBotStatusNotificationAsync("Bot Disconnected", disconnectMessage, isConnected: false),
+                async ct =>
+                {
+                    if (grace > TimeSpan.Zero)
+                    {
+                        await Task.Delay(grace, ct).ConfigureAwait(false);
+                    }
+
+                    lock (_statusNotificationLock)
+                    {
+                        if (_connectionGeneration != generation)
+                        {
+                            _logger.LogDebug("Bot reconnected within {GraceSeconds}s, skipping disconnect notification", grace.TotalSeconds);
+                            return;
+                        }
+
+                        _disconnectNotified = true;
+                    }
+
+                    var message = grace > TimeSpan.Zero
+                        ? $"{disconnectMessage} Still disconnected after {FormatDowntime(grace)}."
+                        : disconnectMessage;
+                    await CreateBotStatusNotificationAsync("Bot Disconnected", message, isConnected: false).ConfigureAwait(false);
+                },
                 "CreateBotStatusNotification.Disconnected");
         }
         catch (Exception ex)
@@ -596,6 +646,10 @@ public class BotHostedService : IHostedService
             _logger.LogWarning(ex, "Failed to broadcast guild activity update for {GuildId}, but continuing normal operation", guild.Id);
         }
     }
+
+    private static string FormatDowntime(TimeSpan duration) => duration.TotalMinutes >= 1
+        ? $"{(int)duration.TotalMinutes}m {duration.Seconds}s"
+        : $"{Math.Max(1, (int)duration.TotalSeconds)}s";
 
     /// <summary>
     /// Creates an admin notification for bot status changes (connected/disconnected).
