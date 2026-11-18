@@ -23,17 +23,7 @@ Navigate to **Admin > Settings** in the admin UI, then select the **Commands** t
 
 ## Module Categories
 
-Command modules are organized into the following categories:
-
-### Admin Commands
-
-Server administration and configuration commands.
-
-| Module | Display Name | Commands |
-|--------|--------------|----------|
-| `AdminModule` | Admin | `/status`, `/guilds`, `/shutdown` |
-| `WelcomeModule` | Welcome | `/welcome setup/test/disable` |
-| `ScheduleModule` | Scheduled Messages | `/schedule-message create/list/delete/edit` |
+Command modules are organized into the following categories. Administration, welcome, scheduled-message, currency, not-X, feature-request and most moderation-tooling commands were removed from Discord; those features are configured in the web portal (see the feature articles).
 
 ### Moderation Commands
 
@@ -42,12 +32,6 @@ User moderation and enforcement commands.
 | Module | Display Name | Commands |
 |--------|--------------|----------|
 | `ModerationActionModule` | Moderation Actions | `/warn`, `/kick`, `/ban`, `/mute`, `/purge` |
-| `ModerationHistoryModule` | Moderation History | `/mod-history` |
-| `ModStatsModule` | Moderator Stats | `/mod-stats` |
-| `ModNoteModule` | Mod Notes | `/mod-notes add/list/delete` |
-| `ModTagModule` | Mod Tags | `/mod-tag add/remove/list` |
-| `WatchlistModule` | Watchlist | `/watchlist add/remove/list` |
-| `InvestigateModule` | Investigate | `/investigate` |
 
 ### Features Commands
 
@@ -55,9 +39,10 @@ Optional feature commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `RatWatchModule` | Rat Watch | Rat Watch (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard`, `/rat-settings` |
-| `ReminderModule` | Reminders | `/remind set/list/delete` |
-| `PrivacyModule` | Privacy | `/privacy preview-delete`, `/privacy delete-data` |
+| `RatWatchModule` | Rat Watch | Rat Watch (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard` |
+| `ReminderModule` | Reminders | `/remind set/list/cancel` |
+| `WalletModule` | Wallet | `/wallet balance/history/pay` |
+| `PrivacyModule` | Privacy | `/privacy preview-delete`, `/privacy export-data`, `/privacy delete-data` |
 
 ### Audio Commands
 
@@ -65,7 +50,7 @@ Voice channel and audio playback commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `TtsModule` | Text-to-Speech | `/tts <message> [voice]` |
+| `TtsModule` | Text-to-Speech | `/tts <message> [voice]`, `/tts-styled` |
 | `SoundboardModule` | Soundboard | `/play <sound>`, `/sounds`, `/stop` |
 | `VoiceModule` | Voice | `/join`, `/join-channel <channel>`, `/leave` |
 
@@ -75,7 +60,7 @@ Information and utility commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `UtilityModule` | Utility | `/userinfo`, `/serverinfo`, `/roleinfo` |
+| `UtilityModule` | Utility | `/userinfo` |
 
 ### Core Commands (Always Enabled)
 
@@ -83,15 +68,13 @@ Essential bot commands that cannot be disabled.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `GeneralModule` | General | `/ping` |
-| `VerifyAccountModule` | Verify Account | `/verify` |
+| `VerifyAccountModule` | Verify Account | `/verify-account` |
 | `ConsentModule` | Consent | `/consent grant/revoke/status` |
 
 ## Always-Enabled Modules
 
 The following modules are marked as **Core** and cannot be disabled:
 
-- **GeneralModule** - Basic bot commands like `/ping`
 - **VerifyAccountModule** - Account verification commands
 - **ConsentModule** - Privacy consent management commands
 
@@ -125,7 +108,6 @@ When changes are saved that require a restart:
 By default, **all modules are enabled** when the bot starts for the first time. The system automatically creates database records for all known modules during initialization.
 
 Default states:
-- Admin modules: **Enabled**
 - Moderation modules: **Enabled**
 - Feature modules: **Enabled**
 - Audio modules: **Enabled**
@@ -140,11 +122,11 @@ Stores the enabled/disabled state for each command module.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `ModuleName` | string | Primary key - module class name (e.g., "AdminModule") |
+| `ModuleName` | string | Primary key - module class name (e.g., "ReminderModule") |
 | `IsEnabled` | bool | Whether the module is enabled |
 | `DisplayName` | string | User-friendly name for the admin UI |
 | `Description` | string? | Optional description of the module |
-| `Category` | string | Grouping category (Admin, Moderation, Features, Audio, Utility, Core) |
+| `Category` | string | Grouping category (Moderation, Features, Audio, Utility, Core) |
 | `RequiresRestart` | bool | Whether changes require a bot restart |
 | `LastModifiedAt` | DateTime | When the configuration was last changed |
 | `LastModifiedBy` | string? | User ID who made the last change |

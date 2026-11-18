@@ -28,32 +28,6 @@ public class SlashCommandRegistrationService : IHostedService
     private readonly BotConfiguration _config;
     private readonly ILogger<SlashCommandRegistrationService> _logger;
     private readonly ICommandModuleConfigurationService _commandModuleConfigService;
-    private readonly NotXOptions _notXOptions;
-
-    /// <summary>
-    /// Module names belonging to the not-X feature. Both are top-level modules — a context
-    /// menu command cannot be declared inside a <see cref="GroupAttribute"/> module — so
-    /// neither is covered by the component-module parent lookup in
-    /// <see cref="DiscoverAndLoadModulesAsync"/> and they must be named explicitly.
-    /// </summary>
-    private static readonly string[] NotXModuleNames =
-    [
-        nameof(NotXCommandModule),
-        nameof(NotXContextMenuModule)
-    ];
-
-    /// <summary>
-    /// Modules that have no database toggle of their own and follow another module's state.
-    /// The <c>*ComponentModule</c> convention below derives its parent by name; these cannot,
-    /// so the pairing is explicit. <see cref="NotXContextMenuModule"/> is listed because a
-    /// context menu command cannot be declared inside the <c>[Group]</c>-decorated
-    /// <see cref="NotXCommandModule"/>, yet the Commands tab presents not-X as one feature.
-    /// </summary>
-    private static readonly Dictionary<string, string> CompanionModuleParents =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            [nameof(NotXContextMenuModule)] = nameof(NotXCommandModule)
-        };
 
     public SlashCommandRegistrationService(
         DiscordSocketClient client,
@@ -61,8 +35,7 @@ public class SlashCommandRegistrationService : IHostedService
         IServiceProvider serviceProvider,
         IOptions<BotConfiguration> config,
         ILogger<SlashCommandRegistrationService> logger,
-        ICommandModuleConfigurationService commandModuleConfigService,
-        IOptions<NotXOptions> notXOptions)
+        ICommandModuleConfigurationService commandModuleConfigService)
     {
         _client = client;
         _interactionService = interactionService;
@@ -70,35 +43,12 @@ public class SlashCommandRegistrationService : IHostedService
         _config = config.Value;
         _logger = logger;
         _commandModuleConfigService = commandModuleConfigService;
-        _notXOptions = notXOptions.Value;
-    }
-
-    /// <summary>
-    /// Builds the set of module names switched off by configuration, as opposed to by the
-    /// database module toggles. Leaving a module out of discovery is what deregisters its
-    /// commands: <see cref="RegisterCommandsAsync"/> publishes the loaded command set as a
-    /// bulk overwrite, so commands that are no longer registered locally are removed from
-    /// Discord on the next startup.
-    /// </summary>
-    internal static IReadOnlySet<string> GetConfigurationDisabledModules(NotXOptions notXOptions)
-    {
-        var disabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (!notXOptions.Enabled)
-        {
-            foreach (var moduleName in NotXModuleNames)
-            {
-                disabled.Add(moduleName);
-            }
-        }
-
-        return disabled;
     }
 
     /// <summary>
     /// Returns the module whose database toggle the given module follows, or null when the
     /// module has a toggle of its own. Component modules follow the <c>*ComponentModule</c>
-    /// naming convention; everything else comes from <see cref="CompanionModuleParents"/>.
+    /// naming convention.
     /// </summary>
     internal static string? ResolveCompanionParentModule(string moduleName)
     {
@@ -107,7 +57,7 @@ public class SlashCommandRegistrationService : IHostedService
             return moduleName.Replace("ComponentModule", "Module");
         }
 
-        return CompanionModuleParents.GetValueOrDefault(moduleName);
+        return null;
     }
 
     /// <summary>
@@ -160,28 +110,14 @@ public class SlashCommandRegistrationService : IHostedService
             .Select(m => m.ModuleName)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Features switched off in configuration outrank the database toggles: their modules
-        // are never loaded, so the bulk-overwrite registration drops their commands.
-        var configurationDisabledModules = GetConfigurationDisabledModules(_notXOptions);
-
         // Register only enabled modules
         foreach (var moduleType in allModuleTypes)
         {
             var moduleName = moduleType.Name;
 
-            if (configurationDisabledModules.Contains(moduleName))
-            {
-                skippedModules.Add(moduleName);
-                _logger.LogInformation(
-                    "Skipped module {ModuleName} because its feature is disabled in configuration",
-                    moduleName);
-                continue;
-            }
-
-            // If this module follows another module's toggle, skip it when that parent is
-            // disabled. Component modules derive their parent by name; modules whose name
-            // does not follow that convention are mapped explicitly. Anything not skipped
-            // here falls through to the normal per-module lookups below, unchanged.
+            // If this module follows another module's toggle (a *ComponentModule follows its
+            // *Module), skip it when that parent is disabled. Anything not skipped here falls
+            // through to the normal per-module lookups below, unchanged.
             var parentModuleName = ResolveCompanionParentModule(moduleName);
             if (parentModuleName is not null && disabledModuleNames.Contains(parentModuleName))
             {

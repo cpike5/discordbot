@@ -447,7 +447,7 @@ docker run -d \
 
 1. Start Seq container (see command above)
 2. Run the Discord Bot: `dotnet run --project src/DiscordBot.Bot`
-3. Execute a Discord command (e.g., `/ping`)
+3. Execute a Discord command (e.g., `/userinfo`)
 4. Open Seq UI at `http://localhost:5341`
 5. Logs should appear within 2 seconds
 

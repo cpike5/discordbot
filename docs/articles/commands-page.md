@@ -263,7 +263,7 @@ Each module is rendered as a collapsible card with:
 Individual commands within modules display:
 
 - **Command Icon**: Terminal/code icon
-- **Command Name**: Monospace font with slash prefix (e.g., `/ping`)
+- **Command Name**: Monospace font with slash prefix (e.g., `/play`)
 - **Description**: Secondary text explaining command purpose
 - **Precondition Badges**: Right-aligned badges for restrictions
 - **Parameters Section**: Expandable parameter details
@@ -407,7 +407,7 @@ The architecture supports future enhancements:
 
 ## Related Documentation
 
-- [Admin Commands](admin-commands.md) - Slash command reference and usage
+- [Admin Commands (Removed)](admin-commands.md) - Where the removed admin commands moved in the portal
 - [Design System](design-system.md) - UI design tokens and component specifications
 - [Interactive Components](interactive-components.md) - Discord component patterns (buttons, menus)
 - [Authorization Policies](authorization-policies.md) - Role hierarchy and access control

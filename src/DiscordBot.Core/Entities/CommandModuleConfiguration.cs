@@ -7,7 +7,7 @@ namespace DiscordBot.Core.Entities;
 public class CommandModuleConfiguration
 {
     /// <summary>
-    /// The unique module name identifier (e.g., "AdminModule", "RatWatchModule").
+    /// The unique module name identifier (e.g., "ReminderModule", "RatWatchModule").
     /// This is the primary key.
     /// </summary>
     public string ModuleName { get; set; } = string.Empty;

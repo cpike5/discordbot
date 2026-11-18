@@ -35,7 +35,7 @@ public static class CurrencyFormatting
         if (visible.Count == 0)
         {
             return CurrencyResolution.Failed(
-                "There are no currencies in this server yet. An administrator can create one with `/currency create`.");
+                "There are no currencies in this server yet. An administrator can create one in the admin portal.");
         }
 
         if (string.IsNullOrWhiteSpace(selector))
@@ -309,7 +309,7 @@ public static class CurrencyFormatting
 
         if (currencies.Count == 0)
         {
-            embed.WithDescription("No currencies here yet. An administrator can create one with `/currency create`.");
+            embed.WithDescription("No currencies here yet. An administrator can create one in the admin portal.");
             return embed.Build();
         }
 

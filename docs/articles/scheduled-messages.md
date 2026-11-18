@@ -13,12 +13,11 @@ The Scheduled Messages feature enables administrators to create, manage, and aut
 ### Key Features
 
 - **Multiple Schedule Frequencies**: One-time, hourly, daily, weekly, monthly, or custom cron expressions
-- **Flexible Management**: Create, edit, enable/disable, and delete scheduled messages via both Discord commands and Admin UI
+- **Flexible Management**: Create, edit, enable/disable, and delete scheduled messages via the Admin UI
 - **Timezone Support**: All execution times are stored in UTC with local timezone display in the Admin UI
 - **Background Execution**: Automated message delivery via background service with configurable intervals
 - **Concurrent Processing**: Multiple messages can be executed simultaneously with configurable limits
 - **Timeout Protection**: Individual message executions have timeout safeguards to prevent resource exhaustion
-- **Manual Execution**: Test or immediately send any scheduled message on-demand via slash command
 
 ### Use Cases
 
@@ -32,156 +31,7 @@ The Scheduled Messages feature enables administrators to create, manage, and aut
 
 ## Slash Commands
 
-All scheduled message commands require the `RequireAdmin` precondition and can only be used in guilds with active status.
-
-### `/schedule-list`
-
-Lists all scheduled messages for the current guild with pagination and interactive selection.
-
-**Usage:**
-```
-/schedule-list
-```
-
-**Response:**
-- Embed showing up to 10 scheduled messages with status icons, frequency, and next execution time
-- Select menu to view detailed information for any message
-- Message details include full content, channel, schedule configuration, creation info
-
-**Example Output:**
-```
-📅 Scheduled Messages (Page 1/1)
-
-✅ Daily Welcome Message
-Frequency: Daily
-Next: in 3 hours
-ID: 550e8400-e29b-41d4-a716-446655440000
-
-❌ Weekly Event Reminder
-Frequency: Weekly
-Next: Not scheduled
-ID: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
-```
-
-### `/schedule-create`
-
-Creates a new scheduled message with specified frequency and content.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `title` | String | Yes | Descriptive title for the scheduled message (max 200 characters) |
-| `channel` | Text Channel | Yes | Discord channel where the message will be sent |
-| `message` | String | Yes | Content of the message to send (max 2000 characters - Discord limit) |
-| `frequency` | ScheduleFrequency | Yes | How often the message should be sent (see [Schedule Frequencies](#schedule-frequencies)) |
-| `cron` | String | Conditional | Cron expression (required only for `Custom` frequency, max 100 characters) |
-
-**Usage Examples:**
-
-```
-# Daily message
-/schedule-create title:"Daily Welcome" channel:#general message:"Welcome to our server!" frequency:Daily
-
-# Weekly reminder
-/schedule-create title:"Event Reminder" channel:#announcements message:"Weekly event starts in 1 hour!" frequency:Weekly
-
-# Custom schedule (every Monday and Friday at 9 AM)
-/schedule-create title:"Workweek Reminder" channel:#general message:"Good morning!" frequency:Custom cron:"0 9 * * 1,5"
-```
-
-**Response:**
-- Success embed with message details, next execution timestamp, and message ID
-- Preview of message content (first 500 characters)
-- Error embed if validation fails (invalid cron, missing parameters, etc.)
-
-**Validation:**
-- Title and message content length limits enforced
-- Channel must be a valid text-capable channel in the guild
-- Cron expression validated if frequency is `Custom`
-- Next execution time calculated and validated before creation
-
-### `/schedule-delete`
-
-Deletes a scheduled message with confirmation prompt.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | String | Yes | The GUID identifier of the scheduled message to delete |
-
-**Usage:**
-```
-/schedule-delete id:550e8400-e29b-41d4-a716-446655440000
-```
-
-**Response:**
-- Confirmation prompt with message details and confirmation/cancel buttons
-- Success message after confirmation
-- Error if message not found or belongs to different guild
-
-**Security:**
-- Verifies the message belongs to the current guild
-- Requires button confirmation before deletion
-- Interactive components expire after 15 minutes (default)
-
-### `/schedule-toggle`
-
-Enables or disables a scheduled message without deleting it.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | String | Yes | The GUID identifier of the scheduled message to enable/disable |
-
-**Usage:**
-```
-/schedule-toggle id:550e8400-e29b-41d4-a716-446655440000
-```
-
-**Response:**
-- Success embed showing the new enabled/disabled state
-- Status icon (✅ Enabled / ❌ Disabled)
-- Error if message not found or belongs to different guild
-
-**Behavior:**
-- Toggles the `IsEnabled` flag
-- Disabled messages are skipped during background execution checks
-- Does not affect the `NextExecutionAt` timestamp
-- Useful for temporarily pausing messages without losing schedule configuration
-
-### `/schedule-run`
-
-Executes a scheduled message immediately (manual trigger).
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | String | Yes | The GUID identifier of the scheduled message to execute |
-
-**Usage:**
-```
-/schedule-run id:550e8400-e29b-41d4-a716-446655440000
-```
-
-**Response:**
-- Success embed confirming message was sent to the target channel
-- Error if message not found, channel inaccessible, or execution fails
-
-**Behavior:**
-- Sends message to Discord immediately
-- Updates `LastExecutedAt` timestamp
-- Calculates and updates `NextExecutionAt` based on frequency
-- For `Once` frequency, disables the message after execution
-- Does NOT wait for scheduled time - executes immediately
-
-**Use Cases:**
-- Testing new scheduled messages
-- Sending unscheduled announcements using existing templates
-- Recovering from missed executions
+There are none. `/schedule-list`, `/schedule-create`, `/schedule-delete`, `/schedule-toggle` and `/schedule-run` (and `ScheduleModule` / `ScheduleComponentModule`) were removed. Scheduled messages are managed in the portal under Guilds > Scheduled Messages (list, create, edit, delete, enable/disable); see [Admin UI Pages](#admin-ui-pages). There is no manual "run now" action in the portal.
 
 ---
 
@@ -285,7 +135,7 @@ The Admin UI converts UTC timestamps to the user's local timezone for display:
 ### Best Practices
 
 - Always review execution times in the Admin UI after creation to ensure correct timezone conversion
-- Use `/schedule-run` command to test messages before scheduled execution
+- Create a `Once` message scheduled for a near-future time to test a message before relying on a recurring schedule
 - For cron expressions, consider UTC time when defining schedules (or calculate local offset)
 - Document expected execution times in message titles for clarity (e.g., "Daily 9AM PST Reminder")
 
@@ -853,7 +703,6 @@ Validates a cron expression for correctness using Cronos library.
 
 Currently, there are no dedicated REST API endpoints for scheduled messages. All operations are performed via:
 
-- **Discord Slash Commands**: For in-Discord management
 - **Admin UI Razor Pages**: For web-based management
 
 **Future Enhancement (Tracked in Epic #303):**
@@ -986,29 +835,12 @@ See [api-endpoints.md](api-endpoints.md) for current REST API documentation.
 
 ## Testing Scheduled Messages
 
-### Manual Testing via Slash Commands
+### Manual Testing via the Admin UI
 
-1. **Create a test message** with Once frequency and near-future execution:
-   ```
-   /schedule-create title:"Test" channel:#test-channel message:"Test message" frequency:Once
-   ```
-
-2. **Verify creation** via list command:
-   ```
-   /schedule-list
-   ```
-
-3. **Test immediate execution** without waiting:
-   ```
-   /schedule-run id:550e8400-e29b-41d4-a716-446655440000
-   ```
-
-4. **Verify message appears** in target channel
-
-5. **Clean up** test message:
-   ```
-   /schedule-delete id:550e8400-e29b-41d4-a716-446655440000
-   ```
+1. **Create a test message** with Once frequency and a near-future execution time (Guilds > Scheduled Messages > Create)
+2. **Verify creation** in the list page
+3. **Verify the message appears** in the target channel at the scheduled time
+4. **Clean up** by deleting the test message from the list or edit page
 
 ### Testing Custom Cron Expressions
 
@@ -1021,10 +853,8 @@ See [api-endpoints.md](api-endpoints.md) for current REST API documentation.
    - Check "Next Execution" timestamp matches expectation
 
 3. **Test validation** with invalid cron:
-   ```
-   /schedule-create title:"Invalid" channel:#test message:"Test" frequency:Custom cron:"invalid cron"
-   ```
-   - Should receive error embed with validation message
+   - Enter an invalid cron such as `invalid cron` in the create form
+   - Should receive a validation error
 
 ### Testing Frequency Calculations
 
@@ -1053,7 +883,6 @@ See [api-endpoints.md](api-endpoints.md) for current REST API documentation.
 
 ### Authorization
 
-- **Slash Commands**: Require `RequireAdmin` precondition (Admin role or higher)
 - **Admin UI Pages**: Require `RequireAdmin` authorization policy
 - **Guild Isolation**: All operations verify message belongs to current guild
 - **Component Interactions**: Verify user ID matches component creator
@@ -1113,10 +942,7 @@ Successfully executed scheduled message {MessageId}: {Title}
 
 **Example Debugging:**
 ```
-# Create message with verbose logging
-/schedule-create ... frequency:Custom cron:"0 9 * * 1-5"
-
-# Check logs
+# Create a message with frequency Custom and cron "0 9 * * 1-5", then check logs
 Calculated next execution for Custom: 2024-01-15 09:00:00Z
 ```
 
@@ -1163,7 +989,7 @@ console.log(document.querySelector('[name="Input.UserTimezone"]').value);  // Sh
 
 - **Keep it concise**: Shorter messages load faster and are easier to read
 - **Use Discord markdown**: Bold, italics, code blocks for formatting
-- **Test first**: Use `/schedule-run` to preview before scheduling
+- **Test first**: Send a `Once` message to a test channel before scheduling
 - **Mention sparingly**: Avoid @everyone/@here in frequent messages
 - **Include context**: Message should make sense without prior context
 

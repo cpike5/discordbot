@@ -1,4 +1,6 @@
-# Technical Reference: `/feature-request` Command
+# Technical Reference: `/feature-request` Command (removed)
+
+> **Status: the Discord command was removed** (along with `FeatureRequestModule` and `FeatureRequestComponentModule`). The AI DM conversation flow documented here is currently unreachable. The portal list (`/Guilds/{guildId}/FeatureRequests`) and stored data remain. This reference describes the behaviour before removal.
 
 **Audience:** Developers, power users, and admins  
 **Date:** 2026-04-01  

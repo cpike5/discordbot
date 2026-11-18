@@ -81,7 +81,7 @@ public class RequireAdminAttribute : PreconditionAttribute
 **Module-Level Application:**
 ```csharp
 [RequireAdmin]
-public class AdminModule : InteractionModuleBase<SocketInteractionContext>
+public class ExampleModule : InteractionModuleBase<SocketInteractionContext>
 {
     // All commands in this module require admin permission
 
@@ -722,7 +722,7 @@ public override Task<PreconditionResult> CheckRequirementsAsync(...)
 **Module-Level:**
 ```csharp
 [RequireAdmin]
-public class AdminModule : InteractionModuleBase<SocketInteractionContext>
+public class ExampleModule : InteractionModuleBase<SocketInteractionContext>
 {
     // All commands require admin
 }
@@ -962,7 +962,7 @@ public class BotConfiguration
 
 ## Related Documentation
 
-- [Admin Commands](admin-commands.md) - Command reference and usage examples
+- [Admin Commands (Removed)](admin-commands.md) - Where the removed admin commands moved in the portal
 - [Database Schema](database-schema.md) - CommandLog entity for audit tracking
 - [Configuration Guide](https://github.com/cpike5/discordbot/blob/main/CLAUDE.md#configuration) - Bot configuration and user secrets
 

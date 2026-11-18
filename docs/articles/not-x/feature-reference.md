@@ -11,11 +11,11 @@
 1. [Overview](#overview)
 2. [Component Map](#component-map)
 3. [Data Flow: Automatic Path](#data-flow-automatic-path)
-4. [Data Flow: Manual Trigger Path](#data-flow-manual-trigger-path)
+4. [Data Flow: Manual Trigger Path (removed)](#data-flow-manual-trigger-path)
 5. [fxtwitter API Contract](#fxtwitter-api-contract)
 6. [Guild Settings Reference](#guild-settings-reference)
-7. [Slash Command Reference](#slash-command-reference)
-8. [Context Menu Command Reference](#context-menu-command-reference)
+7. [Slash Command Reference (removed)](#slash-command-reference)
+8. [Context Menu Command Reference (removed)](#context-menu-command-reference)
 9. [Embed Layout Reference](#embed-layout-reference)
 10. [Decision Matrix](#decision-matrix)
 11. [Error States & Degradation](#error-states--degradation)
@@ -27,10 +27,9 @@
 
 ## Overview
 
-not-X surfaces X/Twitter tweet content in Discord when the platform's native embed is suppressed (typically for content marked sensitive/18+ by the tweet author). It operates in two modes:
+not-X surfaces X/Twitter tweet content in Discord when the platform's native embed is suppressed (typically for content marked sensitive/18+ by the tweet author). It operates automatically: it reacts to every `MessageReceived` event, scans for tweet URLs, fetches content via the fxtwitter JSON API, and posts embeds when the sensitivity gate passes.
 
-- **Automatic**: Reacts to every `MessageReceived` event, scans for tweet URLs, fetches content via the fxtwitter JSON API, and posts embeds when the sensitivity gate passes.
-- **Manual**: A right-click "Fetch Tweet" context menu command that bypasses all guild-level gates and fetches on demand.
+> **Current limitation: per-guild settings cannot be changed.** The `/notx` slash commands and the "Fetch Tweet" context menu (`NotXCommandModule`, `NotXContextMenuModule`) were removed, and there is no portal page for `NotXGuildSettings` yet. The automatic handler still runs using whatever settings are already stored for each guild. A guild with no settings row (or `IsEnabled = false`) gets no previews, and there is currently no in-product way to change that.
 
 The feature has no persistence footprint beyond the guild settings row — tweet content is never stored.
 
@@ -40,8 +39,6 @@ The feature has no persistence footprint beyond the guild settings row — tweet
 
 ```
 src/DiscordBot.Bot/
-├── Commands/
-│   └── NotXCommandModule.cs          /notx slash group + [MessageCommand("Fetch Tweet")]
 ├── Handlers/
 │   └── NotXMessageHandler.cs         MessageReceived event hook
 ├── Services/
@@ -53,7 +50,7 @@ src/DiscordBot.Bot/
         ├── FxTwitterClient.cs        HTTP client; implements IFxTwitterClient
         ├── NotXEmbedBuilder.cs       Builds Discord embeds from tweet data
         ├── NotXService.cs            Orchestration; implements INotXService
-        └── TweetUrlExtractor.cs      Static; shared by handler and command module
+        └── TweetUrlExtractor.cs      Static; used by the handler
 ├── Data/
 │   ├── Repositories/
 │   │   └── NotXGuildSettingsRepository.cs
@@ -112,33 +109,10 @@ src/DiscordBot.Core/
 
 ## Data Flow: Manual Trigger Path
 
-```
-1. User right-clicks message → Apps → "Fetch Tweet"
-        │
-2. NotXCommandModule.FetchTweetContextMenuAsync(IMessage message)
-   ├─ DeferAsync(ephemeral: true)
-   ├─ TweetUrlExtractor.Extract(message.Content)
-   └─ Any URLs found?    NO → FollowupAsync("No Tweet Found", ephemeral)
-        │
-        │  [foreach unique URL]
-        ▼
-3. NotXService.ProcessTweetAsync(guildId, channelId, message.Id, url, ignoreSettingsGate: true)
-   ├─ (IsEnabled check SKIPPED)
-   ├─ (MonitoredChannelIds check SKIPPED)
-   ├─ FxTwitterClient.FetchAsync(screenName, tweetId)
-   ├─ result null?                             YES → record failure, continue to next URL
-   ├─ (SensitiveOnly check SKIPPED)
-   ├─ NotXEmbedBuilder.Build(result, settings)
-   ├─ Resolve outputChannelId (settings.OutputChannelId is still respected)
-   └─ channel.SendMessageAsync(embeds[])
-        │
-        ▼
-4. FollowupAsync(results summary, ephemeral: true)
-   e.g. "✅ Posted preview for <url>"
-        "⚠️ Could not fetch <url>"
-```
-
-Guild settings are still loaded for the output channel routing step even in the manual path.
+Removed. This path was the "Fetch Tweet" context menu, which called
+`NotXService.ProcessTweetAsync(..., ignoreSettingsGate: true)`. The context menu no longer
+exists, so nothing in the bot currently passes `ignoreSettingsGate: true` (the parameter is
+still on `INotXService`).
 
 ---
 
@@ -233,65 +207,14 @@ Table: `NotXGuildSettings`
 
 ## Slash Command Reference
 
-Command group: `/notx`
-Required permission: `Manage Guild` (on all sub-commands)
-All responses: ephemeral
-
-| Command | Parameters | Effect |
-|---------|-----------|--------|
-| `/notx enable` | — | Sets `IsEnabled = true` |
-| `/notx disable` | — | Sets `IsEnabled = false` |
-| `/notx status` | — | Shows current guild settings (formatted embed) |
-| `/notx channel set` | `channel` (TextChannel) | Sets `OutputChannelId`; validates bot has Send Messages + Embed Links in target |
-| `/notx channel clear` | — | Sets `OutputChannelId = null` (back to originating channel) |
-| `/notx monitor add` | `channel` (TextChannel) | Appends channel to `MonitoredChannelIds` |
-| `/notx monitor remove` | `channel` (TextChannel) | Removes channel from `MonitoredChannelIds` |
-| `/notx monitor clear` | — | Sets `MonitoredChannelIdsJson = null` (monitor all channels) |
-| `/notx sensitive-only` | `enabled` (bool) | Sets `SensitiveOnly` |
-
-### `/notx status` embed format
-
-```
-not-X Settings
-────────────────────────────────
-Status:             ✅ Enabled  /  ❌ Disabled
-Sensitive only:     ✅ Yes (only posts flagged tweets)
-                 /  ❌ No  (posts all tweets)
-Output channel:     #channel-name  /  Same channel as link
-Monitored:          #ch1, #ch2, #ch3  /  All channels
-Sensitive label:    Shown  /  Hidden
-```
-
----
+Removed. The `/notx` group (`enable`, `disable`, `status`, `channel set|clear`,
+`monitor add|remove|clear`, `sensitive-only`) was the only way to edit
+`NotXGuildSettings`. There is no replacement yet; a portal settings page is planned
+(see [Known Limitations](#known-limitations)).
 
 ## Context Menu Command Reference
 
-Command name: **Fetch Tweet**
-Appears under: Right-click message → Apps → Fetch Tweet
-Permission: Any guild member (no restriction; Discord Integration settings can restrict per-guild)
-Response: Always ephemeral
-
-### Behaviour summary
-
-1. Extracts tweet URLs from the target message content.
-2. For each URL: calls `ProcessTweetAsync` with `ignoreSettingsGate: true`.
-3. Respects `OutputChannelId` routing (embeds still go to the configured channel).
-4. Reports per-URL results in the ephemeral followup.
-
-### Ephemeral followup format
-
-```
-Fetch Tweet results:
-✅ Posted preview for https://x.com/user/status/123
-⚠️ Could not fetch https://x.com/user/status/456  (tweet may be deleted or private)
-```
-
-When no tweet URLs are found:
-
-```
-⚠️ No Tweet Found
-That message doesn't appear to contain an X/Twitter link.
-```
+Removed. The "Fetch Tweet" message context menu no longer exists.
 
 ---
 
@@ -376,8 +299,8 @@ On the manual path (`ignoreSettingsGate = true`), only the `fxtwitter result = n
 | Tweet deleted (404) | None (logged at Debug) | Not recoverable; tweet is gone |
 | Private account (401) | None (logged at Debug) | Not recoverable without account auth |
 | JSON deserialization error | None (logged at Warning with raw body excerpt) | Indicates API schema change; requires code update |
-| Output channel permission denied | Ephemeral error at config time (channel set command) | Admin fixes channel permissions |
-| Guild settings missing (null) | None (treated as disabled) | Resolved when admin runs `/notx enable` |
+| Output channel permission denied | N/A (the `/notx channel set` command that validated this was removed) | Fix the bot's channel permissions |
+| Guild settings missing (null) | None (treated as disabled) | No way to create one currently (the `/notx enable` command was removed) |
 
 The bot never posts an error message to any guild channel. All errors are internal.
 
@@ -399,42 +322,26 @@ Options class: `NotXOptions` (bound from `IOptions<NotXOptions>`).
 ### Disabling the feature
 
 Setting `NotX:Enabled` to `false` (appsettings, an environment variable
-`NotX__Enabled=false`, or user secrets) turns the feature off everywhere. Three gates
-enforce it, so no entry point can post while it is off:
+`NotX__Enabled=false`, or user secrets) turns the feature off everywhere. Two gates
+enforce it, so nothing can post while it is off. `SlashCommandRegistrationService` no
+longer has any not-X handling, because there are no not-X commands left to deregister.
 
-1. **Command deregistration.** `SlashCommandRegistrationService` leaves `NotXCommandModule`
-   and `NotXContextMenuModule` out of module discovery. Registration publishes the loaded
-   command set as a bulk overwrite, so the `/notx` commands and the "Fetch Tweet" context
-   menu disappear from Discord on the next startup rather than lingering and failing.
-2. **Handler short-circuit.** `NotXMessageHandler` returns before inspecting any message, so
+1. **Handler short-circuit.** `NotXMessageHandler` returns before inspecting any message, so
    no URL scanning or DI scope creation happens on the `MessageReceived` hot path.
-3. **Service refusal.** `NotXService.ProcessTweetAsync` returns `false` before reading guild
-   settings or calling fxtwitter. This outranks `ignoreSettingsGate`, so even a manual
-   context-menu invocation cannot post.
+2. **Service refusal.** `NotXService.ProcessTweetAsync` returns `false` before reading guild
+   settings or calling fxtwitter. This outranks `ignoreSettingsGate`.
 
 It is read through `IOptions<T>`, which this project does not reload, so a change needs a
-process restart; the restart is required anyway for Discord to pick up the changed
-command set.
+process restart.
 
 ### Disabling from the admin portal
 
-Two portal switches exist alongside the config one:
+One portal switch exists alongside the config one:
 
 - **Settings → Features → "not-X Tweet Previews"** writes `Features:NotXEnabled`. It takes
-  effect on the next message and next command with no restart, enforced by
-  `RequireNotXEnabledAttribute` and by `NotXService.ProcessTweetAsync`. The `/notx`
-  commands stay registered and reply "disabled by an administrator".
-- **Settings → Commands → "not-X"** toggles the `NotXCommandModule` row in
-  `CommandModuleConfigurations`. Like every other module toggle it needs a restart, and it
-  removes the commands from Discord. `NotXContextMenuModule` has no row of its own and
-  follows this toggle through `CompanionModuleParents` in
-  `SlashCommandRegistrationService`, so "Fetch Tweet" disappears with the slash commands
-  rather than being left behind.
+  effect on the next message with no restart, enforced by `NotXService.ProcessTweetAsync`.
 
-`RequireNotXEnabledAttribute` checks only the two global switches, never
-`NotXGuildSettings.IsEnabled` — the `/notx` commands are the per-guild configuration
-surface, so gating them on that flag would make `/notx enable` unreachable for a guild
-that had disabled itself.
+There is no longer a Commands-tab toggle for not-X (the command module was removed).
 
 `NotXGuildSettings` rows are left untouched, so each guild's own configuration returns
 as it was when the feature is switched back on.
@@ -484,7 +391,7 @@ Tags:
 | **No quote-tweet inlining** | Quoted tweets are not recursively fetched and inlined. | Phase 2 |
 | **No in-memory deduplication** | If the same tweet URL is posted multiple times in a channel in quick succession, each message triggers an independent embed post. | Phase 2 |
 | **Per-guild rate limiting absent** | High-volume guilds could stress fxtwitter; no backpressure mechanism in phase 1. | Phase 2 |
-| **No portal settings UI** | Guild settings are managed via slash commands only; no web portal page. | Phase 2 |
+| **No way to change guild settings** | The `/notx` slash commands were removed and there is no web portal page for `NotXGuildSettings` yet, so per-guild settings cannot currently be edited. | Phase 2 |
 | **Private/protected tweets** | fxtwitter cannot access protected accounts; these are permanently unavailable. | Won't fix |
 | **No `possibly_sensitive` guarantee** | X's flagging is author-controlled. Authors can unflag content at will; this does not retroactively affect embeds already posted. | Won't fix |
 | **Single process deduplication only** | If the bot is scaled horizontally, in-memory dedup caches (when added) will not be shared without a distributed cache layer. | Phase 2 |

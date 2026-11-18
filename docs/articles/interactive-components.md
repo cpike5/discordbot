@@ -2,6 +2,8 @@
 
 This document provides comprehensive documentation for Discord component interactions in the bot, including buttons and future support for select menus. Interactive components enable rich user experiences with confirmation dialogs, pagination, and multi-step workflows.
 
+> **Note:** The `/shutdown` and `/guilds` examples used throughout this page come from the removed `AdminModule` / `AdminComponentModule`. They remain valid as illustrations of the pattern; for live implementations see `WalletComponentModule` (`/wallet history` pagination, `/wallet pay` confirmation) and `RatWatchComponentModule`.
+
 ## Overview
 
 The bot currently supports the following Discord component types:
@@ -280,7 +282,7 @@ public async Task ShutdownAsync()
 
 Create a handler method to process component interactions.
 
-**Location:** `src/DiscordBot.Bot/Commands/AdminComponentModule.cs` (or create new module)
+**Location:** a `*ComponentModule` class in `src/DiscordBot.Bot/Commands/` (the example below is illustrative; the former `AdminComponentModule` was removed)
 
 **Example:**
 ```csharp
@@ -747,7 +749,7 @@ public void ComponentIdBuilder_Parse_ShouldExtractParts()
 
 ## Related Documentation
 
-- [Admin Commands](admin-commands.md) - Slash command reference including interactive `/shutdown` and `/guilds`
+- [Admin Commands (Removed)](admin-commands.md) - Where the removed admin commands moved in the portal
 - [MVP Plan](mvp-plan.md) - Phase 5 implementation details and acceptance criteria
 - [Permissions System](permissions.md) - Precondition attributes used in component handlers
 

@@ -25,7 +25,7 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Interactive Components](interactive-components.md) - Discord component patterns
 
 ## Bot Features
-- [Admin Commands](admin-commands.md) - Slash command reference
+- [Admin Commands (Removed)](admin-commands.md) - Where the removed admin commands moved in the portal
 - [Commands Page](commands-page.md) - Admin UI for viewing registered commands and metadata
 - [Settings Page](settings-page.md) - Admin UI for configuring bot settings
 - [AI Assistant](ai-assistant.md) - Claude-powered conversational assistant for feature help

@@ -19,7 +19,7 @@ Welcome to the Discord Bot Management System documentation. This site provides c
 - [Agent Tools](tools/README.md) - Per-tool specifications for the AI assistant
 
 ### Bot Commands
-- [Admin Commands](articles/admin-commands.md) - Slash command reference
+- [Admin Commands (Removed)](articles/admin-commands.md) - Where the removed admin commands moved in the portal
 - [Virtual Currency](articles/virtual-currency.md) - Wallets, payments, mints and fines
 
 ### Design

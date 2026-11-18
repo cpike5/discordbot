@@ -33,7 +33,6 @@ The Welcome System provides automated greeting messages for new members joining 
 | **IWelcomeService** | `DiscordBot.Core.Interfaces` | Service interface for configuration and message sending |
 | **WelcomeService** | `DiscordBot.Bot.Services` | Service implementation with template processing |
 | **WelcomeHandler** | `DiscordBot.Bot.Handlers` | Discord event handler for `UserJoined` event |
-| **WelcomeModule** | `DiscordBot.Bot.Commands` | Slash command module for Discord configuration |
 | **WelcomeController** | `DiscordBot.Bot.Controllers` | REST API endpoints for configuration |
 | **WelcomeModel** | `DiscordBot.Bot.Pages.Guilds` | Razor Pages admin UI for configuration |
 
@@ -202,117 +201,7 @@ When `IncludeAvatar` is `true` and `UseEmbed` is `true`:
 
 ## Slash Commands
 
-The welcome system provides Discord slash commands for in-app configuration. All commands require the `[RequireAdmin]` precondition.
-
-**Command Group:** `/welcome`
-**Authorization:** Requires `Admin` role (guild-level permission)
-**Rate Limit:** 5 commands per 60 seconds
-
-### Available Commands
-
-#### `/welcome show`
-
-Displays the current welcome message configuration for the guild.
-
-**Response:** Ephemeral embed showing:
-- Status (Enabled/Disabled)
-- Welcome channel
-- Use embed setting
-- Include avatar setting
-- Embed color
-- Message template
-- Available template variables
-
-**Example Response:**
-```
-📋 Welcome Message Configuration
-
-Status: Enabled
-Channel: #welcome
-Use Embed: Yes
-Include Avatar: Yes
-Embed Color: #5865F2
-
-Message Template:
-```
-Welcome to {server}, {user}!
-```
-
-Template Variables:
-{user} - mentions the user
-{username} - user's display name
-{server} - guild name
-{membercount} - current member count
-```
-
-#### `/welcome enable`
-
-Enables welcome messages for the guild.
-
-**Effect:** Sets `IsEnabled` to `true` in the database.
-
-**Response:** Ephemeral embed confirming activation and showing current channel and message settings.
-
-**Note:** If channel or message not configured, the response includes instructions to set them.
-
-#### `/welcome disable`
-
-Disables welcome messages for the guild.
-
-**Effect:** Sets `IsEnabled` to `false` in the database (configuration is preserved for re-enabling).
-
-**Response:** Ephemeral embed confirming deactivation.
-
-#### `/welcome channel <channel>`
-
-Sets the channel where welcome messages will be sent.
-
-**Parameters:**
-- `channel` (ITextChannel, required): The text channel to send welcome messages to
-
-**Supported Channel Types:**
-- Text channels
-- Voice channels (with text chat)
-- Announcement/News channels
-- Stage channels (with text chat)
-
-**Effect:** Updates `WelcomeChannelId` in the database.
-
-**Response:** Ephemeral embed confirming the channel update and showing enabled status.
-
-#### `/welcome message <message>`
-
-Sets the welcome message template.
-
-**Parameters:**
-- `message` (string, required, max 2000 characters): The welcome message template
-
-**Effect:** Updates `WelcomeMessage` in the database.
-
-**Response:** Ephemeral embed showing:
-- New message template
-- Available template variables
-- Enabled status
-
-**Validation:** Message limited to 2000 characters (Discord message limit).
-
-#### `/welcome test`
-
-Sends a test welcome message to the configured channel using the current user.
-
-**Effect:** Calls `WelcomeService.SendWelcomeMessageAsync()` with the executing user's ID.
-
-**Requirements:**
-- Welcome configuration must exist
-- Welcome channel must be set
-- Welcome message must be set
-
-**Response:**
-- **Success:** Ephemeral message confirming test sent
-- **Incomplete Config:** Ephemeral message explaining what's missing
-- **Failure:** Ephemeral message with troubleshooting tips (permissions, channel exists, etc.)
-
-**Use Case:** Test message appearance before enabling or after making changes.
+There are none. The `/welcome` commands (show, enable, disable, channel, message, test) and `WelcomeModule` were removed; the welcome system is configured entirely from the portal (see below).
 
 ---
 
@@ -726,13 +615,6 @@ You are member #1,234 of My Server. Please read the rules and enjoy your stay!
 2. **Spelling:** Supported placeholders are `{user}`, `{username}`, `{server}`, `{membercount}` only
 3. **Case insensitive:** `{User}` and `{user}` both work
 
-### Slash Commands Not Working
-
-**Check:**
-1. **Bot registered:** Slash commands registered with Discord (can take up to 1 hour globally, instant with `TestGuildId`)
-2. **Permissions:** User has `Admin` role in guild
-3. **Rate limit:** Maximum 5 commands per 60 seconds
-
 ### API Errors
 
 **400 Bad Request:**
@@ -779,11 +661,6 @@ You are member #1,234 of My Server. Please read the rules and enjoy your stay!
 
 ### Authorization
 
-**Slash Commands:**
-- Require `[RequireAdmin]` precondition
-- Enforced at Discord command level
-- Users need guild `Administrator` permission or `Admin` role in bot database
-
 **API Endpoints:**
 - Require `[Authorize(Policy = "RequireAdmin")]` attribute
 - Enforced at ASP.NET Core middleware level
@@ -811,11 +688,6 @@ You are member #1,234 of My Server. Please read the rules and enjoy your stay!
 - Permission validation: Recommended to check bot has `SendMessages` permission
 
 ### Rate Limiting
-
-**Slash Commands:**
-- `[RateLimit(5, 60)]` precondition
-- Max 5 commands per 60 seconds per user
-- Prevents command spam
 
 **API Endpoints:**
 - No rate limiting currently implemented
@@ -858,9 +730,7 @@ You are member #1,234 of My Server. Please read the rules and enjoy your stay!
 **Recommended Test Cases:**
 1. Create configuration via API, verify in database
 2. Update configuration via admin UI, verify in database
-3. Enable/disable via slash command, verify state
-4. Send test message via slash command, verify in Discord
-5. Trigger actual join event, verify welcome sent
+3. Trigger actual join event, verify welcome sent
 
 ### Manual Testing Checklist
 
@@ -873,14 +743,6 @@ You are member #1,234 of My Server. Please read the rules and enjoy your stay!
 - [ ] Test embed color picker
 - [ ] Test avatar toggle
 - [ ] Test embed toggle
-
-**Slash Commands:**
-- [ ] `/welcome show` displays current config
-- [ ] `/welcome enable` activates messages
-- [ ] `/welcome disable` deactivates messages
-- [ ] `/welcome channel` updates channel
-- [ ] `/welcome message` updates template
-- [ ] `/welcome test` sends test message
 
 **Message Sending:**
 - [ ] Join event triggers welcome message
@@ -969,7 +831,6 @@ You are member #1,234 of My Server. Please read the rules and enjoy your stay!
 ## Related Documentation
 
 - [API Endpoints Reference](api-endpoints.md) - REST API documentation
-- [Slash Commands](commands-page.md) - Command metadata and usage
 - [Authorization Policies](authorization-policies.md) - Role hierarchy and policies
 - [Form Implementation Standards](form-implementation-standards.md) - Razor Pages form patterns
 - [Database Schema](database-schema.md) - Complete database documentation
