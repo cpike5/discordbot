@@ -23,6 +23,16 @@ public class NotificationOptions
     public bool EnableBotStatusChanges { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets how long (in seconds) the gateway must stay disconnected before a
+    /// "Bot Disconnected" notification is created. Discord routinely asks connected bots to
+    /// reconnect (gateway opcode 7, node rotation), and Discord.NET resumes within a second or two;
+    /// those blips are not worth a notification. A "Bot Connected" notification is only sent when
+    /// the matching disconnect was reported. Set to 0 to notify on every disconnect.
+    /// Default is 60 seconds.
+    /// </summary>
+    public int BotDisconnectGraceSeconds { get; set; } = 60;
+
+    /// <summary>
     /// Gets or sets whether to create notifications for guild events (joined/left).
     /// Default is true.
     /// </summary>

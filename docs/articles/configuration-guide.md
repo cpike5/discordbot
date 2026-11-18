@@ -223,7 +223,7 @@ from `dotnet run` in the repository root.
 |--------------|-------------|---------------|----------------|
 | `ScheduledMessagesOptions` | `ScheduledMessages` | `ScheduledServicesExtensions` | `CheckIntervalSeconds` (60), `MaxConcurrentExecutions` (5) |
 | `ReminderOptions` | `Reminder` | `ScheduledServicesExtensions` | `CheckIntervalSeconds` (30), `MaxRemindersPerUser` (25) |
-| `NotificationOptions` | `Notification` | `NotificationServiceExtensions` | Event type toggles, `DuplicateSuppressionMinutes` (5) |
+| `NotificationOptions` | `Notification` | `NotificationServiceExtensions` | Event type toggles, `BotDisconnectGraceSeconds` (60), `DuplicateSuppressionMinutes` (5) |
 | `NotificationRetentionOptions` | `NotificationRetention` | `NotificationServiceExtensions` | Per-state retention days (dismissed/read/unread), cleanup config |
 
 #### Moderation / Community

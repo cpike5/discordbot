@@ -35,6 +35,7 @@ Configure which events generate notifications in `appsettings.json`:
   "Notification": {
     "EnablePerformanceAlerts": true,
     "EnableBotStatusChanges": true,
+    "BotDisconnectGraceSeconds": 60,
     "EnableGuildEvents": true,
     "EnableCommandErrors": true,
     "DuplicateSuppressionMinutes": 5
@@ -46,6 +47,7 @@ Configure which events generate notifications in `appsettings.json`:
 |---------|-------------|---------|
 | `EnablePerformanceAlerts` | Create notifications for Critical/Warning performance alerts | `true` |
 | `EnableBotStatusChanges` | Create notifications when bot connects/disconnects | `true` |
+| `BotDisconnectGraceSeconds` | How long the gateway must stay down before a disconnect is notified. Discord routinely asks bots to reconnect and Discord.NET resumes in a second or two, so short blips are not notified; a reconnect is only notified when its disconnect was. `0` notifies every disconnect | `60` |
 | `EnableGuildEvents` | Create notifications when bot joins/leaves guilds | `true` |
 | `EnableCommandErrors` | Create notifications for unhandled command exceptions | `true` |
 | `DuplicateSuppressionMinutes` | Time window to suppress duplicate notifications | `5` |
