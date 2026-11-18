@@ -231,15 +231,6 @@ public static class SettingDefinitions
             defaultValue: "",
             requiresRestart: false,
             description: "OpenRouter model slug used by the DM (owner) assistant. Leave empty to use the configured value. Must be an enabled, tool-capable catalog model."
-        ),
-        new(
-            key: "FeatureRequests:RequirementsGatheringModel",
-            displayName: "Feature request model",
-            category: SettingCategory.AiModels,
-            dataType: SettingDataType.String,
-            defaultValue: "",
-            requiresRestart: false,
-            description: "OpenRouter model slug used for /feature-request requirements gathering. Leave empty to use the configured value. Must be an enabled, tool-capable catalog model."
         )
     };
 

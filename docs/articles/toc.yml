@@ -94,8 +94,6 @@
       href: virtual-currency.md
     - name: Permissions
       href: permissions.md
-    - name: Feature Requests (command removed)
-      href: feature-request-command/README.md
     - name: not-X
       href: not-x/README.md
     - name: User Profile Extraction (proposed)

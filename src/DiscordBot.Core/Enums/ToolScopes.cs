@@ -15,8 +15,5 @@ public enum ToolScopes
     Guild = 1,
 
     /// <summary>Advertised to the owner-only DM assistant.</summary>
-    Dm = 2,
-
-    /// <summary>Used by the feature-request conversation, which builds its own single-provider registry.</summary>
-    FeatureRequests = 4
+    Dm = 2
 }

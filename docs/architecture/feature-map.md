@@ -387,33 +387,14 @@ Tweet URL posted →
 
 ### Feature Requests
 
-AI-powered feature request submission with optional multi-step DM conversation for requirements gathering. Includes prompt injection detection and configurable conversation flow.
-
-> **The Discord entry point was removed.** `/feature-request` (and `FeatureRequestModule`, `FeatureRequestComponentModule`) no longer exist, so the AI DM conversation flow described below is currently unreachable. The portal list (`/Guilds/{guildId}/FeatureRequests`) and the stored `FeatureRequest` rows remain.
+Feature requests are stored, triaged and documented from the portal. The Discord intake was removed: `/feature-request`, the AI DM requirements-gathering conversation and its prompt-injection and input-validation helpers no longer exist. The portal list (`/Guilds/{guildId}/FeatureRequests`) and the stored `FeatureRequest` rows remain.
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | None. `/feature-request` was removed |
-| **Handlers** | `FeatureRequestDmHandler` (multi-step DM conversation) |
-| **Services** | `IFeatureRequestService`, `FeatureRequestConversationService`, `InputValidationService`, `PromptInjectionFilter`, `FeatureRequestToolProvider` |
+| **Discord Commands** | None |
+| **Services** | `IFeatureRequestService` |
 | **Database Entities** | `FeatureRequest`, `FeatureRequestRejection` |
-| **Configuration** | `FeatureRequestsOptions` (`FeatureRequests` section) |
-| **Key Features** | Direct submit for detailed requests (100+ chars), multi-step DM conversation for brief requests, AI requirements gathering, prompt injection filtering, configurable conversation timeout and turn limits, doc generation integration |
-| **Rate Limiting** | 3 per hour |
-
-**Architecture Flow** (historical; no longer reachable from Discord):
-```
-User invoked /feature-request →
-  FeatureRequestModule (validate input) →
-  Short description? → Button: "Refine in DM" or "Submit as-is"
-    → DM path: FeatureRequestDmHandler →
-      FeatureRequestConversationService (AI conversation) →
-      PromptInjectionFilter (safety check) →
-      Consolidated summary generated
-    → Direct path: Submit immediately
-  → FeatureRequestService.SubmitAsync() →
-  FeatureRequest entity persisted
-```
+| **Key Features** | Portal triage of stored requests, doc generation integration (`DiscordBot.DocGen`) |
 
 ---
 
@@ -700,7 +681,7 @@ empty rather than making a skill cost a round on every question.
 ### LLM Model Catalog & Allowlist
 
 Admin-facing local mirror of OpenRouter's model directory, plus the enable/disable allowlist that
-gates which models the assistant, DM assistant, and feature-request modes may use. See
+gates which models the assistant and DM assistant modes may use. See
 `docs/plans/llm-model-management-plan.md` for the full design and delivery phases.
 
 | Aspect | Components |
@@ -730,7 +711,7 @@ restart.
 
 | Aspect | Components |
 |--------|------------|
-| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync`, `FeatureRequestConversationService.RunAgentAsync` (all resolve per call/message), `LlmModelsController.GetDefaults` |
+| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync` (all resolve per call/message), `LlmModelsController.GetDefaults` |
 | **Save-time validation** | `SettingsSectionService.ValidateAiModelSelectionsAsync` rejects a submitted slug that is not in the catalog, not `IsEnabled`, or not `SupportsTools`, before the value ever reaches the DB |
 | **Cost fallback** | `ResolveAsync` also returns `LlmCatalogPricing` when the catalog reports a price for the slug; `GuildAssistantContext`/`DmAssistantContext.CostRates` prefer it over the configured per-million rates (billed `usage.cost` still wins over either) |
 | **AI Models tab** | `SettingsViewModel.AiModelsSettings` (loaded by `SettingsSectionService.LoadViewModelAsync`) carries the three mode `SettingDto`s with `AllowedValues` post-processed to the enabled catalog slugs (plus the current value if not among them), for a `<select>` |
@@ -746,7 +727,7 @@ breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-p
 | Aspect | Components |
 |--------|------------|
 | **Database Entity** | `LlmUsageRecord` (table `LlmUsageRecords`) — one row per user message: `Timestamp`, `Mode`, `UserId`, `GuildId?`, `Model`, `InputTokens`/`OutputTokens`/`CachedTokens`/`CacheWriteTokens`, `LlmCalls`, `ToolCalls`, `CostUsd`, `CostSource` (`Billed`/`Estimated`), `LatencyMs`, `Success`, `InteractionLogId?`. No message text is stored — the per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`, both now carrying a nullable `Model` column) keep that. |
-| **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` and `FeatureRequestConversationService` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
+| **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
 | **Repository** | `ILlmUsageRepository` / `LlmUsageRepository` (`Infrastructure/Data/Repositories`) — `GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync` (all grouped over `LlmUsageQuery`: date range + optional guild/mode/user), `GetRecordsAsync` (paged raw rows), plus `AddRangeAsync`/`DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` for the write, retention, and GDPR paths. Grouped queries sum `CostUsd` as `double` and cast back to `decimal` — SQLite's EF provider cannot translate `Sum(decimal)` — so the same query shape works on both providers. |
 | **Controller** | `LlmUsageController` (`api/admin/llm-usage`, `RequireAdmin`) — `GET summary` (totals + by-user/model/mode/day over a validated range, default last 30 days, max 366 days), `GET records` (paged rows, `pageSize` capped at 200). Resolves Discord display names via `IDiscordUserResolver` and emits every ID as a string. |
 | **Web Pages** | `/Admin/LlmUsage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/Guilds/AssistantMetrics/{guildId}` (`Pages/Guilds/AssistantMetrics.cshtml`) gains a "Cost by User" table sourced from the same repository, injected directly into `AssistantMetricsModel` and filtered by guild. |
@@ -796,7 +777,7 @@ Application settings management with environment-based configuration.
 |--------|------------|
 | **Configuration** | `appsettings.json`, `appsettings.{Environment}.json`, User Secrets |
 | **Options Pattern** | `IOptions<T>` dependency injection |
-| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
+| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
 | **Admin Settings page** | `Pages/Admin/Settings` is request routing only: `ISettingsSectionService` (load, per-tab save and reset, command modules, audit log), `IAppearanceSettingsService` (Appearance tab, SuperAdmin only) `IBotControlService` (restart and shutdown with audit log) and `IBotProfileService` (the bot's Discord profile: username, avatar, banner, About me; `?handler=BotProfile` and `SaveBotProfile`, `bot-profile.js`), all in `Bot/Services/Settings`. A save posts one tab and the server keeps only that category's keys |
 | **Key Features** | Environment-specific settings, feature flags, service configuration |
 

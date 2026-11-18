@@ -98,11 +98,7 @@ public static class ToolCatalog
         new("execute_python", "Code Execution", "Run Python",
             "Runs a short Python snippet in a sandbox.", ToolScopes.Dm),
         new("fetch_url", "Web", "Fetch URL",
-            "Fetches a web page and returns its readable text.", ToolScopes.Dm),
-
-        // Feature requests - its own single-provider registry, neither guild nor DM.
-        new("submit_feature_request", "Feature Requests", "Submit feature request",
-            "Files a feature request from a guided conversation.", ToolScopes.FeatureRequests)
+            "Fetches a web page and returns its readable text.", ToolScopes.Dm)
     };
 
     private static readonly Dictionary<string, ToolCatalogEntry> ByName =

@@ -46,7 +46,7 @@ public class SettingsSectionServiceTests
         SetupCategory(SettingCategory.Advanced, "Advanced:Retention");
         SetupCategory(
             SettingCategory.AiModels,
-            "Assistant:Sampling:Model", "DmAssistant:Model", "FeatureRequests:RequirementsGatheringModel");
+            "Assistant:Sampling:Model", "DmAssistant:Model");
 
         _service = new SettingsSectionService(
             _mockSettingsService.Object,
@@ -364,7 +364,7 @@ public class SettingsSectionServiceTests
 
         var result = await _service.SaveCategoryAsync(
             "AiModels",
-            new Dictionary<string, string> { ["FeatureRequests:RequirementsGatheringModel"] = "some/non-tool-model" },
+            new Dictionary<string, string> { ["DmAssistant:Model"] = "some/non-tool-model" },
             "user-1");
 
         result.Success.Should().BeFalse();

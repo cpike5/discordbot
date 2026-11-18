@@ -141,20 +141,12 @@ Services for automatic and manual X/Twitter link preview embeds via the fxtwitte
 
 ## Feature Requests
 
-> The `/feature-request` command was removed, so the DM conversation services below currently have no Discord entry point.
-
-Services for AI-powered feature request submission with multi-step DM conversation and safety filtering.
+Services for feature request persistence and triage. The `/feature-request` command and its AI DM requirements-gathering conversation were removed; requests already stored stay visible in the portal.
 
 | Service | Location | Purpose |
 |---------|----------|---------|
 | `IFeatureRequestService` | Core Interfaces | Feature request CRUD, status updates, doc-gen result tracking, `RequeueDocGenAsync` (a failed documentation run goes back to `Submitted` for the next generator run) |
 | `FeatureRequestService` | Infrastructure/Services | EF Core implementation of feature request persistence |
-| `FeatureRequestConversationService` | Bot/Services/FeatureRequests | Multi-turn DM conversation orchestrator for AI requirements gathering |
-| `IInputValidationService` | Core Interfaces | Input validation contract for feature request text |
-| `InputValidationService` | Bot/Services/FeatureRequests | Validates description length and content constraints |
-| `PromptInjectionFilter` | Bot/Services/FeatureRequests | Regex-based prompt injection detection using configurable patterns from `FeatureRequestsOptions` |
-| `FeatureRequestToolProvider` | Infrastructure/Services/FeatureRequests | `IDmToolProvider` (Infrastructure/Abstractions/LLM) implementation exposing feature-request tools to the AI agent |
-| `FeatureRequestDmHandler` | Bot/Handlers | Handles DM messages during active feature request conversations |
 
 ---
 
@@ -487,7 +479,7 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `LlmModelRepository` | Infrastructure/Data/Repositories | EF Core implementation |
 | `LlmCatalogRefreshService` | Bot/Services/LLM | `MonitoredBackgroundService`; periodic catalog refresh on `Llm:CatalogRefreshHours` (default 24, `0` disables), registered only when `OpenRouter:ApiKey` is present |
 | `LlmModelsController` | Bot/Controllers | `api/admin/llm-models` — list/filter, refresh, enable/disable, per-mode defaults (`RequireAdmin`); `GetDefaults` delegates to `ILlmModelResolver` |
-| `ILlmModelResolver` | Core Interfaces/LLM | Resolves each `LlmMode`'s effective model slug (DB setting → bound options → `OpenRouter:DefaultModel`), with per-mode caching invalidated on `ISettingsService.SettingsChanged`. The single resolution path — the guild/DM assistant context factories, `FeatureRequestConversationService`, and `LlmModelsController.GetDefaults` all call it instead of reading options or settings directly. Also resolves catalog pricing (`LlmCatalogPricing`) for the cost fallback. |
+| `ILlmModelResolver` | Core Interfaces/LLM | Resolves each `LlmMode`'s effective model slug (DB setting → bound options → `OpenRouter:DefaultModel`), with per-mode caching invalidated on `ISettingsService.SettingsChanged`. The single resolution path — the guild/DM assistant context factories, and `LlmModelsController.GetDefaults` all call it instead of reading options or settings directly. Also resolves catalog pricing (`LlmCatalogPricing`) for the cost fallback. |
 | `LlmModelResolver` | Infrastructure/Services/LLM | Singleton implementation; resolves scoped `ILlmModelRepository` via `IServiceScopeFactory` per call, same pattern as `SettingsService`; logs a once-per-slug warning when the resolved slug is not enabled |
 | `AssistantInteractionLogRetentionService` | Bot/Services/LLM | `MonitoredBackgroundService`; daily sweep (`Llm:RetentionSweepIntervalHours`, default 24, `0` disables) of three tables nobody was cleaning up before: guild `AssistantInteractionLog` and the `LlmUsageRecord` ledger by `Assistant:Privacy:InteractionLogRetentionDays`, and DM `DmAssistantInteractionLog` by `DmAssistant:InteractionLogRetentionDays`; a table's sweep is skipped when its retention is `0` or less; registered ungated, batch size `Llm:RetentionBatchSize` (default 1000) |
 | `IAssistantTelemetryReader` / `AssistantTelemetryReader` | Core Interfaces/LLM, Infrastructure/Services (scoped) | Read side of the guild assistant's usage metrics and interaction log behind one dependency. Registered without an `OpenRouter:ApiKey`, so `Guilds/AssistantMetrics` opens ("Assistant not configured", dashes for no data) on an install with no key |

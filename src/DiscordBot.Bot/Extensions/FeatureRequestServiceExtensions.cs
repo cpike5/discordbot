@@ -1,9 +1,6 @@
-using DiscordBot.Bot.Services.FeatureRequests;
-using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
-using DiscordBot.Infrastructure.Services.FeatureRequests;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,31 +12,17 @@ namespace DiscordBot.Bot.Extensions;
 public static class FeatureRequestServiceExtensions
 {
     /// <summary>
-    /// Adds feature request services including repository, service, tool provider, and configuration.
+    /// Adds feature request services including repository, and service.
     /// </summary>
     public static IServiceCollection AddFeatureRequests(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Bind options
-        services.Configure<FeatureRequestsOptions>(
-            configuration.GetSection(FeatureRequestsOptions.SectionName));
-
         // Repository (scoped — per-request lifetime with DbContext)
         services.AddScoped<IFeatureRequestRepository, FeatureRequestRepository>();
 
         // Service (scoped — depends on scoped repository)
         services.AddScoped<IFeatureRequestService, FeatureRequestService>();
-
-        // Tool provider for AI-powered requirements gathering (scoped — depends on scoped service)
-        services.AddScoped<FeatureRequestToolProvider>();
-
-        // Validation services — both are singleton-safe (stateless, depend only on singletons)
-        services.AddSingleton<PromptInjectionFilter>();
-        services.AddSingleton<IInputValidationService, InputValidationService>();
-
-        // Singleton conversation service (holds session dictionary)
-        services.AddSingleton<FeatureRequestConversationService>();
 
         return services;
     }

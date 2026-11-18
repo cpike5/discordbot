@@ -27,8 +27,6 @@ public class LlmModelResolverTests
         Options.Create(new AssistantOptions { Sampling = new() { Model = "config/guild-model" } });
     private readonly IOptions<DmAssistantOptions> _dmAssistantOptions =
         Options.Create(new DmAssistantOptions { Model = "config/dm-model" });
-    private readonly IOptions<FeatureRequestsOptions> _featureRequestsOptions =
-        Options.Create(new FeatureRequestsOptions { RequirementsGatheringModel = "config/fr-model" });
     private readonly IOptions<OpenRouterOptions> _openRouterOptions =
         Options.Create(new OpenRouterOptions { DefaultModel = "fallback/model" });
 
@@ -46,7 +44,6 @@ public class LlmModelResolverTests
             _mockSettingsService.Object,
             _assistantOptions,
             _dmAssistantOptions,
-            _featureRequestsOptions,
             _openRouterOptions,
             NullLogger<LlmModelResolver>.Instance);
     }
@@ -88,7 +85,7 @@ public class LlmModelResolverTests
     [Fact]
     public async Task ResolveAsync_UsesFallback_WhenNeitherDbNorConfigPresent()
     {
-        var options = Options.Create(new FeatureRequestsOptions { RequirementsGatheringModel = "" });
+        var options = Options.Create(new DmAssistantOptions { Model = "" });
 
         _mockSettingsService
             .Setup(s => s.GetStoredValueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -107,12 +104,11 @@ public class LlmModelResolverTests
             mockScopeFactory.Object,
             _mockSettingsService.Object,
             _assistantOptions,
-            _dmAssistantOptions,
             options,
             _openRouterOptions,
             NullLogger<LlmModelResolver>.Instance);
 
-        var result = await resolver.ResolveAsync(LlmMode.FeatureRequests);
+        var result = await resolver.ResolveAsync(LlmMode.DmAssistant);
 
         result.Slug.Should().Be("fallback/model");
         result.Source.Should().Be(LlmModelResolutionSource.Fallback);
@@ -328,7 +324,6 @@ public class LlmModelResolverTests
             _mockSettingsService.Object,
             _assistantOptions,
             _dmAssistantOptions,
-            _featureRequestsOptions,
             _openRouterOptions,
             NullLogger<LlmModelResolver>.Instance);
 
@@ -363,7 +358,6 @@ public class LlmModelResolverTests
             _mockSettingsService.Object,
             _assistantOptions,
             _dmAssistantOptions,
-            _featureRequestsOptions,
             _openRouterOptions,
             mockLogger.Object);
 
@@ -403,7 +397,6 @@ public class LlmModelResolverTests
             _mockSettingsService.Object,
             _assistantOptions,
             _dmAssistantOptions,
-            _featureRequestsOptions,
             _openRouterOptions,
             mockLogger.Object);
 

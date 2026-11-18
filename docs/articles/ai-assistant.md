@@ -219,8 +219,7 @@ If you ask about private data, the assistant will politely decline and suggest c
 
 ### LLM Usage and Cost Ledger
 
-Every user message sent through the guild assistant, the DM (owner) assistant, or a feature-request
-conversation writes one row to the `LlmUsageRecord` ledger — tokens, cost, latency, success, and
+Every user message sent through the guild assistant, or the DM (owner) assistant writes one row to the `LlmUsageRecord` ledger — tokens, cost, latency, success, and
 which model actually answered. No message text is stored there; the existing per-mode interaction
 logs keep that.
 
@@ -301,7 +300,7 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 - `openai/gpt-4o` - Non-Claude alternative (no prompt caching; see below)
 
 **Changing the model without a redeploy.** `Assistant:Sampling:Model` is the config-file default;
-an admin can override it per mode — guild assistant, DM assistant, and feature requests each have
+an admin can override it per mode — guild assistant and DM assistant each have
 their own model — from **Admin → Settings → AI Models → Per-Mode Defaults**, without editing
 configuration or restarting the bot. The picker only offers models enabled on that tab's catalog
 table (nothing is enabled by default — pull the OpenRouter catalog with "Refresh from OpenRouter",

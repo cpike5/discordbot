@@ -30,7 +30,6 @@ public class LlmModelResolver : ILlmModelResolver, IDisposable
     private readonly ISettingsService _settingsService;
     private readonly IOptions<AssistantOptions> _assistantOptions;
     private readonly IOptions<DmAssistantOptions> _dmAssistantOptions;
-    private readonly IOptions<FeatureRequestsOptions> _featureRequestsOptions;
     private readonly IOptions<OpenRouterOptions> _openRouterOptions;
     private readonly ILogger<LlmModelResolver> _logger;
 
@@ -57,7 +56,6 @@ public class LlmModelResolver : ILlmModelResolver, IDisposable
         ISettingsService settingsService,
         IOptions<AssistantOptions> assistantOptions,
         IOptions<DmAssistantOptions> dmAssistantOptions,
-        IOptions<FeatureRequestsOptions> featureRequestsOptions,
         IOptions<OpenRouterOptions> openRouterOptions,
         ILogger<LlmModelResolver> logger)
     {
@@ -65,8 +63,6 @@ public class LlmModelResolver : ILlmModelResolver, IDisposable
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _assistantOptions = assistantOptions ?? throw new ArgumentNullException(nameof(assistantOptions));
         _dmAssistantOptions = dmAssistantOptions ?? throw new ArgumentNullException(nameof(dmAssistantOptions));
-        _featureRequestsOptions = featureRequestsOptions
-            ?? throw new ArgumentNullException(nameof(featureRequestsOptions));
         _openRouterOptions = openRouterOptions ?? throw new ArgumentNullException(nameof(openRouterOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -165,7 +161,6 @@ public class LlmModelResolver : ILlmModelResolver, IDisposable
     {
         LlmMode.GuildAssistant => _assistantOptions.Value.Sampling.Model,
         LlmMode.DmAssistant => _dmAssistantOptions.Value.Model,
-        LlmMode.FeatureRequests => _featureRequestsOptions.Value.RequirementsGatheringModel,
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown LLM mode.")
     };
 

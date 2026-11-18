@@ -5912,9 +5912,8 @@ disabling a model that is currently the default for a mode):
 
 #### GET /api/admin/llm-models/defaults
 
-Returns the effective slug for each mode (guild assistant, DM assistant, feature requests) and
-where it comes from — a DB setting override (`Assistant:Sampling:Model`, `DmAssistant:Model`,
-`FeatureRequests:RequirementsGatheringModel`) always wins over the bound configuration value — plus
+Returns the effective slug for each mode (guild assistant, DM assistant) and
+where it comes from — a DB setting override (`Assistant:Sampling:Model`, `DmAssistant:Model`) always wins over the bound configuration value — plus
 whether that slug is known to the catalog and currently enabled/available.
 
 **Response: 200 OK**
@@ -5944,7 +5943,7 @@ is used as-is.
 ### LLM Usage Ledger Endpoints
 
 Admin-only endpoints (`LlmUsageController`) over the `LlmUsageRecord` ledger — one row per user
-message across every `LlmMode` (guild assistant, DM assistant, feature requests). Backed by
+message across every `LlmMode` (guild assistant, DM assistant). Backed by
 `ILlmUsageRepository`; powers `/Admin/LlmUsage` and the "Cost by User" table on
 `/guild/{guildId}/assistant-metrics`. Discord IDs are emitted as strings. Cost is a decimal USD
 amount.
