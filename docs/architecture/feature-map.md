@@ -24,7 +24,7 @@ The soundboard system allows guild members to play pre-uploaded audio files in v
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/play`, `/sounds`, `/stop` (SoundboardModule) |
+| **Discord Commands** | `/play`, `/sounds`, `/stop` (SoundboardModule); `/join [channel]` (defaults to the caller's voice channel), `/leave` (VoiceModule) |
 | **Services** | `IAudioService`, `IPlaybackService`, `ISoundService`, `ISoundboardOrchestrationService`, `IGuildAudioSettingsService`, `IAudioNotifier` |
 | **UI Pages** | Portal: Soundboard player page; Admin: Sounds management (`SoundsController`) |
 | **Member portal access** | `IPortalGuildDirectory` (Discord-backed `DiscordPortalGuildDirectory`; database-backed `DevelopmentPortalGuildDirectory` only in Development + `Discord:OfflineMode`), `PortalGuildMemberAuthorizationHandler` (requires `EnableMemberPortal`, independent of `AudioEnabled`), `PortalPageModelBase`, `Portal/Shared/_PortalDisabled.cshtml`. Portal voice controls use `/api/portal/soundboard/{guildId}/status|channel|stop` |
@@ -61,7 +61,7 @@ Half-Life style concatenated clip announcements using scientist (VOX), female sc
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/vox`, `/fvox`, `/hgrunt` (VoxModule) |
+| **Discord Commands** | `/vox <message> [voice] [gap]`, `voice` = `vox` (default), `fvox` or `hgrunt` (VoxModule); the message autocomplete searches the chosen voice's clips |
 | **Services** | `IVoxService`, `IVoxClipLibrary`, `IVoxConcatenationService`, `VoxClipLibraryInitializer` |
 | **UI Pages** | Portal: VOX player page (`PortalVoxController`) |
 | **Database Entities** | None (clips are files only) |
@@ -92,7 +92,7 @@ Converts text messages to speech using Azure Cognitive Services and plays them i
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/tts <message> [voice]` (TtsModule) |
+| **Discord Commands** | `/tts <message> [voice] [preset]` (TtsModule); a style `preset` builds SSML (requires SSML enabled for the guild) and overrides `voice` |
 | **Services** | `IAudioService`, `ITtsService`, `ITtsSettingsService`, `ITtsPlaybackService`, `IAzureTtsService`, `ISsmlBuilder`, `IStylePresetProvider`, `CustomTtsPresetService` (Bot/Services/Tts; saved custom presets, shared by the portal and admin endpoints) |
 | **REST Controllers** | `PortalTtsPresetsController` (member portal presets), `GuildTtsPresetsController` (`api/guilds/{guildId}/tts/presets/custom`, admin page preset bar) |
 | **UI Pages** | Portal: TTS player; Admin: TTS settings configuration |
@@ -198,9 +198,9 @@ Moderator watchlist to flag users for closer monitoring without taking action. I
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | None. The `/watchlist` commands were removed; the watchlist is reachable through `WatchlistController` (REST API) |
+| **Discord Commands** | None. The `/watchlist` commands were removed; use the Watchlist section on the member moderation page (also reachable through `WatchlistController`, REST API) |
 | **Services** | `IWatchlistService` |
-| **UI Pages** | Admin: Watchlist management |
+| **UI Pages** | Admin: Watchlist section on Guilds/Members/Moderation (list, add by user ID with optional reason, confirmed remove) |
 | **Database Entities** | `Watchlist` |
 | **Key Features** | Reason tracking, timestamp recording, moderator-only visibility |
 
@@ -242,7 +242,7 @@ Detailed user investigation interface showing moderation history, activity patte
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | None. `/investigate` was removed |
-| **Services** | `IInvestigationService`, `IModerationService`, `ISearchService` |
+| **Services** | `IModerationService`, `ISearchService` |
 | **UI Pages** | Admin: Investigation dashboard |
 | **Database Entities** | `ModerationCase`, `ModNote`, `Watchlist`, `MessageLog`, `CommandLog` |
 | **Key Features** | Cross-source data aggregation (messages, commands, cases), timeline view, risk scoring |
@@ -280,7 +280,7 @@ Community-driven accountability system where users flag suspicious messages for 
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `Rat Watch` (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard` (RatWatchModule, RatWatchComponentModule) |
+| **Discord Commands** | `/rat clear`, `/rat stats`, `/rat leaderboard` (RatWatchModule, `[Group("rat")]`); `Rat Watch` message context menu and its `ratwatch:create:*:*` modal (RatWatchContextMenuModule, which follows RatWatchModule's toggle); buttons (RatWatchComponentModule) |
 | **Services** | `IRatWatchService`, `IRatWatchStatusService`, `IDashboardUpdateService` |
 | **UI Pages** | Guild: Rat Watch Settings (`Index`), Analytics and Incidents (incident dialog, CSV export of all filtered rows via `?handler=ExportCsv`); Portal: leaderboard; Admin: Rat Watch analytics (`RatWatchAnalytics.cshtml`, shares `rat-watch-analytics.js`) |
 | **Database Entities** | `RatWatch`, `RatRecord`, `RatVote`, `GuildRatWatchSettings` |
@@ -387,33 +387,14 @@ Tweet URL posted →
 
 ### Feature Requests
 
-AI-powered feature request submission with optional multi-step DM conversation for requirements gathering. Includes prompt injection detection and configurable conversation flow.
-
-> **The Discord entry point was removed.** `/feature-request` (and `FeatureRequestModule`, `FeatureRequestComponentModule`) no longer exist, so the AI DM conversation flow described below is currently unreachable. The portal list (`/Guilds/{guildId}/FeatureRequests`) and the stored `FeatureRequest` rows remain.
+Feature requests are stored, triaged and documented from the portal. The Discord intake was removed: `/feature-request`, the AI DM requirements-gathering conversation and its prompt-injection and input-validation helpers no longer exist. The portal list (`/Guilds/{guildId}/FeatureRequests`) and the stored `FeatureRequest` rows remain.
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | None. `/feature-request` was removed |
-| **Handlers** | `FeatureRequestDmHandler` (multi-step DM conversation) |
-| **Services** | `IFeatureRequestService`, `FeatureRequestConversationService`, `InputValidationService`, `PromptInjectionFilter`, `FeatureRequestToolProvider` |
+| **Discord Commands** | None |
+| **Services** | `IFeatureRequestService` |
 | **Database Entities** | `FeatureRequest`, `FeatureRequestRejection` |
-| **Configuration** | `FeatureRequestsOptions` (`FeatureRequests` section) |
-| **Key Features** | Direct submit for detailed requests (100+ chars), multi-step DM conversation for brief requests, AI requirements gathering, prompt injection filtering, configurable conversation timeout and turn limits, doc generation integration |
-| **Rate Limiting** | 3 per hour |
-
-**Architecture Flow** (historical; no longer reachable from Discord):
-```
-User invoked /feature-request →
-  FeatureRequestModule (validate input) →
-  Short description? → Button: "Refine in DM" or "Submit as-is"
-    → DM path: FeatureRequestDmHandler →
-      FeatureRequestConversationService (AI conversation) →
-      PromptInjectionFilter (safety check) →
-      Consolidated summary generated
-    → Direct path: Submit immediately
-  → FeatureRequestService.SubmitAsync() →
-  FeatureRequest entity persisted
-```
+| **Key Features** | Portal triage of stored requests, doc generation integration (`DiscordBot.DocGen`) |
 
 ---
 
@@ -438,7 +419,7 @@ Automated welcome messages and member verification upon joining guild.
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | None. The `/welcome` commands were removed; configure in the portal (Guilds/Welcome) |
+| **Discord Commands** | None. The `/welcome` commands were removed; configure in the portal (Guilds/Welcome), including the "Send test" button that replaces `/welcome test` |
 | **Services** | `IWelcomeService` |
 | **UI Pages** | Admin: Welcome configuration page |
 | **Database Entities** | `WelcomeConfiguration`, `VerificationCode` |
@@ -475,6 +456,7 @@ Administrative interface for user CRUD, role assignment, consent management.
 | Aspect | Components |
 |--------|------------|
 | **UI Pages** | Admin: User list, create, edit, details pages (`Users/Index.cshtml`, `Users/Create.cshtml`, etc.) |
+| **Discord Commands** | `/privacy consent-grant`, `/privacy consent-revoke`, `/privacy status` (consent, `GrantedVia = "SlashCommand"`), `/privacy preview-delete`, `/privacy export-data`, `/privacy delete-data` (PrivacyModule) |
 | **Services** | `IUserManagementService`, `IConsentService` |
 | **Database Entities** | `ApplicationUser`, `UserConsent` |
 | **Controllers** | No dedicated controller; integrated in Razor Pages |
@@ -700,7 +682,7 @@ empty rather than making a skill cost a round on every question.
 ### LLM Model Catalog & Allowlist
 
 Admin-facing local mirror of OpenRouter's model directory, plus the enable/disable allowlist that
-gates which models the assistant, DM assistant, and feature-request modes may use. See
+gates which models the assistant and DM assistant modes may use. See
 `docs/plans/llm-model-management-plan.md` for the full design and delivery phases.
 
 | Aspect | Components |
@@ -730,7 +712,7 @@ restart.
 
 | Aspect | Components |
 |--------|------------|
-| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync`, `FeatureRequestConversationService.RunAgentAsync` (all resolve per call/message), `LlmModelsController.GetDefaults` |
+| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync` (all resolve per call/message), `LlmModelsController.GetDefaults` |
 | **Save-time validation** | `SettingsSectionService.ValidateAiModelSelectionsAsync` rejects a submitted slug that is not in the catalog, not `IsEnabled`, or not `SupportsTools`, before the value ever reaches the DB |
 | **Cost fallback** | `ResolveAsync` also returns `LlmCatalogPricing` when the catalog reports a price for the slug; `GuildAssistantContext`/`DmAssistantContext.CostRates` prefer it over the configured per-million rates (billed `usage.cost` still wins over either) |
 | **AI Models tab** | `SettingsViewModel.AiModelsSettings` (loaded by `SettingsSectionService.LoadViewModelAsync`) carries the three mode `SettingDto`s with `AllowedValues` post-processed to the enabled catalog slugs (plus the current value if not among them), for a `<select>` |
@@ -746,7 +728,7 @@ breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-p
 | Aspect | Components |
 |--------|------------|
 | **Database Entity** | `LlmUsageRecord` (table `LlmUsageRecords`) — one row per user message: `Timestamp`, `Mode`, `UserId`, `GuildId?`, `Model`, `InputTokens`/`OutputTokens`/`CachedTokens`/`CacheWriteTokens`, `LlmCalls`, `ToolCalls`, `CostUsd`, `CostSource` (`Billed`/`Estimated`), `LatencyMs`, `Success`, `InteractionLogId?`. No message text is stored — the per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`, both now carrying a nullable `Model` column) keep that. |
-| **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` and `FeatureRequestConversationService` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
+| **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
 | **Repository** | `ILlmUsageRepository` / `LlmUsageRepository` (`Infrastructure/Data/Repositories`) — `GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync` (all grouped over `LlmUsageQuery`: date range + optional guild/mode/user), `GetRecordsAsync` (paged raw rows), plus `AddRangeAsync`/`DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` for the write, retention, and GDPR paths. Grouped queries sum `CostUsd` as `double` and cast back to `decimal` — SQLite's EF provider cannot translate `Sum(decimal)` — so the same query shape works on both providers. |
 | **Controller** | `LlmUsageController` (`api/admin/llm-usage`, `RequireAdmin`) — `GET summary` (totals + by-user/model/mode/day over a validated range, default last 30 days, max 366 days), `GET records` (paged rows, `pageSize` capped at 200). Resolves Discord display names via `IDiscordUserResolver` and emits every ID as a string. |
 | **Web Pages** | `/Admin/LlmUsage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/Guilds/AssistantMetrics/{guildId}` (`Pages/Guilds/AssistantMetrics.cshtml`) gains a "Cost by User" table sourced from the same repository, injected directly into `AssistantMetricsModel` and filtered by guild. |
@@ -796,7 +778,7 @@ Application settings management with environment-based configuration.
 |--------|------------|
 | **Configuration** | `appsettings.json`, `appsettings.{Environment}.json`, User Secrets |
 | **Options Pattern** | `IOptions<T>` dependency injection |
-| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
+| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
 | **Admin Settings page** | `Pages/Admin/Settings` is request routing only: `ISettingsSectionService` (load, per-tab save and reset, command modules, audit log), `IAppearanceSettingsService` (Appearance tab, SuperAdmin only) `IBotControlService` (restart and shutdown with audit log) and `IBotProfileService` (the bot's Discord profile: username, avatar, banner, About me; `?handler=BotProfile` and `SaveBotProfile`, `bot-profile.js`), all in `Bot/Services/Settings`. A save posts one tab and the server keeps only that category's keys |
 | **Key Features** | Environment-specific settings, feature flags, service configuration |
 

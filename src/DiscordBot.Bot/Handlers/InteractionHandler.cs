@@ -594,7 +594,7 @@ public class InteractionHandler
 
     /// <summary>
     /// Gets the full command name including the group prefix for subcommands.
-    /// For example, "consent status" instead of just "status".
+    /// For example, "privacy status" instead of just "status".
     /// </summary>
     /// <param name="commandInfo">The slash command info.</param>
     /// <returns>The full command name with group prefix if applicable.</returns>

@@ -32,7 +32,6 @@ public static class ModerationServiceExtensions
         services.AddScoped<IWatchlistService, WatchlistService>();
         services.AddScoped<IFlaggedEventService, FlaggedEventService>();
         services.AddScoped<IGuildModerationConfigService, GuildModerationConfigService>();
-        services.AddScoped<IInvestigationService, InvestigationService>();
         services.AddScoped<IModerationActionRunner, ModerationActionRunner>();
 
         // Detection services (singleton for in-memory caching)

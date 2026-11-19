@@ -4,8 +4,8 @@ using DiscordBot.Core.Extensions;
 namespace DiscordBot.Core.Enums;
 
 /// <summary>
-/// The three places the bot resolves an OpenRouter model slug for: the guild assistant, the DM
-/// (owner) assistant, and the feature-request requirements-gathering conversation. Adding a mode
+/// The two places the bot resolves an OpenRouter model slug for: the guild assistant, and the DM
+/// (owner) assistant. Adding a mode
 /// means adding a member here and a matching key in <see cref="LlmModeSettings.KeyFor"/> plus a
 /// <c>SettingCategory.AiModels</c> entry in <c>SettingDefinitions</c>.
 /// </summary>
@@ -14,9 +14,7 @@ public enum LlmMode
     [Display(Name = "Server assistant")]
     GuildAssistant,
     [Display(Name = "DM assistant")]
-    DmAssistant,
-    [Display(Name = "Feature requests")]
-    FeatureRequests
+    DmAssistant
 }
 
 /// <summary>
@@ -32,15 +30,11 @@ public static class LlmModeSettings
     /// <summary>Setting key for the DM assistant's default model.</summary>
     public const string DmAssistantKey = "DmAssistant:Model";
 
-    /// <summary>Setting key for the feature-request requirements-gathering model.</summary>
-    public const string FeatureRequestsKey = "FeatureRequests:RequirementsGatheringModel";
-
     /// <summary>Gets the setting key backing <paramref name="mode"/>'s default model.</summary>
     public static string KeyFor(LlmMode mode) => mode switch
     {
         LlmMode.GuildAssistant => GuildAssistantKey,
         LlmMode.DmAssistant => DmAssistantKey,
-        LlmMode.FeatureRequests => FeatureRequestsKey,
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown LLM mode.")
     };
 
@@ -53,7 +47,6 @@ public static class LlmModeSettings
     public static readonly IReadOnlyList<LlmMode> All = new[]
     {
         LlmMode.GuildAssistant,
-        LlmMode.DmAssistant,
-        LlmMode.FeatureRequests
+        LlmMode.DmAssistant
     };
 }

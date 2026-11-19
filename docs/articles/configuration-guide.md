@@ -342,7 +342,6 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | `Appearance:DefaultThemeId` | Appearance | Integer | `""` | Default UI theme (SuperAdmin only) |
 | `Assistant:Sampling:Model` | AiModels | String | `""` | Guild assistant's default OpenRouter model slug override. Reuses the guild assistant's historical config key, so a non-empty DB row here shadows `appsettings`/environment the same way as any other setting; `""` means "use the configured value" and is resolved by `ILlmModelResolver`. Save-time validated (when non-empty): the slug must be in the local catalog, `IsEnabled`, and `SupportsTools`. |
 | `DmAssistant:Model` | AiModels | String | `""` | DM (owner) assistant's default model slug override. Same semantics and validation as above. |
-| `FeatureRequests:RequirementsGatheringModel` | AiModels | String | `""` | Feature-request requirements-gathering model slug override. Same semantics and validation as above. |
 
 The Features category also carries `Features:NotXEnabled` (Boolean, default `true`), the
 hot global toggle for not-X tweet previews. See the not-X example in section 5 for how it
@@ -420,9 +419,9 @@ Controls which Discord slash command modules are registered at bot startup. This
 
 | Category | Modules | Can Disable? |
 |----------|---------|-------------|
-| Core | VerifyAccountModule, ConsentModule | No (protected) |
+| Core | VerifyAccountModule | No (protected) |
 | Moderation | ModerationActionModule | Yes |
-| Features | RatWatchModule, ReminderModule, PrivacyModule, WalletModule | Yes |
+| Features | RatWatchModule (and RatWatchContextMenuModule, which follows it), ReminderModule, PrivacyModule (includes the consent commands), WalletModule | Yes |
 | Audio | TtsModule, SoundboardModule, VoiceModule, VoxModule | Yes |
 | Utility | UtilityModule | Yes |
 

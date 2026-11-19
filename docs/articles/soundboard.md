@@ -61,8 +61,7 @@ The `/play` command supports an optional `filter` parameter to apply audio effec
 
 | Command | Description | Preconditions |
 |---------|-------------|---------------|
-| `/join` | Join the user's current voice channel | `RequireGuildActive`, `RequireAudioEnabled`, `RequireVoiceChannel` |
-| `/join-channel <channel>` | Join a specific voice channel | `RequireGuildActive`, `RequireAudioEnabled` |
+| `/join [channel]` | Join the given voice channel, or the user's current voice channel when `channel` is omitted (replies "Not in Voice Channel" if the user is in none). Replaces the former `/join-channel`. | `RequireGuildActive`, `RequireAudioEnabled` |
 | `/leave` | Leave the current voice channel | `RequireGuildActive`, `RequireAudioEnabled` |
 
 ## Admin UI

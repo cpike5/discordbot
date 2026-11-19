@@ -7,11 +7,11 @@ namespace DiscordBot.Core.Configuration.Assistant;
 public class AssistantPrivacyOptions
 {
     /// <summary>
-    /// Gets or sets whether users must explicitly opt-in via /consent before using the assistant.
+    /// Gets or sets whether users must explicitly opt-in via /privacy consent-grant before using the assistant.
     /// Default is true (explicit consent required).
     /// </summary>
     /// <remarks>
-    /// When true, users must run /consent and enable "assistant_usage" before asking questions.
+    /// When true, users must run /privacy consent-grant and choose AssistantUsage before asking questions.
     /// When false, mentioning the bot implies consent (simpler UX, but less privacy control).
     /// </remarks>
     public bool RequireExplicitConsent { get; set; } = true;

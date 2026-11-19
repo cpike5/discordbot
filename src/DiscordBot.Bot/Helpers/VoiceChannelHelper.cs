@@ -23,7 +23,7 @@ public static class VoiceChannelHelper
     /// </list>
     /// </returns>
     /// <remarks>
-    /// The embed text matches the existing pattern used in <c>SoundboardModule</c>, <c>TtsModule</c>,
+    /// The embed text matches the existing pattern used in <c>SoundboardModule</c>, <c>TtsModule</c>, <c>VoiceModule</c>,
     /// and other audio command modules so responses are consistent across commands.
     /// </remarks>
     public static (bool IsValid, IVoiceChannel? Channel, Embed? ErrorEmbed)

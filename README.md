@@ -146,7 +146,7 @@ dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
 dotnet user-secrets set "OpenRouter:ApiKey" "your-openrouter-api-key"
 ```
 - Get API key from [OpenRouter](https://openrouter.ai/keys)
-- Requires user consent via `/consent grant type:assistant`
+- Requires user consent via `/privacy consent-grant type:AssistantUsage`
 
 **Text-to-Speech** ([Setup guide](docs/articles/tts-support.md))
 ```bash
@@ -261,16 +261,16 @@ See [utility-commands.md](docs/articles/utility-commands.md) for details.
 Accountability system for tracking commitments with community voting.
 
 - **Rat Watch** (Context Menu) - Right-click any message to create a Rat Watch on the author
-- `/rat-clear` - Clear yourself from all active Rat Watches in the server
-- `/rat-stats [user]` - View a user's rat record (guilty verdicts, recent incidents)
-- `/rat-leaderboard` - View the top rats in the server
+- `/rat clear` - Clear yourself from all active Rat Watches in the server
+- `/rat stats [user]` - View a user's rat record (guilty verdicts, recent incidents)
+- `/rat leaderboard` - View the top rats in the server
 
 Rat Watch settings (timezone, voting duration, etc.) are configured in the web portal.
 
 See [rat-watch.md](docs/articles/rat-watch.md) for voting workflow and analytics.
 
 ### 🤖 AI Assistant
-**Prerequisites:** User consent via `/consent grant type:assistant`
+**Prerequisites:** User consent via `/privacy consent-grant type:AssistantUsage`
 
 The AI assistant responds to:
 - Direct mentions of the bot (@BotName)
@@ -293,8 +293,7 @@ Reminders use natural language time parsing and deliver via DM. See [reminder-sy
 ### 🎵 Audio & Voice
 
 **Voice Channel Control:**
-- `/join` - Join your current voice channel
-- `/join-channel <channel>` - Join a specific voice channel
+- `/join [channel]` - Join a voice channel (defaults to your current one)
 - `/leave` - Leave the voice channel
 
 **Soundboard:**
@@ -305,14 +304,12 @@ Reminders use natural language time parsing and deliver via DM. See [reminder-sy
 See [soundboard.md](docs/articles/soundboard.md). Requires FFmpeg, libsodium, and libopus.
 
 **Text-to-Speech:**
-- `/tts <message> [voice]` - Speak message in voice channel using Azure TTS
+- `/tts <message> [voice] [preset]` - Speak message in voice channel using Azure TTS; a style `preset` (requires SSML) overrides `voice`
 
 See [tts-support.md](docs/articles/tts-support.md). Requires Azure Speech subscription.
 
 **VOX Announcements:**
-- `/vox <message>` - Play Half-Life VOX announcement in voice channel
-- `/fvox <message>` - Play Half-Life FVOX (female) announcement in voice channel
-- `/hgrunt <message>` - Play Half-Life HGRUNT (military) announcement in voice channel
+- `/vox <message> [voice] [gap]` - Play a Half-Life announcement in voice channel; `voice` is `vox` (default), `fvox` (female) or `hgrunt` (military)
 
 See [vox-system-spec.md](docs/articles/vox-system-spec.md). Uses static clip libraries with FFmpeg concatenation.
 
@@ -322,7 +319,7 @@ Welcome messages are configured in the web portal (Guilds > Welcome); there are 
 
 ### 🔐 Consent & Privacy
 
-- `/consent grant/revoke/status` - Manage data collection consent preferences
+- `/privacy consent-grant/consent-revoke/status` - Manage data collection consent preferences
 - `/privacy preview-delete/export-data/delete-data` - Preview, export, and request deletion of your data
 
 Users control consent for: message logging, assistant interactions, and analytics. See [consent-privacy.md](docs/articles/consent-privacy.md).
@@ -535,7 +532,7 @@ list at [openrouter.ai/models](https://openrouter.ai/models).
 
 **Assistant configuration:** `appsettings.json` → `Assistant` section
 - Rate limiting, token limits, cost tracking
-- Requires user consent: `/consent grant type:assistant`
+- Requires user consent: `/privacy consent-grant type:AssistantUsage`
 - See [ai-assistant.md](docs/articles/ai-assistant.md)
 
 #### Text-to-Speech (Azure Cognitive Services)
@@ -749,8 +746,8 @@ See [audio-dependencies.md](docs/articles/audio-dependencies.md) for platform-sp
    ```bash
    dotnet user-secrets list
    ```
-2. Check user has granted consent: `/consent status`
-3. Ensure user has granted consent: `/consent grant type:assistant`
+2. Check user has granted consent: `/privacy status`
+3. Ensure user has granted consent: `/privacy consent-grant type:AssistantUsage`
 4. Check logs for API errors or rate limiting
 5. Verify the key has sufficient credits at [OpenRouter](https://openrouter.ai/credits)
 6. Verify the configured model slug exists in the [OpenRouter model list](https://openrouter.ai/models)

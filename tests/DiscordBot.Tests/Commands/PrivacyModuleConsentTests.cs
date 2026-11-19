@@ -9,7 +9,7 @@ using Moq;
 namespace DiscordBot.Tests.Commands;
 
 /// <summary>
-/// Unit tests for ConsentModule.
+/// Unit tests for the consent commands of PrivacyModule (/privacy consent-grant, consent-revoke, status).
 /// </summary>
 /// <remarks>
 /// Testing Discord.NET interaction modules presents significant challenges:
@@ -28,27 +28,31 @@ namespace DiscordBot.Tests.Commands;
 /// - Business logic patterns (documented below)
 /// - Error handling expectations
 /// </remarks>
-public class ConsentModuleTests
+public class PrivacyModuleConsentTests
 {
     private readonly Mock<IUserConsentRepository> _mockRepository;
-    private readonly Mock<ILogger<ConsentModule>> _mockLogger;
+    private readonly Mock<ILogger<PrivacyModule>> _mockLogger;
 
-    public ConsentModuleTests()
+    public PrivacyModuleConsentTests()
     {
         _mockRepository = new Mock<IUserConsentRepository>();
-        _mockLogger = new Mock<ILogger<ConsentModule>>();
+        _mockLogger = new Mock<ILogger<PrivacyModule>>();
     }
 
     #region Repository Contract Tests
 
     /// <summary>
-    /// Verifies that ConsentModule constructor correctly accepts required dependencies.
+    /// Verifies that PrivacyModule constructor correctly accepts required dependencies.
     /// </summary>
     [Fact]
     public void Constructor_WithValidDependencies_CreatesInstance()
     {
         // Arrange & Act
-        var module = new ConsentModule(_mockRepository.Object, _mockLogger.Object);
+        var module = new PrivacyModule(
+            _mockRepository.Object,
+            Mock.Of<IUserPurgeService>(),
+            Mock.Of<IUserDataExportService>(),
+            _mockLogger.Object);
 
         // Assert
         module.Should().NotBeNull();
@@ -65,7 +69,7 @@ public class ConsentModuleTests
         var userId = 123456789UL;
         var consentType = ConsentType.MessageLogging;
 
-        // Act & Assert - Verify repository supports the operations needed by GrantAsync
+        // Act & Assert - Verify repository supports the operations needed by ConsentGrantAsync
         _mockRepository
             .Setup(r => r.GetActiveConsentAsync(userId, consentType, default))
             .ReturnsAsync((UserConsent?)null);
@@ -97,7 +101,7 @@ public class ConsentModuleTests
             GrantedVia = "SlashCommand"
         };
 
-        // Act & Assert - Verify repository supports the operations needed by RevokeAsync
+        // Act & Assert - Verify repository supports the operations needed by ConsentRevokeAsync
         _mockRepository
             .Setup(r => r.GetActiveConsentAsync(userId, consentType, default))
             .ReturnsAsync(existingConsent);
@@ -147,7 +151,7 @@ public class ConsentModuleTests
     [Fact]
     public void UserConsent_WhenCreatedForGrant_HasCorrectProperties()
     {
-        // Arrange & Act - Simulate what GrantAsync does
+        // Arrange & Act - Simulate what ConsentGrantAsync does
         var userId = 123456789UL;
         var consentType = ConsentType.MessageLogging;
         var beforeCreation = DateTime.UtcNow;
@@ -164,7 +168,7 @@ public class ConsentModuleTests
 
         var afterCreation = DateTime.UtcNow;
 
-        // Assert - Verify consent properties match what GrantAsync would create
+        // Assert - Verify consent properties match what ConsentGrantAsync would create
         newConsent.DiscordUserId.Should().Be(userId);
         newConsent.ConsentType.Should().Be(consentType);
         newConsent.GrantedVia.Should().Be("SlashCommand");
@@ -191,13 +195,13 @@ public class ConsentModuleTests
 
         var beforeRevoke = DateTime.UtcNow;
 
-        // Act - Simulate what RevokeAsync does
+        // Act - Simulate what ConsentRevokeAsync does
         existingConsent.RevokedAt = DateTime.UtcNow;
         existingConsent.RevokedVia = "SlashCommand";
 
         var afterRevoke = DateTime.UtcNow;
 
-        // Assert - Verify consent properties match what RevokeAsync would set
+        // Assert - Verify consent properties match what ConsentRevokeAsync would set
         existingConsent.RevokedAt.Should().NotBeNull();
         existingConsent.RevokedAt.Should().BeOnOrAfter(beforeRevoke).And.BeOnOrBefore(afterRevoke);
         existingConsent.RevokedVia.Should().Be("SlashCommand");
@@ -325,7 +329,7 @@ public class ConsentModuleTests
     #region Integration Test Documentation
 
     /// <summary>
-    /// Documents the expected behavior for GrantAsync.
+    /// Documents the expected behavior for ConsentGrantAsync.
     /// This test serves as documentation since we cannot fully test the module in isolation.
     /// </summary>
     [Fact]
@@ -361,7 +365,7 @@ public class ConsentModuleTests
     }
 
     /// <summary>
-    /// Documents the expected behavior for RevokeAsync.
+    /// Documents the expected behavior for ConsentRevokeAsync.
     /// This test serves as documentation since we cannot fully test the module in isolation.
     /// </summary>
     [Fact]

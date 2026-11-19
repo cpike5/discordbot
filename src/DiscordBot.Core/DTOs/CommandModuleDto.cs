@@ -8,7 +8,7 @@ public class CommandModuleDto
     /// <summary>
     /// Gets or sets the module class name.
     /// </summary>
-    /// <example>ReminderModule, ConsentModule</example>
+    /// <example>ReminderModule, PrivacyModule</example>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>

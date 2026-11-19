@@ -71,7 +71,7 @@ public class LlmUsageModelTests
     public async Task OnGetAsync_ShouldPassGuildAndModeFiltersToRepository()
     {
         _model.GuildId = 42UL;
-        _model.Mode = LlmMode.FeatureRequests;
+        _model.Mode = LlmMode.DmAssistant;
 
         LlmUsageQuery? captured = null;
         _mockUsageRepository
@@ -82,7 +82,7 @@ public class LlmUsageModelTests
         await _model.OnGetAsync(CancellationToken.None);
 
         captured!.GuildId.Should().Be(42UL);
-        captured.Mode.Should().Be(LlmMode.FeatureRequests);
+        captured.Mode.Should().Be(LlmMode.DmAssistant);
     }
 
     [Fact]

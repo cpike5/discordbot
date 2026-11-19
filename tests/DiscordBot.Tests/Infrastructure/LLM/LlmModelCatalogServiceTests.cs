@@ -32,7 +32,6 @@ public class LlmModelCatalogServiceTests : IDisposable
     {
         [LlmMode.GuildAssistant] = "anthropic/claude-sonnet-4",
         [LlmMode.DmAssistant] = "anthropic/claude-haiku-4",
-        [LlmMode.FeatureRequests] = "openai/gpt-4o",
     };
     private readonly LlmModelCatalogService _service;
 
@@ -157,7 +156,7 @@ public class LlmModelCatalogServiceTests : IDisposable
     [Fact]
     public async Task RefreshAsync_BootstrapsOnlyOnFirstEverRefresh()
     {
-        // First refresh: table is empty, so the three configured slugs get enabled.
+        // First refresh: table is empty, so the two configured slugs get enabled.
         _mockCatalogClient.Setup(x => x.GetModelsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
@@ -172,7 +171,7 @@ public class LlmModelCatalogServiceTests : IDisposable
         var all = (await _repository.GetAllAsync()).ToDictionary(m => m.Id);
         all["anthropic/claude-sonnet-4"].IsEnabled.Should().BeTrue();
         all["anthropic/claude-haiku-4"].IsEnabled.Should().BeTrue();
-        all["openai/gpt-4o"].IsEnabled.Should().BeTrue();
+        all["openai/gpt-4o"].IsEnabled.Should().BeFalse("only the configured mode defaults are bootstrap-enabled");
         all["some/other-model"].IsEnabled.Should().BeFalse("only the configured mode defaults are bootstrap-enabled");
 
         // Manually enable, then disable, a non-default model - state an admin controls directly,

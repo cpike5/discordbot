@@ -32,89 +32,35 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
-    /// Joins the user's current voice channel.
+    /// Joins a voice channel: the one given, or the caller's current voice channel when none is given.
     /// </summary>
-    [SlashCommand("join", "Join your current voice channel")]
-    [RequireVoiceChannel]
-    public async Task JoinAsync()
+    /// <param name="channel">The voice channel to join. Defaults to the caller's voice channel.</param>
+    [SlashCommand("join", "Join a voice channel (defaults to your current one)")]
+    public async Task JoinAsync(
+        [Summary("channel", "The voice channel to join (defaults to your current one)")]
+        IVoiceChannel? channel = null)
     {
         var guildId = Context.Guild.Id;
-        var guildUser = (SocketGuildUser)Context.User;
-        var voiceChannel = guildUser.VoiceChannel;
 
-        _logger.LogDebug(
-            "Join command (no parameter) executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}) for channel {ChannelName} (ID: {ChannelId})",
-            Context.User.Username,
-            Context.User.Id,
-            Context.Guild.Name,
-            guildId,
-            voiceChannel?.Name,
-            voiceChannel?.Id);
-
-        try
+        if (channel == null)
         {
-            // Check if already in this channel
-            var currentChannelId = _audioService.GetConnectedChannelId(guildId);
-            if (currentChannelId.HasValue && currentChannelId.Value == voiceChannel!.Id)
+            var (isValid, userChannel, voiceErrorEmbed) = VoiceChannelHelper.ValidateUserInVoiceChannel(Context);
+            if (!isValid)
             {
                 _logger.LogDebug(
-                    "Bot already in channel {ChannelId} for guild {GuildId}",
-                    voiceChannel.Id,
+                    "Join command without a channel used by {UserId} who is not in a voice channel in guild {GuildId}",
+                    Context.User.Id,
                     guildId);
 
-                await RespondAsync(embed: EmbedHelper.Confirmation("Already Connected", $"I'm already in {voiceChannel.Name}!"), ephemeral: true);
+                await RespondAsync(embed: voiceErrorEmbed, ephemeral: true);
                 return;
             }
 
-            // Join the channel
-            var audioClient = await _audioService.JoinChannelAsync(guildId, voiceChannel!.Id);
-
-            if (audioClient == null)
-            {
-                _logger.LogWarning(
-                    "Failed to join voice channel {ChannelId} in guild {GuildId} - channel or guild not found",
-                    voiceChannel.Id,
-                    guildId);
-
-                await RespondAsync(embed: EmbedHelper.Error("Error", "Failed to join the voice channel. The channel may no longer exist."), ephemeral: true);
-                return;
-            }
-
-            _logger.LogInformation(
-                "Joined voice channel {ChannelId} in guild {GuildId} via command from user {UserId}",
-                voiceChannel.Id,
-                guildId,
-                Context.User.Id);
-
-            await RespondAsync(embed: EmbedHelper.Success("Joined Voice Channel", $"Joined {voiceChannel.Name}"), ephemeral: true);
-
-            _logger.LogDebug("Join command completed successfully for guild {GuildId}", guildId);
+            channel = userChannel!;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Failed to join voice channel {ChannelId} in guild {GuildId}",
-                voiceChannel?.Id,
-                guildId);
-
-            await RespondAsync(embed: EmbedHelper.Error("Error", "I don't have permission to join that voice channel."), ephemeral: true);
-        }
-    }
-
-    /// <summary>
-    /// Joins a specified voice channel.
-    /// </summary>
-    /// <param name="channel">The voice channel to join.</param>
-    [SlashCommand("join-channel", "Join a specific voice channel")]
-    public async Task JoinChannelAsync(
-        [Summary("channel", "The voice channel to join")]
-        IVoiceChannel channel)
-    {
-        var guildId = Context.Guild.Id;
 
         _logger.LogDebug(
-            "Join-channel command executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}) for channel {ChannelName} (ID: {ChannelId})",
+            "Join command executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}) for channel {ChannelName} (ID: {ChannelId})",
             Context.User.Username,
             Context.User.Id,
             Context.Guild.Name,
@@ -159,7 +105,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync(embed: EmbedHelper.Success("Joined Voice Channel", $"Joined {channel.Name}"), ephemeral: true);
 
-            _logger.LogDebug("Join-channel command completed successfully for guild {GuildId}", guildId);
+            _logger.LogDebug("Join command completed successfully for guild {GuildId}", guildId);
         }
         catch (Exception ex)
         {

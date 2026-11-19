@@ -44,18 +44,6 @@ public class PromptSurfaceReporterTests
     }
 
     [Fact]
-    public async Task ReportAsync_ForFeatureRequests_ReturnsNull()
-    {
-        var reporter = Build(services =>
-        {
-            services.AddSingleton(SkillFactory());
-            services.AddSingleton(Registry("alpha"));
-        });
-
-        (await reporter.ReportAsync(ToolScopes.FeatureRequests)).Should().BeNull();
-    }
-
-    [Fact]
     public async Task ReportAsync_ForTheGuildHouseSet_CountsEveryRegisteredTool()
     {
         var reporter = Build(services =>

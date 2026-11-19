@@ -46,12 +46,29 @@ public class SlashCommandRegistrationService : IHostedService
     }
 
     /// <summary>
+    /// Companion modules that do not follow the <c>*ComponentModule</c> naming convention,
+    /// mapped to the module whose toggle they follow. A context menu cannot live inside a
+    /// <c>[Group]</c> module, so a grouped feature keeps its context menu in a separate module
+    /// listed here, and the Commands tab still shows one toggle for the feature.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> ExplicitCompanionModules =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["RatWatchContextMenuModule"] = "RatWatchModule",
+        };
+
+    /// <summary>
     /// Returns the module whose database toggle the given module follows, or null when the
     /// module has a toggle of its own. Component modules follow the <c>*ComponentModule</c>
-    /// naming convention.
+    /// naming convention; other companions are listed in <see cref="ExplicitCompanionModules"/>.
     /// </summary>
     internal static string? ResolveCompanionParentModule(string moduleName)
     {
+        if (ExplicitCompanionModules.TryGetValue(moduleName, out var parent))
+        {
+            return parent;
+        }
+
         if (moduleName.EndsWith("ComponentModule", StringComparison.Ordinal))
         {
             return moduleName.Replace("ComponentModule", "Module");
@@ -116,7 +133,8 @@ public class SlashCommandRegistrationService : IHostedService
             var moduleName = moduleType.Name;
 
             // If this module follows another module's toggle (a *ComponentModule follows its
-            // *Module), skip it when that parent is disabled. Anything not skipped here falls
+            // *Module, and RatWatchContextMenuModule follows RatWatchModule), skip it when that
+            // parent is disabled. Anything not skipped here falls
             // through to the normal per-module lookups below, unchanged.
             var parentModuleName = ResolveCompanionParentModule(moduleName);
             if (parentModuleName is not null && disabledModuleNames.Contains(parentModuleName))

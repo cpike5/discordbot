@@ -20,7 +20,7 @@ Commands are organized into collapsible module cards, making it easy to browse l
 
 - **Module Header**: Displays module name, description, and command count
 - **Expand/Collapse**: Click any module to reveal or hide its commands
-- **Command Grouping**: Grouped commands (e.g., `/consent grant`) display with their full path
+- **Command Grouping**: Grouped commands (e.g., `/privacy consent-grant`) display with their full path
 
 ### Command Details
 
@@ -138,11 +138,11 @@ Represents a command module (class containing commands):
 ```csharp
 public class CommandModuleDto
 {
-    public string Name { get; set; }              // Class name (e.g., "ConsentModule")
-    public string DisplayName { get; set; }       // Formatted name (e.g., "Consent")
+    public string Name { get; set; }              // Class name (e.g., "PrivacyModule")
+    public string DisplayName { get; set; }       // Formatted name (e.g., "Privacy")
     public string? Description { get; set; }      // Module description
     public bool IsSlashGroup { get; set; }        // Whether module uses [Group] attribute
-    public string? GroupName { get; set; }        // Group prefix (e.g., "consent")
+    public string? GroupName { get; set; }        // Group prefix (e.g., "privacy")
     public List<CommandInfoDto> Commands { get; set; }
     public int CommandCount { get; }              // Total commands in module
 }
@@ -156,7 +156,7 @@ Represents an individual slash command:
 public class CommandInfoDto
 {
     public string Name { get; set; }              // Command name (e.g., "grant")
-    public string FullName { get; set; }          // Full path (e.g., "consent grant")
+    public string FullName { get; set; }          // Full path (e.g., "privacy consent-grant")
     public string Description { get; set; }       // Command description
     public List<CommandParameterDto> Parameters { get; set; }
     public List<PreconditionDto> Preconditions { get; set; }
@@ -302,7 +302,7 @@ Badges follow the design system badge component with semantic colors:
 
 Users can quickly locate commands by:
 
-- **Scanning module names**: Modules are organized logically (e.g., "Admin", "Consent", "Help")
+- **Scanning module names**: Modules are organized logically (e.g., "Soundboard", "Privacy", "Reminders")
 - **Expanding relevant modules**: Click to reveal commands within
 - **Reading descriptions**: Both module and command descriptions help identify functionality
 

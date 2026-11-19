@@ -233,16 +233,13 @@ public class LlmModelsControllerTests
         _mockModelResolver
             .Setup(r => r.ResolveAsync(LlmMode.DmAssistant, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
-        _mockModelResolver
-            .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
 
         var result = await _controller.GetDefaults(CancellationToken.None);
 
         var ok = result.Result as OkObjectResult;
         var response = ok!.Value as LlmModelDefaultsResponseDto;
 
-        response!.Modes.Should().HaveCount(3);
+        response!.Modes.Should().HaveCount(2);
         var guildMode = response.Modes.Single(m => m.Mode == "GuildAssistant");
         guildMode.Source.Should().Be(LlmModelDefaultSource.Config);
         guildMode.Slug.Should().Be("anthropic/claude-sonnet-4");
@@ -267,9 +264,6 @@ public class LlmModelsControllerTests
             });
         _mockModelResolver
             .Setup(r => r.ResolveAsync(LlmMode.DmAssistant, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
-        _mockModelResolver
-            .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
 
         var result = await _controller.GetDefaults(CancellationToken.None);
@@ -298,9 +292,6 @@ public class LlmModelsControllerTests
             });
         _mockModelResolver
             .Setup(r => r.ResolveAsync(LlmMode.DmAssistant, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
-        _mockModelResolver
-            .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
 
         var result = await _controller.GetDefaults(CancellationToken.None);

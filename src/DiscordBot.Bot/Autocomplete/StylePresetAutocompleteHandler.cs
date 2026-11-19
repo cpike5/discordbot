@@ -5,7 +5,7 @@ using DiscordBot.Core.Interfaces;
 namespace DiscordBot.Bot.Autocomplete;
 
 /// <summary>
-/// Provides autocomplete suggestions for style presets in the /tts-styled command.
+/// Provides autocomplete suggestions for style presets in the <c>preset</c> option of the /tts command.
 /// Filters available presets based on user input and returns up to 25 matching results.
 /// </summary>
 public class StylePresetAutocompleteHandler : AutocompleteHandler

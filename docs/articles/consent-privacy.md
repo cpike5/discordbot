@@ -26,9 +26,9 @@ This guide provides comprehensive documentation for the Consent and Privacy feat
   - [Analytics and Consent](#analytics-and-consent)
 - [Consent Types](#consent-types)
 - [Slash Commands](#slash-commands)
-  - [/consent grant](#consent-grant)
-  - [/consent revoke](#consent-revoke)
-  - [/consent status](#consent-status)
+  - [/privacy consent-grant](#privacy-consent-grant)
+  - [/privacy consent-revoke](#privacy-consent-revoke)
+  - [/privacy status](#privacy-status)
   - [/privacy preview-delete](#privacy-preview-delete)
   - [/privacy delete-data](#privacy-delete-data)
 - [Web UI Privacy Page](#web-ui-privacy-page)
@@ -70,7 +70,7 @@ The Consent and Privacy Management system provides GDPR-compliant mechanisms for
 - **Enum:** `ConsentType` (Core/Enums)
 - **Service:** `IConsentService` / `ConsentService` (Core/Interfaces, Bot/Services)
 - **Repository:** `IUserConsentRepository` / `UserConsentRepository` (Core/Interfaces, Infrastructure/Data/Repositories)
-- **Commands:** `ConsentModule` (Bot/Commands)
+- **Commands:** `PrivacyModule` (Bot/Commands)
 - **Web UI:** `Privacy.cshtml` (Bot/Pages/Account)
 - **DTOs:** `ConsentStatusDto`, `ConsentHistoryEntryDto`, `ConsentUpdateResult` (Core/DTOs)
 
@@ -200,19 +200,19 @@ New consent types can be added by extending the `ConsentType` enum and updating 
 
 ## Slash Commands
 
-The `/consent` command group provides Discord users with direct control over their consent preferences. All consent commands are:
+The `/privacy` command group (`PrivacyModule`) provides Discord users with direct control over their consent preferences and their data. The consent subcommands were a separate `/consent` group (`ConsentModule`) until the slash-command reduction folded them into `/privacy`: `/consent grant` became `/privacy consent-grant`, `/consent revoke` became `/privacy consent-revoke`, and `/consent status` became `/privacy status`. All privacy commands are:
 
 - **Ephemeral:** Responses are only visible to the user who executed the command
-- **Rate Limited:** 5 commands per 60 seconds per user
+- **Rate Limited:** per command and per user: 5 per 60 seconds for the consent commands, 2 per 60 seconds for `preview-delete`, `export-data` and `delete-data`
 - **Guild-Gated:** Requires the guild to be active in the bot's database
 
-### /consent grant
+### /privacy consent-grant
 
 Grants consent for a specific data collection type.
 
 **Syntax:**
 ```
-/consent grant [type:ConsentType]
+/privacy consent-grant [type:ConsentType]
 ```
 
 **Parameters:**
@@ -233,7 +233,7 @@ Grants consent for a specific data collection type.
 
 You have opted in to message logging. Your messages in DMs with this bot and in mutual servers may now be logged.
 
-You can revoke consent at any time with /consent revoke.
+You can revoke consent at any time with /privacy consent-revoke.
 ```
 
 **Example Response (Already Granted):**
@@ -249,17 +249,17 @@ Originally granted: Wednesday, December 25, 2024 3:45 PM
 - Database errors return a generic error message and log detailed errors
 - Invalid consent types are prevented by Discord.NET's enum validation
 
-**Source Code:** `ConsentModule.GrantAsync()` in `src/DiscordBot.Bot/Commands/ConsentModule.cs`
+**Source Code:** `PrivacyModule.ConsentGrantAsync()` in `src/DiscordBot.Bot/Commands/PrivacyModule.cs`
 
 ---
 
-### /consent revoke
+### /privacy consent-revoke
 
 Revokes previously granted consent for a specific data collection type.
 
 **Syntax:**
 ```
-/consent revoke [type:ConsentType]
+/privacy consent-revoke [type:ConsentType]
 ```
 
 **Parameters:**
@@ -279,8 +279,8 @@ Revokes previously granted consent for a specific data collection type.
 
 You have opted out of message logging. Your messages will no longer be logged.
 
-Note: Previously logged messages are retained per our data retention policy.
-Use /privacy delete-data to request deletion of your data.
+Note: Previously logged data is retained per our data retention policy.
+Use /privacy export-data to download it or /privacy delete-data to remove it.
 ```
 
 **Example Response (No Active Consent):**
@@ -289,7 +289,7 @@ Use /privacy delete-data to request deletion of your data.
 
 You don't have active consent for Message Logging to revoke.
 
-Use /consent grant to grant consent.
+Use /privacy consent-grant to grant consent.
 ```
 
 **Important Notes:**
@@ -301,17 +301,17 @@ Use /consent grant to grant consent.
 - Database errors return a generic error message and log detailed errors
 - Invalid consent types are prevented by Discord.NET's enum validation
 
-**Source Code:** `ConsentModule.RevokeAsync()` in `src/DiscordBot.Bot/Commands/ConsentModule.cs`
+**Source Code:** `PrivacyModule.ConsentRevokeAsync()` in `src/DiscordBot.Bot/Commands/PrivacyModule.cs`
 
 ---
 
-### /consent status
+### /privacy status
 
 Displays the user's current consent status for all consent types.
 
 **Syntax:**
 ```
-/consent status
+/privacy status
 ```
 
 **Parameters:** None
@@ -326,7 +326,7 @@ Displays the user's current consent status for all consent types.
 ```
 📋 Your Consent Status
 
-Use /consent grant or /consent revoke to manage your preferences.
+Use /privacy consent-grant or /privacy consent-revoke to manage your preferences.
 
 Message Logging
 ✅ Granted (since Dec 25, 2024)
@@ -344,7 +344,7 @@ LLM Interaction
 
 You have not granted consent for any data processing activities.
 
-Use /consent grant to opt in to message logging.
+Use /privacy consent-grant to opt in to message logging.
 
 Message Logging
 ❌ Not granted
@@ -357,7 +357,7 @@ Message Logging
 **Error Handling:**
 - Database errors return a generic error message and log detailed errors
 
-**Source Code:** `ConsentModule.StatusAsync()` in `src/DiscordBot.Bot/Commands/ConsentModule.cs`
+**Source Code:** `PrivacyModule.StatusAsync()` in `src/DiscordBot.Bot/Commands/PrivacyModule.cs`
 
 ---
 
@@ -1208,7 +1208,7 @@ var hasConsent = await consentService.HasConsentAsync(
 
 if (!hasConsent)
 {
-    await ReplyAsync("You must grant LLM consent to use this feature. Use /consent grant type:LLMInteraction");
+    await ReplyAsync("You must grant LLM consent to use this feature. Use /privacy consent-grant type:AssistantUsage");
     return;
 }
 
@@ -1326,7 +1326,7 @@ private static string GetConsentTypeDescription(ConsentType type)
 When adding a new consent type:
 
 1. Add to `ConsentType` enum
-2. Update display name mapping in both `ConsentService` and `ConsentModule`
+2. Update display name mapping in both `ConsentService` and `PrivacyModule`
 3. Update description mapping in `ConsentService`
 4. Add consent check to the feature that requires it
 5. Document in this file
@@ -1573,7 +1573,7 @@ All consent changes are recorded for compliance and troubleshooting:
 1. User joins a Discord server where the bot is present
 2. User sends a message: "Hello!"
 3. Bot does NOT log the message (no consent yet)
-4. User runs `/consent grant`
+4. User runs `/privacy consent-grant`
 5. Bot responds: "✅ Consent Granted - Your messages will now be logged"
 6. User sends another message: "Testing message logging"
 7. Bot logs the message to the database
@@ -1598,7 +1598,7 @@ VALUES (987654321098765432, 123456789012345678, 111111111111111111, 222222222222
 
 1. User has active MessageLogging consent
 2. User decides they don't want messages logged anymore
-3. User runs `/consent revoke`
+3. User runs `/privacy consent-revoke`
 4. Bot responds: "✅ Consent Revoked - Your messages will no longer be logged. Previously logged messages are retained per our data retention policy."
 5. User sends a message: "This should not be logged"
 6. Bot does NOT log the message (consent revoked)
@@ -1625,7 +1625,7 @@ WHERE DiscordUserId = 123456789012345678
 **User Flow:**
 
 1. User is unsure if they've granted consent
-2. User runs `/consent status`
+2. User runs `/privacy status`
 3. Bot displays embed showing:
    - Message Logging: ✅ Granted (since Dec 25, 2024)
    - Analytics: ❌ Not granted
@@ -1666,10 +1666,10 @@ WHERE DiscordUserId = 123456789012345678
 **Possible Causes:**
 
 1. **No Consent:** You haven't granted MessageLogging consent
-   - **Solution:** Run `/consent grant` or grant consent via the Privacy page
+   - **Solution:** Run `/privacy consent-grant` or grant consent via the Privacy page
 
 2. **Consent Revoked:** You previously revoked consent
-   - **Solution:** Run `/consent status` to check, then `/consent grant` if needed
+   - **Solution:** Run `/privacy status` to check, then `/privacy consent-grant` if needed
 
 3. **Message Logging Disabled Globally:** Admin has disabled message logging
    - **Solution:** Contact bot administrator to enable `Features:MessageLoggingEnabled` setting
@@ -1683,9 +1683,9 @@ WHERE DiscordUserId = 123456789012345678
 **Verification Steps:**
 
 ```
-1. Run /consent status
+1. Run /privacy status
 2. Check if "Message Logging" shows ✅ Granted
-3. If not granted, run /consent grant
+3. If not granted, run /privacy consent-grant
 4. Send a test message
 5. Contact admin if still not logging
 ```
@@ -1703,9 +1703,9 @@ You previously granted consent, and it's still active. The bot prevents duplicat
 No action needed. Your consent is already active. If you want to revoke and re-grant consent:
 
 ```
-1. Run /consent revoke
+1. Run /privacy consent-revoke
 2. Wait a few seconds
-3. Run /consent grant
+3. Run /privacy consent-grant
 ```
 
 ---
@@ -1798,14 +1798,15 @@ Cache staleness. The web UI uses a 15-minute cache for consent checks.
 
 **Application Layer:**
 - `src/DiscordBot.Bot/Services/ConsentService.cs` - Service implementation
-- `src/DiscordBot.Bot/Commands/ConsentModule.cs` - Slash commands
+- `src/DiscordBot.Bot/Commands/PrivacyModule.cs` - Slash commands (consent and data)
 - `src/DiscordBot.Bot/Pages/Account/Privacy.cshtml` - Privacy page UI
 - `src/DiscordBot.Bot/Pages/Account/Privacy.cshtml.cs` - Privacy page model
 - `src/DiscordBot.Bot/Services/MessageLoggingHandler.cs` - Consent enforcement
 - `src/DiscordBot.Bot/Services/MessageLogCleanupService.cs` - Retention policy enforcement
 
 **Tests:**
-- `tests/DiscordBot.Tests/Commands/ConsentModuleTests.cs`
+- `tests/DiscordBot.Tests/Commands/PrivacyModuleConsentTests.cs`
+- `tests/DiscordBot.Tests/Commands/MergedCommandShapeTests.cs`
 - `tests/DiscordBot.Tests/Services/ConsentServiceTests.cs`
 - `tests/DiscordBot.Tests/Data/Repositories/UserConsentRepositoryTests.cs`
 

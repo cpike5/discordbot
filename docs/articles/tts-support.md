@@ -40,18 +40,22 @@ See [Audio Dependencies](audio-dependencies.md) for detailed installation instru
 
 | Command | Description | Preconditions |
 |---------|-------------|---------------|
-| `/tts <message> [voice]` | Convert text to speech and play in voice channel | `RequireGuildActive`, `RequireTtsEnabled`, `RequireVoiceChannel`, `RateLimit(5, 10)` |
+| `/tts <message> [voice] [preset]` | Convert text to speech and play in voice channel | `RequireGuildActive`, `RequireTtsEnabled`, `RequireVoiceChannel`, `RateLimit(5, 10)` |
 
 **Parameters:**
 - `message` (required) - The text to speak (max 500 characters by default)
 - `voice` (optional) - Voice identifier to use for synthesis (autocomplete supported)
+- `preset` (optional) - Style preset (autocomplete supported). Builds the speech as SSML with the preset's voice, style and prosody, and overrides `voice`. Requires SSML to be enabled for the guild. This option replaces the former `/tts-styled` command; see [SSML Support](ssml-support.md#tts-preset-option).
 
-**Autocomplete:** The `/tts` command supports autocomplete for voice names, filtering available voices as the user types.
+**Autocomplete:** `voice` autocompletes voice names and `preset` autocompletes the featured style presets, filtering as the user types.
+
+The guild's TTS rate limit (`IsUserRateLimitedAsync`) and the module's `RateLimit(5, 10)` apply to every `/tts` use, with or without a preset.
 
 **Example usage:**
 ```
 /tts message:"Hello, this is a test of the TTS system"
 /tts message:"Welcome to the server!" voice:en-US-GuyNeural
+/tts message:"Great job on that victory!" preset:jenny-cheerful
 ```
 
 **Rate Limiting:**

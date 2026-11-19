@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,16 +16,22 @@ namespace DiscordBot.Bot.Controllers;
 public class WelcomeController : ControllerBase
 {
     private readonly IWelcomeService _welcomeService;
+    private readonly IAuditLogService _auditLogService;
     private readonly ILogger<WelcomeController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WelcomeController"/> class.
     /// </summary>
     /// <param name="welcomeService">The welcome service.</param>
+    /// <param name="auditLogService">The audit log service.</param>
     /// <param name="logger">The logger.</param>
-    public WelcomeController(IWelcomeService welcomeService, ILogger<WelcomeController> logger)
+    public WelcomeController(
+        IWelcomeService welcomeService,
+        IAuditLogService auditLogService,
+        ILogger<WelcomeController> logger)
     {
         _welcomeService = welcomeService;
+        _auditLogService = auditLogService;
         _logger = logger;
     }
 
@@ -182,5 +189,106 @@ public class WelcomeController : ControllerBase
         _logger.LogTrace("Welcome message preview generated for guild {GuildId}", guildId);
 
         return Ok(new { Message = previewMessage });
+    }
+
+    /// <summary>
+    /// Sends a test welcome message to the configured welcome channel, with the signed-in admin
+    /// standing in as the new member. Uses the saved configuration, not unsaved form edits.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The channel the message was sent to.</returns>
+    [HttpPost("test")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> SendTestMessage(
+        ulong guildId,
+        CancellationToken cancellationToken)
+    {
+        if (!User.TryGetDiscordUserId(out var userId))
+        {
+            _logger.LogWarning("Welcome test refused for guild {GuildId}: the signed-in user has no linked Discord account", guildId);
+
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorDto
+            {
+                Message = "Link your Discord account first",
+                Detail = "The test message is sent with you as the new member. Link your Discord account from your profile, then try again.",
+                StatusCode = StatusCodes.Status403Forbidden,
+                ErrorCode = "DISCORD_LINK_REQUIRED",
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        _logger.LogInformation("Welcome test message requested for guild {GuildId} by user {UserId}", guildId, userId);
+
+        var config = await _welcomeService.GetConfigurationAsync(guildId, cancellationToken);
+
+        string? problem = null;
+        if (config == null)
+        {
+            problem = "Welcome messages have not been set up for this server yet. Save the welcome settings first.";
+        }
+        else if (!config.IsEnabled)
+        {
+            problem = "Welcome messages are disabled. Enable them and save before sending a test.";
+        }
+        else if (!config.WelcomeChannelId.HasValue)
+        {
+            problem = "No welcome channel is configured. Choose a channel and save before sending a test.";
+        }
+        else if (string.IsNullOrWhiteSpace(config.WelcomeMessage))
+        {
+            problem = "The welcome message is empty. Write a message and save before sending a test.";
+        }
+
+        if (problem != null)
+        {
+            _logger.LogDebug("Welcome test refused for guild {GuildId}: {Problem}", guildId, problem);
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Welcome configuration incomplete",
+                Detail = problem,
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        var channelId = config!.WelcomeChannelId!.Value;
+        var sent = await _welcomeService.SendWelcomeMessageAsync(guildId, userId, cancellationToken);
+
+        if (!sent)
+        {
+            _logger.LogWarning("Welcome test message failed for guild {GuildId} to channel {ChannelId}", guildId, channelId);
+
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorDto
+            {
+                Message = "Test message failed",
+                Detail = "The message could not be sent. Check that you are a member of this server, the welcome channel still exists, and the bot can send messages there.",
+                StatusCode = StatusCodes.Status500InternalServerError,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        await _auditLogService.CreateBuilder()
+            .ForCategory(AuditLogCategory.Message)
+            .WithAction(AuditLogAction.CommandExecuted)
+            .ByUser(userId.ToString())
+            .InGuild(guildId)
+            .OnTarget("WelcomeConfiguration", guildId.ToString())
+            .WithDetails(new
+            {
+                action = "welcome_test_sent",
+                channelId = channelId.ToString(),
+                source = "portal"
+            })
+            .LogAsync(cancellationToken);
+
+        _logger.LogInformation("Welcome test message sent for guild {GuildId} to channel {ChannelId} by user {UserId}",
+            guildId, channelId, userId);
+
+        return Ok(new { Message = "Test welcome message sent", ChannelId = channelId.ToString() });
     }
 }

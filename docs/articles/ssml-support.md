@@ -260,22 +260,26 @@ The preview lets you verify the SSML structure before sending to ensure it's val
 
 ## Discord Commands
 
-### /tts-styled Command
+### /tts preset option
 
-Send a styled TTS message directly from Discord using a slash command.
+Send a styled TTS message directly from Discord with the `preset` option of `/tts`. (This was the
+separate `/tts-styled` command before the slash-command reduction.)
 
-**Command:** `/tts-styled`
+**Command:** `/tts message [voice] [preset]`
 
 **Parameters:**
 
 | Parameter | Type | Required | Description | Max Length |
 |-----------|------|----------|-------------|------------|
 | `message` | string | Yes | Text to synthesize and play | 500 characters |
-| `preset` | string | Yes | Preset name (with autocomplete) | N/A |
+| `voice` | string | No | Voice name; ignored when `preset` is given | N/A |
+| `preset` | string | No | Preset name (with autocomplete); overrides `voice` | N/A |
+
+Without `preset`, `/tts` speaks plain text with `voice` (or the guild default) and does not need SSML.
 
 **Preconditions:**
 
-- SSML must be enabled for the guild (`SsmlEnabled = true`)
+- SSML must be enabled for the guild (`SsmlEnabled = true`) when `preset` is given
 - User must be in a voice channel
 - Bot must have `Connect` and `Speak` permissions
 
@@ -286,8 +290,8 @@ The `preset` parameter provides autocomplete showing featured presets grouped by
 **Example usage:**
 
 ```
-/tts-styled message:"Hello everyone! This is important news!" preset:guy-newscast
-/tts-styled message:"Great job on that victory!" preset:jenny-cheerful
+/tts message:"Hello everyone! This is important news!" preset:guy-newscast
+/tts message:"Great job on that victory!" preset:jenny-cheerful
 ```
 
 **Behavior:**

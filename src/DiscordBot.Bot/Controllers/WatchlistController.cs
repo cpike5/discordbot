@@ -112,9 +112,6 @@ public class WatchlistController : ControllerBase
         [FromBody] WatchlistAddDto request,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Watchlist add requested for guild {GuildId}: user {UserId} by moderator {ModeratorId}",
-            guildId, request.UserId, request.AddedByUserId);
-
         if (request == null)
         {
             _logger.LogWarning("Invalid watchlist add request: request body is null");
@@ -127,6 +124,9 @@ public class WatchlistController : ControllerBase
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
+
+        _logger.LogInformation("Watchlist add requested for guild {GuildId}: user {UserId} by moderator {ModeratorId}",
+            guildId, request.UserId, request.AddedByUserId);
 
         // Ensure the GuildId from the route matches the request (override if needed)
         request.GuildId = guildId;

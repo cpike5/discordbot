@@ -57,6 +57,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/welcome` | GET | Get welcome configuration |
 | `/api/guilds/{guildId}/welcome` | PUT | Update welcome configuration |
 | `/api/guilds/{guildId}/welcome/preview` | POST | Preview welcome message |
+| `/api/guilds/{guildId}/welcome/test` | POST | Send a test welcome message to the welcome channel |
 | `/api/guilds/{guildId}/scheduled-messages` | GET | List scheduled messages |
 | `/api/guilds/{guildId}/scheduled-messages/{id}` | GET | Get scheduled message |
 | `/api/guilds/{guildId}/scheduled-messages` | POST | Create scheduled message |
@@ -2843,6 +2844,48 @@ Generates a preview of the welcome message with template variables replaced. Use
 
 ---
 
+### POST /api/guilds/{guildId}/welcome/test
+
+Sends the rendered welcome message to the configured welcome channel, with the signed-in admin as the new member. Replaces the removed `/welcome test` command; the "Send test" button on `Guilds/Welcome` calls it. Uses the saved configuration, not unsaved form edits.
+
+**Authorization:** Admin+ (the account must have a linked Discord account)
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:** none
+
+**Response: 200 OK**
+
+```json
+{
+  "message": "Test welcome message sent",
+  "channelId": "987654321098765432"
+}
+```
+
+**Response: 400 Bad Request** (welcome not set up, disabled, no channel, or empty message)
+
+```json
+{
+  "message": "Welcome configuration incomplete",
+  "detail": "Welcome messages are disabled. Enable them and save before sending a test.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Response: 403 Forbidden** (`errorCode: DISCORD_LINK_REQUIRED`): the signed-in account has no linked Discord account.
+
+**Response: 500 Internal Server Error**: the send failed (the admin is not in the server, the channel no longer exists, or the bot cannot post there).
+
+Each successful send writes an audit log entry (`Message` / `CommandExecuted`, actor is the admin, `source: portal`).
+
+---
+
 ## Scheduled Messages Endpoints
 
 ### GET /api/guilds/{guildId}/scheduled-messages
@@ -5562,11 +5605,11 @@ Returns all watchlist entries for a guild with pagination.
   "items": [
     {
       "id": "f6a7b8c9-d0e1-2345-f012-345678901235",
-      "guildId": 123456789012345678,
-      "userId": 987654321098765432,
+      "guildId": "123456789012345678",
+      "userId": "987654321098765432",
       "username": "SuspiciousUser#9999",
       "reason": "Multiple spam warnings",
-      "addedById": 111222333444555666,
+      "addedByUserId": "111222333444555666",
       "addedByUsername": "ModeratorName#1234",
       "addedAt": "2024-12-08T13:00:00Z"
     }
@@ -5580,16 +5623,18 @@ Returns all watchlist entries for a guild with pagination.
 }
 ```
 
+Snowflake IDs are written as JSON strings (and accepted as strings or numbers on input) so JavaScript clients keep every digit. The portal's watchlist section on `Guilds/Members/Moderation` uses these endpoints.
+
 **WatchlistEntryDto Fields:**
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | Guid | Unique watchlist entry identifier |
-| `guildId` | ulong | Guild ID |
-| `userId` | ulong | User on watchlist |
+| `guildId` | ulong (JSON string) | Guild ID |
+| `userId` | ulong (JSON string) | User on watchlist |
 | `username` | string? | Username for display (nullable) |
 | `reason` | string | Reason for watchlist |
-| `addedById` | ulong | Moderator who added to watchlist |
+| `addedByUserId` | ulong (JSON string) | Moderator who added to watchlist |
 | `addedByUsername` | string? | Moderator username (nullable) |
 | `addedAt` | datetime | When user was added to watchlist |
 
@@ -5912,9 +5957,8 @@ disabling a model that is currently the default for a mode):
 
 #### GET /api/admin/llm-models/defaults
 
-Returns the effective slug for each mode (guild assistant, DM assistant, feature requests) and
-where it comes from — a DB setting override (`Assistant:Sampling:Model`, `DmAssistant:Model`,
-`FeatureRequests:RequirementsGatheringModel`) always wins over the bound configuration value — plus
+Returns the effective slug for each mode (guild assistant, DM assistant) and
+where it comes from — a DB setting override (`Assistant:Sampling:Model`, `DmAssistant:Model`) always wins over the bound configuration value — plus
 whether that slug is known to the catalog and currently enabled/available.
 
 **Response: 200 OK**
@@ -5944,7 +5988,7 @@ is used as-is.
 ### LLM Usage Ledger Endpoints
 
 Admin-only endpoints (`LlmUsageController`) over the `LlmUsageRecord` ledger — one row per user
-message across every `LlmMode` (guild assistant, DM assistant, feature requests). Backed by
+message across every `LlmMode` (guild assistant, DM assistant). Backed by
 `ILlmUsageRepository`; powers `/Admin/LlmUsage` and the "Cost by User" table on
 `/guild/{guildId}/assistant-metrics`. Discord IDs are emitted as strings. Cost is a decimal USD
 amount.
