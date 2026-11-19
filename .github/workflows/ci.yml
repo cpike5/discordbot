@@ -39,7 +39,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -50,6 +50,18 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # The test server is thrown away with the job, so it needs no durability. Each test drops
+    # its own database, and every DROP DATABASE forces a checkpoint; with fsync on, test threads
+    # spent most of the run waiting on those. Service containers take no command-line flags, so
+    # the settings go in through ALTER SYSTEM (all three apply on reload).
+    - name: Tune PostgreSQL for throwaway test databases
+      run: >-
+        docker exec ${{ job.services.postgres.id }} psql -U postgres -q
+        -c "ALTER SYSTEM SET fsync = off"
+        -c "ALTER SYSTEM SET full_page_writes = off"
+        -c "ALTER SYSTEM SET synchronous_commit = off"
+        -c "SELECT pg_reload_conf()"
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -94,8 +106,15 @@ jobs:
           dotnet build --configuration Release --no-restore
         fi
 
+    # Coverage instrumentation adds about a minute, and only the artifact reads it, so PR runs
+    # skip it; pushes to main still collect it.
     - name: Run tests
-      run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx" --collect:"XPlat Code Coverage"
+      run: |
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          dotnet test --configuration Release --no-build --verbosity normal --logger "trx"
+        else
+          dotnet test --configuration Release --no-build --verbosity normal --logger "trx" --collect:"XPlat Code Coverage"
+        fi
 
     - name: Upload test results
       if: always()
@@ -106,7 +125,7 @@ jobs:
         retention-days: 30
 
     - name: Upload coverage reports
-      if: always()
+      if: always() && github.event_name != 'pull_request'
       uses: actions/upload-artifact@v4
       with:
         name: coverage-reports

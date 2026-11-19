@@ -83,6 +83,12 @@ if [ "$PG_OK" = "true" ]; then
     && { pg_lsclusters --no-header | awk 'NR==1 {print $4}' | grep -q online \
          || sudo pg_ctlcluster "$PG_VERSION" "$PG_CLUSTER" start >>"$LOG" 2>&1; } \
     && sudo -u postgres psql -qc "ALTER USER postgres PASSWORD 'postgres';" >>"$LOG" 2>&1; then
+    # A throwaway test server needs no durability. Every DROP DATABASE forces a
+    # checkpoint, and with fsync on those dominate the suite's wall time.
+    sudo -u postgres psql -q -c "ALTER SYSTEM SET fsync = off" \
+      -c "ALTER SYSTEM SET full_page_writes = off" \
+      -c "ALTER SYSTEM SET synchronous_commit = off" \
+      -c "SELECT pg_reload_conf()" >>"$LOG" 2>&1 || true
     log "PostgreSQL $PG_VERSION running on localhost:5432 for the tests."
   else
     log "WARN: could not start PostgreSQL — database tests will fail this session."
