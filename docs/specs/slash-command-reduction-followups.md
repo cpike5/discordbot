@@ -1,6 +1,6 @@
 # Slash Command Reduction: Follow-up Work
 
-**Status:** Proposed
+**Status:** Implemented (A pending: not-X portal settings page)
 **Depends on:** PR #2000 (removal of portal-covered and low-value slash commands)
 
 ## Background
@@ -173,6 +173,6 @@ Goal: about 18 top-level commands. Every change below renames or reshapes a publ
 
 ## Open questions
 
-1. Feature-request intake: is removing it (B) enough, or should it come back as an assistant DM tool?
+1. ~~Feature-request intake: is removing it (B) enough, or should it come back as an assistant DM tool?~~ **Resolved:** removed (B), with no assistant tool.
 2. `/privacy` consent subcommand names: `consent-grant` and `consent-revoke`, or a nested `/privacy consent grant|revoke` group? A nested group costs a sub-module (see the nested-group handling in `SlashCommandRegistrationService`). **Resolved (D):** flat names, `consent-grant` and `consent-revoke`, with consent status as `/privacy status`.
-3. Watchlist UI: a section on the member moderation page, or its own tab?
+3. ~~Watchlist UI: a section on the member moderation page, or its own tab?~~ **Resolved:** a section on the member moderation page (C).

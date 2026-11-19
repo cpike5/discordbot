@@ -221,8 +221,6 @@ Services for moderation cases, notes, tags, and enforcement actions.
 | `RaidDetectionService` | Bot/Services | Monitors for bot raids and coordinated attacks |
 | `IFlaggedEventService` | Core Interfaces | Tracks moderation-relevant events |
 | `FlaggedEventService` | Bot/Services | Records and queries flagged events (join/message/role changes) |
-| `IInvestigationService` | Core Interfaces | Coordinates investigation workflows |
-| `InvestigationService` | Bot/Services | Manages moderation investigations and case escalation |
 
 ---
 

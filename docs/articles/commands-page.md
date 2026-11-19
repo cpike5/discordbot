@@ -302,7 +302,7 @@ Badges follow the design system badge component with semantic colors:
 
 Users can quickly locate commands by:
 
-- **Scanning module names**: Modules are organized logically (e.g., "Admin", "Consent", "Help")
+- **Scanning module names**: Modules are organized logically (e.g., "Soundboard", "Privacy", "Reminders")
 - **Expanding relevant modules**: Click to reveal commands within
 - **Reading descriptions**: Both module and command descriptions help identify functionality
 

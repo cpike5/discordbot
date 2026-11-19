@@ -242,7 +242,7 @@ Detailed user investigation interface showing moderation history, activity patte
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | None. `/investigate` was removed |
-| **Services** | `IInvestigationService`, `IModerationService`, `ISearchService` |
+| **Services** | `IModerationService`, `ISearchService` |
 | **UI Pages** | Admin: Investigation dashboard |
 | **Database Entities** | `ModerationCase`, `ModNote`, `Watchlist`, `MessageLog`, `CommandLog` |
 | **Key Features** | Cross-source data aggregation (messages, commands, cases), timeline view, risk scoring |

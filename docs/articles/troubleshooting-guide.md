@@ -319,8 +319,8 @@ dotnet run --project src/DiscordBot.Bot | grep "Registered"
 
 Expected output:
 ```
-[INFO] Registered 12 slash commands globally
-[INFO] Command 'ping' registered successfully
+[INFO] Registered N slash commands globally
+[INFO] Command 'vox' registered successfully
 ```
 
 #### 5. Manually Trigger Re-registration
