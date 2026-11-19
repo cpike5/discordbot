@@ -106,7 +106,14 @@
                     @if (Model.AvailableChannels.Count == 0)
                     {
                         <p class="text-sm text-text-secondary">
-                            The bot cannot see any text channels in this server right now, so every channel is monitored.
+                            @if (Model.Input.MonitoredChannelIds.Count == 0)
+                            {
+                                <text>The bot cannot see any text channels in this server right now. Every channel is monitored.</text>
+                            }
+                            else
+                            {
+                                <text>The bot cannot see any text channels in this server right now. The @Model.Input.MonitoredChannelIds.Count saved channel(s) stay monitored and are kept when you save.</text>
+                            }
                         </p>
                     }
                     else
