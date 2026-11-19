@@ -86,8 +86,10 @@ public class LlmCatalogRefreshService : MonitoredBackgroundService
                 // Caught here (rather than left to MonitoredBackgroundService's own fatal-error
                 // handling) so a single failed refresh - a bad response, a transient OpenRouter
                 // outage - doesn't kill the loop; the next scheduled attempt still runs.
-                _logger.LogError(ex, "Scheduled LLM catalog refresh failed");
+                // Status first, then the log: anything that reacts to the log (tests included)
+                // must already see the "Error" status.
                 RecordError(ex);
+                _logger.LogError(ex, "Scheduled LLM catalog refresh failed");
             }
 
             await Task.Delay(interval, stoppingToken);
