@@ -359,12 +359,11 @@ Admin-configurable recurring messages sent to specified channels. Supports cron 
 
 Automatic preview embeds for X/Twitter links, using the fxtwitter API to fetch tweet data. Supports sensitive-only filtering, channel routing, and per-guild configuration.
 
-> **No way to change per-guild settings right now.** The `/notx` commands and the `Fetch Tweet` context menu were removed, and there is no portal page for `NotXGuildSettings` yet. `NotXMessageHandler` still runs using whatever settings are already stored for each guild.
-
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | None. `/notx` (all subcommands) and the `Fetch Tweet` context menu were removed |
 | **Handlers** | `NotXMessageHandler` (auto-detects tweet URLs in messages) |
+| **UI Pages** | Admin: not-X settings page (`/Guilds/NotX/{guildId}`, `NotXModel`): enable, sensitive-only, hide sensitive label, output channel, monitored channels |
 | **Services** | `INotXService`, `FxTwitterClient`, `NotXEmbedBuilder`, `TweetUrlExtractor` |
 | **Database Entities** | `NotXGuildSettings` |
 | **Configuration** | `NotXOptions` (`NotX` section) — `Enabled` is a config kill switch that makes `NotXMessageHandler` ignore every message; `Features:NotXEnabled` (Features tab) is the hot global toggle checked by `NotXService` |

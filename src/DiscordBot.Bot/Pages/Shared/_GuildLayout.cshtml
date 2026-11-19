@@ -1,11 +1,28 @@
+@using DiscordBot.Bot.Configuration
 @using DiscordBot.Bot.ViewModels.Components
 @using Microsoft.AspNetCore.Http
 @using Microsoft.AspNetCore.Routing
 @inject DiscordBot.Core.Interfaces.IGuildSwitcherService GuildSwitcher
+@inject DiscordBot.Core.Interfaces.ISettingsService AppSettings
+@inject Microsoft.Extensions.Options.IOptions<DiscordBot.Core.Configuration.NotXOptions> NotXOptions
 @{
     Layout = "_Layout";
 
     GuildNavBarViewModel navModel = (GuildNavBarViewModel)Model.Navigation;
+
+    // The not-X tab hides while previews are off bot-wide (NotX:Enabled or Features:NotXEnabled), unless
+    // it is the page being viewed, so a direct URL still shows where you are.
+    var notXOn = NotXOptions.Value.Enabled
+        && (await AppSettings.GetSettingValueAsync<bool?>("Features:NotXEnabled", Context.RequestAborted) ?? true);
+    if (!notXOn && navModel.ActiveTab != GuildNavigationConfig.NotXTabId)
+    {
+        navModel = new GuildNavBarViewModel
+        {
+            GuildId = navModel.GuildId,
+            ActiveTab = navModel.ActiveTab,
+            Tabs = navModel.Tabs.Where(t => t.Id != GuildNavigationConfig.NotXTabId).ToList()
+        };
+    }
     var orderedTabs = navModel.Tabs.OrderBy(t => t.Order).ToList();
     var activeTab = orderedTabs.FirstOrDefault(t => t.Id == navModel.ActiveTab);
 

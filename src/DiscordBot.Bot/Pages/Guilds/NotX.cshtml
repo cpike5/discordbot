@@ -1,0 +1,159 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.NotXModel
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Http
+@{
+    ViewData["Title"] = $"not-X Settings - {Model.GuildName}";
+    Layout = "_GuildLayout";
+
+    // A form re-rendered after a failed save shows input that is not saved yet.
+    var dirtyOnLoad = HttpMethods.IsPost(Model.Request.Method);
+
+    var outputOptions = FormFieldState.ChannelOptions(
+        Model.AvailableChannels, Model.Input.OutputChannelId, "Same channel as the link", out var outputIsMissing);
+
+    var monitored = Model.Input.MonitoredChannelIds.ToHashSet();
+    var visibleIds = Model.AvailableChannels.Select(c => c.Id).ToHashSet();
+    var missingMessage = "Some saved monitored channels are no longer in this server's channel list and are dropped when you save.";
+    var missingMonitored = Model.Input.MonitoredChannelIds.Where(id => !visibleIds.Contains(id)).Distinct().ToList();
+}
+
+@if (Model.GloballyDisabled)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+            Variant = AlertVariant.Warning,
+            Message = "not-X previews are disabled bot-wide, so nothing is posted in any server. You can still edit these settings; they apply once an administrator turns previews back on (the NotX:Enabled configuration or the Features tab in Admin settings)."
+        }' />
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel { Variant = AlertVariant.Error, Message = Model.ErrorMessage }' />
+    </div>
+}
+
+<form method="post" id="notx-form"
+      data-submit-guard
+      data-focus-first-error
+      data-unsaved-changes
+      data-unsaved-dirty-on-load="@(dirtyOnLoad ? "true" : "false")"
+      novalidate>
+    <div asp-validation-summary="ModelOnly" class="form-error mb-4"></div>
+
+    <div class="max-w-3xl space-y-6">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+            <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                Id = "Input_IsEnabled",
+                Name = "Input.IsEnabled",
+                Label = "Enable not-X previews",
+                Description = "When someone posts an X or Twitter link in this server, the bot replies with an embedded preview.",
+                IsChecked = Model.Input.IsEnabled
+            }' />
+        </div>
+
+        <div data-section-gate="#Input_IsEnabled" class="space-y-3">
+            <p data-section-gate-note hidden class="text-sm text-text-secondary" id="notx-gate-note">
+                Previews are off. Turn them on above to edit these settings; your saved values are kept.
+            </p>
+
+            <div data-section-gate-body class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 space-y-6">
+                <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                    Id = "Input_SensitiveOnly",
+                    Name = "Input.SensitiveOnly",
+                    Label = "Only preview sensitive tweets",
+                    Description = "Post a preview only when the tweet is flagged sensitive. Turn this off to preview every tweet link.",
+                    IsChecked = Model.Input.SensitiveOnly
+                }' />
+
+                <partial name="Shared/Components/_FormToggle" model='new FormToggleViewModel {
+                    Id = "Input_HideSensitiveLabel",
+                    Name = "Input.HideSensitiveLabel",
+                    Label = "Hide the sensitive label",
+                    Description = "Leave the sensitive-content label off the embed. Useful for servers that are already marked NSFW.",
+                    IsChecked = Model.Input.HideSensitiveLabel
+                }' />
+
+                <div>
+                    <partial name="Shared/Components/_FormSelect" model='new FormSelectViewModel {
+                        Id = "Input_OutputChannelId",
+                        Name = "Input.OutputChannelId",
+                        Label = "Output channel",
+                        Placeholder = null,
+                        SelectedValue = Model.Input.OutputChannelId?.ToString() ?? string.Empty,
+                        Options = outputOptions,
+                        HelpText = "Where previews are posted. By default the bot replies in the channel the link was posted in."
+                    }' />
+                    @if (outputIsMissing)
+                    {
+                        <div class="mt-2">
+                            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                                Variant = AlertVariant.Warning,
+                                Message = "The saved output channel is not in the channel list for this server. It may have been deleted, or the bot cannot see it right now. Saving drops it unless the bot can see it again."
+                            }' />
+                        </div>
+                    }
+                </div>
+
+                <fieldset>
+                    <legend class="block text-sm font-medium text-text-primary">Monitored channels</legend>
+                    <p id="notx-monitored-help" class="text-sm text-text-secondary mt-1 mb-2">
+                        Only links posted in the checked channels get a preview. Leave all unchecked to monitor every channel.
+                    </p>
+                    @if (Model.AvailableChannels.Count == 0)
+                    {
+                        <p class="text-sm text-text-secondary">
+                            @if (Model.Input.MonitoredChannelIds.Count == 0)
+                            {
+                                <text>The bot cannot see any text channels in this server right now. Every channel is monitored.</text>
+                            }
+                            else
+                            {
+                                <text>The bot cannot see any text channels in this server right now. The @Model.Input.MonitoredChannelIds.Count saved channel(s) stay monitored and are kept when you save.</text>
+                            }
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="max-h-64 overflow-y-auto border border-border-primary rounded-md bg-bg-primary p-2 space-y-1"
+                             aria-describedby="notx-monitored-help">
+                            @foreach (var channel in Model.AvailableChannels)
+                            {
+                                var cid = $"Input_MonitoredChannelIds_{channel.Id}";
+                                <label for="@cid" class="flex items-center gap-2 px-2 py-1 rounded hover:bg-bg-hover text-sm text-text-primary cursor-pointer">
+                                    <input type="checkbox" id="@cid" name="Input.MonitoredChannelIds" value="@channel.Id"
+                                           checked="@monitored.Contains(channel.Id)"
+                                           class="rounded border-border-primary" />
+                                    <span>@FormFieldState.ChannelLabel(channel)</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    @if (missingMonitored.Count > 0 && Model.AvailableChannels.Count > 0)
+                    {
+                        <div class="mt-2">
+                            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                                Variant = AlertVariant.Warning,
+                                Message = missingMessage
+                            }' />
+                        </div>
+                    }
+                </fieldset>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <button type="submit" class="btn btn-primary inline-flex items-center justify-center gap-2" data-loading-text="Saving...">Save settings</button>
+            <a asp-page="Details" asp-route-guildId="@Model.Header.GuildId" class="btn btn-secondary inline-flex items-center justify-center gap-2">Cancel</a>
+            <span data-unsaved-indicator class="hidden text-sm text-warning" role="status">Unsaved changes</span>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/section-gate.js" asp-append-version="true"></script>
+    <script src="~/js/form-focus.js" asp-append-version="true"></script>
+}
