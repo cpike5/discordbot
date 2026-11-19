@@ -54,7 +54,7 @@ The bot will respond with a helpful answer in the same channel as a reply to you
 
 Before you can use the assistant, you must:
 
-1. **Grant Consent** - Run `/consent` and enable the "assistant_usage" option
+1. **Grant Consent** - Run `/privacy consent-grant type:AssistantUsage`
 2. **Check Guild Settings** - The guild administrator must have enabled the assistant feature
 3. **Use Allowed Channels** - The channel must not be restricted (or must be in the allowed list)
 4. **Respect Rate Limits** - You can ask up to 5 questions per 5 minutes (varies by guild)
@@ -65,12 +65,12 @@ The AI Assistant sends your questions to OpenRouter, which routes them to the co
 
 **To opt-in to the assistant:**
 ```
-/consent type:assistant_usage action:grant
+/privacy consent-grant type:AssistantUsage
 ```
 
 **To opt-out:**
 ```
-/consent type:assistant_usage action:revoke
+/privacy consent-revoke type:AssistantUsage
 ```
 
 See [Consent and Privacy](consent-privacy.md) for full privacy information and data deletion options.
@@ -88,23 +88,24 @@ The assistant enforces per-user rate limits to prevent abuse and control API cos
 
 ## Slash Commands
 
-### /consent
+### /privacy consent-grant, /privacy consent-revoke, /privacy status
 
-Manage your data consent preferences, including assistant usage consent.
+Manage your data consent preferences, including assistant usage consent. (These were the `/consent`
+group before the slash-command reduction.)
 
 **Syntax:**
 ```
-/consent type:assistant_usage action:grant
-/consent type:assistant_usage action:revoke
+/privacy consent-grant type:AssistantUsage
+/privacy consent-revoke type:AssistantUsage
+/privacy status
 ```
 
 **Options:**
-- `type` (required) - Choose "assistant_usage" for AI assistant consent
-- `action` (required) - "grant" to opt-in, "revoke" to opt-out
+- `type` (optional) - Choose `AssistantUsage` for AI assistant consent; defaults to `MessageLogging`
 
 **Response:**
-- Confirmation of consent granted/revoked
-- List of your current consent preferences
+- `consent-grant` / `consent-revoke`: confirmation of consent granted or revoked
+- `status`: your current consent preferences
 
 ---
 
@@ -385,7 +386,7 @@ At 100 questions/day:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `RequireExplicitConsent` | `true` | Require `/consent` opt-in before using assistant |
+| `RequireExplicitConsent` | `true` | Require `/privacy consent-grant` opt-in before using assistant |
 | `LogInteractions` | `true` | Log questions and responses to audit log |
 | `InteractionLogRetentionDays` | `90` | Days to retain interaction logs before cleanup |
 
@@ -827,7 +828,7 @@ Actual times depend on:
 1. Is the assistant globally enabled? (`GloballyEnabled: true` in appsettings)
 2. Is the assistant enabled for your guild? (Check via admin UI Settings page)
 3. Is your message in an allowed channel? (Check channel restrictions on Settings page)
-4. Have you granted consent? (Run `/consent` to check)
+4. Have you granted consent? (Run `/privacy status` to check)
 5. Check Serilog logs for errors (look for Assistant-related entries)
 
 #### "You've already asked too many questions"
@@ -840,7 +841,7 @@ Actual times depend on:
 #### "You must opt-in to use the assistant"
 
 **Solution:**
-- Run `/consent type:assistant_usage action:grant` to opt-in
+- Run `/privacy consent-grant type:AssistantUsage` to opt-in
 - See [Consent and Privacy](consent-privacy.md) for details
 
 #### Slow responses or timeouts
@@ -906,7 +907,7 @@ A tool argument reaches the tool from the model, and the model's input is a Disc
 
 ### Consent and Audit
 
-- Explicit consent required via `/consent` command
+- Explicit consent required via `/privacy consent-grant`
 - All interactions logged for audit trail
 - Users can revoke consent or request data deletion
 - Logs retained for 90 days then automatically deleted

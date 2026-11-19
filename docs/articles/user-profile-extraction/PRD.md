@@ -35,7 +35,7 @@ This is separate from `MessageLogging` (1) and `AssistantUsage` (2). Granting me
 
 ### 2.3 Grant Flow
 
-1. User runs `/consent grant ProfileExtraction`
+1. User runs `/privacy consent-grant ProfileExtraction`
 2. System checks `MessageLogging` consent is active
 3. If prerequisite met: consent granted, recorded in `UserConsent` with `GrantedVia = "SlashCommand"`
 4. User receives ephemeral confirmation explaining what will happen:
@@ -45,7 +45,7 @@ This is separate from `MessageLogging` (1) and `AssistantUsage` (2). Granting me
 
 ### 2.4 Revoke Flow
 
-1. User runs `/consent revoke ProfileExtraction`
+1. User runs `/privacy consent-revoke ProfileExtraction`
 2. Consent revoked, recorded in `UserConsent` with `RevokedVia = "SlashCommand"`
 3. Associated `UserProfile` record for the user in the current guild is **immediately deleted**
 4. User receives ephemeral confirmation: "Profile extraction consent revoked. Your profile data has been deleted."
@@ -177,7 +177,7 @@ All commands are **guild-only** and respond **ephemerally**.
 
 | Condition | Response |
 |---|---|
-| No `ProfileExtraction` consent | "You haven't opted into profile extraction. Use `/consent grant ProfileExtraction` to get started." |
+| No `ProfileExtraction` consent | "You haven't opted into profile extraction. Use `/privacy consent-grant ProfileExtraction` to get started." |
 | Consent active, no profile yet | "Your profile is being generated. Check back soon — extraction typically runs every few hours." |
 | Profile exists | Displays full profile in an embed: Interests, Expertise, Communication Style, Activity, Summary, last extracted date |
 

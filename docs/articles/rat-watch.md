@@ -35,6 +35,7 @@ Rat Watch is an accountability system that allows Discord users to hold each oth
 ### Context Menu: Rat Watch
 
 **Type:** Message Command
+**Module:** `RatWatchContextMenuModule` (follows the Rat Watch module toggle)
 **Preconditions:** RequireGuildActive, RequireRatWatchEnabled
 
 Right-click any message and select "Rat Watch" from the Apps menu to create a watch on that message's author.
@@ -58,14 +59,19 @@ Right-click any message and select "Rat Watch" from the Apps menu to create a wa
 - Cannot schedule more than MaxAdvanceHours (default 24) in the future
 - Must be in the future
 
-### /rat-clear
+The slash commands are subcommands of the `/rat` group (`RatWatchModule`). They were
+`/rat-clear`, `/rat-stats` and `/rat-leaderboard` before the slash-command reduction. Discord
+does not allow a context menu inside a group, so the context menu and the modal it opens live in
+`RatWatchContextMenuModule`; the Commands tab still shows one Rat Watch toggle for both.
+
+### /rat clear
 
 **Description:** Clear yourself from all active Rat Watches in this server
 **Preconditions:** RequireGuildActive, RequireRatWatchEnabled
 
 Allows the accused user to check in and clear all their pending watches at once.
 
-### /rat-stats [user]
+### /rat stats [user]
 
 **Description:** View a user's rat record
 **Parameters:**
@@ -77,7 +83,7 @@ Shows:
 - Recent guilty records with dates and vote tallies
 - Links to original messages
 
-### /rat-leaderboard
+### /rat leaderboard
 
 **Description:** View the top rats in this server
 **Preconditions:** RequireGuildActive, RequireRatWatchEnabled
@@ -311,8 +317,8 @@ Manages the bot's Discord presence status during active Rat Watches.
 - Thread-safe with internal locking
 
 **Status Updates Triggered By:**
-- New watch created (`RatWatchModule`)
-- Watch cleared early via button or `/rat-clear` command
+- New watch created (`RatWatchContextMenuModule`)
+- Watch cleared early via button or `/rat clear` command
 - Voting started by execution service
 - Voting completed by execution service
 - Bot startup (checks for active watches)

@@ -431,7 +431,7 @@ public class InteractionHandlerDashboardTests
 
     /// <summary>
     /// Test documents the GetFullCommandName method behavior for grouped commands (issue #483).
-    /// Grouped commands should be logged with full path: "consent status" not "status".
+    /// Grouped commands should be logged with full path: "privacy status" not "status".
     /// </summary>
     [Fact]
     public void GetFullCommandName_WithGroupedCommand_ShouldReturnFullPath_Documentation()
@@ -444,7 +444,7 @@ public class InteractionHandlerDashboardTests
         //
         // After fix:
         // - GetFullCommandName checks if Module.SlashGroupName is set
-        // - If group name exists: returns "{groupName} {commandName}" (e.g., "consent status")
+        // - If group name exists: returns "{groupName} {commandName}" (e.g., "privacy status")
         // - If no group name: returns just commandName (e.g., "ping")
         //
         // Implementation pattern (matches CommandMetadataService.cs):
@@ -453,7 +453,8 @@ public class InteractionHandlerDashboardTests
         //       : $"{command.Module.SlashGroupName} {command.Name}";
         //
         // Affected commands:
-        // - ConsentModule: consent grant, consent revoke, consent status
+        // - PrivacyModule: privacy consent-grant, privacy consent-revoke, privacy status
+        // - RatWatchModule: rat clear, rat stats, rat leaderboard
         // - WelcomeModule: welcome show, welcome set, etc.
         //
         // Implementation verified at: src/DiscordBot.Bot/Handlers/InteractionHandler.cs:506-517
@@ -464,8 +465,8 @@ public class InteractionHandlerDashboardTests
             Purpose = "Build full command name including group prefix for subcommands",
             Examples = new[]
             {
-                ("consent", "status", "consent status"),
-                ("consent", "grant", "consent grant"),
+                ("privacy", "status", "privacy status"),
+                ("privacy", "consent-grant", "privacy consent-grant"),
                 ("welcome", "show", "welcome show"),
                 (null as string, "ping", "ping"),
                 ("", "help", "help")
@@ -504,7 +505,7 @@ public class InteractionHandlerDashboardTests
         // 4. BroadcastCommandExecutedAsync - for dashboard updates
         //
         // This ensures:
-        // - Analytics correctly show "consent status" instead of just "status"
+        // - Analytics correctly show "privacy status" instead of just "status"
         // - No naming conflicts between subcommands in different groups
         // - Easy identification of which parent command was executed
         //

@@ -6,6 +6,7 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -47,7 +48,7 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private SlashCommandRegistrationService CreateService(ulong? testGuildId)
+    private SlashCommandRegistrationService CreateService(ulong? testGuildId, IServiceProvider? serviceProvider = null)
     {
         var config = Options.Create(new BotConfiguration
         {
@@ -57,7 +58,7 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
 
         // Discord.Interactions' ModuleBuilder creates a DI scope while building each module,
         // so the service provider passed to AddModuleAsync needs a real IServiceScopeFactory.
-        var serviceProvider = new ServiceCollection().BuildServiceProvider();
+        serviceProvider ??= new ServiceCollection().BuildServiceProvider();
 
         return new SlashCommandRegistrationService(
             _client,
@@ -201,6 +202,77 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
         var result = SlashCommandRegistrationService.ResolveCompanionParentModule(moduleName);
 
         result.Should().Be(expectedParent);
+    }
+
+    [Fact]
+    public void ResolveCompanionParentModule_WithRatWatchContextMenuModule_ShouldMapToRatWatchModule()
+    {
+        // The Rat Watch context menu cannot live in the [Group("rat")] module, so it sits in its
+        // own module that has no configuration row; the explicit map ties it to the Rat Watch toggle.
+        SlashCommandRegistrationService
+            .ResolveCompanionParentModule(nameof(DiscordBot.Bot.Commands.RatWatchContextMenuModule))
+            .Should().Be(nameof(DiscordBot.Bot.Commands.RatWatchModule));
+    }
+
+    [Fact]
+    public async Task DiscoverAndLoadModulesAsync_WithRatWatchModuleDisabled_ShouldSkipRatWatchContextMenuModule()
+    {
+        _mockCommandModuleConfigService
+            .Setup(s => s.SyncModulesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _mockCommandModuleConfigService
+            .Setup(s => s.GetAllModulesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AllModulesDisabledExcept("RatWatchModule", ratWatchEnabled: false));
+
+        var service = CreateService(testGuildId: null, new AutoMockServiceProvider(_client));
+
+        await service.DiscoverAndLoadModulesAsync();
+
+        var loadedModuleNames = _interactionService.Modules.Select(m => m.Name).ToList();
+        loadedModuleNames.Should().NotContain("RatWatchModule");
+        loadedModuleNames.Should().NotContain("RatWatchContextMenuModule",
+            "the context menu module follows the Rat Watch toggle");
+        loadedModuleNames.Should().NotContain("RatWatchComponentModule");
+        _interactionService.ContextCommands.Select(c => c.Name).Should().NotContain("Rat Watch");
+    }
+
+    [Fact]
+    public async Task DiscoverAndLoadModulesAsync_WithRatWatchModuleEnabled_ShouldLoadRatWatchContextMenuModule()
+    {
+        _mockCommandModuleConfigService
+            .Setup(s => s.SyncModulesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _mockCommandModuleConfigService
+            .Setup(s => s.GetAllModulesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AllModulesDisabledExcept("RatWatchModule", ratWatchEnabled: true));
+
+        var service = CreateService(testGuildId: null, new AutoMockServiceProvider(_client));
+
+        await service.DiscoverAndLoadModulesAsync();
+
+        _interactionService.ContextCommands.Select(c => c.Name).Should().Contain("Rat Watch");
+        _interactionService.Modules.Should().Contain(m => m.SlashGroupName == "rat");
+    }
+
+    /// <summary>
+    /// Builds a configuration list that disables every top-level module in the Bot assembly that
+    /// owns a toggle, except <paramref name="moduleName"/>, whose state is given. Disabled modules
+    /// are never built, so the discovery run only builds the module under test and its companions.
+    /// </summary>
+    private static IReadOnlyList<CommandModuleConfigurationDto> AllModulesDisabledExcept(
+        string moduleName, bool ratWatchEnabled)
+    {
+        return typeof(DiscordBot.Bot.Commands.RatWatchModule).Assembly.GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && t.DeclaringType == null
+                && typeof(IInteractionModuleBase).IsAssignableFrom(t)
+                && SlashCommandRegistrationService.ResolveCompanionParentModule(t.Name) is null)
+            .Select(t => new CommandModuleConfigurationDto
+            {
+                ModuleName = t.Name,
+                IsEnabled = t.Name == moduleName && ratWatchEnabled,
+                Category = "Features"
+            })
+            .ToList();
     }
 
     [Fact]

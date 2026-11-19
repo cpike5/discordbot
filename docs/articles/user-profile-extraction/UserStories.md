@@ -14,11 +14,11 @@
 **so that** the AI assistant can give me more personalized and relevant responses.
 
 **Acceptance Criteria:**
-- [ ] `/consent grant ProfileExtraction` is available in the guild
+- [ ] `/privacy consent-grant ProfileExtraction` is available in the guild
 - [ ] Command responds ephemerally with a clear explanation of what profile extraction does
 - [ ] Consent is recorded with source `"SlashCommand"` and timestamp
 - [ ] If I have not granted `MessageLogging` consent, I receive an error directing me to grant it first
-- [ ] My consent status appears in `/consent status` alongside other consent types
+- [ ] My consent status appears in `/privacy status` alongside other consent types
 
 ---
 
@@ -97,7 +97,7 @@
 **so that** I can fully withdraw from the feature with confidence.
 
 **Acceptance Criteria:**
-- [ ] `/consent revoke ProfileExtraction` revokes consent and deletes my profile in the same operation
+- [ ] `/privacy consent-revoke ProfileExtraction` revokes consent and deletes my profile in the same operation
 - [ ] I receive ephemeral confirmation that consent was revoked and data was deleted
 - [ ] The assistant no longer uses any profile context for my interactions
 - [ ] The deletion is immediate — not deferred to a cleanup job
@@ -111,7 +111,7 @@
 **so that** I can make an informed consent decision.
 
 **Acceptance Criteria:**
-- [ ] `/consent status` describes `ProfileExtraction` with a clear, non-technical explanation
+- [ ] `/privacy status` describes `ProfileExtraction` with a clear, non-technical explanation
 - [ ] The consent grant confirmation message explains: what is extracted (interests, expertise, style), how it's used (assistant personalization), and how to control it (view, edit, delete commands)
 - [ ] No jargon or ambiguous language in consent-related messages
 

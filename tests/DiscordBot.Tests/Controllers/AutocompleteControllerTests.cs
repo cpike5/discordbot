@@ -507,14 +507,14 @@ public class AutocompleteControllerTests
                 {
                     new CommandInfoDto
                     {
-                        Name = "rat-clear",
-                        FullName = "rat-clear",
+                        Name = "clear",
+                        FullName = "rat clear",
                         Description = "Clear rat accusations"
                     },
                     new CommandInfoDto
                     {
-                        Name = "rat-stats",
-                        FullName = "rat-stats",
+                        Name = "stats",
+                        FullName = "rat stats",
                         Description = "View rat statistics"
                     }
                 }
@@ -614,16 +614,16 @@ public class AutocompleteControllerTests
         {
             new CommandModuleDto
             {
-                Name = "ConsentModule",
-                DisplayName = "Consent",
+                Name = "PrivacyModule",
+                DisplayName = "Privacy",
                 IsSlashGroup = true,
-                GroupName = "consent",
+                GroupName = "privacy",
                 Commands = new List<CommandInfoDto>
                 {
                     new CommandInfoDto
                     {
-                        Name = "grant",
-                        FullName = "consent grant",
+                        Name = "consent-grant",
+                        FullName = "privacy consent-grant",
                         Description = "Grant consent"
                     }
                 }
@@ -643,8 +643,8 @@ public class AutocompleteControllerTests
         var okResult = result.Result as OkObjectResult;
         var suggestions = okResult!.Value as List<AutocompleteSuggestionDto>;
         suggestions.Should().HaveCount(1);
-        suggestions![0].Id.Should().Be("consent grant");
-        suggestions[0].DisplayText.Should().Be("/consent grant - Grant consent");
+        suggestions![0].Id.Should().Be("privacy consent-grant");
+        suggestions[0].DisplayText.Should().Be("/privacy consent-grant - Grant consent");
     }
 
     #endregion

@@ -27,7 +27,6 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
     {
         // Core modules (always enabled, no restart required)
         new("VerifyAccountModule", "Verify Account", "Account verification commands", "Core", false),
-        new("ConsentModule", "Consent", "Privacy consent management commands", "Core", false),
 
         // Moderation modules
         new("ModerationActionModule", "Moderation Actions", "Commands for warn, kick, ban, mute, purge", "Moderation", true),
@@ -35,14 +34,14 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
         // Feature modules
         new("RatWatchModule", "Rat Watch", "Rat Watch accountability feature", "Features", true),
         new("ReminderModule", "Reminders", "Personal reminder commands", "Features", true),
-        new("PrivacyModule", "Privacy", "User data privacy and GDPR deletion commands", "Features", true),
+        new("PrivacyModule", "Privacy", "Data consent, export and GDPR deletion commands", "Features", true),
         new("WalletModule", "Wallet", "Virtual currency balances, history and payments", "Features", true),
 
         // Audio modules
         new("TtsModule", "Text-to-Speech", "Text-to-speech commands", "Audio", true),
         new("SoundboardModule", "Soundboard", "Soundboard playback commands", "Audio", true),
         new("VoiceModule", "Voice", "Voice channel management commands", "Audio", true),
-        new("VoxModule", "VOX", "Half-Life style concatenated clip announcements (/vox, /fvox, /hgrunt)", "Audio", true),
+        new("VoxModule", "VOX", "Half-Life style concatenated clip announcements (/vox with vox, fvox or hgrunt voices)", "Audio", true),
 
         // Utility modules
         new("UtilityModule", "Utility", "The /userinfo command", "Utility", true)

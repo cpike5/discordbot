@@ -38,64 +38,59 @@ public class VoxModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
-    /// Plays a VOX (scientist voice) group announcement.
+    /// The <c>voice</c> option value for the standard VOX (scientist) clip library.
     /// </summary>
-    /// <param name="message">The message to play using VOX clips.</param>
+    public const string VoiceVox = "vox";
+
+    /// <summary>
+    /// The <c>voice</c> option value for the FVOX (female scientist) clip library.
+    /// </summary>
+    public const string VoiceFvox = "fvox";
+
+    /// <summary>
+    /// The <c>voice</c> option value for the HGRUNT (military) clip library.
+    /// </summary>
+    public const string VoiceHgrunt = "hgrunt";
+
+    /// <summary>
+    /// Plays a Half-Life style announcement using the VOX, FVOX or HGRUNT clip library.
+    /// </summary>
+    /// <param name="message">The message to play.</param>
+    /// <param name="voice">The clip library to use: <c>vox</c> (default), <c>fvox</c> or <c>hgrunt</c>.</param>
     /// <param name="gap">Word gap in milliseconds (20-200). Defaults to configured value.</param>
-    [SlashCommand("vox", "Play a VOX group announcement")]
+    [SlashCommand("vox", "Play a Half-Life style VOX announcement")]
     [RequireVoiceChannel]
     public async Task VoxAsync(
         [Summary("message", "The message to play")]
         [MaxLength(500)]
         [Autocomplete(typeof(VoxClipAutocompleteHandler))]
         string message,
+        [Summary("voice", "Clip library to use (default: vox)")]
+        [Choice("vox (scientist)", VoiceVox)]
+        [Choice("fvox (female scientist)", VoiceFvox)]
+        [Choice("hgrunt (military)", VoiceHgrunt)]
+        string? voice = null,
         [Summary("gap", "Word gap in milliseconds (20-200)")]
         [MinValue(20)]
         [MaxValue(200)]
         int? gap = null)
     {
-        await PlayVoxAsync(message, VoxClipGroup.Vox, gap);
+        await PlayVoxAsync(message, ParseVoice(voice), gap);
     }
 
     /// <summary>
-    /// Plays an FVOX (female scientist voice) group announcement.
+    /// Maps the <c>voice</c> option value to a <see cref="VoxClipGroup"/>.
+    /// Unknown or missing values fall back to <see cref="VoxClipGroup.Vox"/>.
     /// </summary>
-    /// <param name="message">The message to play using FVOX clips.</param>
-    /// <param name="gap">Word gap in milliseconds (20-200). Defaults to configured value.</param>
-    [SlashCommand("fvox", "Play an FVOX group announcement")]
-    [RequireVoiceChannel]
-    public async Task FvoxAsync(
-        [Summary("message", "The message to play")]
-        [MaxLength(500)]
-        [Autocomplete(typeof(FvoxClipAutocompleteHandler))]
-        string message,
-        [Summary("gap", "Word gap in milliseconds (20-200)")]
-        [MinValue(20)]
-        [MaxValue(200)]
-        int? gap = null)
-    {
-        await PlayVoxAsync(message, VoxClipGroup.Fvox, gap);
-    }
-
-    /// <summary>
-    /// Plays an HGRUNT (military voice) group announcement.
-    /// </summary>
-    /// <param name="message">The message to play using HGRUNT clips.</param>
-    /// <param name="gap">Word gap in milliseconds (20-200). Defaults to configured value.</param>
-    [SlashCommand("hgrunt", "Play an HGRUNT group announcement")]
-    [RequireVoiceChannel]
-    public async Task HgruntAsync(
-        [Summary("message", "The message to play")]
-        [MaxLength(500)]
-        [Autocomplete(typeof(HgruntClipAutocompleteHandler))]
-        string message,
-        [Summary("gap", "Word gap in milliseconds (20-200)")]
-        [MinValue(20)]
-        [MaxValue(200)]
-        int? gap = null)
-    {
-        await PlayVoxAsync(message, VoxClipGroup.Hgrunt, gap);
-    }
+    /// <param name="voice">The option value.</param>
+    /// <returns>The clip group.</returns>
+    public static VoxClipGroup ParseVoice(string? voice) =>
+        voice?.Trim().ToLowerInvariant() switch
+        {
+            VoiceFvox => VoxClipGroup.Fvox,
+            VoiceHgrunt => VoxClipGroup.Hgrunt,
+            _ => VoxClipGroup.Vox
+        };
 
     /// <summary>
     /// Shared helper method for playing VOX messages.

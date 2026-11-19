@@ -65,7 +65,7 @@ Add the feature to the `AllFeatures` list for the `list_features` tool:
 private static readonly List<FeatureInfo> AllFeatures = new()
 {
     // ... existing entries ...
-    new("VOX System", "Audio", "Half-Life style concatenated clip announcements using /vox, /fvox, and /hgrunt commands.", "vox-system-spec"),
+    new("VOX System", "Audio", "Half-Life style concatenated clip announcements using the /vox command (vox, fvox, or hgrunt voice).", "vox-system-spec"),
 };
 ```
 

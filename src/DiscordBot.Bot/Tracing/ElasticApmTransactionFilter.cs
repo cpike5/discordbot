@@ -175,8 +175,10 @@ public class ElasticApmTransactionFilter
             return true;
         }
 
-        // Rat Watch operations
+        // Rat Watch operations (the /rat group's commands trace as "discord.command rat")
         if (name.Contains("ratwatch", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("discord.command rat", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("discord.command rat ", StringComparison.OrdinalIgnoreCase) ||
             name.Contains("rat-", StringComparison.OrdinalIgnoreCase) ||
             name.Contains("rat_", StringComparison.OrdinalIgnoreCase))
         {

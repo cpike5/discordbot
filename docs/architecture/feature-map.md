@@ -24,7 +24,7 @@ The soundboard system allows guild members to play pre-uploaded audio files in v
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/play`, `/sounds`, `/stop` (SoundboardModule) |
+| **Discord Commands** | `/play`, `/sounds`, `/stop` (SoundboardModule); `/join [channel]` (defaults to the caller's voice channel), `/leave` (VoiceModule) |
 | **Services** | `IAudioService`, `IPlaybackService`, `ISoundService`, `ISoundboardOrchestrationService`, `IGuildAudioSettingsService`, `IAudioNotifier` |
 | **UI Pages** | Portal: Soundboard player page; Admin: Sounds management (`SoundsController`) |
 | **Member portal access** | `IPortalGuildDirectory` (Discord-backed `DiscordPortalGuildDirectory`; database-backed `DevelopmentPortalGuildDirectory` only in Development + `Discord:OfflineMode`), `PortalGuildMemberAuthorizationHandler` (requires `EnableMemberPortal`, independent of `AudioEnabled`), `PortalPageModelBase`, `Portal/Shared/_PortalDisabled.cshtml`. Portal voice controls use `/api/portal/soundboard/{guildId}/status|channel|stop` |
@@ -61,7 +61,7 @@ Half-Life style concatenated clip announcements using scientist (VOX), female sc
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/vox`, `/fvox`, `/hgrunt` (VoxModule) |
+| **Discord Commands** | `/vox <message> [voice] [gap]`, `voice` = `vox` (default), `fvox` or `hgrunt` (VoxModule); the message autocomplete searches the chosen voice's clips |
 | **Services** | `IVoxService`, `IVoxClipLibrary`, `IVoxConcatenationService`, `VoxClipLibraryInitializer` |
 | **UI Pages** | Portal: VOX player page (`PortalVoxController`) |
 | **Database Entities** | None (clips are files only) |
@@ -92,7 +92,7 @@ Converts text messages to speech using Azure Cognitive Services and plays them i
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/tts <message> [voice]` (TtsModule) |
+| **Discord Commands** | `/tts <message> [voice] [preset]` (TtsModule); a style `preset` builds SSML (requires SSML enabled for the guild) and overrides `voice` |
 | **Services** | `IAudioService`, `ITtsService`, `ITtsSettingsService`, `ITtsPlaybackService`, `IAzureTtsService`, `ISsmlBuilder`, `IStylePresetProvider`, `CustomTtsPresetService` (Bot/Services/Tts; saved custom presets, shared by the portal and admin endpoints) |
 | **REST Controllers** | `PortalTtsPresetsController` (member portal presets), `GuildTtsPresetsController` (`api/guilds/{guildId}/tts/presets/custom`, admin page preset bar) |
 | **UI Pages** | Portal: TTS player; Admin: TTS settings configuration |
@@ -280,7 +280,7 @@ Community-driven accountability system where users flag suspicious messages for 
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `Rat Watch` (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard` (RatWatchModule, RatWatchComponentModule) |
+| **Discord Commands** | `/rat clear`, `/rat stats`, `/rat leaderboard` (RatWatchModule, `[Group("rat")]`); `Rat Watch` message context menu and its `ratwatch:create:*:*` modal (RatWatchContextMenuModule, which follows RatWatchModule's toggle); buttons (RatWatchComponentModule) |
 | **Services** | `IRatWatchService`, `IRatWatchStatusService`, `IDashboardUpdateService` |
 | **UI Pages** | Guild: Rat Watch Settings (`Index`), Analytics and Incidents (incident dialog, CSV export of all filtered rows via `?handler=ExportCsv`); Portal: leaderboard; Admin: Rat Watch analytics (`RatWatchAnalytics.cshtml`, shares `rat-watch-analytics.js`) |
 | **Database Entities** | `RatWatch`, `RatRecord`, `RatVote`, `GuildRatWatchSettings` |
@@ -475,6 +475,7 @@ Administrative interface for user CRUD, role assignment, consent management.
 | Aspect | Components |
 |--------|------------|
 | **UI Pages** | Admin: User list, create, edit, details pages (`Users/Index.cshtml`, `Users/Create.cshtml`, etc.) |
+| **Discord Commands** | `/privacy consent-grant`, `/privacy consent-revoke`, `/privacy status` (consent, `GrantedVia = "SlashCommand"`), `/privacy preview-delete`, `/privacy export-data`, `/privacy delete-data` (PrivacyModule) |
 | **Services** | `IUserManagementService`, `IConsentService` |
 | **Database Entities** | `ApplicationUser`, `UserConsent` |
 | **Controllers** | No dedicated controller; integrated in Razor Pages |

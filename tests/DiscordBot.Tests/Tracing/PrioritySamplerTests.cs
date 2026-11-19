@@ -361,6 +361,7 @@ public class PrioritySamplerTests
 
     [Theory]
     [InlineData("service.ratwatch.record_incident")]
+    [InlineData("discord.command rat")]
     [InlineData("discord.command /rat-clear")]
     [InlineData("service.rat_watch.get_stats")]
     public void ShouldSample_RatWatchOperations_UsesHighPriorityRate(string spanName)

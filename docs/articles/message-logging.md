@@ -37,7 +37,7 @@ To protect privacy and reduce storage overhead, the following are excluded from 
 
 Message logging is privacy-conscious by design:
 
-1. **User Consent Required**: Messages are only logged for users who have explicitly granted `MessageLogging` consent via the `/consent` Discord command or the web UI privacy settings
+1. **User Consent Required**: Messages are only logged for users who have explicitly granted `MessageLogging` consent via the `/privacy consent-grant` Discord command or the web UI privacy settings
 2. **Feature Toggle**: Message logging can be globally disabled via the `Features:MessageLoggingEnabled` setting (see [Settings Page](settings-page.md))
 3. **Automatic Retention Policy**: Old messages are automatically cleaned up based on configurable retention periods (default: 90 days)
 4. **GDPR Deletion**: Users can request deletion of all their messages via the API (SuperAdmin only endpoint)
@@ -232,7 +232,7 @@ Message logging requires explicit user consent for privacy compliance. The syste
 - **Behavior:** If user has not granted consent, their messages are silently skipped
 
 Users can manage consent via:
-- **Discord Command:** `/consent` (see consent module documentation)
+- **Discord Command:** `/privacy consent-grant` / `/privacy consent-revoke` (see [Consent and Privacy](consent-privacy.md))
 - **Web UI:** Account > Privacy page (`/Account/Privacy`)
 
 For more details on the consent system, see the user consent documentation.
@@ -839,7 +839,7 @@ Message logging is consent-based. Users must explicitly grant `ConsentType.Messa
 
 **Consent Granting Methods:**
 
-1. **Discord Command:** `/consent` - Interactive slash command with component buttons
+1. **Discord Commands:** `/privacy consent-grant`, `/privacy consent-revoke`, `/privacy status`
 2. **Web UI:** `/Account/Privacy` - Privacy settings page (requires Discord OAuth login)
 
 **Consent Service Integration:**
@@ -954,7 +954,7 @@ The `MessageLoggingHandler` is tested via `MessageLoggingHandlerTests`:
 
 **Possible Causes:**
 
-1. **User Consent Not Granted**: Check if user has granted `MessageLogging` consent via `/consent` command
+1. **User Consent Not Granted**: Check if user has granted `MessageLogging` consent via `/privacy status`
 2. **Feature Disabled**: Verify `Features:MessageLoggingEnabled` setting is `true` in Settings page
 3. **Bot Message**: Bot messages are intentionally excluded from logging
 4. **System Message**: System messages (joins, pins, etc.) are excluded

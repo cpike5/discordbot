@@ -420,9 +420,9 @@ Controls which Discord slash command modules are registered at bot startup. This
 
 | Category | Modules | Can Disable? |
 |----------|---------|-------------|
-| Core | VerifyAccountModule, ConsentModule | No (protected) |
+| Core | VerifyAccountModule | No (protected) |
 | Moderation | ModerationActionModule | Yes |
-| Features | RatWatchModule, ReminderModule, PrivacyModule, WalletModule | Yes |
+| Features | RatWatchModule (and RatWatchContextMenuModule, which follows it), ReminderModule, PrivacyModule (includes the consent commands), WalletModule | Yes |
 | Audio | TtsModule, SoundboardModule, VoiceModule, VoxModule | Yes |
 | Utility | UtilityModule | Yes |
 

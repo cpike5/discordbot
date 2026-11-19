@@ -14,7 +14,7 @@ public record CommandItemViewModel
     public string DisplayName { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the full command name including group prefix (e.g., "/consent grant").
+    /// Gets the full command name including group prefix (e.g., "/privacy consent-grant").
     /// </summary>
     public string FullDisplayName { get; init; } = string.Empty;
 

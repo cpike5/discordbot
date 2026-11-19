@@ -45,7 +45,7 @@ Unlike the existing soundboard (which plays one clip at a time), VOX:
 | **Sound Source** | Per-guild uploaded files (DB-tracked) | Global static clip library (filesystem) |
 | **Management** | Upload/delete per guild | Pre-built, ships with bot |
 | **Audio Processing** | Optional filters | Word gap insertion + concatenation |
-| **Commands** | `/play <sound>` | `/vox`, `/fvox`, `/hgrunt` |
+| **Commands** | `/play <sound>` | `/vox <message> [voice] [gap]` |
 
 ### Clip Groups
 
@@ -53,9 +53,9 @@ Three independent libraries of pre-recorded MP3 clips, each corresponding to a H
 
 | Group | Folder | Command | Description | Estimated Clips |
 |-------|--------|---------|-------------|-----------------|
-| **VOX** | `sounds/vox/` | `/vox` | Half-Life VOX announcement system clips | 100-200 |
-| **FVOX** | `sounds/fvox/` | `/fvox` | Half-Life HEV suit (female VOX) clips | 100-200 |
-| **HGrunt** | `sounds/hgrunt/` | `/hgrunt` | Half-Life military grunt radio clips | 100-200 |
+| **VOX** | `sounds/vox/` | `/vox` (default voice) | Half-Life VOX announcement system clips | 100-200 |
+| **FVOX** | `sounds/fvox/` | `/vox voice:fvox` | Half-Life HEV suit (female VOX) clips | 100-200 |
+| **HGrunt** | `sounds/hgrunt/` | `/vox voice:hgrunt` | Half-Life military grunt radio clips | 100-200 |
 
 ### Key Capabilities
 
@@ -488,141 +488,57 @@ User: /vox message:"warning security breach detected in sector c"
 
 ### /vox
 
-Play a VOX announcement using clips from the `vox` group.
+Play an announcement from one of the three clip libraries. The `voice` option picks the library;
+it defaults to `vox`. Until the slash-command reduction, each library had its own command
+(`/vox`, `/fvox`, `/hgrunt`); those were merged into this one.
 
 ```csharp
-[SlashCommand("vox", "Play a VOX announcement (Half-Life PA system)")]
-[RequireGuildActive]
-[RequireAudioEnabled]
+[SlashCommand("vox", "Play a Half-Life style VOX announcement")]
 [RequireVoiceChannel]
-[RateLimit(5, 10)]
 public async Task VoxAsync(
-    [Summary("message", "Words to announce (space-separated)")]
+    [Summary("message", "The message to play")]
     [MaxLength(500)]
+    [Autocomplete(typeof(VoxClipAutocompleteHandler))]
     string message,
-
-    [Summary("gap", "Silence between words in ms (20-200, default 50)")]
+    [Summary("voice", "Clip library to use (default: vox)")]
+    [Choice("vox (scientist)", "vox")]
+    [Choice("fvox (female scientist)", "fvox")]
+    [Choice("hgrunt (military)", "hgrunt")]
+    string? voice = null,
+    [Summary("gap", "Word gap in milliseconds (20-200)")]
     [MinValue(20)]
     [MaxValue(200)]
     int? gap = null)
 ```
 
-### /fvox
+The module carries `[RequireGuildActive]`, `[RequireAudioEnabled]` and `[RateLimit(5, 10)]`.
+`VoxModule.ParseVoice` maps the option to a `VoxClipGroup`; a missing or unknown value is `Vox`.
 
-Play a FVOX announcement using clips from the `fvox` group.
+| `voice` | Group | Folder |
+|---------|-------|--------|
+| `vox` (default) | `VoxClipGroup.Vox` | `sounds/vox/` |
+| `fvox` | `VoxClipGroup.Fvox` | `sounds/fvox/` |
+| `hgrunt` | `VoxClipGroup.Hgrunt` | `sounds/hgrunt/` |
 
-```csharp
-[SlashCommand("fvox", "Play a FVOX announcement (Half-Life HEV suit)")]
-[RequireGuildActive]
-[RequireAudioEnabled]
-[RequireVoiceChannel]
-[RateLimit(5, 10)]
-public async Task FvoxAsync(
-    [Summary("message", "Words to announce (space-separated)")]
-    [MaxLength(500)]
-    string message,
+Examples:
 
-    [Summary("gap", "Silence between words in ms (20-200, default 50)")]
-    [MinValue(20)]
-    [MaxValue(200)]
-    int? gap = null)
 ```
-
-### /hgrunt
-
-Play an HGrunt announcement using clips from the `hgrunt` group.
-
-```csharp
-[SlashCommand("hgrunt", "Play an HGrunt announcement (Half-Life military radio)")]
-[RequireGuildActive]
-[RequireAudioEnabled]
-[RequireVoiceChannel]
-[RateLimit(5, 10)]
-public async Task HgruntAsync(
-    [Summary("message", "Words to announce (space-separated)")]
-    [MaxLength(500)]
-    string message,
-
-    [Summary("gap", "Silence between words in ms (20-200, default 50)")]
-    [MinValue(20)]
-    [MaxValue(200)]
-    int? gap = null)
+/vox message:"warning security breach detected"
+/vox message:"power level critical" voice:fvox
+/vox message:"move move move" voice:hgrunt gap:30
 ```
 
 ### Autocomplete
 
-Each command's `message` parameter uses an autocomplete handler that suggests available clip names as the user types. Since Discord autocomplete fires on partial input, the handler provides word-level suggestions for the last word being typed.
+The `message` parameter uses `VoxClipAutocompleteHandler`, which suggests clip names for the last
+word being typed and keeps the earlier words. It reads the `voice` option the user has already
+filled in (Discord sends every filled option with an autocomplete request) and searches that
+library, falling back to `vox` when `voice` is not set yet. Pick the voice before typing the
+message to get suggestions from the right library.
 
 ```csharp
-public class VoxAutocompleteHandler : AutocompleteHandler
-{
-    private readonly IVoxClipLibrary _clipLibrary;
-    private readonly VoxClipGroup _group;
-
-    public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
-        IInteractionContext context,
-        IAutocompleteInteraction interaction,
-        IParameterInfo parameter,
-        IServiceProvider services)
-    {
-        var currentInput = interaction.Data.Current.Value?.ToString() ?? "";
-
-        // Get the last word being typed (for mid-sentence autocomplete)
-        var words = currentInput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var lastWord = words.LastOrDefault() ?? "";
-        var prefix = words.Length > 1
-            ? string.Join(' ', words.Take(words.Length - 1)) + " "
-            : "";
-
-        var suggestions = _clipLibrary.SearchClips(_group, lastWord, 25)
-            .Select(clip => new AutocompleteResult(
-                $"{prefix}{clip.Name}",     // Full text with suggestion appended
-                $"{prefix}{clip.Name}"))
-            .ToList();
-
-        return AutocompletionResult.FromSuccess(suggestions);
-    }
-}
-```
-
-Three derived autocomplete handlers (one per group), or a single handler with group resolution based on the command name.
-
-### Module Structure
-
-All three commands can live in a single module or separate modules. Single module approach:
-
-```csharp
-[Group("vox")]  // Not actually grouped - each is a top-level command
-public class VoxModule : InteractionModuleBase<SocketInteractionContext>
-{
-    private readonly IVoxService _voxService;
-
-    // Each method delegates to a shared helper with the appropriate group
-    private async Task PlayVoxAsync(string message, VoxClipGroup group, int? gap)
-    {
-        var options = new VoxPlaybackOptions
-        {
-            WordGapMs = gap ?? 50
-        };
-
-        await DeferAsync();
-
-        var result = await _voxService.PlayAsync(
-            Context.Guild.Id, message, group, options);
-
-        if (result.Success)
-        {
-            var response = $"Playing: {string.Join(" ", result.MatchedWords)}";
-            if (result.SkippedWords.Any())
-                response += $"\nSkipped (no clip): {string.Join(", ", result.SkippedWords)}";
-            await FollowupAsync(response, ephemeral: true);
-        }
-        else
-        {
-            await FollowupAsync($"Error: {result.ErrorMessage}", ephemeral: true);
-        }
-    }
-}
+var group = ResolveGroup(autocompleteInteraction.Data.Options?.Select(o => (o.Name, o.Value)));
+var matchingClips = clipLibrary.SearchClips(group, partialWord, maxResults: 25);
 ```
 
 ---

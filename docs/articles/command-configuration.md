@@ -39,10 +39,12 @@ Optional feature commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `RatWatchModule` | Rat Watch | Rat Watch (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard` |
+| `RatWatchModule` | Rat Watch | `/rat clear`, `/rat stats`, `/rat leaderboard`, and the Rat Watch context menu (in `RatWatchContextMenuModule`, which follows this toggle) |
 | `ReminderModule` | Reminders | `/remind set/list/cancel` |
 | `WalletModule` | Wallet | `/wallet balance/history/pay` |
-| `PrivacyModule` | Privacy | `/privacy preview-delete`, `/privacy export-data`, `/privacy delete-data` |
+| `PrivacyModule` | Privacy | `/privacy consent-grant`, `/privacy consent-revoke`, `/privacy status`, `/privacy preview-delete`, `/privacy export-data`, `/privacy delete-data` |
+
+The consent commands (`consent-grant`, `consent-revoke`, `status`) were the separate, always-enabled `/consent` group (`ConsentModule`) until they were folded into `/privacy`. They now follow the Privacy toggle: disabling Privacy removes them from Discord, and members can still manage consent on the web portal's Account > Privacy page.
 
 ### Audio Commands
 
@@ -50,9 +52,10 @@ Voice channel and audio playback commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `TtsModule` | Text-to-Speech | `/tts <message> [voice]`, `/tts-styled` |
+| `TtsModule` | Text-to-Speech | `/tts <message> [voice] [preset]` |
 | `SoundboardModule` | Soundboard | `/play <sound>`, `/sounds`, `/stop` |
-| `VoiceModule` | Voice | `/join`, `/join-channel <channel>`, `/leave` |
+| `VoiceModule` | Voice | `/join [channel]`, `/leave` |
+| `VoxModule` | VOX | `/vox <message> [voice] [gap]` (`voice`: `vox`, `fvox`, `hgrunt`) |
 
 ### Utility Commands
 
@@ -69,16 +72,16 @@ Essential bot commands that cannot be disabled.
 | Module | Display Name | Commands |
 |--------|--------------|----------|
 | `VerifyAccountModule` | Verify Account | `/verify-account` |
-| `ConsentModule` | Consent | `/consent grant/revoke/status` |
 
 ## Always-Enabled Modules
 
-The following modules are marked as **Core** and cannot be disabled:
+The following module is marked as **Core** and cannot be disabled:
 
 - **VerifyAccountModule** - Account verification commands
-- **ConsentModule** - Privacy consent management commands
 
-These modules are essential for basic bot operation and user privacy compliance. Attempting to disable them through the API will return an error.
+This module is essential for basic bot operation. Attempting to disable it through the API will return an error.
+
+Modules that hold only components or a context menu have no toggle of their own and follow their parent module: a `*ComponentModule` follows the matching `*Module`, and `RatWatchContextMenuModule` follows `RatWatchModule` (an explicit entry in `SlashCommandRegistrationService`), so the Commands tab shows one Rat Watch toggle.
 
 ## Making Changes
 
