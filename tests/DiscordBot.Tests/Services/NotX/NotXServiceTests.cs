@@ -210,4 +210,38 @@ public class NotXServiceTests : IDisposable
 
         result.Should().BeFalse("not-X is opt-in per guild");
     }
+
+    [Fact]
+    public async Task UpdateSettingsAsync_StampsUpdatedAtAndPassesTheEntityToTheRepository()
+    {
+        var settings = new NotXGuildSettings { GuildId = GuildId, UpdatedAt = DateTime.UtcNow.AddDays(-1) };
+        var before = DateTime.UtcNow;
+
+        await CreateService(enabled: true).UpdateSettingsAsync(settings);
+
+        settings.UpdatedAt.Should().BeOnOrAfter(before);
+        _mockRepository.Verify(r => r.UpdateAsync(settings, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void MonitoredChannelIds_RoundTripThroughTheJsonColumn()
+    {
+        var settings = new NotXGuildSettings();
+        // Snowflakes above 2^53 must survive the round trip exactly.
+        var ids = new ulong[] { 1UL, 1234567890123456789UL, ulong.MaxValue };
+
+        settings.SetMonitoredChannelIds(ids);
+
+        settings.MonitoredChannelIdsJson.Should().Be("[1,1234567890123456789,18446744073709551615]");
+        settings.GetMonitoredChannelIds().Should().Equal(ids);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json")]
+    public void GetMonitoredChannelIds_ForMissingOrCorruptJson_MeansAllChannels(string? json)
+    {
+        new NotXGuildSettings { MonitoredChannelIdsJson = json }.GetMonitoredChannelIds().Should().BeEmpty();
+    }
 }

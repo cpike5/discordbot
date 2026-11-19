@@ -29,7 +29,7 @@
 
 not-X surfaces X/Twitter tweet content in Discord when the platform's native embed is suppressed (typically for content marked sensitive/18+ by the tweet author). It operates automatically: it reacts to every `MessageReceived` event, scans for tweet URLs, fetches content via the fxtwitter JSON API, and posts embeds when the sensitivity gate passes.
 
-> **Current limitation: per-guild settings cannot be changed.** The `/notx` slash commands and the "Fetch Tweet" context menu (`NotXCommandModule`, `NotXContextMenuModule`) were removed, and there is no portal page for `NotXGuildSettings` yet. The automatic handler still runs using whatever settings are already stored for each guild. A guild with no settings row (or `IsEnabled = false`) gets no previews, and there is currently no in-product way to change that.
+> **Settings live in the portal.** The `/notx` slash commands and the "Fetch Tweet" context menu were removed. Edit a guild's settings on its **not-X** tab (`/Guilds/NotX/{guildId}`, admins only): turn previews on, choose whether to preview only sensitive tweets, hide the sensitive label, pick an output channel (or "Same channel as the link"), and check the channels to monitor (none checked means every channel). A save applies to the next link posted; the handler reads the settings row on every message. A guild is off until an admin turns it on there. Each save is recorded in the audit log.
 
 The feature has no persistence footprint beyond the guild settings row — tweet content is never stored.
 
@@ -209,8 +209,8 @@ Table: `NotXGuildSettings`
 
 Removed. The `/notx` group (`enable`, `disable`, `status`, `channel set|clear`,
 `monitor add|remove|clear`, `sensitive-only`) was the only way to edit
-`NotXGuildSettings`. There is no replacement yet; a portal settings page is planned
-(see [Known Limitations](#known-limitations)).
+`NotXGuildSettings`. Use the guild's **not-X** page in the portal instead (see the note under
+[Overview](#overview)).
 
 ## Context Menu Command Reference
 
@@ -299,8 +299,8 @@ On the manual path (`ignoreSettingsGate = true`), only the `fxtwitter result = n
 | Tweet deleted (404) | None (logged at Debug) | Not recoverable; tweet is gone |
 | Private account (401) | None (logged at Debug) | Not recoverable without account auth |
 | JSON deserialization error | None (logged at Warning with raw body excerpt) | Indicates API schema change; requires code update |
-| Output channel permission denied | N/A (the `/notx channel set` command that validated this was removed) | Fix the bot's channel permissions |
-| Guild settings missing (null) | None (treated as disabled) | No way to create one currently (the `/notx enable` command was removed) |
+| Output channel permission denied | None; the portal page only checks that the channel belongs to the guild, not the bot's permissions there | Fix the bot's channel permissions |
+| Guild settings missing (null) | None (treated as disabled) | Open the guild's not-X page in the portal and save; the page also creates the default row (disabled) when it is first opened |
 
 The bot never posts an error message to any guild channel. All errors are internal.
 
@@ -391,7 +391,6 @@ Tags:
 | **No quote-tweet inlining** | Quoted tweets are not recursively fetched and inlined. | Phase 2 |
 | **No in-memory deduplication** | If the same tweet URL is posted multiple times in a channel in quick succession, each message triggers an independent embed post. | Phase 2 |
 | **Per-guild rate limiting absent** | High-volume guilds could stress fxtwitter; no backpressure mechanism in phase 1. | Phase 2 |
-| **No way to change guild settings** | The `/notx` slash commands were removed and there is no web portal page for `NotXGuildSettings` yet, so per-guild settings cannot currently be edited. | Phase 2 |
 | **Private/protected tweets** | fxtwitter cannot access protected accounts; these are permanently unavailable. | Won't fix |
 | **No `possibly_sensitive` guarantee** | X's flagging is author-controlled. Authors can unflag content at will; this does not retroactively affect embeds already posted. | Won't fix |
 | **Single process deduplication only** | If the bot is scaled horizontally, in-memory dedup caches (when added) will not be shared without a distributed cache layer. | Phase 2 |

@@ -491,9 +491,9 @@ Axis C: NotXGuildSettings.IsEnabled == true?
 ```
 
 There are no not-X slash commands or context menus any more, so there is no Commands-tab axis.
-Axis C can currently not be changed from Discord or the portal: the `/notx` commands were
-removed and no portal page for `NotXGuildSettings` exists yet, so the stored per-guild
-settings apply as they are.
+Axis C is edited on the guild's not-X page in the portal (`/Guilds/NotX/{guildId}`, the
+"not-X" tab). When Axis 0 or B is off the tab is hidden, and the page, if opened directly,
+shows a banner saying previews are disabled bot-wide.
 
 not-X has an extra```
 

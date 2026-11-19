@@ -8,6 +8,9 @@ namespace DiscordBot.Bot.Configuration;
 /// </summary>
 public static class GuildNavigationConfig
 {
+    /// <summary>Tab ID of the not-X settings page, the one tab that hides with its feature switch.</summary>
+    public const string NotXTabId = "notx";
+
     /// <summary>
     /// Gets the list of navigation tabs for guild pages.
     /// </summary>
@@ -108,11 +111,22 @@ public static class GuildNavigationConfig
             },
             new()
             {
+                // Hidden by _GuildLayout while previews are switched off bot-wide; see NotXTabId.
+                Id = NotXTabId,
+                Label = "not-X",
+                PageName = "/Guilds/NotX",
+                UrlPattern = "/Guilds/NotX/{guildId}",
+                Order = 10,
+                IconOutline = "M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1",
+                IconSolid = "M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"
+            },
+            new()
+            {
                 Id = "assistant",
                 Label = "Assistant",
                 PageName = "/Guilds/AssistantSettings",
                 UrlPattern = "/Guilds/AssistantSettings/{guildId}",
-                Order = 10,
+                Order = 11,
                 IconOutline = "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
                 IconSolid = "M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z"
             },
@@ -122,7 +136,7 @@ public static class GuildNavigationConfig
                 Label = "Feature Requests",
                 PageName = "/Guilds/FeatureRequests/Index",
                 UrlPattern = "/Guilds/FeatureRequests/{guildId}",
-                Order = 11,
+                Order = 12,
                 IconOutline = "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
                 IconSolid = "M9 2a1 1 0 000 2h2a1 1 0 100-2H9z M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9 8a1 1 0 10-2 0v3a1 1 0 102 0v-3zm-3.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L11 12.586l-1.293-1.293z"
             }

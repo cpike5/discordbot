@@ -1,6 +1,6 @@
 # Slash Command Reduction: Follow-up Work
 
-**Status:** Implemented (A pending: not-X portal settings page)
+**Status:** Implemented (A: not-X portal settings page, `/Guilds/NotX/{guildId}`)
 **Depends on:** PR #2000 (removal of portal-covered and low-value slash commands)
 
 ## Background
