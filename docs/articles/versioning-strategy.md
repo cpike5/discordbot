@@ -380,16 +380,21 @@ Example: `0.1.0-pr.45+a3f2e1c`
 
 ### Test Execution and Reporting
 
-CI workflow executes all tests with coverage collection:
+CI workflow executes all tests. Pushes to `main` also collect coverage; pull request runs skip it,
+because the instrumentation adds about a minute and only the artifact reads it:
 
 ```bash
 dotnet test --configuration Release --no-build --verbosity normal \
-  --logger "trx" --collect:"XPlat Code Coverage"
+  --logger "trx" --collect:"XPlat Code Coverage"   # coverage flag on main only
 ```
+
+The PostgreSQL service container runs with `fsync`, `full_page_writes` and `synchronous_commit`
+off: it is thrown away with the job, and every test's `DROP DATABASE` forces a checkpoint that
+otherwise dominates the run.
 
 **Artifacts Uploaded:**
 - Test results (`.trx` files) retained for 30 days
-- Code coverage reports (Cobertura XML) retained for 30 days
+- Code coverage reports (Cobertura XML, `main` only) retained for 30 days
 
 ---
 
