@@ -317,19 +317,25 @@ public class VoxModule : InteractionModuleBase<SocketInteractionContext>
         _logger = logger;
     }
 
-    [SlashCommand("vox", "Play a VOX group announcement")]
+    // One command with a choice option instead of near-duplicate commands (/vox, /fvox, /hgrunt).
+    [SlashCommand("vox", "Play a Half-Life style VOX announcement")]
     [RequireVoiceChannel]
     public async Task VoxAsync(
         [Summary("message", "The message to play")]
         [MaxLength(500)]
-        [Autocomplete(typeof(VoxClipAutocompleteHandler))]
+        [Autocomplete(typeof(VoxClipAutocompleteHandler))] // reads the "voice" option
         string message,
+        [Summary("voice", "Clip library to use (default: vox)")]
+        [Choice("vox (scientist)", VoiceVox)]
+        [Choice("fvox (female scientist)", VoiceFvox)]
+        [Choice("hgrunt (military)", VoiceHgrunt)]
+        string? voice = null,
         [Summary("gap", "Word gap in milliseconds (20-200)")]
         [MinValue(20)]
         [MaxValue(200)]
         int? gap = null)
     {
-        await PlayVoxAsync(message, VoxClipGroup.Vox, gap);
+        await PlayVoxAsync(message, ParseVoice(voice), gap);
     }
 
     private async Task PlayVoxAsync(string message, VoxClipGroup group, int? gap)
@@ -354,6 +360,19 @@ public class VoxModule : InteractionModuleBase<SocketInteractionContext>
     // ...
 }
 ```
+
+Preconditions such as `[RateLimit]` can also go on a single command. `PrivacyModule` does this so
+its consent subcommands (5 a minute) and its data export and deletion subcommands (2 a minute) keep
+different limits inside one `[Group]`.
+
+### Context Menus Next to a Grouped Module
+
+Discord does not allow a context menu command inside a `[Group]`. A feature whose slash commands are
+grouped keeps its context menu (and any modal it opens, so the modal ID is not prefixed with the
+group name) in a separate module, as `RatWatchContextMenuModule` does for `/rat`. That module has no
+`DefaultModules` row of its own: add it to `ExplicitCompanionModules` in
+`SlashCommandRegistrationService` so it follows the parent's toggle. `*ComponentModule` classes
+follow their `*Module` by naming convention and need no entry.
 
 ---
 

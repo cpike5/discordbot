@@ -14,7 +14,7 @@ public class CommandInfoDto
     /// <summary>
     /// Gets or sets the full command name including group prefix.
     /// </summary>
-    /// <example>consent grant, user info</example>
+    /// <example>privacy consent-grant, rat stats</example>
     public string FullName { get; set; } = string.Empty;
 
     /// <summary>

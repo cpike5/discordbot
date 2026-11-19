@@ -80,7 +80,7 @@ public class DocumentationToolProvider : IToolProvider
     {
         new("Soundboard", "Audio", "Upload and play audio clips in voice channels.", "soundboard"),
         new("Text-to-Speech", "Audio", "Send text-to-speech messages to voice channels using Azure Cognitive Services.", "tts-support"),
-        new("VOX System", "Audio", "Half-Life style concatenated clip announcements using /vox, /fvox, and /hgrunt commands.", "vox-system-spec"),
+        new("VOX System", "Audio", "Half-Life style concatenated clip announcements using the /vox command (vox, fvox, or hgrunt voice).", "vox-system-spec"),
         new("Rat Watch", "Accountability", "Community accountability system with voting, tracking, and leaderboards.", "rat-watch"),
         new("Reminders", "Productivity", "Personal reminders with natural language time parsing.", "reminder-system"),
         new("Scheduled Messages", "Automation", "Schedule one-time or recurring messages to channels.", "scheduled-messages"),

@@ -88,7 +88,7 @@ Sets `ModifiedByUser = true`. User-modified fields are preserved during automati
 
 ### Consent Commands (existing, extended)
 
-`/consent grant ProfileExtraction` and `/consent revoke ProfileExtraction` are handled by the existing `ConsentModule`. The `ProfileExtraction` type appears in `/consent status` alongside `MessageLogging` and `AssistantUsage`.
+`/privacy consent-grant ProfileExtraction` and `/privacy consent-revoke ProfileExtraction` are handled by the existing consent subcommands in `PrivacyModule`. The `ProfileExtraction` type appears in `/privacy status` alongside `MessageLogging` and `AssistantUsage`.
 
 ---
 

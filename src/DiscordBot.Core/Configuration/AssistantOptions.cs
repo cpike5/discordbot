@@ -347,7 +347,7 @@ public class AssistantOptions
     }
 
     /// <summary>
-    /// Gets or sets whether users must explicitly opt-in via /consent before using the assistant.
+    /// Gets or sets whether users must explicitly opt-in via /privacy consent-grant before using the assistant.
     /// </summary>
     [Obsolete("Use Privacy.RequireExplicitConsent instead.")]
     public bool RequireExplicitConsent

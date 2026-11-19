@@ -370,6 +370,7 @@ public class ElasticApmTransactionFilterTests
 
     [Theory]
     [InlineData("service.ratwatch.record_incident")]
+    [InlineData("discord.command rat")]
     [InlineData("discord.command /rat-clear")]
     [InlineData("service.rat_watch.get_stats")]
     public void Filter_RatWatchOperations_UsesHighPriorityRate(string transactionName)

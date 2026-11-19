@@ -171,8 +171,10 @@ public class PrioritySampler : Sampler
             return true;
         }
 
-        // Rat Watch operations
+        // Rat Watch operations (the /rat group's commands trace as "discord.command rat")
         if (spanName.Contains("ratwatch", StringComparison.OrdinalIgnoreCase) ||
+            spanName.Equals("discord.command rat", StringComparison.OrdinalIgnoreCase) ||
+            spanName.StartsWith("discord.command rat ", StringComparison.OrdinalIgnoreCase) ||
             spanName.Contains("rat-", StringComparison.OrdinalIgnoreCase) ||
             spanName.Contains("rat_", StringComparison.OrdinalIgnoreCase))
         {

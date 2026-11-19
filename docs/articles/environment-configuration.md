@@ -580,7 +580,7 @@ Controls automatic cleanup of Discord message logs (requires user consent).
 }
 ```
 
-**GDPR Considerations:** Message log retention should align with your data retention policy. Users can request data deletion via `/consent revoke` which bypasses retention settings.
+**GDPR Considerations:** Message log retention should align with your data retention policy. Users can request data deletion via `/privacy delete-data` which bypasses retention settings.
 
 ### Scheduled Messages
 

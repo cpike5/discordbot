@@ -109,7 +109,7 @@ public class AssistantService : IAssistantService
             if (!await _accessGate.HasConsentAsync(userId, cancellationToken))
             {
                 return AssistantResponseResult.ErrorResult(
-                    "You need to grant consent before using the AI assistant. Use `/consent grant type:assistant` to enable this feature.");
+                    "You need to grant consent before using the AI assistant. Use `/privacy consent-grant type:AssistantUsage` to enable this feature.");
             }
 
             var rateLimit = await _accessGate.GetRateLimitAsync(guildId, cancellationToken);

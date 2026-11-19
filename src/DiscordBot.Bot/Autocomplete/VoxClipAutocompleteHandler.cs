@@ -1,19 +1,27 @@
 using Discord;
 using Discord.Interactions;
+using DiscordBot.Bot.Commands;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.Vox;
 
 namespace DiscordBot.Bot.Autocomplete;
 
 /// <summary>
-/// Provides autocomplete suggestions for VOX clip names in the /vox command.
-/// Searches the VOX clip library based on the last word being typed.
+/// Provides autocomplete suggestions for clip names in the <c>/vox</c> command.
+/// Searches the clip library chosen by the command's <c>voice</c> option (VOX when it is not set)
+/// based on the last word being typed.
 /// </summary>
 public class VoxClipAutocompleteHandler : AutocompleteHandler
 {
     /// <summary>
-    /// Generates autocomplete suggestions for VOX clips within the current guild.
-    /// Extracts the last word from the user's input and searches for matching clips.
+    /// The name of the <c>/vox</c> option that selects the clip library.
+    /// </summary>
+    public const string VoiceOptionName = "voice";
+
+    /// <summary>
+    /// Generates autocomplete suggestions for clips within the current guild.
+    /// Extracts the last word from the user's input and searches for matching clips
+    /// in the library selected by the <c>voice</c> option.
     /// </summary>
     /// <param name="context">The interaction context for the current command execution.</param>
     /// <param name="autocompleteInteraction">The autocomplete interaction data.</param>
@@ -26,35 +34,12 @@ public class VoxClipAutocompleteHandler : AutocompleteHandler
         IParameterInfo parameter,
         IServiceProvider services)
     {
-        return GenerateSuggestionsForGroup(
-            context,
-            autocompleteInteraction,
-            parameter,
-            services,
-            VoxClipGroup.Vox);
-    }
-
-    /// <summary>
-    /// Generates autocomplete suggestions for a specific VOX clip group.
-    /// </summary>
-    /// <param name="context">The interaction context.</param>
-    /// <param name="autocompleteInteraction">The autocomplete interaction data.</param>
-    /// <param name="parameter">Information about the command parameter.</param>
-    /// <param name="services">Service provider for resolving dependencies.</param>
-    /// <param name="group">The VOX clip group to search.</param>
-    /// <returns>An AutocompletionResult containing matching clip suggestions.</returns>
-    protected static Task<AutocompletionResult> GenerateSuggestionsForGroup(
-        IInteractionContext context,
-        IAutocompleteInteraction autocompleteInteraction,
-        IParameterInfo parameter,
-        IServiceProvider services,
-        VoxClipGroup group)
-    {
         if (context.Guild == null)
         {
             return Task.FromResult(AutocompletionResult.FromSuccess());
         }
 
+        var group = ResolveGroup(autocompleteInteraction.Data.Options?.Select(o => (o.Name, o.Value)));
         var clipLibrary = services.GetRequiredService<IVoxClipLibrary>();
         var userInput = autocompleteInteraction.Data.Current.Value?.ToString() ?? string.Empty;
 
@@ -86,48 +71,19 @@ public class VoxClipAutocompleteHandler : AutocompleteHandler
 
         return Task.FromResult(AutocompletionResult.FromSuccess(results));
     }
-}
 
-/// <summary>
-/// Provides autocomplete suggestions for FVOX clip names in the /fvox command.
-/// Searches the FVOX clip library based on the last word being typed.
-/// </summary>
-public class FvoxClipAutocompleteHandler : VoxClipAutocompleteHandler
-{
-    /// <inheritdoc />
-    public override Task<AutocompletionResult> GenerateSuggestionsAsync(
-        IInteractionContext context,
-        IAutocompleteInteraction autocompleteInteraction,
-        IParameterInfo parameter,
-        IServiceProvider services)
+    /// <summary>
+    /// Reads the clip library from the <c>voice</c> option the user has already filled in.
+    /// </summary>
+    /// <param name="options">The name and value of each option sent with the autocomplete interaction.</param>
+    /// <returns>The selected clip group, or <see cref="VoxClipGroup.Vox"/> when none is chosen.</returns>
+    public static VoxClipGroup ResolveGroup(IEnumerable<(string Name, object? Value)>? options)
     {
-        return GenerateSuggestionsForGroup(
-            context,
-            autocompleteInteraction,
-            parameter,
-            services,
-            VoxClipGroup.Fvox);
-    }
-}
+        var voice = options?
+            .FirstOrDefault(o => string.Equals(o.Name, VoiceOptionName, StringComparison.OrdinalIgnoreCase))
+            .Value?
+            .ToString();
 
-/// <summary>
-/// Provides autocomplete suggestions for HGRUNT clip names in the /hgrunt command.
-/// Searches the HGRUNT clip library based on the last word being typed.
-/// </summary>
-public class HgruntClipAutocompleteHandler : VoxClipAutocompleteHandler
-{
-    /// <inheritdoc />
-    public override Task<AutocompletionResult> GenerateSuggestionsAsync(
-        IInteractionContext context,
-        IAutocompleteInteraction autocompleteInteraction,
-        IParameterInfo parameter,
-        IServiceProvider services)
-    {
-        return GenerateSuggestionsForGroup(
-            context,
-            autocompleteInteraction,
-            parameter,
-            services,
-            VoxClipGroup.Hgrunt);
+        return VoxModule.ParseVoice(voice);
     }
 }
