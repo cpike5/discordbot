@@ -337,6 +337,8 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | `Features:AudioEnabled` | Features | Boolean | `true` | Global audio (soundboard, TTS, voice) toggle |
 | `Features:CurrencyEnabled` | Features | Boolean | `true` | Global virtual currency toggle. Off charges nothing and refuses the wallet commands; `Currency:Enabled` decides whether the feature is registered at all |
 | `Assistant:GloballyEnabled` | Features | Boolean | `false` | Global AI assistant toggle |
+| `DmAssistant:Enabled` | Features | Boolean | `false` | DM (owner) assistant toggle |
+| `DmAssistant:CustomInstructions` | Features | String (multi-line) | `""` | Owner-written instructions appended to the DM assistant's system prompt under "Owner's custom instructions" (response style, tone, format). Max 2,000 characters, line breaks counted as one. Empty adds nothing. Read when each DM conversation turn starts, so a save applies from the next message with no restart. Can also be set as `DmAssistant:CustomInstructions` in configuration; a saved DB value wins |
 | `Advanced:MessageLogRetentionDays` | Advanced | Integer | `90` | Message log retention (range: 1-365) |
 | `Advanced:AuditLogRetentionDays` | Advanced | Integer | `90` | Audit log retention (range: 1-365) |
 | `Appearance:DefaultThemeId` | Appearance | Integer | `""` | Default UI theme (SuperAdmin only) |

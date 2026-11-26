@@ -33,6 +33,10 @@ public class DmAssistantContext : IAssistantContext
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ISkillActivationState? _skills;
     private readonly IDmSkillActivationStore? _skillActivations;
+    private readonly string? _customInstructions;
+
+    /// <summary>Heading that introduces the owner's custom instructions in the system prompt.</summary>
+    public const string CustomInstructionsHeading = "## Owner's custom instructions";
 
     public DmAssistantContext(
         ulong userId,
@@ -49,7 +53,8 @@ public class DmAssistantContext : IAssistantContext
         LlmCatalogPricing? resolvedPricing = null,
         ILlmUsageRecorder? usageRecorder = null,
         ISkillActivationState? skills = null,
-        IDmSkillActivationStore? skillActivations = null)
+        IDmSkillActivationStore? skillActivations = null,
+        string? customInstructions = null)
     {
         _userId = userId;
         ToolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
@@ -65,6 +70,7 @@ public class DmAssistantContext : IAssistantContext
         _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
         _skills = skills;
         _skillActivations = skillActivations;
+        _customInstructions = string.IsNullOrWhiteSpace(customInstructions) ? null : customInstructions.Trim();
 
         // The DM assistant is owner-only — access is decided before a message ever reaches here,
         // so there is no narrower permission left to express.
@@ -133,10 +139,31 @@ public class DmAssistantContext : IAssistantContext
             prompt = "You are a helpful AI assistant. Be concise and accurate.";
         }
 
+        prompt = AppendCustomInstructions(prompt, _customInstructions);
+
         // The roster, plus the instructions of anything replayed from a previous turn: the tool
         // result that carried them the first time is not in the sliding-window history, so without
         // this the tools would come back on turn 2 without the instructions that explain them.
         return SkillRoster.Append(prompt, _skills);
+    }
+
+    /// <summary>
+    /// Appends the owner's custom instructions (the <c>DmAssistant:CustomInstructions</c> setting)
+    /// after the base prompt. They come after it so a style preference can refine the defaults,
+    /// and before the skill roster so the roster stays the prompt's last section as before.
+    /// </summary>
+    public static string AppendCustomInstructions(string prompt, string? customInstructions)
+    {
+        if (string.IsNullOrWhiteSpace(customInstructions))
+        {
+            return prompt;
+        }
+
+        return prompt.TrimEnd()
+            + "\n\n" + CustomInstructionsHeading + "\n\n"
+            + "The bot owner set these preferences for how you respond. Follow them unless they conflict "
+            + "with the rules above about tools, safety, or accuracy.\n\n"
+            + customInstructions.Trim();
     }
 
     /// <inheritdoc />
