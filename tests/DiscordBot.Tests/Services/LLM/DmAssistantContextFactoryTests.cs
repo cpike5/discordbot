@@ -26,7 +26,8 @@ namespace DiscordBot.Tests.Services.LLM;
 public class DmAssistantContextFactoryTests
 {
     private static DmAssistantContextFactory BuildFactory(
-        ILlmModelResolver modelResolver, DmAssistantOptions? options = null)
+        ILlmModelResolver modelResolver, DmAssistantOptions? options = null,
+        ISettingsService? settingsService = null, IPromptTemplate? promptTemplate = null)
     {
         var mockConversationRepo = new Mock<IDmConversationMessageRepository>();
         mockConversationRepo
@@ -36,7 +37,7 @@ public class DmAssistantContextFactoryTests
         return new DmAssistantContextFactory(
             Enumerable.Empty<IDmToolProvider>(),
             NullLoggerFactory.Instance,
-            Mock.Of<IPromptTemplate>(),
+            promptTemplate ?? Mock.Of<IPromptTemplate>(),
             mockConversationRepo.Object,
             Mock.Of<IDmAssistantInteractionLogRepository>(),
             Mock.Of<IDmAssistantUsageMetricsRepository>(),
@@ -45,7 +46,8 @@ public class DmAssistantContextFactoryTests
             Options.Create(options ?? new DmAssistantOptions()),
             Mock.Of<ILlmUsageRecorder>(),
             new StubSkillSessionFactory(),
-            new DmSkillActivationStore(new MemoryCache(new MemoryCacheOptions())));
+            new DmSkillActivationStore(new MemoryCache(new MemoryCacheOptions())),
+            settingsService ?? Mock.Of<ISettingsService>());
     }
 
     [Fact]
@@ -116,5 +118,83 @@ public class DmAssistantContextFactoryTests
         context.CostRates.OutputPerMillion.Should().Be(15m, "the catalog did not report this price");
         context.CostRates.CachedPerMillion.Should().Be(0.3m, "the catalog did not report this price");
         context.CostRates.CacheWritePerMillion.Should().Be(3.75m, "the catalog did not report this price");
+    }
+
+    private static Mock<ILlmModelResolver> DefaultResolver()
+    {
+        var mockResolver = new Mock<ILlmModelResolver>();
+        mockResolver
+            .Setup(r => r.ResolveAsync(LlmMode.DmAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel
+            {
+                Slug = "test/model",
+                Source = LlmModelResolutionSource.Database,
+                ConfiguredSlug = "test/model",
+                IsEnabled = true,
+                IsAvailable = true
+            });
+        return mockResolver;
+    }
+
+    private static IPromptTemplate BasePrompt(string text)
+    {
+        var mock = new Mock<IPromptTemplate>();
+        mock.Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(text);
+        return mock.Object;
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithCustomInstructionsSetting_AppendsThemToSystemPrompt()
+    {
+        var settings = new Mock<ISettingsService>();
+        settings
+            .Setup(s => s.GetSettingValueAsync<string>(
+                DiscordBot.Infrastructure.Services.SettingDefinitions.DmAssistantCustomInstructionsKey,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync("  Answer in bullet points.  ");
+
+        var factory = BuildFactory(DefaultResolver().Object, settingsService: settings.Object,
+            promptTemplate: BasePrompt("Base prompt."));
+
+        var context = await factory.CreateAsync(userId: 1, activeGuildId: null, CancellationToken.None);
+        var prompt = await context.BuildSystemPromptAsync(CancellationToken.None);
+
+        prompt.Should().StartWith("Base prompt.");
+        prompt.Should().Contain(DmAssistantContext.CustomInstructionsHeading);
+        prompt.Should().EndWith("Answer in bullet points.");
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithBlankCustomInstructions_LeavesSystemPromptUnchanged()
+    {
+        var settings = new Mock<ISettingsService>();
+        settings
+            .Setup(s => s.GetSettingValueAsync<string>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("   ");
+
+        var factory = BuildFactory(DefaultResolver().Object, settingsService: settings.Object,
+            promptTemplate: BasePrompt("Base prompt."));
+
+        var context = await factory.CreateAsync(userId: 1, activeGuildId: null, CancellationToken.None);
+        var prompt = await context.BuildSystemPromptAsync(CancellationToken.None);
+
+        prompt.Should().Be("Base prompt.");
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenSettingsReadFails_StillBuildsPromptWithoutInstructions()
+    {
+        var settings = new Mock<ISettingsService>();
+        settings
+            .Setup(s => s.GetSettingValueAsync<string>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("db down"));
+
+        var factory = BuildFactory(DefaultResolver().Object, settingsService: settings.Object,
+            promptTemplate: BasePrompt("Base prompt."));
+
+        var context = await factory.CreateAsync(userId: 1, activeGuildId: null, CancellationToken.None);
+        var prompt = await context.BuildSystemPromptAsync(CancellationToken.None);
+
+        prompt.Should().Be("Base prompt.");
     }
 }

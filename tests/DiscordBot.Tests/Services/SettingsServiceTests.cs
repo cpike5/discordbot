@@ -1372,6 +1372,45 @@ public class SettingsServiceTests
     #region Validation Tests
 
     [Fact]
+    public async Task UpdateSettingsAsync_RejectsStringLongerThanMaxLength()
+    {
+        var key = SettingDefinitions.DmAssistantCustomInstructionsKey;
+        var updates = new SettingsUpdateDto
+        {
+            Settings = new Dictionary<string, string>
+            {
+                { key, new string('a', SettingDefinitions.DmAssistantCustomInstructionsMaxLength + 1) }
+            }
+        };
+
+        var result = await _service.UpdateSettingsAsync(updates, "user123");
+
+        result.Success.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Contain($"at most {SettingDefinitions.DmAssistantCustomInstructionsMaxLength} characters");
+        result.UpdatedKeys.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task UpdateSettingsAsync_CountsCrLfAsOneCharacter_LikeTheBrowserTextarea()
+    {
+        // A value exactly at the limit as the browser counts it (\n = 1), submitted with CRLF line breaks.
+        var max = SettingDefinitions.DmAssistantCustomInstructionsMaxLength;
+        var value = new string('a', max - 2) + "\r\n" + "b";
+        _mockRepository
+            .Setup(r => r.UpsertAsync(It.IsAny<ApplicationSetting>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.UpdateSettingsAsync(new SettingsUpdateDto
+        {
+            Settings = new Dictionary<string, string> { { SettingDefinitions.DmAssistantCustomInstructionsKey, value } }
+        }, "user123");
+
+        result.Success.Should().BeTrue();
+        result.UpdatedKeys.Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task UpdateSettingsAsync_ValidatesMinimumValue()
     {
         // Arrange

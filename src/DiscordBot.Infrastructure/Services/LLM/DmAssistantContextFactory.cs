@@ -31,6 +31,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ISkillSessionFactory _skillSessions;
     private readonly IDmSkillActivationStore _skillActivations;
+    private readonly ISettingsService _settingsService;
 
     public DmAssistantContextFactory(
         IEnumerable<IDmToolProvider> dmToolProviders,
@@ -44,7 +45,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         IOptions<DmAssistantOptions> options,
         ILlmUsageRecorder usageRecorder,
         ISkillSessionFactory skillSessions,
-        IDmSkillActivationStore skillActivations)
+        IDmSkillActivationStore skillActivations,
+        ISettingsService settingsService)
     {
         _dmToolProviders = dmToolProviders ?? throw new ArgumentNullException(nameof(dmToolProviders));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
@@ -58,6 +60,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
         _skillSessions = skillSessions ?? throw new ArgumentNullException(nameof(skillSessions));
         _skillActivations = skillActivations ?? throw new ArgumentNullException(nameof(skillActivations));
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
     }
 
     /// <inheritdoc />
@@ -86,6 +89,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         var skills = await _skillSessions.CreateAsync(
             _options.SkillsPath, toolRegistry, _skillActivations.Get(userId), cancellationToken);
 
+        var customInstructions = await LoadCustomInstructionsAsync(cancellationToken);
+
         return new DmAssistantContext(
             userId,
             activeGuildId,
@@ -101,7 +106,28 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             resolved.Pricing,
             _usageRecorder,
             skills,
-            _skillActivations);
+            _skillActivations,
+            customInstructions);
+    }
+
+    /// <summary>
+    /// The owner's custom instructions from the admin Settings page (Features tab), or null when
+    /// none are set. A failed read costs the turn its custom style, not the reply.
+    /// </summary>
+    private async Task<string?> LoadCustomInstructionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var value = await _settingsService.GetSettingValueAsync<string>(
+                SettingDefinitions.DmAssistantCustomInstructionsKey, cancellationToken);
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _loggerFactory.CreateLogger<DmAssistantContextFactory>()
+                .LogWarning(ex, "Failed to load DM assistant custom instructions; continuing without them");
+            return null;
+        }
     }
 
     /// <inheritdoc />

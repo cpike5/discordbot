@@ -5,6 +5,31 @@
 @{
     var inputId = $"setting_{Model.Key.Replace(":", "_").Replace(".", "_")}";
     var inputName = $"FormSettings[{Model.Key}]";
+
+    // A String setting whose validation rules say "multiline" (free-form prose such as the DM
+    // assistant's custom instructions) gets a full-width textarea instead of a one-line input.
+    var isMultiline = false;
+    int? maxLength = null;
+    if (Model.DataType == SettingDataType.String && !string.IsNullOrEmpty(Model.ValidationRules))
+    {
+        try
+        {
+            using var rules = System.Text.Json.JsonDocument.Parse(Model.ValidationRules);
+            if (rules.RootElement.TryGetProperty("multiline", out var multiline)
+                && multiline.ValueKind == System.Text.Json.JsonValueKind.True)
+            {
+                isMultiline = true;
+            }
+            if (rules.RootElement.TryGetProperty("maxLength", out var max) && max.TryGetInt32(out var maxValue))
+            {
+                maxLength = maxValue;
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Malformed rules only cost the field its hints; it still renders as a text input.
+        }
+    }
 }
 
 @if (Model.DataType == SettingDataType.Boolean)
@@ -100,6 +125,26 @@ else if (Model.DataType == SettingDataType.Integer || Model.DataType == SettingD
                 Restart Required
             </span>
         }
+    </div>
+}
+else if (isMultiline)
+{
+    <!-- Multi-line Text -->
+    <div class="lg:col-span-2">
+        @{
+            var textareaViewModel = new FormTextareaViewModel
+            {
+                Id = inputId,
+                Name = inputName,
+                Label = Model.DisplayName,
+                Value = Model.Value,
+                HelpText = Model.Description,
+                Rows = 6,
+                MaxLength = maxLength,
+                IsRequired = false
+            };
+        }
+        <partial name="Components/_FormTextarea" model="textareaViewModel" />
     </div>
 }
 else

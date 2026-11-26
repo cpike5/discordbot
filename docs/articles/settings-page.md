@@ -106,6 +106,11 @@ This allows:
 | `Features:MessageLoggingEnabled` | Message Logging | Boolean | `true` | No | Enable or disable Discord message logging globally |
 | `Features:WelcomeMessagesEnabled` | Welcome Messages | Boolean | `true` | No | Enable or disable welcome messages globally (in addition to per-guild settings) |
 | `Features:RatWatchEnabled` | Rat Watch | Boolean | `true` | No | Enable or disable the Rat Watch accountability feature globally |
+| `DmAssistant:CustomInstructions` | DM Assistant Instructions | String (multi-line) | `""` | No | Extra instructions appended to the DM assistant's system prompt (response style, tone). Max 2,000 characters |
+
+A `String` setting whose validation rules include `"multiline": true` renders as a full-width
+textarea instead of a one-line input, and a `"maxLength"` rule is enforced on save (line breaks
+count as one character, matching the browser's `maxlength`).
 
 ### Advanced Category
 

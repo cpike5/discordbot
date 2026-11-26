@@ -453,6 +453,9 @@ public class SettingsService : ISettingsService
                 }
                 break;
 
+            case SettingDataType.String:
+                return ValidateStringLength(value, definition.ValidationRules);
+
             case SettingDataType.Json:
                 try
                 {
@@ -463,6 +466,35 @@ public class SettingsService : ISettingsService
                     return "Value must be valid JSON";
                 }
                 break;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Validates a string value against an optional <c>maxLength</c> rule.
+    /// </summary>
+    private static string? ValidateStringLength(string? value, string? validationRulesJson)
+    {
+        if (validationRulesJson == null)
+        {
+            return null;
+        }
+
+        var rules = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(validationRulesJson);
+        if (rules == null
+            || !rules.TryGetValue("maxLength", out var maxElement)
+            || !maxElement.TryGetInt32(out var maxLength))
+        {
+            return null;
+        }
+
+        // A textarea's maxlength counts a line break as one character but submits it as CRLF, so
+        // count the way the browser does or a value at the limit would be refused on save.
+        var length = (value ?? string.Empty).Replace("\r\n", "\n").Length;
+        if (length > maxLength)
+        {
+            return $"Value must be at most {maxLength} characters (it is {length})";
         }
 
         return null;

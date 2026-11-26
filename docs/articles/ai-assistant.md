@@ -312,6 +312,15 @@ resolver's per-mode cache is invalidated on save via `ISettingsService.SettingsC
 non-Claude model does not break anything, but prompt caching (below) only pays off on Claude-family
 slugs. See `docs/articles/settings-page.md` ("AI Models Tab") for the UI details.
 
+**Custom instructions for the DM assistant.** The owner can tell the DM assistant how to respond —
+"answer in bullet points", "be terse", "use metric units" — from **Admin → Settings → Features →
+DM Assistant Instructions**. The text (up to 2,000 characters) is appended to the owner system
+prompt under an "Owner's custom instructions" heading, after the base prompt and before the skill
+roster, with a line telling the model to follow it unless it conflicts with the prompt's rules
+about tools, safety, or accuracy. It is read each time a DM turn starts, so a save applies from the
+next message. Leaving it empty sends exactly the prompt the DM assistant had before. The guild
+(@mention) assistant does not use it.
+
 #### Tool Configuration
 
 | Setting | Default | Description |

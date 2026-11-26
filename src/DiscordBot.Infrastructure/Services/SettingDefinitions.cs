@@ -62,6 +62,16 @@ public static class SettingDefinitions
         "Australia/Sydney"
     };
 
+    /// <summary>Key of the owner-editable instructions appended to the DM assistant's system prompt.</summary>
+    public const string DmAssistantCustomInstructionsKey = "DmAssistant:CustomInstructions";
+
+    /// <summary>
+    /// Longest custom-instructions value accepted. Well under the 4,000-character column limit on
+    /// <c>ApplicationSettings.Value</c>, and long enough for a paragraph or two of style guidance
+    /// without letting the setting crowd out the base prompt.
+    /// </summary>
+    public const int DmAssistantCustomInstructionsMaxLength = 2000;
+
     /// <summary>
     /// All available settings with their metadata.
     /// </summary>
@@ -169,6 +179,16 @@ public static class SettingDefinitions
             defaultValue: "false",
             requiresRestart: false,
             description: "Enable or disable the DM assistant feature (responds to direct messages from the bot owner)"
+        ),
+        new(
+            key: DmAssistantCustomInstructionsKey,
+            displayName: "DM Assistant Instructions",
+            category: SettingCategory.Features,
+            dataType: SettingDataType.String,
+            defaultValue: "",
+            requiresRestart: false,
+            description: "Extra instructions added to the DM assistant's system prompt, such as a preferred response style or tone. Leave empty for the default behavior. Applies from the next message.",
+            validation: new { maxLength = DmAssistantCustomInstructionsMaxLength, multiline = true }
         ),
 
         // Advanced Category
